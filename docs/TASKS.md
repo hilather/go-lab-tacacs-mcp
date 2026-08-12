@@ -164,26 +164,26 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 **Depends on:** P0.1
 
-- [ ] Encode TACACS conformance row IDs in a machine-readable file.
-- [ ] Encode canonical operation IDs and REST/MCP exposure metadata in `api/operations.yaml` or typed Go source.
-- [ ] Generate human-readable conformance and parity tables where practical.
-- [ ] Add CI checks for duplicate IDs, missing dispositions, and undocumented operations.
+- [x] Encode TACACS conformance row IDs in a machine-readable file.
+- [x] Encode canonical operation IDs and REST/MCP exposure metadata in `api/operations.yaml` or typed Go source.
+- [x] Generate human-readable conformance and parity tables where practical.
+- [x] Add CI checks for duplicate IDs, missing dispositions, and undocumented operations.
 
 **Regression tests**
 
-- [ ] Add fixtures proving missing REST or MCP bindings fail parity checks.
-- [ ] Add fixtures proving unreferenced mandatory conformance rows fail release validation.
+- [x] Add fixtures proving missing REST or MCP bindings fail parity checks.
+- [x] Add fixtures proving unreferenced mandatory conformance rows fail release validation.
 
 **Documentation**
 
-- [ ] Document generation and review workflow in `API_PARITY.md` and `TACACS_CONFORMANCE.md`.
+- [x] Document generation and review workflow in `API_PARITY.md` and `TACACS_CONFORMANCE.md`.
 
 ### P0 exit gate
 
 - [ ] Clean backend/frontend build works.
 - [ ] CI catches source, test, schema, docs, and secret failures.
 - [ ] Toolchains and dependency locks are reproducible.
-- [ ] Conformance and operation registries have machine-readable owners.
+- [x] Conformance and operation registries have machine-readable owners.
 
 ## 4. Milestone P1 - TACACS protocol implementation decision spike
 

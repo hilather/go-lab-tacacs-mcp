@@ -12,7 +12,7 @@ The UI uses REST. Automation may use REST or MCP. A lab operator must not receiv
 
 ## 2. Source of truth
 
-The planned repository contains a machine-readable operation registry, for example `api/operations.yaml`, plus typed Go operation definitions.
+The repository contains a machine-readable operation registry at `api/operations.yaml`. Typed Go handlers are added later and must keep the same IDs.
 
 Each operation descriptor includes:
 
@@ -33,7 +33,14 @@ mcp:
 audit_event: api.user.created
 ```
 
-The actual format may be generated from Go declarations or read as data, but there must be one authoritative registry that CI can enumerate.
+`api/operations.yaml` is the authoritative registry that CI enumerates. Missing REST or MCP bindings fail `make check-registries` even before handlers exist. `events.subscribe` is `PARITY_DIFFERENT_BINDING`: REST `GET /api/v1/events/stream` (SSE bodies) versus MCP `subscriptions/listen` on `taclab://events/recent` (URI-only notify) plus `events.list` for bodies.
+
+### 2.1 Generation and review
+
+1. Add or change the row in this policy document and in `api/operations.yaml` in the same change.
+2. Assign a parity disposition. `PARITY_REQUIRED` and `PARITY_DIFFERENT_BINDING` require both REST and MCP bindings.
+3. Run `make generate` and commit [docs/generated/api-parity.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/api-parity.md).
+4. REST path parameters use `{id}`. The `{name}` spellings in the tables below are aliases for `{id}`.
 
 The registry generates or verifies:
 
@@ -310,7 +317,7 @@ Seed every secret field with unique canary strings. Exercise all read, export, e
 
 ## 13. Documentation generation
 
-The repository should generate `docs/generated/api-parity.md` from the operation registry. CI runs generation and fails when the working tree changes.
+`make generate` writes `docs/generated/api-parity.md` from `api/operations.yaml`. CI runs generation and fails when the working tree changes.
 
 Generated output includes:
 

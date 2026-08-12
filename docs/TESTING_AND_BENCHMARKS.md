@@ -477,6 +477,7 @@ Do not commit captures containing credentials or token values.
 ### 12.1 Pull request
 
 - format and generated-file drift.
+- conformance and operation registry validation (duplicate IDs, required REST/MCP bindings).
 - Go unit/integration tests.
 - Go race tests, possibly split by package.
 - fuzz seed/smoke tests.
@@ -535,8 +536,8 @@ Track package coverage trends and investigate material drops.
 
 Tests should generate or feed:
 
-- conformance report.
-- parity report.
+- conformance report (`docs/generated/conformance.md` from the YAML registries).
+- parity report (`docs/generated/api-parity.md` from `api/operations.yaml`).
 - benchmark report.
 - interoperability matrix.
 - build/spec version report.

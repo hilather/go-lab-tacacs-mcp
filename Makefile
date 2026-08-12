@@ -35,12 +35,13 @@ help:
 	@echo "  make web-lint         eslint"
 	@echo "  make web-build        production Vite build"
 	@echo "  make generate         regenerate checked-in generated files"
+	@echo "  make check-registries validate conformance and operation registries"
 	@echo "  make check-generated  fail on generated-file drift"
 	@echo "  make secrets          secret scan"
 	@echo "  make vuln             govulncheck"
 	@echo "  make docs-check       README link policy"
 	@echo "  make check-hooks      prove format/type/drift/secret hooks fail closed"
-	@echo "  make ci               lint + tests + web (incl. production build) + secrets + drift + hook self-test"
+	@echo "  make ci               lint + tests + web (incl. production build) + secrets + registries + drift + hook self-test"
 	@echo "  make build            build $(BIN_DIR)/$(BINARY)"
 	@echo "  make clean            remove bin/ and dist/"
 
@@ -113,6 +114,11 @@ web-e2e:
 .PHONY: generate
 generate:
 	$(GO) run ./tools/generate
+	$(GO) run ./tools/check-registries -write-docs
+
+.PHONY: check-registries
+check-registries:
+	$(GO) run ./tools/check-registries
 
 .PHONY: check-generated
 check-generated:
@@ -139,7 +145,7 @@ check-hooks:
 	./tools/check-hooks.sh
 
 .PHONY: ci
-ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build secrets check-generated docs-check check-hooks build
+ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build secrets check-registries check-generated docs-check check-hooks build
 
 .PHONY: build
 build:

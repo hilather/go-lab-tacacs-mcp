@@ -1,0 +1,15 @@
+schema_version: 1
+title: missing MCP binding fixture
+operations:
+  - id: users.create
+    description: Create a user
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: CreateUserRequest
+    response_type: User
+    rest:
+      method: POST
+      path: /api/v1/users
+    status: NOT_STARTED

@@ -34,6 +34,7 @@ Cover:
 - token hashing and scope checks.
 - cursor and revision behavior.
 - common error mapping.
+- operation registry completeness against `api/operations.yaml` (every ID registered; status/build against a real snapshot).
 
 Unit tests must be deterministic and use injectable clocks/random sources.
 

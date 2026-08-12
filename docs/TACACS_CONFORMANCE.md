@@ -217,7 +217,7 @@ Credential evidence must prove:
 | T89-AU-013 | MUST | Unknown mandatory response arguments are never generated accidentally | Schema/policy validation | [x] |
 | T89-AU-014 | PROJECT MUST | Arbitrary vendor AV pairs can be matched, preserved, and returned | Vendor fixture | [ ] |
 | T89-AU-015 | PROJECT | Default deny when no deterministic rule matches | Policy tests | [x] |
-| T89-AU-016 | PROJECT | Full explanation trace is stable and redacted | Golden trace tests | [x] |
+| T89-AU-016 | PROJECT | Full explanation trace is stable and redacted | Golden trace tests | [ ] |
 | T89-AU-017 | SHOULD/PROJECT MUST | Support the complete RFC 8907 common authorization argument dictionary | Dictionary table and vendor-neutral fixtures | [x] |
 | T89-AU-018 | MUST | Numeric argument lengths are checked before conversion; unrepresentable values are handled as unsupported arguments | Oversized and overflow fixtures | [x] |
 | T89-AU-019 | MUST | Absolute times use UTC unless an explicit timezone argument is present | Timezone fixtures with injected clock | [x] |

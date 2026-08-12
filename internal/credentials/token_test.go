@@ -52,6 +52,18 @@ func TestGenerateAndDigestToken(t *testing.T) {
 	}
 }
 
+func TestZeroTokenDigestDoesNotAuthenticate(t *testing.T) {
+	t.Parallel()
+	var a, b TokenDigest
+	if a.Equal(b) || EqualDigest(a, b) {
+		t.Fatal("empty digests must not compare equal")
+	}
+	short := NewTokenDigest([]byte("short"))
+	if short.Equal(NewTokenDigest([]byte("short"))) {
+		t.Fatal("non-32-byte digest must not authenticate")
+	}
+}
+
 func TestGenerateTokenEntropyFailure(t *testing.T) {
 	t.Parallel()
 	_, err := GenerateToken(io.LimitReader(bytes.NewReader([]byte{1, 2, 3}), 3))

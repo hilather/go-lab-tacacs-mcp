@@ -41,7 +41,7 @@ func (d *TokenDigest) Wipe() {
 	}
 }
 
-func (d TokenDigest) Equal(o TokenDigest) bool { return d.equal(o.secret) }
+func (d TokenDigest) Equal(o TokenDigest) bool { return EqualDigest(d, o) }
 
 // GenerateToken returns TokenByteLength cryptographically random bytes.
 func GenerateToken(entropy io.Reader) (TokenMaterial, error) {

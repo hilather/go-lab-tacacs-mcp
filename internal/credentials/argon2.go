@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -77,6 +78,7 @@ func (p Argon2Params) validEncode() error {
 }
 
 // DeriveArgon2id encodes password as a PHC argon2id string using p and entropy.
+// password is caller-owned and is not wiped.
 func DeriveArgon2id(password []byte, p Argon2Params, entropy io.Reader) ([]byte, error) {
 	if err := p.validEncode(); err != nil {
 		return nil, err
@@ -95,6 +97,7 @@ func DeriveArgon2id(password []byte, p Argon2Params, entropy io.Reader) ([]byte,
 }
 
 // VerifyArgon2id reports whether password matches a PHC argon2id verifier.
+// password is caller-owned and is not wiped.
 func VerifyArgon2id(encoded, password []byte) error {
 	parsed, err := parsePHC(encoded)
 	if err != nil {
@@ -168,19 +171,19 @@ func parseCost(s string) (mem uint32, time uint32, threads uint8, err error) {
 		}
 		switch k {
 		case "m":
-			if n < minMemoryKiB || n > maxMemoryKiB {
+			if sawM || n < minMemoryKiB || n > maxMemoryKiB {
 				return 0, 0, 0, invalidMaterial()
 			}
 			mem = uint32(n)
 			sawM = true
 		case "t":
-			if n < minTime || n > maxTime {
+			if sawT || n < minTime || n > maxTime {
 				return 0, 0, 0, invalidMaterial()
 			}
 			time = uint32(n)
 			sawT = true
 		case "p":
-			if n < minThreads || n > maxThreads {
+			if sawP || n < minThreads || n > maxThreads {
 				return 0, 0, 0, invalidMaterial()
 			}
 			threads = uint8(n)
@@ -199,4 +202,5 @@ func wipeBytes(b []byte) {
 	for i := range b {
 		b[i] = 0
 	}
+	runtime.KeepAlive(b)
 }

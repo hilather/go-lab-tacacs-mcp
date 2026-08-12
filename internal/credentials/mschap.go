@@ -61,8 +61,12 @@ func ChallengeResponse(challenge, passwordHash []byte) []byte {
 // flags=1 selects the NT-response. PPP id is not an input to this calculation.
 func MSCHAPv1Response(password, challenge []byte, useNT bool) []byte {
 	out := make([]byte, MSCHAPResponseLen)
-	lm := ChallengeResponse(challenge, LmPasswordHash(password))
-	nt := ChallengeResponse(challenge, NtPasswordHash(password))
+	lmh := LmPasswordHash(password)
+	nth := NtPasswordHash(password)
+	lm := ChallengeResponse(challenge, lmh)
+	nt := ChallengeResponse(challenge, nth)
+	wipeBytes(lmh)
+	wipeBytes(nth)
 	copy(out[0:24], lm)
 	copy(out[24:48], nt)
 	if useNT {
@@ -89,7 +93,9 @@ func MSCHAPv2ChallengeHash(peerChallenge, authChallenge, username []byte) []byte
 // MSCHAPv2NTResponse is the 24-octet NT-response from RFC 2759.
 func MSCHAPv2NTResponse(password, username, authChallenge, peerChallenge []byte) []byte {
 	ch := MSCHAPv2ChallengeHash(peerChallenge, authChallenge, username)
-	nt := ChallengeResponse(ch, NtPasswordHash(password))
+	nth := NtPasswordHash(password)
+	nt := ChallengeResponse(ch, nth)
+	wipeBytes(nth)
 	wipeBytes(ch)
 	return nt
 }
@@ -112,7 +118,9 @@ func verifyMSCHAPv1(password, challenge, response []byte) error {
 	useNT := response[48] != 0
 	var expected []byte
 	if useNT {
-		expected = ChallengeResponse(challenge, NtPasswordHash(password))
+		nth := NtPasswordHash(password)
+		expected = ChallengeResponse(challenge, nth)
+		wipeBytes(nth)
 		ok := subtle.ConstantTimeCompare(expected, response[24:48]) == 1
 		wipeBytes(expected)
 		if !ok {
@@ -120,7 +128,9 @@ func verifyMSCHAPv1(password, challenge, response []byte) error {
 		}
 		return nil
 	}
-	expected = ChallengeResponse(challenge, LmPasswordHash(password))
+	lmh := LmPasswordHash(password)
+	expected = ChallengeResponse(challenge, lmh)
+	wipeBytes(lmh)
 	ok := subtle.ConstantTimeCompare(expected, response[0:24]) == 1
 	wipeBytes(expected)
 	if !ok {
@@ -129,14 +139,25 @@ func verifyMSCHAPv1(password, challenge, response []byte) error {
 	return nil
 }
 
-func verifyMSCHAPv2(password, username, authChallenge, response []byte) error {
-	if len(authChallenge) != MSCHAPv2ChallengeLen || len(response) != MSCHAPResponseLen {
+// mschapv2WireOK is the identity-independent RFC 2759/8907 shape check.
+// Reserved [16:24] and flags [48] must be zero. Call this before lookup.
+func mschapv2WireOK(challenge, response []byte) error {
+	if len(challenge) != MSCHAPv2ChallengeLen || len(response) != MSCHAPResponseLen {
 		return malformed()
 	}
-	// RFC 2759 reserved octets must be zero.
 	var reserved [mschapReservedLen]byte
 	if subtle.ConstantTimeCompare(response[16:24], reserved[:]) != 1 {
 		return malformed()
+	}
+	if subtle.ConstantTimeByteEq(response[48], 0) != 1 {
+		return malformed()
+	}
+	return nil
+}
+
+func verifyMSCHAPv2(password, username, authChallenge, response []byte) error {
+	if err := mschapv2WireOK(authChallenge, response); err != nil {
+		return err
 	}
 	peer := response[0:mschapPeerLen]
 	expected := MSCHAPv2NTResponse(password, username, authChallenge, peer)

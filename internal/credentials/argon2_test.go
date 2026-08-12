@@ -53,6 +53,24 @@ func TestArgon2idMatchesXCryptoDirect(t *testing.T) {
 	}
 }
 
+func TestDefaultParamsValidEncode(t *testing.T) {
+	t.Parallel()
+	if err := DefaultParams.validEncode(); err != nil {
+		t.Fatal(err)
+	}
+	if err := TestParams.validEncode(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestArgon2idRejectsDuplicateCostKeys(t *testing.T) {
+	t.Parallel()
+	enc := []byte("$argon2id$v=19$m=8,m=32,t=1,p=1$c29tZXNhbHQ$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+	if err := ValidatePHC(enc); err == nil {
+		t.Fatal("duplicate m must be rejected")
+	}
+}
+
 func TestArgon2idRejectsNonPHC(t *testing.T) {
 	t.Parallel()
 	for _, enc := range []string{

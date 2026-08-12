@@ -53,14 +53,39 @@ func TestReadSecretPreserveTrailingNewline(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	p := writeSecret(t, dir, "v", "abc\n", 0o600)
-	ref := SecretRef{Purpose: credentials.PurposeLoginVerifier, File: p, PreserveTrailingNewline: true}
+	ref := SecretRef{Purpose: credentials.PurposeChallengeSecret, File: p, PreserveTrailingNewline: true}
 	_, got, err := ReadSecret(ref, ReadOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := got.(credentials.LoginVerifier)
+	v := got.(credentials.ChallengeSecret)
 	if string(v.Bytes()) != "abc\n" {
 		t.Fatalf("%q", v.Bytes())
+	}
+}
+
+func TestReadSecretLoginVerifierRequiresPHC(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	plain := writeSecret(t, dir, "plain", "not-a-phc\n", 0o600)
+	_, _, err := ReadSecret(SecretRef{Purpose: credentials.PurposeLoginVerifier, File: plain}, ReadOptions{})
+	if err == nil {
+		t.Fatal("plaintext login verifier must be rejected")
+	}
+	if strings.Contains(err.Error(), "not-a-phc") {
+		t.Fatalf("error leaked verifier: %v", err)
+	}
+	phc, err := credentials.DeriveArgon2id([]byte("pw"), credentials.TestParams, strings.NewReader("0123456789abcdef"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := writeSecret(t, dir, "phc", string(phc)+"\n", 0o600)
+	_, got, err := ReadSecret(SecretRef{Purpose: credentials.PurposeLoginVerifier, File: good}, ReadOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(credentials.LoginVerifier).Empty() {
+		t.Fatal("trimmed PHC")
 	}
 }
 

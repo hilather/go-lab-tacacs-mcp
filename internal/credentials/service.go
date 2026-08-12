@@ -89,7 +89,8 @@ func NewService(store Store, opts Options) (*Service, error) {
 
 var _ Verifier = (*Service)(nil)
 
-// DeriveLoginVerifier hashes a runtime plaintext password and discards it.
+// DeriveLoginVerifier hashes a runtime plaintext password. password is
+// caller-owned and is not wiped.
 func (s *Service) DeriveLoginVerifier(ctx context.Context, password []byte) (LoginVerifier, error) {
 	if err := ctx.Err(); err != nil {
 		return LoginVerifier{}, err
@@ -132,6 +133,7 @@ func (s *Service) Capabilities(userID string) Capabilities {
 }
 
 // VerifyASCIIOrPAP checks password against the user's login Argon2id verifier.
+// password is caller-owned and is not wiped.
 func (s *Service) VerifyASCIIOrPAP(ctx context.Context, userID string, password []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -207,8 +209,10 @@ func (s *Service) VerifyMSCHAPv2(ctx context.Context, userID string, _ byte, cha
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if len(challenge) != MSCHAPv2ChallengeLen || len(response) != MSCHAPResponseLen {
-		return malformed()
+	// Shape (length, reserved, flags) is independent of user existence so a
+	// malformed authenticator cannot become a username oracle via ERROR vs FAIL.
+	if err := mschapv2WireOK(challenge, response); err != nil {
+		return err
 	}
 	canon, cerr := CanonicalUsername(userID)
 	rec, lerr := s.lookup(userID)
@@ -230,7 +234,7 @@ func (s *Service) VerifyMSCHAPv2(ctx context.Context, userID string, _ byte, cha
 }
 
 // VerifyEnable checks the distinct ENABLE Argon2id verifier. Login material
-// is never used as a fallback.
+// is never used as a fallback. secret is caller-owned and is not wiped.
 func (s *Service) VerifyEnable(ctx context.Context, userID string, secret []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -255,7 +259,8 @@ func (s *Service) VerifyEnable(ctx context.Context, userID string, secret []byte
 }
 
 // ChangeASCIIPassword verifies old and returns a new PHC encoding. It does
-// not publish overlay state and does not derive a challenge secret.
+// not publish overlay state and does not derive a challenge secret. old and
+// new are caller-owned and are not wiped.
 func (s *Service) ChangeASCIIPassword(ctx context.Context, userID string, old, new []byte) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

@@ -131,7 +131,7 @@ Pin a released SDK version that explicitly supports MCP `2026-07-28`. Record the
 
 The implementation spike must check the pinned Go release rather than assuming generic TLS 1.3 support satisfies every RFC 9887 requirement.
 
-- `GetCertificate` and `GetConfigForClient` expose ClientHello/SNI-driven server identity selection.
+- `GetCertificate` and `GetConfigForClient` expose ClientHello/SNI-driven server identity selection. The ClientHello `server_name` is observable metadata (not a secret and not a client-match key).
 - `SessionTicketsDisabled`, `SetSessionTicketKeys`, `WrapSession`, and `UnwrapSession` provide resumption controls, but their security properties and wire behavior require dedicated tests.
 - `VerifyPeerCertificate` is not called on resumed connections; client-identity and revocation policy that must run on every connection belongs in `VerifyConnection` or resumption must be disabled.
 - The Go source currently defines a fixed maximum TLS 1.3 session-ticket lifetime (`maxSessionTicketLifetime = 7d`). TacLab accepts only `ticket_lifetime: 0` or `168h` ([ADR 0005](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0005-ticket-lifetime.md)).

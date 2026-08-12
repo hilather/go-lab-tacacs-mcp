@@ -92,6 +92,7 @@ func (l *Listener) buildTLS() (*tls.Config, error) {
 	l.profiles = profiles
 	l.defaultProfile = def
 	l.requireSNI = settings.Identities.RequireSNI
+	l.clientCAFile = settings.ClientCABundle.File
 	l.clientCAs = clientCAs
 	l.clientCACerts = parseCertsFromFile(settings.ClientCABundle.File)
 	l.crlPath = settings.Revocation.CRLBundle.File
@@ -111,6 +112,11 @@ func (l *Listener) configForClient(hello *tls.ClientHelloInfo) (*tls.Config, err
 	}
 	cfg := l.tlsCfg.Clone()
 	cfg.GetConfigForClient = nil
+	if pool, err := loadCertPool(l.clientCAFile); err == nil {
+		cfg.ClientCAs = pool
+	} else {
+		return nil, err
+	}
 	peer := net.IP(nil)
 	if hello.Conn != nil {
 		peer = peerIP(hello.Conn.RemoteAddr())
@@ -222,16 +228,20 @@ func (l *Listener) verifyConnection(cs tls.ConnectionState, peer net.IP) (server
 		return server.Identity{}, errNoClientCert
 	}
 	leaf := cs.PeerCertificates[0]
+	roots, caCerts, err := l.loadClientTrust()
+	if err != nil {
+		return server.Identity{}, err
+	}
 	chains := cs.VerifiedChains
 	if len(chains) == 0 {
-		parsed, err := l.verifyClientPath(leaf, cs.PeerCertificates[1:])
+		parsed, err := verifyClientPath(leaf, cs.PeerCertificates[1:], roots)
 		if err != nil {
 			return server.Identity{}, err
 		}
 		chains = parsed
 	}
 	issuers := issuersFromChains(chains)
-	issuers = append(issuers, l.clientCACerts...)
+	issuers = append(issuers, caCerts...)
 	lists, err := loadCRLs(l.crlPath)
 	if err != nil {
 		return server.Identity{}, err
@@ -255,12 +265,20 @@ func (l *Listener) verifyConnection(cs tls.ConnectionState, peer net.IP) (server
 	}, nil
 }
 
-func (l *Listener) verifyClientPath(leaf *x509.Certificate, intermediates []*x509.Certificate) ([][]*x509.Certificate, error) {
+func (l *Listener) loadClientTrust() (*x509.CertPool, []*x509.Certificate, error) {
+	pool, err := loadCertPool(l.clientCAFile)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pool, parseCertsFromFile(l.clientCAFile), nil
+}
+
+func verifyClientPath(leaf *x509.Certificate, intermediates []*x509.Certificate, roots *x509.CertPool) ([][]*x509.Certificate, error) {
 	if leaf == nil {
 		return nil, errNoClientCert
 	}
 	opts := x509.VerifyOptions{
-		Roots:         l.clientCAs,
+		Roots:         roots,
 		Intermediates: x509.NewCertPool(),
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}

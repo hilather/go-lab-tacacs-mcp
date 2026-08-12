@@ -45,40 +45,40 @@ func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*
 	if cert == nil {
 		return errNoClientCert
 	}
-	checked := false
+	issuer := issuerOfLeaf(cert, issuers)
+	if issuer == nil {
+		return errCRLUnverifiable
+	}
+	matched := false
 	for _, crl := range lists {
 		if crl == nil {
 			continue
 		}
-		issuer := issuerForCRL(crl, issuers)
-		if issuer == nil {
-			continue
-		}
 		if err := crl.CheckSignatureFrom(issuer); err != nil {
-			return errCRLUnverifiable
+			continue
 		}
 		if !crl.NextUpdate.IsZero() && now.After(crl.NextUpdate) {
 			return errCRLUnverifiable
 		}
-		checked = true
+		matched = true
 		for _, rc := range crl.RevokedCertificateEntries {
 			if rc.SerialNumber != nil && cert.SerialNumber != nil && rc.SerialNumber.Cmp(cert.SerialNumber) == 0 {
 				return errRevoked
 			}
 		}
 	}
-	if !checked {
+	if !matched {
 		return errCRLUnverifiable
 	}
 	return nil
 }
 
-func issuerForCRL(crl *x509.RevocationList, issuers []*x509.Certificate) *x509.Certificate {
+func issuerOfLeaf(cert *x509.Certificate, issuers []*x509.Certificate) *x509.Certificate {
 	for _, iss := range issuers {
 		if iss == nil {
 			continue
 		}
-		if crl.CheckSignatureFrom(iss) == nil {
+		if err := cert.CheckSignatureFrom(iss); err == nil {
 			return iss
 		}
 	}

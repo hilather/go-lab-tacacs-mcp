@@ -21,7 +21,7 @@ Every ticket the server sends uses that lifetime. There is no hook to advertise 
 1. `session_resumption.enabled: false` or `ticket_lifetime: 0` sets `SessionTicketsDisabled`.
 2. The only accepted non-zero `ticket_lifetime` is **168h**, equal to `maxSessionTicketLifetime`. Any other positive value is a configuration error. The previous 24h example is rejected, not silently stretched to 7 days.
 3. Default `ticket_lifetime` is 168h.
-4. Every connection, including resumed ones, runs `VerifyConnection`: path re-check when `VerifiedChains` is empty, configured CRL, and client-match. Default `recheck_client_revocation: true` is the only 1.0 behavior.
+4. Every connection, including resumed ones, runs `VerifyConnection`: path re-check when `VerifiedChains` is empty, configured CRL, and client-match. `recheck_client_revocation: true` is the only 1.0 behavior; `false` is a configuration error (not silently ignored).
 5. Ticket reuse/linkability: TacLab does not add extra tracking mitigations beyond Go’s rotating ticket keys. Clients that resume are linkable for the ticket lifetime. This SHOULD is dispositioned here.
 6. 0-RTT remains MUST NOT: `GetConfigForClient` rejects ClientHello extension 42 (`early_data`). `reject_early_data: false` is a configuration error.
 
@@ -57,7 +57,7 @@ Update `configs/lab.example.yaml` and operator docs to 168h. Validation error te
 
 ## Test impact
 
-- Config rejects 24h.
+- Config rejects 24h and `recheck_client_revocation: false`.
 - `ticket_lifetime: 0` and `enabled: false` do not resume.
 - 168h resumes; overwriting the CRL with the client serial fails the next resume.
 

@@ -219,6 +219,29 @@ listeners:
 	}
 }
 
+func TestValidateRejectsRevocationRecheckDisabled(t *testing.T) {
+	t.Parallel()
+	_, err := parseAndValidate(t, `
+schema_version: 1
+listeners:
+  secure_tacacs:
+    enabled: true
+    tls:
+      identities:
+        profiles:
+          - id: p
+            server_names: [tacacs.lab.example]
+            certificate_chain: {file: /tmp/chain.pem}
+            private_key: {file: /tmp/key.pem}
+      client_ca_bundle: {file: /tmp/ca.pem}
+      revocation: {mode: configured_crl, crl_bundle: {file: /tmp/crl.pem}}
+      session_resumption: {enabled: true, ticket_lifetime: 168h, recheck_client_revocation: false}
+`)
+	if err == nil || !strings.Contains(err.Error(), "recheck_client_revocation") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestValidateRejectsEarlyDataDisabled(t *testing.T) {
 	t.Parallel()
 	_, err := parseAndValidate(t, `

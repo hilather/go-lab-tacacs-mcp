@@ -70,6 +70,19 @@ func TestWildcardServerIdentity(t *testing.T) {
 	_ = mustHandshake(t, ln.Addr().String(), cfg)
 }
 
+func TestUnknownSNIRejected(t *testing.T) {
+	pki, err := GenerateLabPKI(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	yaml := labYAML(pki, "127.0.0.1:0", "", "")
+	yaml = strings.Replace(yaml, "require_sni: false", "require_sni: true", 1)
+	ln, _, _ := startTLS(t, yaml, nil)
+	cfg := clientTLS(t, pki, pki.ClientOKCert, pki.ClientOKKey, "nosuch.tacacs.lab.example", nil)
+	cfg.InsecureSkipVerify = true
+	handshakeMustFail(t, ln.Addr().String(), cfg)
+}
+
 func TestRequireSNIRejectsEmpty(t *testing.T) {
 	pki, err := GenerateLabPKI(t.TempDir())
 	if err != nil {
@@ -94,30 +107,13 @@ func TestCertificateFileRotation(t *testing.T) {
 	}
 	ln, _, _ := startTLS(t, labYAML(pki, "127.0.0.1:0", "", ""), nil)
 	cfg := clientTLS(t, pki, pki.ClientOKCert, pki.ClientOKKey, "", nil)
-	_ = mustHandshake(t, ln.Addr().String(), cfg)
+	first := mustHandshake(t, ln.Addr().String(), cfg)
+	if len(first.ConnectionState().PeerCertificates) == 0 {
+		t.Fatal("missing first leaf")
+	}
+	firstLeaf := first.ConnectionState().PeerCertificates[0]
+	_ = first.Close()
 
-	alt, err := GenerateLabPKI(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	chain, err := os.ReadFile(alt.ServerChain)
-	if err != nil {
-		t.Fatal(err)
-	}
-	key, err := os.ReadFile(alt.ServerKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(pki.ServerChain, chain, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(pki.ServerKey, key, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	// Client still trusts the original root; rotated chain is a different CA.
-	// Rotation of files for the same CA is covered by rewriting the same
-	// issuer's leaf. Rebuild a second leaf under the original intermediate
-	// is enough: copy the original alt chain (same intermediate) over default.
 	altChain, err := os.ReadFile(pki.ServerAltChain)
 	if err != nil {
 		t.Fatal(err)
@@ -133,10 +129,31 @@ func TestCertificateFileRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg2 := clientTLS(t, pki, pki.ClientOKCert, pki.ClientOKKey, "tacacs.lab.example", nil)
-	// Presented cert is other.tacacs.lab.example; client name check would fail.
+	// Rotated leaf is other.tacacs.lab.example; skip name check but require
+	// the presented certificate to be the new leaf (serial + SAN).
 	cfg2.InsecureSkipVerify = true
-	cfg2.VerifyConnection = func(cs tls.ConnectionState) error { return nil }
+	var saw tls.ConnectionState
+	cfg2.VerifyConnection = func(cs tls.ConnectionState) error {
+		saw = cs
+		return nil
+	}
 	_ = mustHandshake(t, ln.Addr().String(), cfg2)
+	if len(saw.PeerCertificates) == 0 {
+		t.Fatal("missing rotated leaf")
+	}
+	rot := saw.PeerCertificates[0]
+	if rot.SerialNumber.Cmp(firstLeaf.SerialNumber) == 0 {
+		t.Fatal("presented leaf serial did not change after rotation")
+	}
+	found := false
+	for _, n := range rot.DNSNames {
+		if n == "other.tacacs.lab.example" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("rotated SAN=%v", rot.DNSNames)
+	}
 }
 
 func TestIntermediateChainPresented(t *testing.T) {

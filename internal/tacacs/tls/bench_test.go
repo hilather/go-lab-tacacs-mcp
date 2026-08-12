@@ -26,14 +26,20 @@ func BenchmarkResumedHandshake(b *testing.B) {
 	ln, pki := startDefault(b)
 	cache := tls.NewLRUClientSessionCache(32)
 	cfg := clientTLS(b, pki, pki.ClientOKCert, pki.ClientOKKey, "", cache)
-	c, err := tls.Dial("tcp", ln.Addr().String(), cfg)
+	warm, err := tls.Dial("tcp", ln.Addr().String(), cfg)
 	if err != nil {
 		b.Fatal(err)
 	}
-	if err := c.Handshake(); err != nil {
+	if err := warm.Handshake(); err != nil {
 		b.Fatal(err)
 	}
-	_ = c.Close()
+	// TLS 1.3 NewSessionTicket is post-handshake. Drain it and keep the
+	// warmup conn open so the cache is populated before timed resumes.
+	receiveSessionTicket(b, warm)
+	defer warm.Close()
+	if warm.ConnectionState().DidResume {
+		b.Fatal("warmup must be a full handshake")
+	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

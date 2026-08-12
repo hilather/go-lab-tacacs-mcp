@@ -14,6 +14,15 @@ func ValidScope(s string) bool {
 	return ok
 }
 
+// Scopes returns the administrative scope names in stable order.
+// Matching is exact: state:write does not imply tokens:manage, runtime:reset,
+// or config:reload.
+func Scopes() []string {
+	out := make([]string, len(scopeOrder))
+	copy(out, scopeOrder)
+	return out
+}
+
 // Known admin scopes. Tokens may list only these values.
 var knownScopes = map[string]struct{}{
 	"state:read":       {},
@@ -25,6 +34,18 @@ var knownScopes = map[string]struct{}{
 	"events:sensitive": {},
 	"tokens:manage":    {},
 	"runtime:reset":    {},
+}
+
+var scopeOrder = []string{
+	"state:read",
+	"state:write",
+	"config:reload",
+	"config:export",
+	"policy:test",
+	"events:read",
+	"events:sensitive",
+	"tokens:manage",
+	"runtime:reset",
 }
 
 // Validate checks cross-object references, limits, command patterns, credential

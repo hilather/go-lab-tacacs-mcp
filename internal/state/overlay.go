@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
@@ -43,6 +44,7 @@ type tokenRecord struct {
 	Enabled   bool
 	ExpiresAt *time.Time
 	HasDigest bool
+	Digest    credentials.TokenDigest
 }
 
 type overlayToken struct {
@@ -97,6 +99,9 @@ func copyOverlay(in overlay) overlay {
 		if !v.deleted {
 			e.token.Scopes = cloneStrings(v.token.Scopes)
 			e.token.ExpiresAt = cloneTimePtr(v.token.ExpiresAt)
+			if !v.token.Digest.Empty() {
+				e.token.Digest = credentials.NewTokenDigest(v.token.Digest.Bytes())
+			}
 		}
 		e.meta = cloneMeta(v.meta)
 		out.tokens[k] = e

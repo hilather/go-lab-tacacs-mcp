@@ -65,17 +65,22 @@ func TestRegistryCompletenessMatchesYAML(t *testing.T) {
 	}
 }
 
-func TestOnlyStatusBuildAndEvaluateAreImplemented(t *testing.T) {
+func TestImplementedOperations(t *testing.T) {
 	t.Parallel()
 	reg := mustRegistry(t)
 	got := reg.ImplementedIDs()
-	want := []string{IDPolicyEvaluate, IDSystemBuildGet, IDSystemStatusGet}
+	want := []string{
+		IDPolicyEvaluate,
+		IDSessionCreate, IDSessionDelete,
+		IDSystemBuildGet, IDSystemStatusGet,
+		IDTokensCreate, IDTokensList, IDTokensRevoke,
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("implemented=%v want=%v", got, want)
 	}
 	for _, op := range reg.List() {
 		switch op.ID {
-		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate:
+		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionDelete:
 			if !op.Implemented {
 				t.Errorf("%s should be implemented", op.ID)
 			}

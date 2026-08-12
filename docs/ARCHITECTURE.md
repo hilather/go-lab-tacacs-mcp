@@ -232,7 +232,19 @@ The canonical administrative application API. Each operation has:
 
 Operation handlers invoke state, AAA, event, and token services. REST and MCP register adapters from this registry or are verified against it by generated tests.
 
-The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. `system.status.get`, `system.build.get`, and `policy.evaluate` read a published `state.Snapshot`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
+The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. Implemented handlers are `system.status.get`, `system.build.get`, `policy.evaluate`, `tokens.list` / `tokens.create` / `tokens.revoke`, and `session.create` / `session.delete`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
+
+### 4.11b `internal/api/auth`
+
+Responsibilities:
+
+- Verify lab static bearer tokens against the snapshot digest index (SHA-256, constant-time compare).
+- Evaluate the exact-match scope matrix. `state:write` does not grant `tokens:manage`, `runtime:reset`, or `config:reload`.
+- Load bootstrap tokens from secret files through `config.FileLookup` at snapshot compile.
+- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`, `Secure` follows `listeners.http.tls.enabled`).
+- Require a CSRF token on cookie-authenticated mutations whenever UI sessions are enabled.
+
+Lab static bearer is `EXEMPT_BY_ADR` versus the MCP OAuth protected-resource-metadata SHOULD. See [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md).
 
 ### 4.12 `internal/api/rest`
 

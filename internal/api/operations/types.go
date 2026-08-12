@@ -12,6 +12,11 @@ const (
 	IDSystemStatusGet = "system.status.get"
 	IDSystemBuildGet  = "system.build.get"
 	IDPolicyEvaluate  = "policy.evaluate"
+	IDTokensList      = "tokens.list"
+	IDTokensCreate    = "tokens.create"
+	IDTokensRevoke    = "tokens.revoke"
+	IDSessionCreate   = "session.create"
+	IDSessionDelete   = "session.delete"
 )
 
 // Specification versions reported by system.build.get.
@@ -155,7 +160,6 @@ type (
 	DeleteUserRequest         struct{}
 	UserList                  struct{}
 	User                      struct{}
-	DeleteResult              struct{}
 	ListGroupsRequest         struct{}
 	GetGroupRequest           struct{}
 	CreateGroupRequest        struct{}
@@ -170,11 +174,6 @@ type (
 	DeleteClientRequest       struct{}
 	ClientList                struct{}
 	Client                    struct{}
-	ListTokensRequest         struct{}
-	CreateTokenRequest        struct{}
-	RevokeTokenRequest        struct{}
-	TokenList                 struct{}
-	CreatedToken              struct{}
 	TestAuthenticationRequest struct{}
 	AuthenticationTestResult  struct{}
 	ListEventsRequest         struct{}
@@ -185,9 +184,6 @@ type (
 	HealthResult              struct{}
 	GetOpenAPIRequest         struct{}
 	OpenAPIDocument           struct{}
-	CreateSessionRequest      struct{}
-	Session                   struct{}
-	DeleteSessionRequest      struct{}
 	MCPDiscoverRequest        struct{}
 	MCPDiscoverResult         struct{}
 	MCPToolsListRequest       struct{}
@@ -197,6 +193,14 @@ type (
 	MCPListChangedRequest     struct{}
 	MCPNotification           struct{}
 )
+
+// DeleteResult is the response for delete/revoke operations.
+type DeleteResult struct {
+	ID       string          `json:"id,omitempty"`
+	Revision domain.Revision `json:"revision,omitempty"`
+}
+
+func (d DeleteResult) envelopeRevision() domain.Revision { return d.Revision }
 
 func defaultCatalog() map[string]reflect.Type {
 	values := []any{

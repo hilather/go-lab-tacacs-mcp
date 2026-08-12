@@ -79,6 +79,21 @@ func hashOverlay(ov overlay) string {
 		b.WriteString(secretRefKey(e.client.Legacy.SharedSecret))
 		b.WriteByte('\n')
 	}
+	tids := make([]string, 0, len(ov.tokens))
+	for id := range ov.tokens {
+		tids = append(tids, id)
+	}
+	sort.Strings(tids)
+	for _, id := range tids {
+		e := ov.tokens[id]
+		b.WriteString("t\t")
+		b.WriteString(id)
+		if e.deleted {
+			b.WriteString("\tD\n")
+			continue
+		}
+		b.WriteByte('\n')
+	}
 	if ov.fallback != nil {
 		b.WriteString("fb\n")
 	}

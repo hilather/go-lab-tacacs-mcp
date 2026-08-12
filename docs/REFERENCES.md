@@ -100,6 +100,8 @@ Use the MCP specification for:
 - Streamable HTTP POST endpoint behavior.
 - Tool and resource schema rules.
 - Authorization behavior for HTTP transports.
+
+TacLab 1.0 uses lab static bearer tokens instead of OAuth protected-resource metadata. That exemption is recorded in [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md). Unauthenticated requests return 401 without serving `.well-known/oauth-protected-resource`.
 - Cancellation, progress, errors, logging, and relevant capability declarations.
 
 ### Official Go MCP SDK

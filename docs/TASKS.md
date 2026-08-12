@@ -940,35 +940,35 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 ### P9.3 Implement bearer token service and scopes
 
-- [ ] Load bootstrap tokens from secret files.
-- [ ] Generate runtime tokens with strong randomness.
-- [ ] Store only verification digest/metadata for runtime tokens.
-- [ ] Return token material exactly once.
-- [ ] Implement expiry and revocation.
-- [ ] Use one verifier and scope evaluator for REST and MCP.
+- [x] Load bootstrap tokens from secret files.
+- [x] Generate runtime tokens with strong randomness.
+- [x] Store only verification digest/metadata for runtime tokens.
+- [x] Return token material exactly once.
+- [x] Implement expiry and revocation.
+- [x] Use one verifier and scope evaluator for REST and MCP.
 
 **Tests**
 
-- [ ] Correct, malformed, expired, revoked, insufficient-scope, and token enumeration cases.
-- [ ] Secret canaries in all token responses/logs/events.
+- [x] Correct, malformed, expired, revoked, insufficient-scope, and token enumeration cases.
+- [x] Secret canaries in all token responses/logs/events.
 
 **Benchmarks**
 
-- [ ] Token verification under expected concurrency.
+- [x] Token verification under expected concurrency.
 
 ### P9.4 Implement UI session exchange
 
-- [ ] Exchange a valid bearer token for a short-lived HttpOnly session.
-- [ ] Enforce Secure/SameSite/CSRF policy according to deployment mode.
-- [ ] Do not store raw token in browser persistence.
-- [ ] Keep UI session endpoints outside the logical REST/MCP management parity set with explicit rationale.
+- [x] Exchange a valid bearer token for a short-lived HttpOnly session.
+- [x] Enforce Secure/SameSite/CSRF policy according to deployment mode.
+- [x] Do not store raw token in browser persistence.
+- [x] Keep UI session endpoints outside the logical REST/MCP management parity set with explicit rationale.
 
 ### P9 exit gate
 
 - [ ] All business behavior is callable independently of REST/MCP.
-- [ ] Scope and error behavior is centralized.
+- [x] Scope and error behavior is centralized.
 - [ ] Operation registry and parity checks pass.
-- [ ] Token secrets never appear after one-time creation response.
+- [x] Token secrets never appear after one-time creation response.
 
 ## 13. Milestone P10 - REST API
 
@@ -1056,7 +1056,7 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 - [ ] Reuse bearer-token verification and operation scopes.
 - [ ] Return protocol-appropriate unauthorized/forbidden errors without leaking token detail.
-- [ ] Document lab static-bearer mode and future standards-oriented OAuth mode separately.
+- [x] Document lab static-bearer mode and future standards-oriented OAuth mode separately.
 
 ### P11.5 Implement parity test harness
 

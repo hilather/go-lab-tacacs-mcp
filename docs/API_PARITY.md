@@ -214,7 +214,7 @@ Shared-secret values and certificate private material are write-only references 
 | `tokens.create` | `tokens:manage` | `POST /api/v1/tokens` | tool `taclab.tokens.create` | PARITY_REQUIRED |
 | `tokens.revoke` | `tokens:manage` | `DELETE /api/v1/tokens/{id}` | tool `taclab.tokens.revoke` | PARITY_REQUIRED |
 
-The token value appears exactly once in the successful create response on both surfaces. It is never returned by list/get and never embedded in events.
+The token value appears exactly once in the successful create response on both surfaces. It is never returned by list/get and never embedded in events. Handlers live in `internal/api/operations`; adapters are not required for the operations to function. Lab static bearer (no OAuth PRM) is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md).
 
 ### 9.6 Diagnostics and test operations
 
@@ -233,7 +233,7 @@ Sensitive event fields require `events:sensitive` in addition to `events:read`. 
 |---|---|---|---|
 | Liveness and readiness probes | REST `/health/live`, `/health/ready` | REST_ONLY_PROTOCOL | Infrastructure HTTP probes, not administrative features |
 | OpenAPI document | REST `/api/openapi.json` or YAML | REST_ONLY_PROTOCOL | Describes REST protocol |
-| Browser token exchange/session logout | REST endpoints | REST_ONLY_PROTOCOL | Browser cookie/CSRF mechanics |
+| Browser token exchange/session logout | REST endpoints | REST_ONLY_PROTOCOL | Browser cookie/CSRF mechanics. CSRF is required when cookie auth is on. `cookie_secure` follows HTTP TLS. |
 | SSE framing/heartbeat | REST | REST_ONLY_PROTOCOL | HTTP event transport mechanics |
 | MCP endpoint, discovery, tools/list, resources/list, capability metadata | MCP | MCP_ONLY_PROTOCOL | Required MCP protocol surface |
 | MCP tool/list-changed and resource notifications | MCP | MCP_ONLY_PROTOCOL | MCP protocol mechanics; underlying state capability remains parity-covered |

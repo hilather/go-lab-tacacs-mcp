@@ -70,6 +70,7 @@ func Evaluate(eng *policy.Engine, req AuthorizationRequest) (PolicyTrace, policy
 }
 
 func toPolicyRequest(req AuthorizationRequest) policy.Request {
+	req = applyWireAVs(req)
 	return policy.Request{
 		UserID:       req.UserID,
 		ClientID:     req.ClientID,
@@ -83,6 +84,42 @@ func toPolicyRequest(req AuthorizationRequest) policy.Request {
 		Port:         req.Port,
 		RemoteAddr:   req.Remote,
 	}
+}
+
+// applyWireAVs lets a TACACS AV list win over typed service/protocol/cmd
+// fields so policy.evaluate replay matches a live AUTHOR packet.
+func applyWireAVs(req AuthorizationRequest) AuthorizationRequest {
+	if len(req.Arguments) == 0 {
+		return req
+	}
+	var cmdArgs []string
+	var sawService, sawProtocol, sawCmd, sawCmdArg bool
+	for _, p := range req.Arguments {
+		switch p.Name {
+		case "service":
+			if !sawService {
+				req.Service = p.Value
+				sawService = true
+			}
+		case "protocol":
+			if !sawProtocol {
+				req.Protocol = p.Value
+				sawProtocol = true
+			}
+		case "cmd":
+			if !sawCmd {
+				req.Cmd = p.Value
+				sawCmd = true
+			}
+		case "cmd-arg":
+			sawCmdArg = true
+			cmdArgs = append(cmdArgs, p.Value)
+		}
+	}
+	if sawCmdArg {
+		req.CmdArgs = cmdArgs
+	}
+	return req
 }
 
 func finishTrace(req AuthorizationRequest, res policy.Result) PolicyTrace {
@@ -162,12 +199,16 @@ func redactTraceAVs(in []PolicyTraceAV) []PolicyTraceAV {
 
 func sensitiveAVName(name string) bool {
 	n := strings.ToLower(name)
-	switch {
-	case n == "password", n == "passwd", n == "secret", n == "key":
+	switch n {
+	case "password", "passwd", "secret", "key", "token",
+		"chap", "mschap", "ms-chap", "mschapv1", "mschapv2", "ms-chap-v2",
+		"challenge":
 		return true
-	case strings.Contains(n, "password"), strings.Contains(n, "secret"):
-		return true
-	default:
-		return false
 	}
+	for _, p := range []string{"password", "passwd", "secret", "token", "chap", "challenge"} {
+		if strings.Contains(n, p) {
+			return true
+		}
+	}
+	return strings.HasSuffix(n, "-key") || strings.HasSuffix(n, "_key")
 }

@@ -264,6 +264,38 @@ func TestEvaluatePolicyMatchesLiveArguments(t *testing.T) {
 	}
 }
 
+func TestEvaluatePolicyAVReplayWinsTypedCmd(t *testing.T) {
+	t.Parallel()
+	reg := mustRegistry(t)
+	snap := mustSnap(t, smallYAML)
+	tester := Actor{ID: "tester", Scopes: []string{"policy:test"}}
+	// alice permits show only. Typed show would permit; AV configure must deny like a live packet.
+	res, err := reg.Invoke(context.Background(), IDPolicyEvaluate, snap, Input{
+		Actor: tester,
+		Request: EvaluatePolicyRequest{
+			UserID:   "alice",
+			ClientID: "sw",
+			Service:  "shell",
+			Cmd:      "show",
+			CmdArgs:  []string{"ver"},
+			Arguments: []PolicyTraceAV{
+				{Name: "service", Separator: "=", Value: "shell"},
+				{Name: "cmd", Separator: "=", Value: "configure"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := res.Data.(PolicyTrace)
+	if tr.Evaluator != string(domain.RuleKindCommand) || tr.Decision != "deny" {
+		t.Fatalf("AV configure must win over typed show: %+v", tr)
+	}
+	if tr.Cmd != "configure" {
+		t.Fatalf("cmd=%q", tr.Cmd)
+	}
+}
+
 func TestEvaluatePolicyRequiresUserAndScope(t *testing.T) {
 	t.Parallel()
 	reg := mustRegistry(t)

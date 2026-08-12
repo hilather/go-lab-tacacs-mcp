@@ -28,6 +28,8 @@ func handleEvaluate(_ context.Context, snap *state.Snapshot, in Input) (any, err
 }
 
 func toAuthorizationRequest(req EvaluatePolicyRequest) aaa.AuthorizationRequest {
+	// Typed service/cmd/cmd_args are fallbacks when arguments omit those
+	// names. Evaluate treats a present AV list as the TACACS source.
 	out := aaa.AuthorizationRequest{
 		UserID:    req.UserID,
 		ClientID:  req.ClientID,

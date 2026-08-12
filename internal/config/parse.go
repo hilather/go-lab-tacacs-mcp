@@ -97,8 +97,8 @@ func inspectNode(n *yaml.Node, t reflect.Type, path string) error {
 		}
 		return inspectNode(n.Content[0], t, path)
 	}
-	if n.Kind == yaml.AliasNode {
-		return yamlErrorAt(orRoot(path), "YAML aliases are not allowed")
+	if err := rejectYAMLRef(n, path); err != nil {
+		return err
 	}
 	t = derefType(t)
 	if t == nil {
@@ -120,10 +120,10 @@ func inspectMapping(n *yaml.Node, t reflect.Type, path string) error {
 		elem := t.Elem()
 		for i := 0; i+1 < len(n.Content); i += 2 {
 			key, val := n.Content[i], n.Content[i+1]
-			if err := rejectAlias(key, path); err != nil {
+			if err := rejectYAMLRef(key, path); err != nil {
 				return err
 			}
-			if err := rejectAlias(val, joinPath(path, key.Value)); err != nil {
+			if err := rejectYAMLRef(val, joinPath(path, key.Value)); err != nil {
 				return err
 			}
 			if key.Value == "<<" {
@@ -146,7 +146,7 @@ func inspectMapping(n *yaml.Node, t reflect.Type, path string) error {
 	seen := make(map[string]struct{}, len(n.Content)/2)
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		key, val := n.Content[i], n.Content[i+1]
-		if err := rejectAlias(key, path); err != nil {
+		if err := rejectYAMLRef(key, path); err != nil {
 			return err
 		}
 		name := key.Value
@@ -162,7 +162,7 @@ func inspectMapping(n *yaml.Node, t reflect.Type, path string) error {
 			return unknownField(path, name, order)
 		}
 		child := joinPath(path, name)
-		if err := rejectAlias(val, child); err != nil {
+		if err := rejectYAMLRef(val, child); err != nil {
 			return err
 		}
 		if err := inspectNode(val, ft, child); err != nil {
@@ -183,7 +183,7 @@ func inspectSequence(n *yaml.Node, t reflect.Type, path string) error {
 	}
 	for i, c := range n.Content {
 		child := indexPath(base, i)
-		if err := rejectAlias(c, child); err != nil {
+		if err := rejectYAMLRef(c, child); err != nil {
 			return err
 		}
 		if err := inspectNode(c, elem, child); err != nil {
@@ -193,9 +193,15 @@ func inspectSequence(n *yaml.Node, t reflect.Type, path string) error {
 	return nil
 }
 
-func rejectAlias(n *yaml.Node, path string) error {
-	if n != nil && n.Kind == yaml.AliasNode {
+func rejectYAMLRef(n *yaml.Node, path string) error {
+	if n == nil {
+		return nil
+	}
+	if n.Kind == yaml.AliasNode {
 		return yamlErrorAt(orRoot(path), "YAML aliases are not allowed")
+	}
+	if n.Anchor != "" {
+		return yamlErrorAt(orRoot(path), "YAML anchors are not allowed")
 	}
 	return nil
 }

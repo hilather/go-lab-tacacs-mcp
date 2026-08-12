@@ -162,7 +162,8 @@ func TestRejectFixtures(t *testing.T) {
 	}{
 		{"testdata/reject/unknown_field.yaml", domain.CodeConfigUnknownField, "clients[0].authentcation", "authentication"},
 		{"testdata/reject/duplicate_key.yaml", domain.CodeConfigYAMLInvalid, "metadata.name", "duplicate"},
-		{"testdata/reject/alias.yaml", domain.CodeConfigYAMLInvalid, "", "alias"},
+		{"testdata/reject/alias.yaml", domain.CodeConfigYAMLInvalid, "", "not allowed"},
+		{"testdata/reject/anchor.yaml", domain.CodeConfigYAMLInvalid, "", "anchor"},
 		{"testdata/reject/merge_key.yaml", domain.CodeConfigYAMLInvalid, "", "merge"},
 		{"testdata/reject/multi_document.yaml", domain.CodeConfigYAMLInvalid, "", "multiple"},
 		{"testdata/reject/missing_schema.yaml", domain.CodeConfigYAMLInvalid, "schema_version", "required"},

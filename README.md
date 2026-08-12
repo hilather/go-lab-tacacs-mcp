@@ -12,7 +12,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout is a repository skeleton. It does **not** implement TACACS+, REST, MCP, or the admin UI. Do not describe it as a complete TACACS+ server.
+This checkout implements the 12-byte TACACS+ header codec and RFC 8907 §4.5 legacy body pad. It does **not** implement packet-family bodies, listeners, REST, MCP, or the admin UI. Do not describe it as a complete TACACS+ server.
 
 ## Documents
 
@@ -60,6 +60,6 @@ make build
 ./bin/taclabd -h
 ```
 
-`make bench` fails until real `Benchmark` functions exist under `internal/tacacs`, `internal/policy`, or `internal/state`. Do not treat a no-benchmark `go test -bench` run as success.
+`make bench` runs header decode/encode and 64 B / 1 KiB obfuscation benches under `internal/tacacs/codec`.
 
 `make ci` is the local equivalent of the GitHub Actions merge gate (without `govulncheck` network install unless you run `make vuln`).

@@ -46,7 +46,7 @@ TacLab 1.0 implements an **internal codec** in `internal/tacacs/codec`.
 4. `tools/spike` holds the evaluation harness and header/obfuscation experiment. It is not the production codec and must not be imported from `internal/`, `cmd/`, or `web/`.
 5. A later override requires a new ADR that names the isolated encode/decode surface, the pinned module version, the Go-version impact, and executable rows that close every gap below.
 
-The production codec package remains a stub until the header and packet-family work lands. This record does not implement those packages.
+Header encode/decode, unknown-type §3.6 zero-body replies, bounded body allocation, and RFC 8907 §4.5 obfuscation live in `internal/tacacs/codec`. Packet-family bodies remain unimplemented. The test client keeps a separate copy under `internal/tacacs/testclient/codec`.
 
 ## Candidate evaluation
 
@@ -158,14 +158,15 @@ None. Listener, secret, and TLS keys are unchanged. There is no `codec.backend` 
 
 ## Test impact
 
-- `testdata/protocol/fuzz/header/` holds 12-byte valid and junk header seeds for later production fuzz targets.
-- `tools/spike` exercises header decode (no body allocation from `length`), sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation.
-- `make bench` continues to fail until `Benchmark` functions exist under `internal/{tacacs,policy,state}`. The spike header bench does not satisfy that gate.
-- Production fuzz smoke remains `go test ./internal/tacacs/... -run 'Fuzz' -fuzztime=0` and is a no-op until those targets exist.
+- `testdata/protocol/fuzz/header/` holds 12-byte valid and junk header seeds used by production `FuzzHeader`.
+- `testdata/protocol/header/` and `testdata/protocol/obfuscation/` hold independent golden vectors (Python `hashlib.md5` for the pad).
+- `tools/spike` remains an evaluation harness only.
+- `make bench` runs header decode/encode and 64 B / 1 KiB obfuscation benches under `internal/tacacs/codec`.
+- Production fuzz smoke is `go test ./internal/tacacs/... -run 'Fuzz'` (seed corpora as unit tests).
 
 ## Performance impact
 
-No production hot path changes. A header decode/encode bench lives under `tools/spike` for orientation only. Production budgets stay in `benchmarks/budgets.yaml` after the first internal-codec baseline.
+Header decode/encode and 64 B / 1 KiB obfuscation benches live under `internal/tacacs/codec`. Spike benches remain evaluation-only. Production budgets stay in `benchmarks/budgets.yaml` after the first recorded baseline.
 
 ## Documentation impact
 

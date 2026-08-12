@@ -27,8 +27,8 @@ help:
 	@echo "  make vet              go vet ./..."
 	@echo "  make fmt              gofmt -w"
 	@echo "  make lint             gofmt check + go vet (+ staticcheck if installed)"
-	@echo "  make fuzz-smoke       fuzz seed tests (no-op until fuzz targets exist)"
-	@echo "  make bench            FAIL until real benches exist; then go test -bench"
+	@echo "  make fuzz-smoke       fuzz seed corpus as unit tests"
+	@echo "  make bench            header + 64B/1KiB obfuscate benches under internal/tacacs"
 	@echo "  make web-install      npm ci in web/"
 	@echo "  make web-test         npm test (placeholder suite)"
 	@echo "  make web-typecheck    tsc --noEmit"
@@ -80,7 +80,7 @@ lint:
 
 .PHONY: fuzz-smoke
 fuzz-smoke:
-	$(GO) test $(GOFLAGS) ./internal/tacacs/... -run 'Fuzz' -fuzztime=0
+	$(GO) test $(GOFLAGS) ./internal/tacacs/... -run 'Fuzz'
 
 .PHONY: bench
 bench:

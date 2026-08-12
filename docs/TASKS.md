@@ -215,7 +215,7 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 - [x] Benchmark header/body encode/decode and legacy body transform for representative packet sizes.
 
-The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. There is no listener, `net.Conn` adapter, or independent test client yet; `internal/tacacs/testclient` remains a stub owned by P3. Authentication body families and author/acct statuses also remain P3 (`internal/tacacs/codec`). The spike header bench does not satisfy `make bench`.
+The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. Production header + pad live in `internal/tacacs/codec`; the independent copy is `internal/tacacs/testclient/codec`. There is no listener or `net.Conn` adapter yet. Authentication body families and author/acct statuses remain later P3 work.
 
 ### P1.3 Decide and isolate the adapter boundary
 
@@ -223,7 +223,7 @@ The spike under `tools/spike` covers header layout, sequence wrap, single-connec
 
 - [x] Select the implementation approach using measured evidence.
 - [x] Decided: in-tree package `internal/tacacs/codec`; no third-party TACACS types in AAA, policy, operations, or API packages.
-- [ ] Define the project-owned codec/connection Go interface (encode/decode types).
+- [x] Define the project-owned codec/connection Go interface (encode/decode types).
 - [x] Document patches or upstream contributions required for conformance.
 - [x] Pin exact dependency versions or fork commit.
 
@@ -376,41 +376,44 @@ Body families, sequence machines, and transport adapters remain owned by P3–P4
 
 **Depends on:** P1, P2 types
 
-- [ ] Parse and encode version, type, sequence number, flags, session ID, and body length.
-- [ ] Enforce body and allocation limits before allocation.
-- [ ] Preserve unsigned widths and network byte order.
-- [ ] Distinguish unsupported version/type from malformed packet.
-- [ ] Implement stable errors suitable for connection policy and metrics.
+- [x] Parse and encode version, type, sequence number, flags, session ID, and body length.
+- [x] Enforce body and allocation limits before allocation.
+- [x] Preserve unsigned widths and network byte order.
+- [x] Distinguish unsupported version/type from malformed packet.
+- [x] Implement stable errors suitable for connection policy and metrics.
 
 **Tests**
 
-- [ ] Golden packets for every packet family.
-- [ ] Boundary lengths: zero, maximum accepted, and one above maximum.
-- [ ] Truncation at every header byte.
-- [ ] Fuzz target with persistent regression corpus.
+- [x] Golden packets for every packet family.
+- [x] Boundary lengths: zero, maximum accepted, and one above maximum.
+- [x] Truncation at every header byte.
+- [x] Fuzz target with persistent regression corpus.
 
 **Benchmarks**
 
-- [ ] Header parse/encode for valid and rejected packets.
+- [x] Header parse/encode for valid and rejected packets.
 
 ### P3.2 Implement legacy packet-body transform
 
 **Depends on:** P3.1
 
-- [ ] Implement RFC 8907 body transformation exactly.
-- [ ] Handle empty and multi-block bodies.
+- [x] Implement RFC 8907 body transformation exactly.
+- [x] Handle empty and multi-block bodies.
 - [ ] Apply transform only for the legacy listener and appropriate flag state.
 - [ ] Never use a TLS PSK or credential secret as the legacy shared secret.
 
+The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a raw key only. Listener flag policy and typed-secret wiring remain with the legacy adapter.
+
 **Tests**
 
-- [ ] Published/independently generated vectors.
-- [ ] Wrong-secret behavior.
-- [ ] Round-trip property tests that do not substitute for independent vectors.
-- [ ] Fuzzing for lengths and block boundaries.
+- [x] Published/independently generated vectors.
+- [x] Wrong-secret behavior.
+- [x] Round-trip property tests that do not substitute for independent vectors.
+- [x] Fuzzing for lengths and block boundaries.
 
 **Benchmarks**
 
+- [x] Representative 64 B and 1 KiB bodies (`BenchmarkLegacyObfuscate_64B`, `BenchmarkLegacyObfuscate_1KiB`).
 - [ ] Representative 32 B, 256 B, 4 KiB, and maximum-safe bodies.
 
 ### P3.3 Implement authentication packet family

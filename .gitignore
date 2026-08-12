@@ -1,0 +1,39 @@
+# Binaries
+/bin/
+/dist/
+/taclabd
+*.exe
+*.test
+*.out
+
+# Go
+/vendor/
+coverage.out
+coverage.html
+
+# Local agent / IDE state
+.grok/
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Frontend
+web/node_modules/
+web/dist/
+web/coverage/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
+
+# Local env and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Fuzz crashers generated locally (seed corpora stay under testdata/)
+**/testdata/fuzz/*/crashers/
+**/testdata/fuzz/*/suppressions/

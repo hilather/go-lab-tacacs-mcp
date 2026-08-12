@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Run hot-path benches, or fail clearly until any Benchmark exists.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${PATH}"
+
+pkgs=(internal/tacacs internal/policy internal/state)
+found=0
+for pkg in "${pkgs[@]}"; do
+  if [[ -d "$pkg" ]] && grep -R --include='*_test.go' -E '^func Benchmark' "$pkg" >/dev/null 2>&1; then
+    found=1
+    break
+  fi
+done
+
+if [[ "$found" -eq 0 ]]; then
+  echo "bench: no Benchmark functions in internal/{tacacs,policy,state}" >&2
+  echo "bench: refusing to report success until real benches exist" >&2
+  exit 1
+fi
+
+go test -bench=. -benchmem ./internal/tacacs/... ./internal/policy/... ./internal/state/...

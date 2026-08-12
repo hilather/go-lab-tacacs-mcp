@@ -295,8 +295,8 @@ func ParseRuleKind(s string) (RuleKind, error) {
 	return k, nil
 }
 
-// AuthorDecision is the domain authorization result.
-// REST/MCP write only permit_add, permit_replace, and deny.
+// AuthorDecision is the domain authorization result:
+// permit_add, permit_replace, or deny.
 type AuthorDecision string
 
 const (
@@ -316,7 +316,7 @@ func (d AuthorDecision) Valid() bool {
 
 func (d AuthorDecision) String() string { return string(d) }
 
-// ParseAuthorDecision accepts REST/MCP write values only (no YAML "permit" alias).
+// ParseAuthorDecision accepts permit_add, permit_replace, or deny.
 func ParseAuthorDecision(s string) (AuthorDecision, error) {
 	d := AuthorDecision(strings.ToLower(s))
 	if !d.Valid() {

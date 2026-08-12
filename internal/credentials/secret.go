@@ -100,7 +100,7 @@ func (s secret) equal(other secret) bool {
 	return subtle.ConstantTimeCompare(s.v, other.v) == 1
 }
 
-// Distinct blank fields block LoginVerifier(ChallengeSecret{...}) conversions.
+// Unexported purpose tags keep holder types distinct.
 type (
 	purposeLoginVerifier   struct{}
 	purposeChallengeSecret struct{}

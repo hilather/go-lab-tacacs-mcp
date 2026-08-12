@@ -158,7 +158,20 @@ func ClearWriteDeadline(w http.ResponseWriter) error {
 }
 
 func (s *Server) eventsStub(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.actor(r); err != nil {
+	actor, err := s.actor(r)
+	if err != nil {
+		writeDomain(w, err)
+		return
+	}
+	if s.Registry == nil {
+		writeProblem(w, http.StatusServiceUnavailable, domain.NewError(domain.CodeUnavailable, "operation registry is not initialized"))
+		return
+	}
+	snap := (*state.Snapshot)(nil)
+	if s.Snapshot != nil {
+		snap = s.Snapshot()
+	}
+	if _, err := s.Registry.Invoke(r.Context(), operations.IDEventsSubscribe, snap, operations.Input{Actor: actor}); err != nil {
 		writeDomain(w, err)
 		return
 	}

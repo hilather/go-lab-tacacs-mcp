@@ -54,6 +54,14 @@ func viewEvent(e events.Event, sensitive bool) EventView {
 		SessionID:     e.SessionID,
 		Revision:      e.Revision,
 		TaskID:        e.TaskID,
+		StartTime:     e.StartTime,
+		StopTime:      e.StopTime,
+		AuthenMethod:  e.AuthenMethod,
+		AuthenType:    e.AuthenType,
+		Service:       e.Service,
+		Privilege:     e.Privilege,
+		Port:          e.Port,
+		Remote:        e.Remote,
 	}
 	if v.SchemaVersion == 0 {
 		v.SchemaVersion = events.SchemaVersion
@@ -81,6 +89,10 @@ func copyEventAVs(in []events.EventAV, sensitive bool) []EventAV {
 		out[i] = EventAV{Name: a.Name, Separator: a.Separator, Value: val}
 	}
 	return out
+}
+
+func handleSubscribe(_ context.Context, _ *state.Snapshot, _ Input) (any, error) {
+	return EventStream{}, nil
 }
 
 func hasScope(actor Actor, scope string) bool {

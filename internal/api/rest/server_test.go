@@ -248,3 +248,55 @@ func TestEventsStubClearsDeadline(t *testing.T) {
 		t.Fatalf("body=%q", buf[:n])
 	}
 }
+
+func TestEventsStubRequiresEventsRead(t *testing.T) {
+	t.Parallel()
+	reg, err := operations.NewFromRepo(".", operations.Deps{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := config.Parse([]byte(`
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+clients:
+  - id: sw
+    priority: 10
+    match: {source_cidrs: ["10.0.0.0/8"], transports: [legacy]}
+    legacy: {shared_secret: {file: /run/secrets/sw}}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mgr, err := state.New(doc, state.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := auth.Load(&config.Document{
+		API: config.API{BootstrapTokens: []config.BootstrapToken{{
+			ID:     "lab",
+			Token:  config.SecretRef{File: "tok", Purpose: credentials.PurposeAPIBearerToken},
+			Scopes: []string{"state:read"},
+		}}},
+	}, func(config.SecretRef) ([]byte, error) { return []byte(restToken), nil }, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{Registry: reg, Snapshot: mgr.Snapshot, Auth: v, Ready: func() bool { return true }}
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/api/v1/events/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+restToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d %s", resp.StatusCode, b)
+	}
+}

@@ -116,6 +116,20 @@ func TestReadCategoryFilter(t *testing.T) {
 	}
 }
 
+func TestReadSkipsSuppressedExport(t *testing.T) {
+	t.Parallel()
+	r := New(8, domain.SystemClock{})
+	r.Accept(Event{Category: CategoryAcct, Type: "hidden", SuppressExport: true})
+	r.Accept(Event{Category: CategoryAcct, Type: "visible"})
+	page := r.Read(Query{Limit: 10})
+	if len(page.Items) != 1 || page.Items[0].Type != "visible" {
+		t.Fatalf("page=%+v", page.Items)
+	}
+	if r.Len() != 2 {
+		t.Fatalf("ring must still retain hidden record: %d", r.Len())
+	}
+}
+
 func TestReadClampsLimit(t *testing.T) {
 	t.Parallel()
 	r := New(8, domain.SystemClock{})

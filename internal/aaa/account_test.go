@@ -1,12 +1,17 @@
 package aaa
 
 import (
+	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
 func TestRecordAccountingStart(t *testing.T) {
@@ -365,6 +370,136 @@ func TestTooManyAccountingArgs(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected over-budget error")
+	}
+}
+
+func TestClientAccountingGates(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		acct config.ClientAcct
+		flag byte
+	}{
+		{name: "disabled", acct: config.ClientAcct{Enabled: false, AcceptStart: true, AcceptStop: true, AcceptWatchdog: true}, flag: AcctFlagStart},
+		{name: "no-start", acct: config.ClientAcct{Enabled: true, AcceptStop: true, AcceptWatchdog: true}, flag: AcctFlagStart},
+		{name: "no-stop", acct: config.ClientAcct{Enabled: true, AcceptStart: true, AcceptWatchdog: true}, flag: AcctFlagStop},
+		{name: "no-watchdog", acct: config.ClientAcct{Enabled: true, AcceptStart: true, AcceptStop: true}, flag: AcctFlagWatchdog},
+		{name: "no-watchdog-update", acct: config.ClientAcct{Enabled: true, AcceptStart: true, AcceptStop: true}, flag: AcctFlagWatchdogUpdate},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			svc, mgr, ring := testService(t)
+			rev := mgr.Revision()
+			if _, err := mgr.UpdateClient("lab-switches", state.UpdateClient{Accounting: &tc.acct}, &rev); err != nil {
+				t.Fatal(err)
+			}
+			_, err := svc.RecordAccounting(context.Background(), AccountingRecord{
+				Flags:    tc.flag,
+				ClientID: "lab-switches",
+				UserID:   "lab-admin",
+			})
+			if err == nil {
+				t.Fatal("expected ERROR")
+			}
+			if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidArgument {
+				t.Fatalf("err=%v", err)
+			}
+			if ring.Len() != 0 {
+				t.Fatalf("ring stored rejected record: %d", ring.Len())
+			}
+		})
+	}
+}
+
+func TestUnknownOrEmptyClientIDStillAccepted(t *testing.T) {
+	t.Parallel()
+	// Listener binds a known client. AAA fail-opens when ClientID is missing
+	// or unknown so a test/helper record is not rejected after the session exists.
+	svc, _, ring := testService(t)
+	for _, id := range []string{"", "no-such-client"} {
+		res, err := svc.RecordAccounting(context.Background(), AccountingRecord{
+			Flags:    AcctFlagStart,
+			ClientID: id,
+		})
+		if err != nil || !res.OK {
+			t.Fatalf("client %q: %+v %v", id, res, err)
+		}
+	}
+	if ring.Len() != 2 {
+		t.Fatalf("len=%d", ring.Len())
+	}
+}
+
+func TestIncludeAccountingFalseStillACKs(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	_, lookup, mgr := writeSkeleton(t, `
+events:
+  include_accounting: false
+  stdout: {enabled: true, format: json}
+`)
+	ring := events.NewWithOptions(events.Options{Capacity: 32, Stdout: &stdout, RedactUserInput: true, StdoutBuffer: 8})
+	t.Cleanup(ring.Close)
+	svc, err := New(Options{
+		Snapshot: mgr.Snapshot,
+		Secrets:  lookup,
+		Events:   ring,
+		Creds:    credentials.Options{Params: credentials.TestParams},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.RecordAccounting(context.Background(), AccountingRecord{
+		Flags:    AcctFlagStart,
+		ClientID: "lab-switches",
+		UserID:   "lab-admin",
+	})
+	if err != nil || !res.OK || res.EventID == 0 {
+		t.Fatalf("ACK required: %+v %v", res, err)
+	}
+	got, ok := ring.Latest()
+	if !ok || !got.SuppressExport || got.ID != res.EventID {
+		t.Fatalf("sink record=%+v ok=%v", got, ok)
+	}
+	page := ring.Read(events.Query{Limit: 10, Categories: []string{events.CategoryAcct}})
+	if len(page.Items) != 0 {
+		t.Fatalf("list should hide acct: %+v", page.Items)
+	}
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if strings.Contains(stdout.String(), `"category":"acct"`) {
+			t.Fatalf("stdout leaked hidden acct: %s", stdout.String())
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestAccountingPreservesHeaderContext(t *testing.T) {
+	t.Parallel()
+	svc, _, ring := testService(t)
+	_, err := svc.RecordAccounting(context.Background(), AccountingRecord{
+		Flags:        AcctFlagStop,
+		UserID:       "lab-admin",
+		ClientID:     "lab-switches",
+		AuthenMethod: domain.AuthenMethodTACACS,
+		AuthenType:   domain.AuthenTypeASCII,
+		Service:      domain.AuthenServiceLogin,
+		Privilege:    15,
+		Port:         "tty0",
+		Remote:       "192.0.2.10",
+		Arguments:    domain.AVPairs{{Name: "task_id", Separator: '=', Value: "h1"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := ring.Latest()
+	if got.AuthenMethod != "tacacs" || got.AuthenType != "ascii" || got.Service != "login" {
+		t.Fatalf("context strings=%+v", got)
+	}
+	if got.Privilege != 15 || got.Port != "tty0" || got.Remote != "192.0.2.10" {
+		t.Fatalf("context fields=%+v", got)
 	}
 }
 

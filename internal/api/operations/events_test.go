@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
@@ -11,8 +12,9 @@ import (
 func TestListEventsCursorAndRedaction(t *testing.T) {
 	t.Parallel()
 	ring := events.New(8, nil)
+	startAt := time.Date(2026, 8, 12, 16, 0, 0, 0, time.UTC)
 	for _, ev := range []events.Event{
-		{Category: events.CategoryAcct, Type: "start", UserID: "lab-admin", Command: "configure", TaskID: "t1"},
+		{Category: events.CategoryAcct, Type: "start", UserID: "lab-admin", Command: "configure", TaskID: "t1", StartTime: &startAt, AuthenMethod: "tacacs", Port: "tty0"},
 		{Category: events.CategoryAuthen, Type: "ascii_login", UserID: "lab-admin", Result: "pass"},
 		{Category: events.CategoryAcct, Type: "stop", UserID: "lab-admin", Arguments: []events.EventAV{
 			{Name: "cmd", Separator: "=", Value: "show"},
@@ -40,6 +42,9 @@ func TestListEventsCursorAndRedaction(t *testing.T) {
 	}
 	if page.Items[0].Type != "start" || page.Items[1].Type != "stop" {
 		t.Fatalf("filter=%+v", page.Items)
+	}
+	if page.Items[0].StartTime == nil || page.Items[0].AuthenMethod != "tacacs" || page.Items[0].Port != "tty0" {
+		t.Fatalf("header/time context missing: %+v", page.Items[0])
 	}
 	if page.Items[0].UserID != "" || page.Items[0].Command != "" {
 		t.Fatalf("redacted fields leaked: %+v", page.Items[0])
@@ -83,6 +88,24 @@ func TestListEventsCursorAndRedaction(t *testing.T) {
 	rest := second.Data.(EventList)
 	if len(rest.Items) != 2 {
 		t.Fatalf("page2=%+v", rest)
+	}
+}
+
+func TestSubscribeRequiresEventsRead(t *testing.T) {
+	t.Parallel()
+	reg, err := New(mustSpec(t), Deps{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = reg.Invoke(context.Background(), IDEventsSubscribe, mustSnap(t, smallYAML), Input{Actor: reader})
+	if !isCode(err, domain.CodePermissionDenied) {
+		t.Fatalf("err=%v", err)
+	}
+	_, err = reg.Invoke(context.Background(), IDEventsSubscribe, mustSnap(t, smallYAML), Input{
+		Actor: Actor{ID: "r", Scopes: []string{"events:read"}},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

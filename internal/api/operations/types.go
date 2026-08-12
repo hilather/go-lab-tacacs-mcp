@@ -18,6 +18,7 @@ const (
 	IDSessionCreate   = "session.create"
 	IDSessionDelete   = "session.delete"
 	IDEventsList      = "events.list"
+	IDEventsSubscribe = "events.subscribe"
 )
 
 // Specification versions reported by system.build.get.
@@ -236,6 +237,14 @@ type EventView struct {
 	Command       string          `json:"command,omitempty"`
 	TaskID        string          `json:"task_id,omitempty"`
 	Arguments     []EventAV       `json:"arguments,omitempty"`
+	StartTime     *time.Time      `json:"start_time,omitempty"`
+	StopTime      *time.Time      `json:"stop_time,omitempty"`
+	AuthenMethod  string          `json:"authen_method,omitempty"`
+	AuthenType    string          `json:"authen_type,omitempty"`
+	Service       string          `json:"service,omitempty"`
+	Privilege     uint8           `json:"privilege"`
+	Port          string          `json:"port,omitempty"`
+	Remote        string          `json:"remote,omitempty"`
 }
 
 // EventAV is one stored attribute-value pair.

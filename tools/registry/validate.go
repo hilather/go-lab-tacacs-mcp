@@ -43,7 +43,7 @@ type Report struct {
 	Issues     []Issue
 }
 
-// Valid reports whether any issues were recorded.
+// Valid reports whether the report contains no issues.
 func (r *Report) Valid() bool {
 	return len(r.Issues) == 0
 }
@@ -184,8 +184,8 @@ func validateOperations(rep *Report, file string, doc *OperationRegistry) {
 		if op.Parity == MCPOnlyProtocol && !op.REST.Empty() {
 			rep.add(file, op.ID, "MCP_ONLY_PROTOCOL must not declare a REST binding")
 		}
-		if op.Parity == ExemptByADR && op.AuditEvent == "" && op.Description == "" {
-			rep.add(file, op.ID, "EXEMPT_BY_ADR requires a documented reason")
+		if op.Parity == ExemptByADR && strings.TrimSpace(op.ADR) == "" {
+			rep.add(file, op.ID, "EXEMPT_BY_ADR requires adr")
 		}
 		if !op.REST.Empty() {
 			if _, ok := httpMethods[op.REST.Method]; !ok {

@@ -2,9 +2,6 @@ package registry
 
 import (
 	"fmt"
-	"os"
-
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -60,7 +57,7 @@ type MCPBinding struct {
 	PullOperation string `yaml:"pull_operation,omitempty"`
 }
 
-// Empty reports whether the binding has no method, name, or resource.
+// Empty reports whether the binding has no kind, name, or resource.
 func (b MCPBinding) Empty() bool {
 	return b.Kind == "" && b.Name == "" && b.Resource == ""
 }
@@ -78,6 +75,7 @@ type Operation struct {
 	REST         RESTBinding `yaml:"rest"`
 	MCP          MCPBinding  `yaml:"mcp"`
 	AuditEvent   string      `yaml:"audit_event"`
+	ADR          string      `yaml:"adr,omitempty"`
 	Status       string      `yaml:"status"`
 }
 
@@ -90,13 +88,12 @@ type OperationRegistry struct {
 
 // LoadOperations decodes an operations registry YAML file.
 func LoadOperations(path string) (*OperationRegistry, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
+	var doc OperationRegistry
+	if err := decodeYAML(path, &doc); err != nil {
 		return nil, err
 	}
-	var doc OperationRegistry
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if doc.SchemaVersion == 0 && len(doc.Operations) == 0 && doc.Title == "" {
+		return nil, fmt.Errorf("%s: empty document", path)
 	}
 	return &doc, nil
 }

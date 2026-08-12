@@ -253,6 +253,36 @@ api:
 			t.Fatalf("override token=%+v ok=%v", tok, ok)
 		}
 	})
+	t.Run("override rejected when shadowing disabled", func(t *testing.T) {
+		t.Parallel()
+		const noShadow = `
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+runtime:
+  allow_shadowing: false
+api:
+  bootstrap_tokens:
+    - id: boot
+      token: {file: /run/secrets/boot}
+      scopes: [state:read]
+`
+		m := mustMgr(t, noShadow)
+		rev := m.Revision()
+		mat := credentials.NewTokenMaterial([]byte("unit-test-token-material-noshadow"))
+		_, err := m.CreateToken(CreateToken{ID: "boot", Name: "over", Scopes: []string{"state:read"}, Material: mat, Override: true}, &rev)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeConflict {
+			t.Fatalf("got %v", err)
+		}
+		if m.Revision() != 1 {
+			t.Fatalf("published override: %d", m.Revision())
+		}
+		tok, ok := m.Snapshot().Token("boot")
+		if !ok || tok.Meta.Source != domain.SourceConfig {
+			t.Fatalf("baseline mutated: %+v ok=%v", tok, ok)
+		}
+	})
 	t.Run("live over cap rejected", func(t *testing.T) {
 		t.Parallel()
 		m := mustMgr(t, tokenYAML)

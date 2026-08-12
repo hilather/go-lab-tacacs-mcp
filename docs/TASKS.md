@@ -940,6 +940,8 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 ### P9.3 Implement bearer token service and scopes
 
+Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md).
+
 - [x] Load bootstrap tokens from secret files.
 - [x] Generate runtime tokens with strong randomness.
 - [x] Store only verification digest/metadata for runtime tokens.
@@ -950,7 +952,7 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 **Tests**
 
 - [x] Correct, malformed, expired, revoked, insufficient-scope, and token enumeration cases.
-- [x] Secret canaries in all token responses/logs/events.
+- [ ] Secret canaries in all token responses/logs/events (list/JSON/errors covered; event-ring canaries wait on P9.2/P13).
 
 **Benchmarks**
 
@@ -1056,7 +1058,7 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 - [ ] Reuse bearer-token verification and operation scopes.
 - [ ] Return protocol-appropriate unauthorized/forbidden errors without leaking token detail.
-- [x] Document lab static-bearer mode and future standards-oriented OAuth mode separately.
+- [x] Document lab static-bearer mode and future standards-oriented OAuth mode separately ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
 
 ### P11.5 Implement parity test harness
 

@@ -24,13 +24,16 @@ func handleSessionDelete(deps Deps) handleFunc {
 		if deps.Sessions == nil {
 			return nil, domain.NewError(domain.CodeUnavailable, "session service is not configured")
 		}
-		req, _ := in.Request.(DeleteSessionRequest)
-		id := req.SessionID
-		if id == "" {
-			id = in.Actor.SessionID
+		if in.Actor.ID == "" && in.Actor.SessionID == "" {
+			return nil, domain.NewError(domain.CodeUnauthenticated, "authentication required")
 		}
+		id := in.Actor.SessionID
 		if id == "" {
 			return nil, domain.NewError(domain.CodeUnauthenticated, "authentication required")
+		}
+		req, _ := in.Request.(DeleteSessionRequest)
+		if req.SessionID != "" && req.SessionID != id {
+			return nil, domain.NewError(domain.CodePermissionDenied, "session id does not match the authenticated session")
 		}
 		out, err := deps.Sessions.Delete(id)
 		if err != nil {

@@ -48,9 +48,9 @@ func LoadBootstrap(snap *state.Snapshot, lookup config.SecretLookup) error {
 		if err != nil {
 			return err
 		}
-		_, aerr := snap.AuthenticateToken(raw, now)
+		got, aerr := snap.AuthenticateToken(raw, now)
 		wipeBytes(raw)
-		if aerr != nil {
+		if aerr != nil || got.ID != boot.ID {
 			return domain.NewError(domain.CodeUnauthenticated, "bootstrap token did not authenticate").WithPath("api.bootstrap_tokens/" + tok.ID)
 		}
 	}

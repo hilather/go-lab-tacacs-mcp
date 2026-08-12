@@ -389,7 +389,9 @@ func indexTokenDigests(snap *Snapshot, base *config.Document, tokens []Effective
 		if _, ok := live[id]; !ok || d.Empty() {
 			continue
 		}
-		snap.tokenIndex[tokenKey(d)] = id
+		if err := putTokenDigest(snap.tokenIndex, d, id); err != nil {
+			return err
+		}
 	}
 	if lookup == nil {
 		return nil
@@ -415,8 +417,26 @@ func indexTokenDigests(snap *Snapshot, base *config.Document, tokens []Effective
 		if d.Empty() {
 			continue
 		}
-		snap.tokenIndex[tokenKey(d)] = boot.ID
+		if err := putTokenDigest(snap.tokenIndex, d, boot.ID); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func putTokenDigest(idx map[tokenDigestKey]string, d credentials.TokenDigest, id string) error {
+	if idx == nil || d.Empty() || id == "" {
+		return nil
+	}
+	k := tokenKey(d)
+	if existing, ok := idx[k]; ok && existing != id {
+		a, b := existing, id
+		if b < a {
+			a, b = b, a
+		}
+		return domain.NewError(domain.CodeConflict, "token digest is reused by "+a+" and "+b).WithPath("tokens")
+	}
+	idx[k] = id
 	return nil
 }
 

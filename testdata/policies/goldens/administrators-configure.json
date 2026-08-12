@@ -1,0 +1,45 @@
+{
+  "evaluator": "command",
+  "user_id": "lab-admin",
+  "client_id": "lab-switches",
+  "service": "shell",
+  "protocol": "",
+  "cmd": "configure",
+  "cmd_args": [],
+  "display_cmd": "configure",
+  "request_arguments": [
+    {
+      "name": "service",
+      "separator": "=",
+      "value": "shell"
+    },
+    {
+      "name": "cmd",
+      "separator": "=",
+      "value": "configure"
+    }
+  ],
+  "authen_method": "ascii",
+  "privilege": 0,
+  "effective_group_ids": [
+    "administrators",
+    "readonly"
+  ],
+  "steps": [
+    {
+      "source": "group:administrators",
+      "rule_id": "permit-all",
+      "kind": "command",
+      "matched": true,
+      "reason": "Full lab administration"
+    }
+  ],
+  "winner": {
+    "source": "group:administrators",
+    "rule_id": "permit-all",
+    "action": "permit_add"
+  },
+  "decision": "permit_add",
+  "status": "pass_add",
+  "arguments": []
+}

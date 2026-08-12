@@ -1,0 +1,65 @@
+{
+  "evaluator": "command",
+  "user_id": "lab-readonly",
+  "client_id": "lab-switches",
+  "service": "shell",
+  "protocol": "",
+  "cmd": "configure",
+  "cmd_args": [],
+  "display_cmd": "configure",
+  "request_arguments": [
+    {
+      "name": "service",
+      "separator": "=",
+      "value": "shell"
+    },
+    {
+      "name": "cmd",
+      "separator": "=",
+      "value": "configure"
+    }
+  ],
+  "authen_method": "ascii",
+  "privilege": 0,
+  "effective_group_ids": [
+    "readonly"
+  ],
+  "steps": [
+    {
+      "source": "group:readonly",
+      "rule_id": "show",
+      "kind": "command",
+      "matched": false,
+      "reason": "command mismatch"
+    },
+    {
+      "source": "group:readonly",
+      "rule_id": "ping",
+      "kind": "command",
+      "matched": false,
+      "reason": "command mismatch"
+    },
+    {
+      "source": "group:readonly",
+      "rule_id": "traceroute",
+      "kind": "command",
+      "matched": false,
+      "reason": "command mismatch"
+    },
+    {
+      "source": "group:readonly",
+      "rule_id": "deny-everything-else",
+      "kind": "command",
+      "matched": true,
+      "reason": "Default deny"
+    }
+  ],
+  "winner": {
+    "source": "group:readonly",
+    "rule_id": "deny-everything-else",
+    "action": "deny"
+  },
+  "decision": "deny",
+  "status": "fail",
+  "arguments": []
+}

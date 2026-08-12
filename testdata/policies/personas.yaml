@@ -1,0 +1,121 @@
+# Lab personas used by policy goldens. Secrets are dummy file refs; compile
+# does not resolve them. YAML action "permit" is the permit_add alias.
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+
+clients:
+  - id: lab-switches
+    priority: 100
+    enabled: true
+    match:
+      source_cidrs: ["10.20.0.0/16"]
+      transports: [legacy]
+    legacy:
+      shared_secret: {file: /run/secrets/lab_switches_tacacs_secret}
+    authorization:
+      default_group_ids:
+        - readonly
+
+groups:
+  - id: administrators
+    display_name: Full administrators
+    priority: 10
+    enabled: true
+    services:
+      - service: shell
+        protocol: null
+        # YAML-only alias of permit_add.
+        action: permit
+        reply_attributes:
+          - name: priv-lvl
+            separator: "="
+            value: "15"
+    command_rules:
+      - id: permit-all
+        priority: 10
+        action: permit
+        command:
+          pattern: ".*"
+        arguments:
+          pattern: ".*"
+        reason: Full lab administration
+    default_command_action: deny
+
+  - id: readonly
+    display_name: Read-only operators
+    priority: 100
+    enabled: true
+    services:
+      - service: shell
+        protocol: null
+        action: permit
+        reply_attributes:
+          - name: priv-lvl
+            separator: "="
+            value: "1"
+    command_rules:
+      - id: show
+        priority: 10
+        action: permit
+        command:
+          exact: show
+        arguments:
+          pattern: ".*"
+        reason: Permit operational show commands
+      - id: ping
+        priority: 20
+        action: permit
+        command:
+          exact: ping
+        arguments:
+          pattern: ".*"
+      - id: traceroute
+        priority: 30
+        action: permit
+        command:
+          pattern: "^(traceroute|traceroute6)$"
+        arguments:
+          pattern: ".*"
+      - id: deny-everything-else
+        priority: 10000
+        action: deny
+        command:
+          pattern: ".*"
+        arguments:
+          pattern: ".*"
+        reason: Default deny
+    default_command_action: deny
+
+users:
+  - id: lab-admin
+    enabled: true
+    group_ids: [administrators]
+    credentials:
+      login:
+        verifier: {file: /run/secrets/lab_admin_argon2id}
+
+  - id: lab-readonly
+    enabled: true
+    group_ids: [readonly]
+    credentials:
+      login:
+        verifier: {file: /run/secrets/lab_readonly_argon2id}
+
+  - id: lab-disabled
+    enabled: false
+    group_ids: [readonly]
+    credentials:
+      login:
+        verifier: {file: /run/secrets/lab_disabled_argon2id}
+
+  - id: lab-guest
+    enabled: true
+    group_ids: []
+    credentials:
+      login:
+        verifier: {file: /run/secrets/lab_guest_argon2id}
+
+fallback_rules:
+  services: []
+  command_rules: []

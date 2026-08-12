@@ -709,49 +709,49 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 **Depends on:** P2 compiled policy, P3 authorization, P4 dispatcher
 
-- [ ] Resolve user and ordered groups.
-- [ ] Match service, protocol, client, and optional contextual constraints.
-- [ ] Implement the complete RFC 8907 common authorization argument dictionary and value encodings while retaining arbitrary vendor attributes.
-- [ ] Validate numeric sizes before conversion, Booleans, IPv4/IPv6 text, UTC/timezone behavior, and empty values.
-- [ ] Preserve input AV order and separators.
-- [ ] Compute PASS_ADD or PASS_REPL output intentionally.
-- [ ] Default deny on no permit.
-- [ ] Return a machine-readable policy trace.
+- [x] Resolve user and ordered groups.
+- [x] Match service, protocol, client, and optional contextual constraints.
+- [x] Implement the complete RFC 8907 common authorization argument dictionary and value encodings while retaining arbitrary vendor attributes.
+- [x] Validate numeric sizes before conversion, Booleans, IPv4/IPv6 text, UTC/timezone behavior, and empty values.
+- [x] Preserve input AV order and separators.
+- [x] Compute PASS_ADD or PASS_REPL output intentionally.
+- [x] Default deny on no permit.
+- [x] Return a machine-readable policy trace.
 
 **Tests and benchmarks**
 
-- [ ] Permit/deny/no-match/error, duplicate attributes, optional/mandatory attributes, and group priority cases.
-- [ ] Benchmark typical and worst-case service rule evaluation.
+- [x] Permit/deny/no-match/error, duplicate attributes, optional/mandatory attributes, and group priority cases.
+- [x] Benchmark typical and worst-case service rule evaluation.
 
 ### P6.2 Implement command authorization evaluator
 
-- [ ] Parse `cmd` and ordered `cmd-arg` attributes without shell execution.
-- [ ] Match exact/regex command and argument rules.
-- [ ] Apply deterministic user/group/rule order.
-- [ ] Respect explicit deny and default deny behavior.
-- [ ] Return exact matched source/rule and normalized display command.
+- [x] Parse `cmd` and ordered `cmd-arg` attributes without shell execution.
+- [x] Match exact/regex command and argument rules.
+- [x] Apply deterministic user/group/rule order.
+- [x] Respect explicit deny and default deny behavior.
+- [x] Return exact matched source/rule and normalized display command.
 
 **Tests**
 
-- [ ] Admin allow-all and readonly scenarios.
-- [ ] Empty/missing/duplicate command attributes.
-- [ ] Regex boundary and RE2 behavior.
-- [ ] Deterministic ordering across runs.
+- [x] Admin allow-all and readonly scenarios.
+- [x] Empty/missing/duplicate command attributes.
+- [x] Regex boundary and RE2 behavior.
+- [x] Deterministic ordering across runs.
 
 **Benchmarks**
 
-- [ ] Hot-path evaluation for 100, 5,000, and configured maximum rules.
+- [x] Hot-path evaluation for 100, 5,000, and configured maximum rules.
 
 ### P6.3 Implement AV-pair response builder
 
-- [ ] Preserve mandatory versus optional separator semantics.
-- [ ] Support replacement and addition without map-based loss.
-- [ ] Reject or report malformed attributes safely.
-- [ ] Enforce response argument count/size limits.
+- [x] Preserve mandatory versus optional separator semantics.
+- [x] Support replacement and addition without map-based loss.
+- [x] Reject or report malformed attributes safely.
+- [x] Enforce response argument count/size limits.
 
 **Tests**
 
-- [ ] Golden PASS_ADD/PASS_REPL responses and vendor fixtures.
+- [x] Golden PASS_ADD/PASS_REPL responses and vendor fixtures.
 
 ### P6.4 Implement policy explanation operation
 

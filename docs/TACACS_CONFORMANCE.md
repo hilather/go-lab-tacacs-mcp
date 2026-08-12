@@ -203,7 +203,7 @@ Credential evidence must prove:
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
 | T89-AU-001 | MUST | Decode all request fields and preserve user, port, remote address, auth context, and ordered arguments | Golden fixture | [ ] |
-| T89-AU-002 | MUST NOT | Do not trust `authen_method` for policy evaluation | Policy negative test | [ ] |
+| T89-AU-002 | MUST NOT | Do not trust `authen_method` for policy evaluation | Policy negative test | [x] |
 | T89-AU-003 | MUST | Recognize all authen-method codes for parsing/events | Enum table tests | [ ] |
 | T89-AU-004 | MUST | Parse mandatory `=` and optional `*` separators at the first separator only | AV-pair unit/fuzz tests | [ ] |
 | T89-AU-005 | MUST | Preserve duplicate and ordered AV pairs | Golden round-trip | [ ] |
@@ -211,18 +211,18 @@ Credential evidence must prove:
 | T89-AU-007 | MUST | PASS_ADD with zero response args approves without modification | Independent client test | [ ] |
 | T89-AU-008 | MUST | PASS_ADD appends/applies returned arguments correctly | Interop fixture | [ ] |
 | T89-AU-009 | MUST | PASS_REPL replaces request arguments with response arguments | Interop fixture | [ ] |
-| T89-AU-010 | MUST | FAIL denies the request | Tests | [ ] |
-| T89-AU-011 | MUST | ERROR signals server processing failure, not policy denial | Tests | [ ] |
-| T89-AU-012 | Deprecated | FOLLOW is not emitted | Tests | [ ] |
-| T89-AU-013 | MUST | Unknown mandatory response arguments are never generated accidentally | Schema/policy validation | [ ] |
+| T89-AU-010 | MUST | FAIL denies the request | Tests | [x] |
+| T89-AU-011 | MUST | ERROR signals server processing failure, not policy denial | Tests | [x] |
+| T89-AU-012 | Deprecated | FOLLOW is not emitted | Tests | [x] |
+| T89-AU-013 | MUST | Unknown mandatory response arguments are never generated accidentally | Schema/policy validation | [x] |
 | T89-AU-014 | PROJECT MUST | Arbitrary vendor AV pairs can be matched, preserved, and returned | Vendor fixture | [ ] |
-| T89-AU-015 | PROJECT | Default deny when no deterministic rule matches | Policy tests | [ ] |
-| T89-AU-016 | PROJECT | Full explanation trace is stable and redacted | Golden trace tests | [ ] |
-| T89-AU-017 | SHOULD/PROJECT MUST | Support the complete RFC 8907 common authorization argument dictionary | Dictionary table and vendor-neutral fixtures | [ ] |
-| T89-AU-018 | MUST | Numeric argument lengths are checked before conversion; unrepresentable values are handled as unsupported arguments | Oversized and overflow fixtures | [ ] |
-| T89-AU-019 | MUST | Absolute times use UTC unless an explicit timezone argument is present | Timezone fixtures with injected clock | [ ] |
-| T89-AU-020 | PROJECT MUST | Validate/preserve the required primary `service` argument for supported use cases | Missing, empty, custom, and standard service cases | [ ] |
-| T89-AU-021 | PROJECT MUST | Shell command authorization preserves and validates `cmd` plus ordered `cmd-arg` values | Session versus command fixtures | [ ] |
+| T89-AU-015 | PROJECT | Default deny when no deterministic rule matches | Policy tests | [x] |
+| T89-AU-016 | PROJECT | Full explanation trace is stable and redacted | Golden trace tests | [x] |
+| T89-AU-017 | SHOULD/PROJECT MUST | Support the complete RFC 8907 common authorization argument dictionary | Dictionary table and vendor-neutral fixtures | [x] |
+| T89-AU-018 | MUST | Numeric argument lengths are checked before conversion; unrepresentable values are handled as unsupported arguments | Oversized and overflow fixtures | [x] |
+| T89-AU-019 | MUST | Absolute times use UTC unless an explicit timezone argument is present | Timezone fixtures with injected clock | [x] |
+| T89-AU-020 | PROJECT MUST | Validate/preserve the required primary `service` argument for supported use cases | Missing, empty, custom, and standard service cases | [x] |
+| T89-AU-021 | PROJECT MUST | Shell command authorization preserves and validates `cmd` plus ordered `cmd-arg` values | Session versus command fixtures | [x] |
 
 ## 10. Standard authorization argument dictionary
 
@@ -230,22 +230,22 @@ The implementation must recognize, validate, display, match, and return the comp
 
 | ID | Argument | Semantics to cover | Status |
 |---|---|---|---|
-| T89-AV-001 | `service` | Required primary service, including shell/system/firewall and custom strings | [ ] |
-| T89-AV-002 | `protocol` | Optional service subset | [ ] |
-| T89-AV-003 | `cmd` | Empty for session authorization; non-empty for command authorization | [ ] |
-| T89-AV-004 | `cmd-arg` | Ordered, repeatable command arguments | [ ] |
-| T89-AV-005 | `acl` | Numeric connection ACL | [ ] |
-| T89-AV-006 | `inacl` | Input ACL identifier | [ ] |
-| T89-AV-007 | `outacl` | Output ACL identifier | [ ] |
-| T89-AV-008 | `addr` | IPv4/IPv6 network address | [ ] |
-| T89-AV-009 | `addr-pool` | Address-pool identifier | [ ] |
-| T89-AV-010 | `timeout` | Absolute connection timeout in minutes | [ ] |
-| T89-AV-011 | `idletime` | Idle timeout in minutes | [ ] |
-| T89-AV-012 | `autocmd` | Session auto-command | [ ] |
-| T89-AV-013 | `noescape` | Boolean | [ ] |
-| T89-AV-014 | `nohangup` | Boolean | [ ] |
-| T89-AV-015 | `priv-lvl` | Numeric 0 through 15 | [ ] |
-| T89-AV-016 | vendor/unknown | Preserve arbitrary name/value/separator/order | [ ] |
+| T89-AV-001 | `service` | Required primary service, including shell/system/firewall and custom strings | [x] |
+| T89-AV-002 | `protocol` | Optional service subset | [x] |
+| T89-AV-003 | `cmd` | Empty for session authorization; non-empty for command authorization | [x] |
+| T89-AV-004 | `cmd-arg` | Ordered, repeatable command arguments | [x] |
+| T89-AV-005 | `acl` | Numeric connection ACL | [x] |
+| T89-AV-006 | `inacl` | Input ACL identifier | [x] |
+| T89-AV-007 | `outacl` | Output ACL identifier | [x] |
+| T89-AV-008 | `addr` | IPv4/IPv6 network address | [x] |
+| T89-AV-009 | `addr-pool` | Address-pool identifier | [x] |
+| T89-AV-010 | `timeout` | Absolute connection timeout in minutes | [x] |
+| T89-AV-011 | `idletime` | Idle timeout in minutes | [x] |
+| T89-AV-012 | `autocmd` | Session auto-command | [x] |
+| T89-AV-013 | `noescape` | Boolean | [x] |
+| T89-AV-014 | `nohangup` | Boolean | [x] |
+| T89-AV-015 | `priv-lvl` | Numeric 0 through 15 | [x] |
+| T89-AV-016 | vendor/unknown | Preserve arbitrary name/value/separator/order | [x] |
 
 Value encodings to test:
 
@@ -260,11 +260,11 @@ Value encodings to test:
 
 | ID | Level | Requirement | Status |
 |---|---|---|---|
-| T89-PRIV-001 | MUST | Accept and preserve levels 0 through 15 | [ ] |
-| T89-PRIV-002 | MUST | Reject values outside the encoded field/rule range | [ ] |
-| T89-PRIV-003 | SHOULD | Support session-based shell authorization returning `priv-lvl` | [ ] |
+| T89-PRIV-001 | MUST | Accept and preserve levels 0 through 15 | [x] |
+| T89-PRIV-002 | MUST | Reject values outside the encoded field/rule range | [x] |
+| T89-PRIV-003 | SHOULD | Support session-based shell authorization returning `priv-lvl` | [x] |
 | T89-PRIV-004 | MUST | ENABLE flow can request a higher privilege without assuming prior auth by protocol | [ ] |
-| T89-PRIV-005 | PROJECT | Policy does not assume vendor command mappings for a privilege level | [ ] |
+| T89-PRIV-005 | PROJECT | Policy does not assume vendor command mappings for a privilege level | [x] |
 
 ## 12. Accounting matrix
 

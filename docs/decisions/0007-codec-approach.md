@@ -28,7 +28,13 @@ Candidate inputs (not specifications) are listed in `docs/REFERENCES.md`:
 - `gotacacs`: https://github.com/vitalvas/gotacacs
 - `wxccs/tacacs`: https://github.com/wxccs/tacacs
 
-Evaluation used those public repositories and source as of 2026-08-12. README claims were not treated as conformance evidence.
+Evaluation used those public repositories and source as of 2026-08-12 at the revisions below. README claims were not treated as conformance evidence. These SHAs are audit pins, not `go.mod` dependencies.
+
+| Candidate | Evaluated revision | Tag |
+|---|---|---|
+| Tacquito | [`77fc9df88b07b1f2c6f750b091d03ac90ca13adc`](https://github.com/facebookincubator/tacquito/commit/77fc9df88b07b1f2c6f750b091d03ac90ca13adc) | none |
+| gotacacs | [`0ecbaeeae5e07f66777e14b0d95952752628dd77`](https://github.com/vitalvas/gotacacs/commit/0ecbaeeae5e07f66777e14b0d95952752628dd77) | latest release `v0.4.0` is `d822e3d9dd763ec339b5dd892a87a161d621a351` (not this HEAD) |
+| wxccs/tacacs | [`b46f6def055e2f9736586731b064c8aa08d6ff2a`](https://github.com/wxccs/tacacs/commit/b46f6def055e2f9736586731b064c8aa08d6ff2a) | none |
 
 ## Decision
 
@@ -46,13 +52,13 @@ The production codec package remains a stub until the header and packet-family w
 
 ### Shared observations
 
-All three candidates are MIT-licensed (compatible with Apache-2.0). None met the isolation + bounded-parse + RFC-behavior + pinned-toolchain bar as an in-process engine or as a drop-in codec.
+All three candidates are MIT-licensed (compatible with Apache-2.0). None met the isolation + RFC-behavior + pinned-toolchain bar as an in-process engine or as a drop-in codec. Tacquito also fails bounded parse; gotacacs I/O is capped (see row).
 
-| Candidate | License | Stated Go | RFC 8907 | RFC 9887 | Isolated codec | Bounded parse | Notes |
-|---|---|---|---|---|---|---|---|
-| Tacquito | MIT | 1.26.0 | Claims RFC 8907; server+config+handlers in-tree | TLS 1.3 helper exists; comments still refer to an IETF draft; default client auth is optional | Core packet types sit beside server, secret, and handler APIs | `Packet.UnmarshalBinary` slices `v[12:12+length]` after a max-length check but without checking that the buffer contains `length` bytes | Header decode at seq 2 **sets** `SingleConnect`. ASCII check allows control characters. |
-| gotacacs | MIT | 1.25 | Header + AAA bodies + single-connect | TLS 1.3 listener helper; unencrypted flag set on TLS | Combined client/server SDK; high-level `Authenticate(user, password)` | Header decode records `Length` without a body cap; unknown packet type is a decode error | `ArgValues` splits only on `=`, dropping `*` mandatory AV pairs. Unknown type cannot produce the RFC 8907 §3.6 identical-header, seq+1, length-0 reply. |
-| wxccs/tacacs | MIT | 1.26.4 | Separate `packet/` package; `ErrorHeader` matches §3.6 shape | TLS 1.3 transport package; README claims RFC 9887 | `packet/` is closer to a codec, but the module also ships YANG, PAM, LDAP, CLI, and Prometheus | Header decode is 12-byte bounded; `Validate` rejects undefined flag bits | 0 stars / 38 commits at evaluation; README completeness is not evidence. Flag-bit reject conflicts with “ignore unknown flags on read”. |
+| Candidate | License | Stated Go | RFC 8907 | RFC 9887 | Isolated codec | Bounded parse | Fuzz / race | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Tacquito | MIT | 1.26.0 | Claims RFC 8907; server+config+handlers in-tree | TLS 1.3 helper exists; comments still refer to an IETF draft; default client auth is optional | Core packet types sit beside server, secret, and handler APIs | `Packet.UnmarshalBinary` slices `v[12:12+length]` after a max-length check but without checking that the buffer contains `length` bytes | No native `Fuzz*` targets. CI (`push.yml`) runs `go test -v ./...` without `-race`. | Header decode at seq 2 **sets** `SingleConnect`. ASCII check allows control characters. |
+| gotacacs | MIT | 1.25 | Header + AAA bodies + single-connect | TLS 1.3 listener helper; unencrypted flag set on TLS | Combined client/server SDK; high-level `Authenticate(user, password)` | Header type stores uncapped `Length`. Client `recvPacket` and server `readRawPacket` reject `Length > maxBodyLength` (default 256KiB) before `make`. That is a cap, not TacLab’s `min(length, max_packet_body_bytes)` (65536). Does **not** fail the bounded-parse bar. | Native `Fuzz*` on header, packet bodies, and obfuscation. CI runs `go test -race ./...`; no fuzz-smoke job. | `ArgValues` splits only on `=`, dropping `*` mandatory AV pairs. Unknown type is a decode error, so it cannot produce the RFC 8907 §3.6 identical-header, seq+1, length-0 reply. |
+| wxccs/tacacs | MIT | 1.26.4 | Separate `packet/` package; `ErrorHeader` matches §3.6 shape | TLS 1.3 transport package; README claims RFC 9887 | `packet/` is closer to a codec, but the module also ships YANG, PAM, LDAP, CLI, and Prometheus | Header decode is 12-byte bounded; `Validate` rejects undefined flag bits | Native `Fuzz*` in `packet/`, `crypto/`, `transport/`, `types/`, `legacy/`. CI runs `go test -race` and `make fuzz FUZZTIME=15s`. | 0 stars / 38 commits at evaluation; README completeness is not evidence. Flag-bit reject conflicts with “ignore unknown flags on read”. |
 
 ### Tacquito (`github.com/facebookincubator/tacquito`)
 
@@ -64,7 +70,7 @@ Tacquito is the most mature of the three (public RFC 8907 server, injected handl
 - `Header.UnmarshalBinary` forces the single-connect flag on sequence 2 instead of negotiating only the first request/reply pair and ignoring the flag afterward.
 - Printable-field checks use `unicode.MaxASCII` and do not reject control characters (RFC 8907 §3.7).
 - TLS helpers require TLS 1.3 but default `ClientAuth` to `VerifyClientCertIfGiven`. TacLab’s baseline is `RequireAndVerifyClientCert` on a dedicated listener, with obfuscation and flag policy in adapters — not in the codec.
-- `SetPacketBodyUnsafe` panics on marshal errors by design. That is unacceptable on a lab attack surface.
+- `SetPacketBodyUnsafe` is documented as test-only and panics on marshal errors. Do not copy that helper. The on-path bounded-parse defect is `Packet.UnmarshalBinary`, above.
 
 A hypothetical override would need a maintained, version-pinned **packet-only** subset (or a fork with an owner), a Go-version ADR, a panic-free bounded reader, flag/seq behavior aligned to RFC 8907, and no handler/config types on the TacLab side of the adapter.
 
@@ -76,9 +82,9 @@ gotacacs is a compact MIT client/server SDK that names RFC 8907 and RFC 9887.
 - `Header.Validate` rejects unknown packet types. TacLab must still decode the 12-byte header and reply with the identical cleartext header, sequence + 1, length 0 (RFC 8907 §3.6).
 - AV helpers keep only `key=value` and ignore `key*value`. Authorization/accounting conformance requires preserving both separators and duplicates.
 - The public API is a **session SDK** (`NewClient`, `NewServer`, `HandleAuthenStart`) that takes passwords and returns policy-shaped replies. That is not an isolated codec.
-- Header unmarshal does not apply `max_packet_body_bytes` before a caller might allocate the claimed body.
+- Header unmarshal records `Length` without a cap. Transport I/O already rejects `header.Length > maxBodyLength` (default 256KiB) before allocating the body. That is bounded, but it is not TacLab’s `min(length, max_packet_body_bytes)` policy (recommended 65536).
 
-An override would require extracting header/body marshalers, changing unknown-type and AV-separator behavior, adding a hard body cap before allocation, and wrapping the result so AAA never sees gotacacs types.
+An override would require extracting header/body marshalers, changing unknown-type and AV-separator behavior, aligning the I/O cap with TacLab’s body budget if the codec is reused, and wrapping the result so AAA never sees gotacacs types.
 
 ### wxccs/tacacs (`github.com/wxccs/tacacs`)
 

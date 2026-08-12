@@ -204,7 +204,7 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 **Depends on:** P1.1
 
-- [x] Create a small server adapter and independent test client/harness.
+- [ ] Create a small server adapter and independent test client/harness.
 - [x] Exercise packet encode/decode, sequence progression, legacy obfuscation, session IDs, and single-connect.
 - [ ] Exercise every authentication type required for 1.0.
 - [ ] Exercise authorization and accounting packet families/statuses.
@@ -215,18 +215,19 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 - [x] Benchmark header/body encode/decode and legacy body transform for representative packet sizes.
 
-The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. Authentication body families and author/acct statuses remain P3 (`internal/tacacs/codec`). The spike header bench does not satisfy `make bench`.
+The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. There is no listener, `net.Conn` adapter, or independent test client yet; `internal/tacacs/testclient` remains a stub owned by P3. Authentication body families and author/acct statuses also remain P3 (`internal/tacacs/codec`). The spike header bench does not satisfy `make bench`.
 
 ### P1.3 Decide and isolate the adapter boundary
 
 **Depends on:** P1.2
 
 - [x] Select the implementation approach using measured evidence.
-- [x] Define a project-owned codec/connection interface so external dependency details do not leak into AAA, policy, operations, or API packages.
+- [x] Decided: in-tree package `internal/tacacs/codec`; no third-party TACACS types in AAA, policy, operations, or API packages.
+- [ ] Define the project-owned codec/connection Go interface (encode/decode types).
 - [x] Document patches or upstream contributions required for conformance.
 - [x] Pin exact dependency versions or fork commit.
 
-No library is pinned. An override would require a new ADR, an isolated encode/decode surface, and a Go-version decision. See [ADR 0007](decisions/0007-codec-approach.md).
+No library is pinned. The typed codec API lands with P3. An override would require a new ADR, an isolated encode/decode surface, and a Go-version decision. See [ADR 0007](decisions/0007-codec-approach.md). Evaluation revisions of the rejected candidates are recorded in that ADR.
 
 **Acceptance**
 

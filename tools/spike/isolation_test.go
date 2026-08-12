@@ -1,34 +1,52 @@
 package spike
 
 import (
+	"go/parser"
+	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
+const spikeImportPath = "github.com/hilather/go-lab-tacacs-mcp/tools/spike"
+
 func TestProductionSourcesDoNotImportSpike(t *testing.T) {
 	t.Parallel()
 	roots := []string{
 		filepath.Join("..", "..", "internal"),
 		filepath.Join("..", "..", "cmd"),
+		filepath.Join("..", "..", "web"),
 	}
-	needle := "github.com/hilather/go-lab-tacacs-mcp/tools/spike"
 	var hits []string
+	fset := token.NewFileSet()
 	for _, root := range roots {
-		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if _, err := os.Stat(root); os.IsNotExist(err) {
+			continue
+		}
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			if d.IsDir() || !strings.HasSuffix(path, ".go") {
+			if d.IsDir() {
+				switch d.Name() {
+				case "node_modules", "vendor", "dist", "testdata":
+					return fs.SkipDir
+				}
 				return nil
 			}
-			raw, err := os.ReadFile(path)
+			if !strings.HasSuffix(path, ".go") {
+				return nil
+			}
+			file, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 			if err != nil {
 				return err
 			}
-			if strings.Contains(string(raw), needle) {
-				hits = append(hits, path)
+			for _, spec := range file.Imports {
+				if strings.Trim(spec.Path.Value, `"`) == spikeImportPath {
+					hits = append(hits, path)
+				}
 			}
 			return nil
 		})

@@ -130,21 +130,32 @@ func handleTokensRevoke(deps Deps) handleFunc {
 		if err != nil {
 			return nil, err
 		}
+		if deps.Usage != nil {
+			deps.Usage.Forget(req.ID)
+		}
 		return DeleteResult{ID: req.ID, Revision: published.Revision}, nil
 	}
 }
 
 func tokenView(tok state.EffectiveToken, usage TokenUsage) TokenView {
+	display := tok.Meta.DisplayName
+	if display == "" {
+		display = tok.Name
+	}
 	v := TokenView{
 		ID:                tok.ID,
 		Name:              tok.Name,
+		DisplayName:       display,
 		Scopes:            append([]string(nil), tok.Scopes...),
 		Enabled:           tok.Enabled,
 		ExpiresAt:         tok.ExpiresAt,
 		Source:            tok.Meta.Source,
 		ShadowsSource:     tok.Meta.ShadowsSource,
 		Deleted:           tok.Meta.Deleted,
+		RevisionCreated:   tok.Meta.RevisionCreated,
+		RevisionUpdated:   tok.Meta.RevisionUpdated,
 		EffectiveRevision: tok.Meta.EffectiveRevision,
+		Labels:            cloneTokenLabels(tok.Meta.Labels),
 		CreatedAt:         tok.Meta.CreatedAt,
 		UpdatedAt:         tok.Meta.UpdatedAt,
 	}
@@ -169,4 +180,15 @@ func newTokenID(entropy io.Reader) (string, error) {
 		out[i*2+1] = hexdigits[v&0x0f]
 	}
 	return string(out), nil
+}
+
+func cloneTokenLabels(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }

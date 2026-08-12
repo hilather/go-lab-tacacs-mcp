@@ -124,6 +124,47 @@ api:
 	}
 }
 
+func TestLoadBootstrapFailClosed(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "boot")
+	if err := os.WriteFile(path, []byte("unit-test-bootstrap-good\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src := fmt.Sprintf(`
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+api:
+  bootstrap_tokens:
+    - id: lab-admin
+      token: {file: %s}
+      scopes: [state:read]
+`, path)
+	doc, err := config.Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lookup := config.FileLookup(config.ReadOptions{StrictFilesSet: true, StrictFiles: false})
+	m, err := state.New(doc, state.Options{Clock: &fixedClock{t: time.Date(2026, 8, 12, 15, 0, 0, 0, time.UTC)}, Secrets: lookup})
+	if err != nil {
+		t.Fatal(err)
+	}
+	badLookup := config.SecretLookup(func(ref config.SecretRef) ([]byte, error) {
+		return nil, domain.NewError(domain.CodeSecretFileUnreadable, "secret file is not readable").WithPath(ref.File)
+	})
+	if err := LoadBootstrap(m.Snapshot(), badLookup); err == nil {
+		t.Fatal("missing file must fail")
+	}
+
+	wrong := config.SecretLookup(func(config.SecretRef) ([]byte, error) {
+		return []byte("unit-test-bootstrap-wrong"), nil
+	})
+	if err := LoadBootstrap(m.Snapshot(), wrong); !isCode(err, domain.CodeUnauthenticated) {
+		t.Fatalf("wrong bytes: %v", err)
+	}
+}
+
 func TestSessionCookieAndCSRF(t *testing.T) {
 	t.Parallel()
 	m, value, clock := mustTokenMgr(t, []string{"state:read", "state:write"}, nil)
@@ -243,6 +284,40 @@ func TestSessionIdleAndLifetime(t *testing.T) {
 	clock.t = clock.t.Add(11 * time.Minute)
 	if _, err := svc.VerifyCookie(cookie, "", false, m.Snapshot()); !isCode(err, domain.CodeUnauthenticated) {
 		t.Fatalf("idle: %v", err)
+	}
+}
+
+func TestExpiredSessionDoesNotConsumeSlot(t *testing.T) {
+	t.Parallel()
+	clock := &fixedClock{t: time.Date(2026, 8, 12, 15, 0, 0, 0, time.UTC)}
+	m, _, _ := mustTokenMgrClock(t, []string{"state:read"}, nil, clock)
+	svc := New(Options{Clock: clock, MaxSess: 1})
+	actor := operations.Actor{ID: "rt", Scopes: []string{"state:read"}}
+	if _, err := svc.Create(actor, m.Snapshot()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Create(actor, m.Snapshot()); !isCode(err, domain.CodeUnavailable) {
+		t.Fatalf("cap: %v", err)
+	}
+	clock.t = clock.t.Add(11 * time.Minute)
+	if _, err := svc.Create(actor, m.Snapshot()); err != nil {
+		t.Fatalf("expired slot: %v", err)
+	}
+}
+
+func TestForgetClearsLastUsed(t *testing.T) {
+	t.Parallel()
+	m, value, clock := mustTokenMgr(t, []string{"state:read"}, nil)
+	svc := New(Options{Clock: clock})
+	if _, err := svc.VerifyBearer([]byte(value), m.Snapshot()); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := svc.LastUsed("rt"); !ok {
+		t.Fatal("expected last-used")
+	}
+	svc.Forget("rt")
+	if _, ok := svc.LastUsed("rt"); ok {
+		t.Fatal("last-used survived revoke")
 	}
 }
 

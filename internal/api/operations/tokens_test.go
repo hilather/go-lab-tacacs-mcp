@@ -39,6 +39,9 @@ func TestTokenCreateListRevoke(t *testing.T) {
 	if created.Source != domain.SourceRuntime {
 		t.Fatalf("source=%s", created.Source)
 	}
+	if created.RevisionCreated == 0 || created.RevisionUpdated == 0 || created.DisplayName == "" {
+		t.Fatalf("envelope missing: %+v", created.TokenView)
+	}
 	raw, err := json.Marshal(created)
 	if err != nil {
 		t.Fatal(err)
@@ -232,6 +235,32 @@ func TestSessionOperations(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSessionDeleteRequiresPrincipal(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	sessions := &memSessions{byID: map[string]Session{"sid-1": {TokenID: "sess"}}}
+	reg := mustTokenRegistrySessions(t, m, sessions)
+	_, err := reg.Invoke(context.Background(), IDSessionDelete, m.Snapshot(), Input{
+		Request: DeleteSessionRequest{SessionID: "sid-1"},
+	})
+	if !isCode(err, domain.CodeUnauthenticated) {
+		t.Fatalf("public logout: %v", err)
+	}
+	if _, ok := sessions.byID["sid-1"]; !ok {
+		t.Fatal("session deleted without principal")
+	}
+	_, err = reg.Invoke(context.Background(), IDSessionDelete, m.Snapshot(), Input{
+		Actor:   Actor{ID: "sess", SessionID: "sid-1"},
+		Request: DeleteSessionRequest{SessionID: "other"},
+	})
+	if !isCode(err, domain.CodePermissionDenied) {
+		t.Fatalf("body mismatch: %v", err)
+	}
+	if created := sessions.byID["sid-1"]; created.TokenID != "sess" {
+		t.Fatal("mismatch deleted session")
 	}
 }
 

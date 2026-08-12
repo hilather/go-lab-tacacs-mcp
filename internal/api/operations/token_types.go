@@ -31,13 +31,17 @@ type RevokeTokenRequest struct {
 type TokenView struct {
 	ID                string              `json:"id"`
 	Name              string              `json:"name,omitempty"`
+	DisplayName       string              `json:"display_name,omitempty"`
 	Scopes            []string            `json:"scopes"`
 	Enabled           bool                `json:"enabled"`
 	ExpiresAt         *time.Time          `json:"expires_at,omitempty"`
 	Source            domain.ObjectSource `json:"source"`
 	ShadowsSource     domain.ObjectSource `json:"shadows_source,omitempty"`
 	Deleted           bool                `json:"deleted,omitempty"`
+	RevisionCreated   domain.Revision     `json:"revision_created"`
+	RevisionUpdated   domain.Revision     `json:"revision_updated"`
 	EffectiveRevision domain.Revision     `json:"effective_revision"`
+	Labels            map[string]string   `json:"labels,omitempty"`
 	CreatedAt         time.Time           `json:"created_at"`
 	UpdatedAt         time.Time           `json:"updated_at"`
 	LastUsedAt        *time.Time          `json:"last_used_at,omitempty"`

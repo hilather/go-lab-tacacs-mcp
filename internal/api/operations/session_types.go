@@ -42,4 +42,5 @@ type SessionService interface {
 // TokenUsage is optional coarse last-used tracking.
 type TokenUsage interface {
 	LastUsed(id string) (time.Time, bool)
+	Forget(id string)
 }

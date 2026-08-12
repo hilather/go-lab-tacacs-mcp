@@ -501,12 +501,18 @@ func (m *Manager) CreateToken(req CreateToken, expected *domain.Revision) (*Snap
 				return ov, nil, domain.NewError(domain.CodeInvalidArgument, "unknown scope").WithPath("scopes[" + strconv.Itoa(i) + "]")
 			}
 		}
+		if len(req.Scopes) == 0 {
+			return ov, nil, domain.NewError(domain.CodeInvalidArgument, "at least one scope is required").WithPath("scopes")
+		}
 		if _, ok := liveToken(m.baseline, ov, req.ID); ok && !req.Override {
 			return ov, nil, domain.NewError(domain.CodeAlreadyExists, "token already exists").WithPath("tokens/" + req.ID)
 		}
 		_, inBase := baselineToken(m.baseline, req.ID)
 		if inBase && !req.Override {
 			return ov, nil, domain.NewError(domain.CodeAlreadyExists, "token already exists").WithPath("tokens/" + req.ID)
+		}
+		if inBase && !m.baseline.Runtime.AllowShadowing {
+			return ov, nil, domain.NewError(domain.CodeConflict, "shadowing is disabled").WithPath("tokens/" + req.ID)
 		}
 		src := domain.SourceRuntime
 		var shadows domain.ObjectSource
@@ -522,6 +528,10 @@ func (m *Manager) CreateToken(req CreateToken, expected *domain.Revision) (*Snap
 		if !req.Material.Empty() {
 			dig = credentials.DigestToken(req.Material)
 		}
+		var prev *domain.ObjectMeta
+		if e, ok := ov.tokens[req.ID]; ok && !e.deleted {
+			prev = &e.meta
+		}
 		ov.tokens[req.ID] = overlayToken{
 			token: tokenRecord{
 				ID:        req.ID,
@@ -532,7 +542,7 @@ func (m *Manager) CreateToken(req CreateToken, expected *domain.Revision) (*Snap
 				HasDigest: !dig.Empty(),
 				Digest:    dig,
 			},
-			meta: newOverlayMeta(domain.KindToken, req.ID, req.Name, src, shadows, enabled, nil, rev, now, nil),
+			meta: newOverlayMeta(domain.KindToken, req.ID, req.Name, src, shadows, enabled, nil, rev, now, prev),
 		}
 		return ov, nil, nil
 	})

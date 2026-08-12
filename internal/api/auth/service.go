@@ -217,6 +217,7 @@ func (s *Service) Create(actor operations.Actor, snap *state.Snapshot) (operatio
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.sweepExpiredLocked(cfg, now)
 	if len(s.sessions) >= s.maxSess {
 		return operations.Session{}, domain.NewError(domain.CodeUnavailable, "session capacity exceeded")
 	}
@@ -311,6 +312,24 @@ func (s *Service) LastUsed(id string) (time.Time, bool) {
 	defer s.mu.Unlock()
 	ts, ok := s.lastUsed[id]
 	return ts, ok
+}
+
+// Forget drops last-used metadata for a revoked token id.
+func (s *Service) Forget(id string) {
+	if s == nil || id == "" {
+		return
+	}
+	s.mu.Lock()
+	delete(s.lastUsed, id)
+	s.mu.Unlock()
+}
+
+func (s *Service) sweepExpiredLocked(cfg config.UISession, now time.Time) {
+	for id, rec := range s.sessions {
+		if expired(rec, cfg, now) {
+			delete(s.sessions, id)
+		}
+	}
 }
 
 func (s *Service) touchLocked(id string, now time.Time) {

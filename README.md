@@ -22,6 +22,7 @@ This checkout implements the 12-byte TACACS+ header codec and RFC 8907 §4.5 leg
 - [Product design (packet)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/DESIGN.md)
 - [Architecture](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md)
 - [ADR 0001 — dual-listener lab](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0001-all-in-one-dual-listener-lab.md)
+- [ADR 0002 — password KDF and username profile](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md)
 - [ADR 0007 — internal TACACS codec](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0007-codec-approach.md)
 - [TACACS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md)
 - [REST/MCP API parity](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md)
@@ -60,6 +61,6 @@ make build
 ./bin/taclabd -h
 ```
 
-`make bench` runs header decode/encode and 64 B / 1 KiB obfuscation benches under `internal/tacacs/codec`.
+`make bench` runs header decode/encode and 64 B / 1 KiB obfuscation benches under `internal/tacacs/codec`, plus later policy/state benches. Argon2id KDF benches live under `internal/credentials` and are excluded from that target so KDF cost does not dominate the ordinary suite.
 
 `make ci` is the local equivalent of the GitHub Actions merge gate (without `govulncheck` network install unless you run `make vuln`).

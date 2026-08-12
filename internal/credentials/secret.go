@@ -319,4 +319,6 @@ var (
 	_ fmt.Formatter  = SharedSecret{}
 	_ json.Marshaler = TokenMaterial{}
 	_ slog.LogValuer = TLSPrivateKey{}
+	_ fmt.Stringer   = TokenDigest{}
+	_ json.Marshaler = TokenDigest{}
 )

@@ -29,13 +29,14 @@ Agents must read these files before modifying implementation code:
 4. [ARCHITECTURE.md](ARCHITECTURE.md) - package boundaries, data flow, and dependency rules.
 5. [decisions/0001-all-in-one-dual-listener-lab.md](decisions/0001-all-in-one-dual-listener-lab.md) - accepted lab topology and transport-isolation safeguards.
 6. [decisions/0007-codec-approach.md](decisions/0007-codec-approach.md) - accepted internal TACACS+ codec default.
-7. [TACACS_CONFORMANCE.md](TACACS_CONFORMANCE.md) - release-blocking protocol matrix.
-8. [API_PARITY.md](API_PARITY.md) - REST/MCP parity contract.
-9. [CONFIGURATION.md](CONFIGURATION.md) - configuration and runtime-overlay model.
-10. [TESTING_AND_BENCHMARKS.md](TESTING_AND_BENCHMARKS.md) - mandatory regression, conformance, fuzz, race, and benchmark policy.
-11. [LAB_DEPLOYMENT.md](LAB_DEPLOYMENT.md) - container and reference lab requirements.
-12. [TASKS.md](TASKS.md) - phased implementation backlog and acceptance gates.
-13. [REFERENCES.md](REFERENCES.md) - normative and implementation references.
+7. [decisions/0002-password-kdf.md](decisions/0002-password-kdf.md) - Argon2id parameters, UsernameCasePreserved, MS-CHAP v2 username.
+8. [TACACS_CONFORMANCE.md](TACACS_CONFORMANCE.md) - release-blocking protocol matrix.
+9. [API_PARITY.md](API_PARITY.md) - REST/MCP parity contract.
+10. [CONFIGURATION.md](CONFIGURATION.md) - configuration and runtime-overlay model.
+11. [TESTING_AND_BENCHMARKS.md](TESTING_AND_BENCHMARKS.md) - mandatory regression, conformance, fuzz, race, and benchmark policy.
+12. [LAB_DEPLOYMENT.md](LAB_DEPLOYMENT.md) - container and reference lab requirements.
+13. [TASKS.md](TASKS.md) - phased implementation backlog and acceptance gates.
+14. [REFERENCES.md](REFERENCES.md) - normative and implementation references.
 
 ## Product-level release gates
 

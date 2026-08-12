@@ -282,7 +282,7 @@ Packet files live at the packet root. README required-reading links assume `docs
 | Exact Go / Node / MCP SDK versions | Pin in P0 after `go version` / SDK 2026-07-28 compatibility check |
 | Codec: library vs internal | **Internal codec** ([ADR 0007](decisions/0007-codec-approach.md)). A later library override requires a new ADR and must meet the isolation/conformance bar |
 | Username profile implementation | `golang.org/x/text/secure/precis` `UsernameCasePreserved` |
-| Password KDF | Argon2id via `golang.org/x/crypto/argon2`; parameters recorded in ADR-0002 during P5.1 |
+| Password KDF | Argon2id via `golang.org/x/crypto/argon2`; parameters recorded in [ADR-0002](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md) |
 | TLS revocation | 1.0: **configured CRL** (`revocation.mode: configured_crl`). OCSP/AIA is post-1.0 or ADR |
 | RFC 7924 Cached Information | **DISPOSITIONED_SHOULD** if pinned `crypto/tls` has no hook (expected). ADR-0003 |
 | TLS 1.3 cipher-policy YAML | **DISPOSITIONED_SHOULD**: honor Go TLS 1.3 mandatory suites; reject any YAML that claims a cipher the stack cannot enforce. ADR-0004 |
@@ -1266,7 +1266,7 @@ All previously user-owned items are **Resolved**. Implementers must use these va
    **Resolved:** Ship as **TacLab** / **`taclabd`**. Repository name stays `go-lab-tacacs-mcp`.
 
 5. **Argon2id parameter set.**  
-   **Resolved:** Not a user product pick. ADR-0002 proposes parameters during implementation (P5.1 / PR-08).
+   **Resolved:** Not a user product pick. ADR-0002 records Argon2id m=65536 KiB, t=3, p=1, 16-byte salt, 32-byte tag.
 
 6. **File-watcher reload.**  
    **Resolved:** **Off** in all reference profiles. Reload is explicit only (`SIGHUP` or authorized `config.reload`).

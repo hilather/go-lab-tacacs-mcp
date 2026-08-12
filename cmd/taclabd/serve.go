@@ -22,7 +22,7 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "taclabd serve: %v\n", err)
 		return 2
 	}
-	if err := runServe(ctx, path, stdout, stderr); err != nil {
+	if err := runServeWith(ctx, path, stdout, stderr, nil); err != nil {
 		fmt.Fprintf(stderr, "taclabd serve: %v\n", err)
 		return 1
 	}
@@ -57,6 +57,10 @@ func parseConfigFlag(args []string) (string, error) {
 }
 
 func runServe(ctx context.Context, path string, stdout, stderr io.Writer) error {
+	return runServeWith(ctx, path, stdout, stderr, nil)
+}
+
+func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h server.Handler) error {
 	doc, err := config.Load(path)
 	if err != nil {
 		return err
@@ -81,6 +85,9 @@ func runServe(ctx context.Context, path string, stdout, stderr io.Writer) error 
 	if doc.Listeners.HTTP.Enabled {
 		logger.Warn("listeners.http is not implemented; admin listener skipped")
 	}
+	if h == nil {
+		h = server.Stub{}
+	}
 
 	ln, err := legacy.Listen(legacy.Options{
 		Bind:     doc.Listeners.LegacyTACACS.Bind,
@@ -88,13 +95,14 @@ func runServe(ctx context.Context, path string, stdout, stderr io.Writer) error 
 		Grace:    doc.Server.ShutdownGrace,
 		Snapshot: mgr.Snapshot,
 		Secrets:  lookup,
-		Handler:  server.Stub{},
+		Handler:  h,
 		Logger:   logger,
 	})
 	if err != nil {
 		return err
 	}
 
+	// serveCtx stops Accept only. Connection sessions use a detached drain context.
 	serveCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -122,18 +130,24 @@ func runServe(ctx context.Context, path string, stdout, stderr io.Writer) error 
 	fmt.Fprintf(stdout, "listening legacy_tacacs %s\n", ln.Addr().String())
 	fmt.Fprintln(stdout, "ready")
 
+	var serveErr error
 	select {
-	case err := <-errc:
-		if err != nil && serveCtx.Err() == nil {
-			return err
-		}
+	case serveErr = <-errc:
 	case <-serveCtx.Done():
+		select {
+		case serveErr = <-errc:
+		default:
+		}
 	}
 
 	shutCtx, cancel := context.WithTimeout(context.Background(), doc.Server.ShutdownGrace)
 	defer cancel()
-	if err := ln.Shutdown(shutCtx); err != nil && shutCtx.Err() == nil {
-		return err
+	shutErr := ln.Shutdown(shutCtx)
+	if serveErr != nil && serveCtx.Err() == nil {
+		return serveErr
+	}
+	if shutErr != nil && shutCtx.Err() == nil {
+		return shutErr
 	}
 	return nil
 }

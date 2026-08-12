@@ -21,7 +21,8 @@ func FuzzServeConn(f *testing.F) {
 		_ = client.Close()
 		select {
 		case <-done:
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(2 * time.Second):
+			t.Fatal("ServeConn hung")
 		}
 	})
 }

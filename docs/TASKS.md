@@ -508,7 +508,7 @@ The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a ra
 **Tests and benchmarks**
 
 - [x] IPv4/IPv6, overlapping CIDRs, priority, and unknown client cases.
-- [x] Benchmark client matching at maximum reference client count.
+- [ ] Benchmark client matching at maximum reference client count.
 
 ### P4.3 Implement connection/session dispatcher
 
@@ -570,7 +570,7 @@ The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a ra
 - [x] Legacy listener can safely carry all packet families to stub handlers.
 - [x] Single-connect race and load tests pass.
 - [x] Source matching and body transformation are correct.
-- [x] Connection/resource benchmarks are recorded.
+- [ ] Connection/resource benchmarks are recorded.
 
 ## 8. Milestone P5 - Authentication service completeness
 

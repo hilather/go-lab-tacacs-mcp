@@ -21,6 +21,7 @@ func TestConcurrentSingleConnectSessions(t *testing.T) {
 	}
 
 	const n = 8
+	var wmu sync.Mutex
 	var wg sync.WaitGroup
 	errc := make(chan error, n)
 	for i := 0; i < n; i++ {
@@ -28,9 +29,11 @@ func TestConcurrentSingleConnectSessions(t *testing.T) {
 		go func(sid uint32) {
 			defer wg.Done()
 			req := codec.Header{Version: codec.VersionByte(0), Type: codec.TypeAuthor, SeqNo: 1, SessionID: sid}
-			if err := writePacket(client, req, authorBody("u")); err != nil {
+			wmu.Lock()
+			err := writePacket(client, req, authorBody("u"))
+			wmu.Unlock()
+			if err != nil {
 				errc <- err
-				return
 			}
 		}(uint32(100 + i))
 	}

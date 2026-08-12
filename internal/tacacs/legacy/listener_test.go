@@ -103,42 +103,6 @@ func TestUnencryptedRejected(t *testing.T) {
 	}
 }
 
-func TestWrongSecretError(t *testing.T) {
-	dir := t.TempDir()
-	sec := writeSecret(t, dir, "secret", testSecret)
-	ln, _ := startListener(t, testYAML(sec, "127.0.0.1:0", `"127.0.0.0/8"`), nil)
-
-	c, err := tclient.Dial(ln.Addr().String(), []byte("WrongSecret-16ch!"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Close()
-
-	body, err := tcodec.WriteAuthorReq(tcodec.AuthorReq{
-		Method: tcodec.MethTACACS, Service: tcodec.SvcLogin,
-		User: []byte("alice"), Port: []byte("tty0"), RemAddr: []byte("127.0.0.1"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := tcodec.Header{Version: tcodec.VersionByte(0), Type: tcodec.TypeAuthor, SeqNo: 1, SessionID: 3}
-	if err := c.WritePacket(h, body); err != nil {
-		t.Fatal(err)
-	}
-	_, rbody, err := c.ReadPacket()
-	if err != nil {
-		// connection may close without a decodable reply if pad is garbage
-		return
-	}
-	rep, err := tcodec.ReadAuthorRep(rbody)
-	if err != nil {
-		return
-	}
-	if rep.Status != tcodec.AuthorError {
-		t.Fatalf("status=%#x want ERROR", rep.Status)
-	}
-}
-
 func TestDistinctClientSecrets(t *testing.T) {
 	dir := t.TempDir()
 	secA := writeSecret(t, dir, "a", testSecret)

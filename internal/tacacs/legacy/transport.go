@@ -43,6 +43,10 @@ func (c *conn) Read(ctx context.Context, maxBody uint32, deadline time.Time) (co
 		return codec.Header{}, nil, err
 	}
 	if h.Flags&codec.FlagUnencrypted != 0 {
+		// Skip the claimed body so a drain-and-continue read stays aligned.
+		if err := skipBody(c.nc, h, maxBody); err != nil {
+			return h, nil, err
+		}
 		return h, nil, server.ErrUnencrypted
 	}
 	body, err := h.AllocateBody(maxBody)
@@ -80,6 +84,18 @@ func (c *conn) Write(ctx context.Context, h codec.Header, body []byte, deadline 
 		return err
 	}
 	_, err := c.nc.Write(pkt)
+	return err
+}
+
+func skipBody(r io.Reader, h codec.Header, maxBody uint32) error {
+	max := codec.ClampMaxBody(maxBody)
+	if h.Length > max {
+		return codec.ErrBodyTooLarge
+	}
+	if h.Length == 0 {
+		return nil
+	}
+	_, err := io.CopyN(io.Discard, r, int64(h.Length))
 	return err
 }
 

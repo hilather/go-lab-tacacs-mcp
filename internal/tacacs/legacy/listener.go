@@ -31,11 +31,13 @@ type Options struct {
 
 // Listener is the RFC 8907 TCP socket.
 type Listener struct {
-	ln     net.Listener
-	engine *server.Engine
-	opts   Options
-	ready  atomic.Bool
-	wg     sync.WaitGroup
+	ln         net.Listener
+	engine     *server.Engine
+	opts       Options
+	ready      atomic.Bool
+	wg         sync.WaitGroup
+	connCtx    context.Context
+	connCancel context.CancelFunc
 }
 
 // Listen binds the configured address. Serve must be called to accept.
@@ -66,14 +68,18 @@ func Listen(opts Options) (*Listener, error) {
 	if err != nil {
 		return nil, err
 	}
+	connCtx, connCancel := context.WithCancel(context.Background())
+	eng := &server.Engine{
+		Limits:  limitsFrom(opts.Settings, opts.Grace),
+		Handler: opts.Handler,
+	}
+	eng.Prepare()
 	return &Listener{
-		ln:   ln,
-		opts: opts,
-		engine: &server.Engine{
-			Limits:  limitsFrom(opts.Settings, opts.Grace),
-			Handler: opts.Handler,
-			Logger:  opts.Logger,
-		},
+		ln:         ln,
+		opts:       opts,
+		connCtx:    connCtx,
+		connCancel: connCancel,
+		engine:     eng,
 	}, nil
 }
 
@@ -138,27 +144,42 @@ func (l *Listener) Serve(ctx context.Context) error {
 		l.wg.Add(1)
 		go func(nc net.Conn) {
 			defer l.wg.Done()
-			l.handle(ctx, nc)
+			// Accept-loop ctx only stops Accept. Sessions drain on Shutdown.
+			l.handle(l.connCtx, nc)
 		}(c)
 	}
 }
 
 func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 	defer nc.Close()
+	if !l.engine.TryAcquire() {
+		return
+	}
+	held := true
+	release := func() {
+		if held {
+			l.engine.Release()
+			held = false
+		}
+	}
+
 	ip := peerIP(nc.RemoteAddr())
 	snap := l.opts.Snapshot()
 	if snap == nil {
+		release()
 		l.opts.Logger.Error("legacy reject: no snapshot")
 		return
 	}
 	client, err := snap.MatchClient(domain.TransportLegacy, ip, nil)
 	if err != nil {
+		release()
 		l.opts.Logger.Info("legacy reject: unknown client")
 		return
 	}
 	raw, err := l.opts.Secrets(client.Client.Legacy.SharedSecret)
 	if err != nil || len(raw) == 0 {
 		wipe(raw)
+		release()
 		l.opts.Logger.Error("legacy reject: shared secret unavailable", "client_id", client.Client.ID)
 		return
 	}
@@ -172,7 +193,9 @@ func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 		Revision:  snap.Revision,
 	}
 	pio := newConn(nc, secret)
-	if err := l.engine.Serve(ctx, pio, id); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, io.EOF) {
+	// ServeHeld releases the slot.
+	held = false
+	if err := l.engine.ServeHeld(ctx, pio, id); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, io.EOF) {
 		l.opts.Logger.Debug("legacy connection ended", "client_id", id.ClientID, "err", err)
 	}
 }
@@ -190,7 +213,8 @@ func peerIP(addr net.Addr) net.IP {
 	}
 }
 
-// Shutdown stops accepts and drains connections.
+// Shutdown stops accepts and waits for in-flight sessions up to ctx.
+// After ctx expires, remaining connection contexts are cancelled.
 func (l *Listener) Shutdown(ctx context.Context) error {
 	l.ready.Store(false)
 	if l.ln != nil {
@@ -201,13 +225,20 @@ func (l *Listener) Shutdown(ctx context.Context) error {
 		l.wg.Wait()
 		close(done)
 	}()
-	if l.engine != nil {
-		l.engine.Drain(ctx)
-	}
 	select {
 	case <-done:
+		if l.connCancel != nil {
+			l.connCancel()
+		}
 		return nil
 	case <-ctx.Done():
+		if l.connCancel != nil {
+			l.connCancel()
+		}
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 		return ctx.Err()
 	}
 }

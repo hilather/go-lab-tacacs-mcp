@@ -62,6 +62,11 @@ clients:
 
 func startListener(t *testing.T, yaml string, lookup config.SecretLookup) (*Listener, *state.Manager) {
 	t.Helper()
+	return startListenerH(t, yaml, lookup, server.Stub{})
+}
+
+func startListenerH(t *testing.T, yaml string, lookup config.SecretLookup, h server.Handler) (*Listener, *state.Manager) {
+	t.Helper()
 	doc, err := config.Parse([]byte(yaml))
 	if err != nil {
 		t.Fatal(err)
@@ -75,13 +80,16 @@ func startListener(t *testing.T, yaml string, lookup config.SecretLookup) (*List
 	if err != nil {
 		t.Fatal(err)
 	}
+	if h == nil {
+		h = server.Stub{}
+	}
 	ln, err := Listen(Options{
 		Bind:     doc.Listeners.LegacyTACACS.Bind,
 		Settings: doc.Listeners.LegacyTACACS,
 		Grace:    time.Second,
 		Snapshot: mgr.Snapshot,
 		Secrets:  lookup,
-		Handler:  server.Stub{},
+		Handler:  h,
 	})
 	if err != nil {
 		t.Fatal(err)

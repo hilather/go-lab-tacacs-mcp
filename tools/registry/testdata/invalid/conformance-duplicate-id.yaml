@@ -1,0 +1,20 @@
+schema_version: 1
+rfc: "8907"
+title: duplicate conformance id fixture
+rows:
+  - id: T89-H-001
+    section: header
+    section_title: Header
+    level: PROJECT MUST
+    requirement: Support TACACS+ major version 0xc
+    evidence_required: Header codec tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-001
+    section: header
+    section_title: Header
+    level: PROJECT MUST
+    requirement: Duplicate row
+    evidence_required: None
+    status: NOT_STARTED
+    evidence: []

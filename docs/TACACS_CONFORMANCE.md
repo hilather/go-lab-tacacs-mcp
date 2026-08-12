@@ -43,6 +43,12 @@ Level labels are interpreted as follows:
 | `CLIENT-ROLE` | Normative statement applies to a TACACS+ client; tracked for the independent test client and interoperability, not claimed as server behavior |
 | `Removed` or `Deprecated` | Legacy behavior must not be advertised; rejection or safe disposition is tested |
 
+### 2.1 Machine-readable registry
+
+Row IDs are encoded in `testdata/conformance/rfc8907.yaml` and `testdata/conformance/rfc9887.yaml`. Status starts at `NOT_STARTED` with empty evidence. `make generate` writes [docs/generated/conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md). `make check-registries` fails on duplicate IDs, empty tables, and contract rows that are missing from the YAML.
+
+Do not mark a row `PASS` without linked evidence. Release status gates (`MUST` / `MUST NOT` / `PROJECT MUST` must be `PASS` or an RFC-allowed deprecation) are separate from the structural registry check.
+
 ## 3. Test evidence conventions
 
 Each completed row must identify one or more of:

@@ -19,6 +19,8 @@ make ci
 
 Regenerate checked-in generated files with `make generate`. CI fails on drift.
 
+`make check-registries` validates `api/operations.yaml` and `testdata/conformance/*.yaml` (duplicate IDs, required REST/MCP bindings). Missing bindings fail even before handlers exist.
+
 ## Scope
 
 This repository is an implementation of the [canonical design](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md). Do not claim complete TACACS+ support while MUST conformance rows are unchecked.

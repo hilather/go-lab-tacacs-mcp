@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail if generated files differ from the stub generator output.
+# Fail if generated files differ from tools/generate plus registry inventories.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,6 +8,7 @@ cd "$root"
 export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${PATH}"
 
 go run ./tools/generate
+go run ./tools/check-registries -write-docs
 
 if ! git diff --exit-code -- docs/generated; then
   echo "generated-file drift: docs/generated does not match tools/generate" >&2

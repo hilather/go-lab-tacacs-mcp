@@ -1,0 +1,33 @@
+schema_version: 1
+title: duplicate operation id fixture
+operations:
+  - id: users.get
+    description: Get a user
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: true
+    scopes: [state:read]
+    request_type: GetUserRequest
+    response_type: User
+    rest:
+      method: GET
+      path: /api/v1/users/{id}
+    mcp:
+      kind: tool
+      name: taclab.users.get
+    status: NOT_STARTED
+  - id: users.get
+    description: Get a user again
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: true
+    scopes: [state:read]
+    request_type: GetUserRequest
+    response_type: User
+    rest:
+      method: GET
+      path: /api/v1/users/{id}/alt
+    mcp:
+      kind: tool
+      name: taclab.users.get.alt
+    status: NOT_STARTED

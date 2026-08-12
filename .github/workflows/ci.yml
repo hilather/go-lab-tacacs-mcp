@@ -72,6 +72,9 @@ jobs:
       - name: Secret scan
         run: make secrets
 
+      - name: Registry check
+        run: make check-registries
+
       - name: Generated-file drift
         run: make check-generated
 
@@ -95,6 +98,8 @@ jobs:
           path: |
             dist/toolchain-versions.txt
             docs/generated/toolchain.md
+            docs/generated/api-parity.md
+            docs/generated/conformance.md
           if-no-files-found: warn
           retention-days: 30
 

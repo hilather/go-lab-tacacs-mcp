@@ -1,0 +1,615 @@
+# Canonical administrative operation registry.
+# REST and MCP adapters must share these IDs, scopes, and bindings.
+# Path parameters use {id} (API_PARITY {name} is an alias).
+# Handlers may be absent; missing required bindings still fail CI.
+schema_version: 1
+title: TacLab operation registry
+operations:
+  - id: system.status.get
+    description: Read listener and snapshot status
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: GetStatusRequest
+    response_type: Status
+    rest:
+      method: GET
+      path: /api/v1/status
+    mcp:
+      kind: tool
+      name: taclab.system.status.get
+      resource: taclab://status
+    status: NOT_STARTED
+
+  - id: system.build.get
+    description: Read build and specification versions
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: GetBuildRequest
+    response_type: BuildInfo
+    rest:
+      method: GET
+      path: /api/v1/build
+    mcp:
+      kind: tool
+      name: taclab.system.build.get
+      resource: taclab://build
+    status: NOT_STARTED
+
+  - id: config.effective.get
+    description: Read the redacted effective configuration
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: GetEffectiveConfigRequest
+    response_type: EffectiveConfig
+    rest:
+      method: GET
+      path: /api/v1/config/effective
+    mcp:
+      kind: tool
+      name: taclab.config.effective.get
+      resource: taclab://config/effective
+    status: NOT_STARTED
+
+  - id: config.validate
+    description: Validate a candidate configuration without publishing state
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:write]
+    request_type: ValidateConfigRequest
+    response_type: ValidateConfigResult
+    rest:
+      method: POST
+      path: /api/v1/config/validate
+    mcp:
+      kind: tool
+      name: taclab.config.validate
+    audit_event: api.config.validated
+    status: NOT_STARTED
+
+  - id: config.reload
+    description: Reload the mounted baseline and rebase the overlay
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [config:reload]
+    request_type: ReloadConfigRequest
+    response_type: ReloadConfigResult
+    rest:
+      method: POST
+      path: /api/v1/config/reload
+    mcp:
+      kind: tool
+      name: taclab.config.reload
+    audit_event: api.config.reloaded
+    status: NOT_STARTED
+
+  - id: config.export
+    description: Export a redacted effective configuration document
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [config:export]
+    request_type: ExportConfigRequest
+    response_type: ExportConfigResult
+    rest:
+      method: GET
+      path: /api/v1/config/export
+    mcp:
+      kind: tool
+      name: taclab.config.export
+    audit_event: api.config.exported
+    status: NOT_STARTED
+
+  - id: runtime.reset
+    description: Drop the entire runtime overlay including tombstones
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [runtime:reset]
+    request_type: ResetRuntimeRequest
+    response_type: ResetRuntimeResult
+    rest:
+      method: POST
+      path: /api/v1/runtime/reset
+    mcp:
+      kind: tool
+      name: taclab.runtime.reset
+    audit_event: api.runtime.reset
+    status: NOT_STARTED
+
+  - id: users.list
+    description: List users in deterministic id order
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: ListUsersRequest
+    response_type: UserList
+    rest:
+      method: GET
+      path: /api/v1/users
+    mcp:
+      kind: tool
+      name: taclab.users.list
+      resource: taclab://users
+    status: NOT_STARTED
+
+  - id: users.get
+    description: Get one user by id
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: GetUserRequest
+    response_type: User
+    rest:
+      method: GET
+      path: /api/v1/users/{id}
+    mcp:
+      kind: tool
+      name: taclab.users.get
+    status: NOT_STARTED
+
+  - id: users.create
+    description: Create a runtime user or override a baseline user
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: CreateUserRequest
+    response_type: User
+    rest:
+      method: POST
+      path: /api/v1/users
+    mcp:
+      kind: tool
+      name: taclab.users.create
+    audit_event: api.user.created
+    status: NOT_STARTED
+
+  - id: users.update
+    description: Apply a typed patch to a user
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: UpdateUserRequest
+    response_type: User
+    rest:
+      method: PATCH
+      path: /api/v1/users/{id}
+    mcp:
+      kind: tool
+      name: taclab.users.update
+    audit_event: api.user.updated
+    status: NOT_STARTED
+
+  - id: users.delete
+    description: Delete a runtime user or tombstone a baseline user
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: "true"
+    scopes: [state:write]
+    request_type: DeleteUserRequest
+    response_type: DeleteResult
+    rest:
+      method: DELETE
+      path: /api/v1/users/{id}
+    mcp:
+      kind: tool
+      name: taclab.users.delete
+    audit_event: api.user.deleted
+    status: NOT_STARTED
+
+  - id: groups.list
+    description: List groups in deterministic id order
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: ListGroupsRequest
+    response_type: GroupList
+    rest:
+      method: GET
+      path: /api/v1/groups
+    mcp:
+      kind: tool
+      name: taclab.groups.list
+      resource: taclab://groups
+    status: NOT_STARTED
+
+  - id: groups.get
+    description: Get one group by id
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: GetGroupRequest
+    response_type: Group
+    rest:
+      method: GET
+      path: /api/v1/groups/{id}
+    mcp:
+      kind: tool
+      name: taclab.groups.get
+    status: NOT_STARTED
+
+  - id: groups.create
+    description: Create a runtime group or override a baseline group
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: CreateGroupRequest
+    response_type: Group
+    rest:
+      method: POST
+      path: /api/v1/groups
+    mcp:
+      kind: tool
+      name: taclab.groups.create
+    audit_event: api.group.created
+    status: NOT_STARTED
+
+  - id: groups.update
+    description: Apply a typed patch to a group
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: UpdateGroupRequest
+    response_type: Group
+    rest:
+      method: PATCH
+      path: /api/v1/groups/{id}
+    mcp:
+      kind: tool
+      name: taclab.groups.update
+    audit_event: api.group.updated
+    status: NOT_STARTED
+
+  - id: groups.delete
+    description: Delete a runtime group or tombstone a baseline group
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: "true"
+    scopes: [state:write]
+    request_type: DeleteGroupRequest
+    response_type: DeleteResult
+    rest:
+      method: DELETE
+      path: /api/v1/groups/{id}
+    mcp:
+      kind: tool
+      name: taclab.groups.delete
+    audit_event: api.group.deleted
+    status: NOT_STARTED
+
+  - id: clients.list
+    description: List TACACS clients in deterministic id order
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: ListClientsRequest
+    response_type: ClientList
+    rest:
+      method: GET
+      path: /api/v1/clients
+    mcp:
+      kind: tool
+      name: taclab.clients.list
+      resource: taclab://clients
+    status: NOT_STARTED
+
+  - id: clients.get
+    description: Get one client by id
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: GetClientRequest
+    response_type: Client
+    rest:
+      method: GET
+      path: /api/v1/clients/{id}
+    mcp:
+      kind: tool
+      name: taclab.clients.get
+    status: NOT_STARTED
+
+  - id: clients.create
+    description: Create a runtime client or override a baseline client
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: CreateClientRequest
+    response_type: Client
+    rest:
+      method: POST
+      path: /api/v1/clients
+    mcp:
+      kind: tool
+      name: taclab.clients.create
+    audit_event: api.client.created
+    status: NOT_STARTED
+
+  - id: clients.update
+    description: Apply a typed patch to a client
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: UpdateClientRequest
+    response_type: Client
+    rest:
+      method: PATCH
+      path: /api/v1/clients/{id}
+    mcp:
+      kind: tool
+      name: taclab.clients.update
+    audit_event: api.client.updated
+    status: NOT_STARTED
+
+  - id: clients.delete
+    description: Delete a runtime client or tombstone a baseline client
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: "true"
+    scopes: [state:write]
+    request_type: DeleteClientRequest
+    response_type: DeleteResult
+    rest:
+      method: DELETE
+      path: /api/v1/clients/{id}
+    mcp:
+      kind: tool
+      name: taclab.clients.delete
+    audit_event: api.client.deleted
+    status: NOT_STARTED
+
+  - id: tokens.list
+    description: List API tokens without secret values
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [tokens:manage]
+    request_type: ListTokensRequest
+    response_type: TokenList
+    rest:
+      method: GET
+      path: /api/v1/tokens
+    mcp:
+      kind: tool
+      name: taclab.tokens.list
+    status: NOT_STARTED
+
+  - id: tokens.create
+    description: Create an API token and return its value once
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [tokens:manage]
+    request_type: CreateTokenRequest
+    response_type: CreatedToken
+    rest:
+      method: POST
+      path: /api/v1/tokens
+    mcp:
+      kind: tool
+      name: taclab.tokens.create
+    audit_event: api.token.created
+    status: NOT_STARTED
+
+  - id: tokens.revoke
+    description: Revoke an API token
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: "true"
+    scopes: [tokens:manage]
+    request_type: RevokeTokenRequest
+    response_type: DeleteResult
+    rest:
+      method: DELETE
+      path: /api/v1/tokens/{id}
+    mcp:
+      kind: tool
+      name: taclab.tokens.revoke
+    audit_event: api.token.revoked
+    status: NOT_STARTED
+
+  - id: policy.evaluate
+    description: Explain an authorization decision against the current snapshot
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [policy:test]
+    request_type: EvaluatePolicyRequest
+    response_type: PolicyTrace
+    rest:
+      method: POST
+      path: /api/v1/policy/evaluate
+    mcp:
+      kind: tool
+      name: taclab.policy.evaluate
+    audit_event: api.policy.evaluated
+    status: NOT_STARTED
+
+  - id: authentication.test
+    description: Run an authentication test against the current snapshot
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [policy:test]
+    request_type: TestAuthenticationRequest
+    response_type: AuthenticationTestResult
+    rest:
+      method: POST
+      path: /api/v1/authentication/test
+    mcp:
+      kind: tool
+      name: taclab.authentication.test
+    audit_event: api.authentication.tested
+    status: NOT_STARTED
+
+  - id: events.list
+    description: Read a cursor page of redacted events from the ring
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [events:read]
+    request_type: ListEventsRequest
+    response_type: EventList
+    rest:
+      method: GET
+      path: /api/v1/events
+    mcp:
+      kind: tool
+      name: taclab.events.list
+      resource: taclab://events/recent
+    status: NOT_STARTED
+
+  - id: events.subscribe
+    description: Live event delivery. REST streams redacted bodies over SSE. MCP subscriptions/listen notifies taclab://events/recent with URI only; the client pulls bodies through events.list.
+    parity: PARITY_DIFFERENT_BINDING
+    mutating: false
+    idempotent: "false"
+    scopes: [events:read]
+    request_type: SubscribeEventsRequest
+    response_type: EventStream
+    rest:
+      method: GET
+      path: /api/v1/events/stream
+    mcp:
+      kind: listen
+      name: subscriptions/listen
+      resource: taclab://events/recent
+      pull_operation: events.list
+    status: NOT_STARTED
+
+  - id: health.live
+    description: Process liveness probe
+    parity: REST_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: HealthRequest
+    response_type: HealthResult
+    rest:
+      method: GET
+      path: /health/live
+    status: NOT_STARTED
+
+  - id: health.ready
+    description: Readiness probe
+    parity: REST_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: HealthRequest
+    response_type: HealthResult
+    rest:
+      method: GET
+      path: /health/ready
+    status: NOT_STARTED
+
+  - id: openapi.get
+    description: Serve the OpenAPI document
+    parity: REST_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: GetOpenAPIRequest
+    response_type: OpenAPIDocument
+    rest:
+      method: GET
+      path: /api/openapi.json
+    status: NOT_STARTED
+
+  - id: session.create
+    description: Exchange a bearer token for an HttpOnly UI session cookie
+    parity: REST_ONLY_PROTOCOL
+    mutating: true
+    idempotent: "false"
+    scopes: []
+    request_type: CreateSessionRequest
+    response_type: Session
+    rest:
+      method: POST
+      path: /api/v1/session
+    audit_event: api.session.created
+    status: NOT_STARTED
+
+  - id: session.delete
+    description: End the UI session
+    parity: REST_ONLY_PROTOCOL
+    mutating: true
+    idempotent: "true"
+    scopes: []
+    request_type: DeleteSessionRequest
+    response_type: DeleteResult
+    rest:
+      method: DELETE
+      path: /api/v1/session
+    audit_event: api.session.deleted
+    status: NOT_STARTED
+
+  - id: mcp.discover
+    description: MCP server/discover
+    parity: MCP_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: MCPDiscoverRequest
+    response_type: MCPDiscoverResult
+    mcp:
+      kind: protocol
+      name: server/discover
+    status: NOT_STARTED
+
+  - id: mcp.tools.list
+    description: MCP tools/list filtered by caller scopes
+    parity: MCP_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: MCPToolsListRequest
+    response_type: MCPToolsListResult
+    mcp:
+      kind: protocol
+      name: tools/list
+    status: NOT_STARTED
+
+  - id: mcp.resources.list
+    description: MCP resources/list filtered by caller scopes
+    parity: MCP_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: MCPResourcesListRequest
+    response_type: MCPResourcesListResult
+    mcp:
+      kind: protocol
+      name: resources/list
+    status: NOT_STARTED
+
+  - id: mcp.notifications.list_changed
+    description: MCP tools/list_changed and resources/list_changed notifications
+    parity: MCP_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "false"
+    scopes: []
+    request_type: MCPListChangedRequest
+    response_type: MCPNotification
+    mcp:
+      kind: protocol
+      name: notifications/list_changed
+    status: NOT_STARTED

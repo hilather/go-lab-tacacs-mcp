@@ -1,0 +1,1351 @@
+# Machine-readable RFC 8907 conformance registry.
+# Status starts NOT_STARTED with empty evidence.
+# Human-readable tables are generated under docs/generated/; edit this file.
+schema_version: 1
+rfc: "8907"
+title: RFC 8907 TACACS+
+rows:
+  - id: T89-H-001
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: PROJECT MUST
+    requirement: Support TACACS+ major version 0xc and minor versions 0 and 1 in their valid contexts
+    evidence_required: Header codec and version table tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-002
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: PROJECT MUST
+    requirement: "Support Authentication, Authorization, and Accounting packet types"
+    evidence_required: Independent golden encode/decode fixtures for each request and reply body
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-003
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: First packet sequence is 1; client packets are odd and server packets are even
+    evidence_required: State-machine positive and negative tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-004
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Sequence numbers never wrap
+    evidence_required: Boundary fixture at 255 and required session termination
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-005
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Unknown header options or unsupported defined options produce ERROR and terminate when packet type is known
+    evidence_required: Golden malformed cases for each packet type
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-006
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: "When packet type cannot be determined, return identical clear header with sequence incremented and zero body length as required"
+    evidence_required: Independent raw fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-007
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Ignore unknown flag bits when reading and set them to zero when writing
+    evidence_required: Unit/golden tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-008
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Session ID remains stable for the session; generated server-side IDs use cryptographic randomness where applicable
+    evidence_required: Unit test with injectable randomness
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-009
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Maximum accepted body size is configurable; default/recommended budget is 65536 bytes
+    evidence_required: Limit tests before allocation and memory benchmark
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-010
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Sum of decoded body component lengths exactly matches header body length
+    evidence_required: Mismatch fixtures and fuzz assertion
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-011
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Bounded short-read handling for header and body
+    evidence_required: Fragmented reader tests and fuzz corpus
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-012
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Username text follows the required UsernameCasePreserved profile
+    evidence_required: Normalization and invalid-input cases
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-013
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Other text fields reject non-printable control characters where RFC requires printable US-ASCII
+    evidence_required: Field-specific tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-014
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: Arbitrary-byte data fields are not incorrectly treated as printable text
+    evidence_required: CHAP/MS-CHAP fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-015
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: MUST
+    requirement: A variable-length field whose encoded length is zero is ignored and treated as absent
+    evidence_required: Zero-length fixtures for every packet family
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-H-016
+    section: 4-rfc-8907-packet-header-matrix
+    section_title: 4. RFC 8907 packet/header matrix
+    level: PROJECT
+    requirement: All length arithmetic is overflow-safe before slicing or allocating
+    evidence_required: "Boundary, fuzz, and memory-limit tests"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-001
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST
+    requirement: Accept connections only from configured known clients
+    evidence_required: Unknown-IP integration test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-002
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST
+    requirement: Allow a unique shared secret per client
+    evidence_required: Two clients with distinct secrets and cross-secret failure tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-003
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST
+    requirement: Apply RFC 8907 packet-body obfuscation with flag clear
+    evidence_required: Independent known-answer vectors for multiple body lengths
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-004
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST NOT
+    requirement: Do not accept legacy packets with TAC_PLUS_UNENCRYPTED_FLAG set
+    evidence_required: Raw cleartext fixture is dropped/rejected
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-005
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST
+    requirement: Invalid shared secret or invalid decoded component lengths returns ERROR when possible
+    evidence_required: Wrong-secret fixtures for authen/author/acct
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-006
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST
+    requirement: "After a connection-level secret error, accept no new sessions and close after existing valid sessions complete"
+    evidence_required: Multiplexed integration test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-007
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: MUST
+    requirement: Shared-secret values are never logged or returned
+    evidence_required: Secret canary scanning tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-008
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: PROJECT MUST
+    requirement: IPv4 and IPv6 configured client matching
+    evidence_required: Integration tests on both families where CI supports IPv6
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-L-009
+    section: 5-legacy-transport-and-obfuscation
+    section_title: 5. Legacy transport and obfuscation
+    level: PROJECT
+    requirement: Longest-prefix then priority selection is deterministic; unresolved ties reject config
+    evidence_required: State compiler table tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-001
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: MUST
+    requirement: Negotiate single-connect only through the first request/reply flag exchange
+    evidence_required: Positive and invalid late-flag tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-002
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: MUST
+    requirement: Client cannot send a second packet before negotiation is established
+    evidence_required: Connection-state negative test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-003
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: MUST
+    requirement: "If single-connect is not established, close after the first session"
+    evidence_required: Integration test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-004
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: MAY
+    requirement: Server may refuse single-connect per client configuration
+    evidence_required: Config and interop test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-005
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: PROJECT MUST
+    requirement: Multiplex sessions by session ID on one connection
+    evidence_required: Concurrent authen/author/acct test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-006
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: PROJECT MUST
+    requirement: Preserve packet order within one session while allowing concurrency across sessions
+    evidence_required: Race test and stress test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-007
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: MUST
+    requirement: Idle timeout is configurable and closes inactive single-connect connections
+    evidence_required: Fake-clock or bounded integration test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-008
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: PROJECT MUST
+    requirement: Connection closure does not leak session goroutines or block server shutdown
+    evidence_required: Leak/race tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SC-009
+    section: 6-single-connection-mode
+    section_title: 6. Single Connection Mode
+    level: PROJECT
+    requirement: Per-connection session cap and fair write serialization prevent resource starvation
+    evidence_required: Load and adversarial tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACT-001
+    section: 7-1-actions
+    section_title: 7.1 Actions
+    level: PROJECT MUST
+    requirement: TAC_PLUS_AUTHEN_LOGIN
+    evidence_required: Implement all defined login types
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACT-002
+    section: 7-1-actions
+    section_title: 7.1 Actions
+    level: PROJECT MUST
+    requirement: TAC_PLUS_AUTHEN_CHPASS
+    evidence_required: Implement ASCII password change
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACT-003
+    section: 7-1-actions
+    section_title: 7.1 Actions
+    level: SHOULD NOT
+    requirement: TAC_PLUS_AUTHEN_SENDAUTH
+    evidence_required: Disabled by default and explicitly rejected; never silently accepted
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACT-004
+    section: 7-1-actions
+    section_title: 7.1 Actions
+    level: Removed
+    requirement: SENDPASS
+    evidence_required: Do not implement or advertise; explicit unknown/unsupported behavior tested
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-001
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: ASCII 0x01
+    evidence_required: Multi-step username/password flow
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-002
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: PAP 0x02
+    evidence_required: "One START, one final REPLY"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-003
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: CHAP 0x03
+    evidence_required: Verify PPP ID/challenge/16-byte response format and MD5 response
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-004
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: MS-CHAP v1 0x05
+    evidence_required: "Verify exact packet lengths, 8-byte challenge, and algorithm vectors"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-005
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: MS-CHAP v2 0x06
+    evidence_required: "Verify exact packet lengths, 16-byte challenge, and algorithm vectors"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-006
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: NOT_SET in authorization/accounting only
+    evidence_required: Accept only in allowed packet contexts
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-TYPE-007
+    section: 7-2-authentication-types
+    section_title: 7.2 Authentication types
+    level: PROJECT MUST
+    requirement: Unknown type
+    evidence_required: Return the required failure/error and terminate/restart correctly
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-001
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: NONE 0x00
+    evidence_required: Valid in documented authorization context; reject invalid auth flow usage
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-002
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: LOGIN 0x01
+    evidence_required: Normal device login
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-003
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: ENABLE 0x02
+    evidence_required: Privilege elevation flow
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-004
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: PPP 0x03
+    evidence_required: "Parse, expose to policy, and support valid defined auth types"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-005
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: PT 0x05
+    evidence_required: "Parse, expose, and permit explicit policy"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-006
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: RCMD 0x06
+    evidence_required: "Parse, expose, and permit explicit policy"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-007
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: X25 0x07
+    evidence_required: "Parse, expose, and permit explicit policy"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-008
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: NASI 0x08
+    evidence_required: "Parse, expose, and permit explicit policy"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-009
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: FWPROXY 0x09
+    evidence_required: "Parse, expose, and permit explicit policy"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SVC-010
+    section: 7-3-authentication-services
+    section_title: 7.3 Authentication services
+    level: PROJECT MUST
+    requirement: Unknown
+    evidence_required: Reject with correct status rather than ignoring
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-001
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: PASS terminates successfully
+    evidence_required: Flow tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-002
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: FAIL terminates as authentication denial
+    evidence_required: Flow tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-003
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: GETDATA continues and prompts for generic data
+    evidence_required: Multi-step fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-004
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: GETUSER continues and obtains username
+    evidence_required: Missing-username ASCII fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-005
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: GETPASS continues and uses NOECHO for secrets
+    evidence_required: UI/protocol fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-006
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: RESTART ends current session and allows client to start a new session ID/type
+    evidence_required: Integration fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-007
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: ERROR is distinct from FAIL and triggers unavailable-server handling semantics
+    evidence_required: Protocol integration
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-008
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: Deprecated
+    requirement: FOLLOW is not emitted; received/legacy behavior is safely failed
+    evidence_required: Negative fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-009
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: Continue ABORT terminates the authentication session and safely records reason
+    evidence_required: Multi-step abort fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-010
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: Retry count is bounded; recommended default three
+    evidence_required: Config and boundary tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-011
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: MUST
+    requirement: A defined authentication option not implemented by a selected profile returns TAC_PLUS_AUTHEN_STATUS_FAIL
+    evidence_required: Per-option disabled-profile fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-012
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: SHOULD
+    requirement: GETDATA/GETUSER/GETPASS replies include usable prompt text
+    evidence_required: Golden prompt fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AS-013
+    section: 7-4-authentication-reply-continue-behavior
+    section_title: 7.4 Authentication reply/continue behavior
+    level: SHOULD/MUST
+    requirement: Sensitive prompts set NOECHO and never reflect submitted secret material
+    evidence_required: "Protocol, UI, and secret-canary tests"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-001
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: ASCII LOGIN with username in START
+    evidence_required: "version=0; positive=PASS; negative=wrong password, disabled user"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-002
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: ASCII LOGIN with GETUSER then GETPASS
+    evidence_required: version=0; positive=PASS; negative=empty/retry exhaustion/abort
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-003
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: PAP LOGIN
+    evidence_required: "version=1; positive=PASS; negative=wrong version, missing user/data, wrong password"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-004
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: CHAP LOGIN
+    evidence_required: "version=1; positive=independent response vector; negative=malformed ID/challenge/response, wrong secret"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-005
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: MS-CHAP v1 LOGIN
+    evidence_required: "version=1; positive=independent vector; negative=challenge length, response length, wrong secret"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-006
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: MS-CHAP v2 LOGIN
+    evidence_required: "version=1; positive=independent vector; negative=16-byte challenge enforcement, wrong secret"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-007
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: ENABLE
+    evidence_required: "version=0; positive=target privilege granted; negative=wrong credential, invalid service, disallowed target"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-008
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: ASCII CHPASS
+    evidence_required: "version=0; positive=runtime verifier override; negative=wrong old password, mismatch, immutable policy, abort"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-009
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: Unsupported defined option
+    evidence_required: "version=per RFC; positive=clean fail/error; negative=no panic, no state leak"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-010
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: ASCII CHPASS old/new prompt semantics
+    evidence_required: "version=0; positive=old password uses GETDATA; new password uses GETPASS; negative=reversed status, secret echo, interrupted update"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-011
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: ASCII unused data fields
+    evidence_required: version=0; positive=arbitrary data is ignored as specified; negative=data cannot alter username/password decision
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-FLOW-012
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: CHAP challenge policy
+    evidence_required: version=1; positive=configurable minimum with recommended default of 8 bytes; negative=below-minimum and oversized challenge
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-001
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: "Decode all request fields and preserve user, port, remote address, auth context, and ordered arguments"
+    evidence_required: Golden fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-002
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST NOT
+    requirement: Do not trust authen_method for policy evaluation
+    evidence_required: Policy negative test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-003
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: Recognize all authen-method codes for parsing/events
+    evidence_required: Enum table tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-004
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: "Parse mandatory = and optional * separators at the first separator only"
+    evidence_required: AV-pair unit/fuzz tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-005
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: Preserve duplicate and ordered AV pairs
+    evidence_required: Golden round-trip
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-006
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: Enforce AV-pair encoded length 2 through 255 bytes
+    evidence_required: Boundary tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-007
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: PASS_ADD with zero response args approves without modification
+    evidence_required: Independent client test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-008
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: PASS_ADD appends/applies returned arguments correctly
+    evidence_required: Interop fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-009
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: PASS_REPL replaces request arguments with response arguments
+    evidence_required: Interop fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-010
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: FAIL denies the request
+    evidence_required: Tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-011
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: "ERROR signals server processing failure, not policy denial"
+    evidence_required: Tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-012
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: Deprecated
+    requirement: FOLLOW is not emitted
+    evidence_required: Tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-013
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: Unknown mandatory response arguments are never generated accidentally
+    evidence_required: Schema/policy validation
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-014
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: PROJECT MUST
+    requirement: "Arbitrary vendor AV pairs can be matched, preserved, and returned"
+    evidence_required: Vendor fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-015
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: PROJECT
+    requirement: Default deny when no deterministic rule matches
+    evidence_required: Policy tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-016
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: PROJECT
+    requirement: Full explanation trace is stable and redacted
+    evidence_required: Golden trace tests
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-017
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: SHOULD/PROJECT MUST
+    requirement: Support the complete RFC 8907 common authorization argument dictionary
+    evidence_required: Dictionary table and vendor-neutral fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-018
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: Numeric argument lengths are checked before conversion; unrepresentable values are handled as unsupported arguments
+    evidence_required: Oversized and overflow fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-019
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: MUST
+    requirement: Absolute times use UTC unless an explicit timezone argument is present
+    evidence_required: Timezone fixtures with injected clock
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-020
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: PROJECT MUST
+    requirement: Validate/preserve the required primary service argument for supported use cases
+    evidence_required: "Missing, empty, custom, and standard service cases"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AU-021
+    section: 9-authorization-request-and-response-matrix
+    section_title: 9. Authorization request and response matrix
+    level: PROJECT MUST
+    requirement: Shell command authorization preserves and validates cmd plus ordered cmd-arg values
+    evidence_required: Session versus command fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-001
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: service
+    evidence_required: "Required primary service, including shell/system/firewall and custom strings"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-002
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: protocol
+    evidence_required: Optional service subset
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-003
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: cmd
+    evidence_required: Empty for session authorization; non-empty for command authorization
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-004
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: cmd-arg
+    evidence_required: "Ordered, repeatable command arguments"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-005
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: acl
+    evidence_required: Numeric connection ACL
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-006
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: inacl
+    evidence_required: Input ACL identifier
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-007
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: outacl
+    evidence_required: Output ACL identifier
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-008
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: addr
+    evidence_required: IPv4/IPv6 network address
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-009
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: addr-pool
+    evidence_required: Address-pool identifier
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-010
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: timeout
+    evidence_required: Absolute connection timeout in minutes
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-011
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: idletime
+    evidence_required: Idle timeout in minutes
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-012
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: autocmd
+    evidence_required: Session auto-command
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-013
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: noescape
+    evidence_required: Boolean
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-014
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: nohangup
+    evidence_required: Boolean
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-015
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: priv-lvl
+    evidence_required: Numeric 0 through 15
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AV-016
+    section: 10-standard-authorization-argument-dictionary
+    section_title: 10. Standard authorization argument dictionary
+    level: PROJECT MUST
+    requirement: vendor/unknown
+    evidence_required: Preserve arbitrary name/value/separator/order
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-PRIV-001
+    section: 11-privilege-levels
+    section_title: 11. Privilege levels
+    level: MUST
+    requirement: Accept and preserve levels 0 through 15
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-PRIV-002
+    section: 11-privilege-levels
+    section_title: 11. Privilege levels
+    level: MUST
+    requirement: Reject values outside the encoded field/rule range
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-PRIV-003
+    section: 11-privilege-levels
+    section_title: 11. Privilege levels
+    level: SHOULD
+    requirement: Support session-based shell authorization returning priv-lvl
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-PRIV-004
+    section: 11-privilege-levels
+    section_title: 11. Privilege levels
+    level: MUST
+    requirement: ENABLE flow can request a higher privilege without assuming prior auth by protocol
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-PRIV-005
+    section: 11-privilege-levels
+    section_title: 11. Privilege levels
+    level: PROJECT
+    requirement: Policy does not assume vendor command mappings for a privilege level
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-001
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: START flag only (0x02)
+    evidence_required: Golden/integration
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-002
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: STOP flag only (0x04)
+    evidence_required: Golden/integration
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-003
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: "WATCHDOG no update (0x08), arguments ignored as required"
+    evidence_required: Golden/integration
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-004
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: WATCHDOG with update (0x0a)
+    evidence_required: Golden/integration
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-005
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: "Reject no flags, START+STOP, WATCHDOG+STOP, and other invalid combinations with ERROR"
+    evidence_required: Full table test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-006
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: Return SUCCESS only after the record is accepted by the authoritative sink
+    evidence_required: Fault injection
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-007
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: Return ERROR when the record cannot be accepted
+    evidence_required: Fault injection
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-008
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: Deprecated
+    requirement: FOLLOW is not emitted
+    evidence_required: Negative test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-009
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: Preserve authentication/authorization context and ordered AV pairs
+    evidence_required: Golden fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-010
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: PROJECT MUST
+    requirement: "Command accounting supports service, cmd, and ordered cmd-arg"
+    evidence_required: Interop fixture
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-011
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: PROJECT
+    requirement: "Ring overwrite is bounded, observable, and does not block current acknowledgement"
+    evidence_required: Load test
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-012
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: MUST
+    requirement: task_id is treated as opaque; the server makes no format assumptions
+    evidence_required: Arbitrary printable task ID fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-013
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: PROJECT MUST
+    requirement: Accounting-only arguments and following authorization arguments retain wire order
+    evidence_required: Golden ordering fixtures
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-AC-014
+    section: 12-accounting-matrix
+    section_title: 12. Accounting matrix
+    level: SHOULD/PROJECT MUST
+    requirement: "Common accounting string, numeric, Boolean, address, and time representations are accepted and displayed consistently"
+    evidence_required: Dictionary/value encoding suite
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-001
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: task_id
+    evidence_required: "Opaque, correlated without format assumptions"
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-002
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: start_time
+    evidence_required: Epoch seconds
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-003
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: stop_time
+    evidence_required: Epoch seconds
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-004
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: elapsed_time
+    evidence_required: Seconds
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-005
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: timezone
+    evidence_required: Applied to packet timestamps when present
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-006
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: event
+    evidence_required: Standard system event values plus extensibility
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-007
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: reason
+    evidence_required: Event reason
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-008
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: bytes
+    evidence_required: Numeric
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-009
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: bytes_in
+    evidence_required: Numeric
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-010
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: bytes_out
+    evidence_required: Numeric
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-011
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: paks
+    evidence_required: Numeric
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-012
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: paks_in
+    evidence_required: Numeric
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-013
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: paks_out
+    evidence_required: Numeric
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-014
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: err_msg
+    evidence_required: Printable status text
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-015
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: authorization args
+    evidence_required: Follow accounting-only arguments while preserving wire order
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-ACAV-016
+    section: 13-standard-accounting-argument-dictionary
+    section_title: 13. Standard accounting argument dictionary
+    level: PROJECT MUST
+    requirement: vendor/unknown
+    evidence_required: Preserve arbitrary AV pairs
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-001
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: Administrator can restrict authentication to challenge-response types
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-002
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: SHOULD
+    requirement: Warn when ASCII/PAP are enabled and document that non-challenge methods should be enabled only when required
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-003
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: SHOULD NOT
+    requirement: Avoid reusing the same credential across challenge and non-challenge types
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-004
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: SHOULD NOT
+    requirement: SENDAUTH/SENDPASS are not implemented; any future implementation is disabled by default with a warning
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-005
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: "Redirection/FOLLOW is deprecated, not advertised, and disabled"
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-006
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: A dedicated legacy shared secret can be configured for each individual client
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-007
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST/PROJECT MUST
+    requirement: Every enabled legacy client has a shared secret and cleartext legacy packet bodies are rejected
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-008
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: PROJECT
+    requirement: Operator UI clearly labels legacy transport as compatibility/insecure
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-009
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: "Shared secrets are treated as sensitive and never leaked, logged, exported, traced, or returned"
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-010
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: Shared keys of at least 32 characters are supported without truncation
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-011
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: Configuration supports an enforceable minimum-complexity policy for legacy shared keys
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-012
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: MUST
+    requirement: Management metadata can track shared-key lifetime and notify operators that rotation is due
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-013
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: SHOULD
+    requirement: Validation warns when process-local keyed HMAC comparison detects that multiple clients reuse the same shared secret; no comparison value is exposed or persisted
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-014
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: OPERATOR SHOULD
+    requirement: Generated/operator-provided legacy keys are at least 16 characters and rotated regularly
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-015
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: OPERATOR MUST
+    requirement: "Legacy TACACS is documented for a protected, integrity-preserving management network; operators are warned not to rely on obfuscation"
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []
+  - id: T89-SEC-016
+    section: 14-rfc-8907-security-deprecation-requirements
+    section_title: 14. RFC 8907 security/deprecation requirements
+    level: PROJECT
+    requirement: Configuration and deployment make secure TACACS+ the recommended mode for new lab topologies
+    evidence_required: ""
+    status: NOT_STARTED
+    evidence: []

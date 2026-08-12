@@ -30,6 +30,8 @@ This checkout is a repository skeleton. It does **not** implement TACACS+, REST,
 - [Tasks](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TASKS.md)
 - [References](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/REFERENCES.md)
 - [Generated toolchain record](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/toolchain.md)
+- [Generated operation inventory](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/api-parity.md)
+- [Generated conformance inventory](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md)
 - [Contributing](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CONTRIBUTING.md)
 - [Security policy](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/SECURITY.md)
 - [Code of conduct](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CODE_OF_CONDUCT.md)
@@ -51,6 +53,7 @@ make test-race
 make web-test
 make lint
 make secrets
+make check-registries
 make check-generated
 make build
 ./bin/taclabd -h

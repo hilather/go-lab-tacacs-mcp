@@ -1,0 +1,12 @@
+schema_version: 1
+rfc: "8907"
+title: incomplete mandatory table fixture
+rows:
+  - id: T89-H-001
+    section: header
+    section_title: Header
+    level: PROJECT MUST
+    requirement: Support TACACS+ major version 0xc
+    evidence_required: Header codec tests
+    status: NOT_STARTED
+    evidence: []

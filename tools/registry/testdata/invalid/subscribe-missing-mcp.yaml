@@ -1,0 +1,15 @@
+schema_version: 1
+title: events.subscribe without MCP listen binding
+operations:
+  - id: events.subscribe
+    description: Live events
+    parity: PARITY_DIFFERENT_BINDING
+    mutating: false
+    idempotent: false
+    scopes: [events:read]
+    request_type: SubscribeEventsRequest
+    response_type: EventStream
+    rest:
+      method: GET
+      path: /api/v1/events/stream
+    status: NOT_STARTED

@@ -17,7 +17,7 @@ type Input struct {
 	Clients  []config.Client
 	Fallback config.RuleSet
 	Limits   config.Limits
-	Now      func() time.Time
+	Now      func() time.Time // nil means time.Now so validity windows stay fail-closed
 }
 
 // Engine is an immutable compiled policy. Matchers are built once.
@@ -119,7 +119,8 @@ func Compile(in Input) (*Engine, error) {
 		now:     in.Now,
 	}
 	if e.now == nil {
-		e.now = func() time.Time { return time.Time{} }
+		// Production default. A zero clock can still be injected to skip windows in tests.
+		e.now = time.Now
 	}
 	for i, g := range in.Groups {
 		rules, err := compileRuleSet(config.RuleSet{Services: g.Services, CommandRules: g.CommandRules}, "groups["+strconv.Itoa(i)+"]")

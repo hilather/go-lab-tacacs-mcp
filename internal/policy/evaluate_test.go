@@ -418,6 +418,43 @@ func TestClientRestrictionAndValidityWindow(t *testing.T) {
 	}
 }
 
+func TestCompileDefaultClockEnforcesValidityWindow(t *testing.T) {
+	t.Parallel()
+	expired := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	in := Input{
+		Users: []config.User{{
+			ID:      "u",
+			Enabled: true,
+			Rules: config.RuleSet{Services: []config.ServiceRule{{
+				Service: "shell",
+				Action:  domain.DecisionPermitAdd,
+			}}},
+			Restrictions: config.UserRestrictions{ValidBefore: &expired},
+		}},
+	}
+	eng := mustCompile(t, in)
+	if res := eng.Authorize(sessionReq("u", "")); res.Trace.DefaultDeny != "user not valid at evaluation time" {
+		t.Fatalf("omitted Now must use time.Now: %+v", res)
+	}
+	doc := mustParseFile(t, "policies", "personas.yaml")
+	doc.Users = append(doc.Users, config.User{
+		ID:           "expired",
+		Enabled:      true,
+		Restrictions: config.UserRestrictions{ValidBefore: &expired},
+		Rules: config.RuleSet{Services: []config.ServiceRule{{
+			Service: "shell",
+			Action:  domain.DecisionPermitAdd,
+		}}},
+	})
+	fromDoc, err := CompileDocument(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := fromDoc.Authorize(sessionReq("expired", "")); res.Trace.DefaultDeny != "user not valid at evaluation time" {
+		t.Fatalf("CompileDocument must not skip windows: %+v", res)
+	}
+}
+
 func TestFOLLOWNeverEmittedAndErrorVsDeny(t *testing.T) {
 	t.Parallel()
 	eng := mustCompileFile(t, "policies", "personas.yaml")

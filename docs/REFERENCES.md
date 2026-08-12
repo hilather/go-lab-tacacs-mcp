@@ -2,6 +2,7 @@
 
 Status: reference index  
 Checked: 2026-08-12  
+Codec evaluation: [ADR 0007](decisions/0007-codec-approach.md)  
 Specification baseline: RFC 8907, RFC 9887, and MCP 2026-07-28
 
 ## 1. How to use this file
@@ -219,6 +220,8 @@ Before reuse, an agent must evaluate:
 - Independent interoperability.
 
 Any fork or patch set must have an owner, upstream strategy, and regression suite.
+
+Evaluation outcome (2026-08-12): none of the three candidates met the isolation, bounded-parse, RFC-behavior, and pinned-toolchain bar. TacLab 1.0 uses an internal codec. See [ADR 0007](decisions/0007-codec-approach.md).
 
 ## 9. Independent interoperability references
 

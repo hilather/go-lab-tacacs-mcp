@@ -388,6 +388,8 @@ BenchmarkSingleConnectDispatch_Parallel
 
 Report `-benchmem`.
 
+`make bench` succeeds only when those functions (or other `Benchmark*` tests) exist under `internal/tacacs`, `internal/policy`, or `internal/state`. Header/obfuscation benches under `tools/spike` are evaluation-only and do not satisfy that gate.
+
 ### 8.4 Credential benchmarks
 
 Password verification is intentionally expensive and has separate benchmarks:

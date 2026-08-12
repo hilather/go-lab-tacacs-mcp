@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"io"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -9,7 +10,11 @@ import (
 
 // Deps is process-level metadata that is not stored in the snapshot.
 type Deps struct {
-	Build BuildMeta
+	Build    BuildMeta
+	State    *state.Manager
+	Entropy  io.Reader
+	Sessions SessionService
+	Usage    TokenUsage
 }
 
 // BuildMeta is linker-injected identity. Empty fields become conservative defaults.
@@ -25,6 +30,11 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 		IDSystemStatusGet: handleStatus,
 		IDSystemBuildGet:  handleBuild(deps.Build),
 		IDPolicyEvaluate:  handleEvaluate,
+		IDTokensList:      handleTokensList(deps),
+		IDTokensCreate:    handleTokensCreate(deps),
+		IDTokensRevoke:    handleTokensRevoke(deps),
+		IDSessionCreate:   handleSessionCreate(deps),
+		IDSessionDelete:   handleSessionDelete(deps),
 	}
 }
 

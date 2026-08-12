@@ -347,7 +347,7 @@ Add/update benchmarks for changes to:
 - client lookup.
 - policy compilation/evaluation.
 - snapshot merge/publication.
-- token verification.
+- token verification (`internal/api/auth` `BenchmarkVerifyBearer`, `BenchmarkAuthenticateToken`).
 - event append/read/fanout.
 - list/pagination serialization.
 - SSE/MCP event distribution.

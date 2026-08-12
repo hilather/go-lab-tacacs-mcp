@@ -19,6 +19,22 @@ func parseAndValidate(t *testing.T, src string) (*Document, error) {
 	return doc, Validate(doc)
 }
 
+func TestScopesExactSet(t *testing.T) {
+	t.Parallel()
+	got := Scopes()
+	if len(got) != len(knownScopes) {
+		t.Fatalf("len=%d map=%d", len(got), len(knownScopes))
+	}
+	for _, s := range got {
+		if !ValidScope(s) {
+			t.Fatalf("invalid listed scope %q", s)
+		}
+	}
+	if ValidScope("admin") {
+		t.Fatal("unknown scope accepted")
+	}
+}
+
 func TestValidateLabExample(t *testing.T) {
 	t.Parallel()
 	doc, err := Load(filepath.Join("..", "..", "configs", "lab.example.yaml"))

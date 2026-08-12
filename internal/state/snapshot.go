@@ -1,11 +1,14 @@
 package state
 
 import (
+	"fmt"
+	"io"
 	"net"
 	"regexp"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
@@ -39,6 +42,7 @@ type Snapshot struct {
 	groupIDs      []string
 	clientIDs     []string
 	tokenIDs      []string
+	tokenIndex    map[tokenDigestKey]string
 	tombstones    []domain.Tombstone
 	fallback      config.RuleSet
 	fallbackRules CompiledRuleSet
@@ -46,6 +50,23 @@ type Snapshot struct {
 	secretWarns   []config.SecretWarning
 	matchWarnings []string
 	lifecycles    map[string]domain.SecretLifecycle
+}
+
+// tokenDigestKey is a map key whose fmt output never includes digest bytes.
+type tokenDigestKey struct {
+	n [credentials.TokenDigestLength]byte
+}
+
+func (k tokenDigestKey) String() string { return "[redacted]" }
+
+func (k tokenDigestKey) GoString() string { return "[redacted]" }
+
+func (k tokenDigestKey) Format(f fmt.State, _ rune) {
+	_, _ = io.WriteString(f, "[redacted]")
+}
+
+func tokenKey(d credentials.TokenDigest) tokenDigestKey {
+	return tokenDigestKey{n: credentials.DigestIndex(d)}
 }
 
 // CredentialCapabilities is non-secret presence metadata for a user.
@@ -185,6 +206,31 @@ func (s *Snapshot) Tokens() []EffectiveToken {
 		}
 	}
 	return out
+}
+
+// AuthenticateToken looks up a presented bearer by SHA-256 digest. Failures
+// share one unauthenticated error so callers cannot enumerate tokens.
+func (s *Snapshot) AuthenticateToken(raw []byte, now time.Time) (EffectiveToken, error) {
+	denied := domain.NewError(domain.CodeUnauthenticated, "authentication required")
+	if s == nil || len(raw) == 0 {
+		return EffectiveToken{}, denied
+	}
+	presented := credentials.DigestToken(credentials.NewTokenMaterial(raw))
+	if s.tokenIndex == nil {
+		return EffectiveToken{}, denied
+	}
+	id, ok := s.tokenIndex[tokenKey(presented)]
+	if !ok {
+		return EffectiveToken{}, denied
+	}
+	tok, ok := s.Token(id)
+	if !ok || !tok.Enabled {
+		return EffectiveToken{}, denied
+	}
+	if tok.ExpiresAt != nil && !now.Before(tok.ExpiresAt.UTC()) {
+		return EffectiveToken{}, denied
+	}
+	return tok, nil
 }
 
 // Tombstones returns overlay deletions. They are not listed by Users/Groups/Clients.

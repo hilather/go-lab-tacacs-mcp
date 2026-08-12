@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"io"
 )
 
@@ -53,6 +54,28 @@ func GenerateToken(entropy io.Reader) (TokenMaterial, error) {
 		return TokenMaterial{}, err
 	}
 	return NewTokenMaterial(b), nil
+}
+
+// EncodeBearer is the wire form of a generated token (unpadded base64url).
+func EncodeBearer(m TokenMaterial) string {
+	raw := m.Bytes()
+	defer wipeBytes(raw)
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// IssueBearer generates ≥256 bits of entropy and returns the wire token plus
+// the digest of that wire form. The client presents the string as Bearer.
+func IssueBearer(entropy io.Reader) (value string, digest TokenDigest, err error) {
+	raw, err := GenerateToken(entropy)
+	if err != nil {
+		return "", TokenDigest{}, err
+	}
+	value = EncodeBearer(raw)
+	raw.Wipe()
+	mat := NewTokenMaterial([]byte(value))
+	digest = DigestToken(mat)
+	mat.Wipe()
+	return value, digest, nil
 }
 
 // DigestToken returns SHA-256 of the raw token bytes.

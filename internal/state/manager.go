@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
@@ -517,6 +518,10 @@ func (m *Manager) CreateToken(req CreateToken, expected *domain.Revision) (*Snap
 		if req.Enabled != nil {
 			enabled = *req.Enabled
 		}
+		var dig credentials.TokenDigest
+		if !req.Material.Empty() {
+			dig = credentials.DigestToken(req.Material)
+		}
 		ov.tokens[req.ID] = overlayToken{
 			token: tokenRecord{
 				ID:        req.ID,
@@ -524,7 +529,8 @@ func (m *Manager) CreateToken(req CreateToken, expected *domain.Revision) (*Snap
 				Scopes:    cloneStrings(req.Scopes),
 				Enabled:   enabled,
 				ExpiresAt: cloneTimePtr(req.ExpiresAt),
-				HasDigest: !req.Material.Empty(),
+				HasDigest: !dig.Empty(),
+				Digest:    dig,
 			},
 			meta: newOverlayMeta(domain.KindToken, req.ID, req.Name, src, shadows, enabled, nil, rev, now, nil),
 		}

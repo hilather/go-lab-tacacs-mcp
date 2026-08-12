@@ -13,8 +13,9 @@ import (
 
 // Actor is the authenticated principal. Empty ID and scopes means unauthenticated.
 type Actor struct {
-	ID     string
-	Scopes []string
+	ID        string
+	Scopes    []string
+	SessionID string
 }
 
 // Input is adapter-independent handler input. ExpectedRevision and IdempotencyKey
@@ -226,7 +227,15 @@ func (r *Registry) Invoke(ctx context.Context, id string, snap *state.Snapshot, 
 			WithDetail("got", reflect.TypeOf(data).Name()).
 			WithDetail("want", got.resp.Name())
 	}
-	return Result{Revision: snap.Revision, Data: data}, nil
+	rev := snap.Revision
+	if c, ok := data.(envelopeRevision); ok && c.envelopeRevision() != 0 {
+		rev = c.envelopeRevision()
+	}
+	return Result{Revision: rev, Data: data}, nil
+}
+
+type envelopeRevision interface {
+	envelopeRevision() domain.Revision
 }
 
 func authorize(actor Actor, required []string) error {

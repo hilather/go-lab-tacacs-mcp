@@ -20,6 +20,24 @@ func (s *seqReader) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func TestIssueBearer(t *testing.T) {
+	t.Parallel()
+	var r seqReader
+	value, digest, err := IssueBearer(&r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value == "" {
+		t.Fatal("empty bearer")
+	}
+	if !EqualDigest(digest, DigestToken(NewTokenMaterial([]byte(value)))) {
+		t.Fatal("digest is not SHA-256 of wire token")
+	}
+	if EncodeBearer(NewTokenMaterial([]byte{0, 1, 2})) == "" {
+		t.Fatal("encode")
+	}
+}
+
 func TestGenerateAndDigestToken(t *testing.T) {
 	t.Parallel()
 	var r seqReader

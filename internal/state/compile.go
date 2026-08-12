@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
@@ -32,7 +33,7 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	users, userTombs := mergeUsers(base, ov, rev, now, born)
 	groups, groupTombs := mergeGroups(base, ov, rev, now, born)
 	clients, clientTombs := mergeClients(base, ov, rev, now, born)
-	tokens, tokenTombs := mergeTokens(base, ov, rev, now, born)
+	tokens, tokenTombs, tokenDigests := mergeTokens(base, ov, rev, now, born)
 
 	fallback := cloneRuleSet(base.FallbackRules)
 	if ov.fallback != nil {
@@ -101,6 +102,7 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 		groups:        map[string]EffectiveGroup{},
 		clients:       map[string]EffectiveClient{},
 		tokens:        map[string]EffectiveToken{},
+		tokenIndex:    map[tokenDigestKey]string{},
 		fallback:      fallback,
 		fallbackRules: fbCompiled,
 		index:         idx,
@@ -145,6 +147,9 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 		}
 		snap.clients[c.Client.ID] = c
 		snap.clientIDs = append(snap.clientIDs, c.Client.ID)
+	}
+	if err := indexTokenDigests(snap, base, tokens, tokenDigests, m.lookup); err != nil {
+		return nil, nil, err
 	}
 	for _, tok := range tokens {
 		tok.Meta.EffectiveRevision = rev
@@ -318,9 +323,10 @@ func mergeClients(base *config.Document, ov overlay, rev domain.Revision, now ti
 	return out, tombs
 }
 
-func mergeTokens(base *config.Document, ov overlay, rev domain.Revision, now time.Time, born map[string]identityStamp) ([]EffectiveToken, []domain.Tombstone) {
+func mergeTokens(base *config.Document, ov overlay, rev domain.Revision, now time.Time, born map[string]identityStamp) ([]EffectiveToken, []domain.Tombstone, map[string]credentials.TokenDigest) {
 	var out []EffectiveToken
 	var tombs []domain.Tombstone
+	digests := map[string]credentials.TokenDigest{}
 	seen := map[string]struct{}{}
 	for _, tok := range base.API.BootstrapTokens {
 		seen[tok.ID] = struct{}{}
@@ -332,6 +338,9 @@ func mergeTokens(base *config.Document, ov overlay, rev domain.Revision, now tim
 			meta := cloneMeta(e.meta)
 			meta.EffectiveRevision = rev
 			out = append(out, tokenFromRecord(e.token, meta))
+			if !e.token.Digest.Empty() {
+				digests[tok.ID] = credentials.NewTokenDigest(e.token.Digest.Bytes())
+			}
 			continue
 		}
 		out = append(out, EffectiveToken{
@@ -361,8 +370,60 @@ func mergeTokens(base *config.Document, ov overlay, rev domain.Revision, now tim
 		meta := cloneMeta(e.meta)
 		meta.EffectiveRevision = rev
 		out = append(out, tokenFromRecord(e.token, meta))
+		if !e.token.Digest.Empty() {
+			digests[id] = credentials.NewTokenDigest(e.token.Digest.Bytes())
+		}
 	}
-	return out, tombs
+	return out, tombs, digests
+}
+
+func indexTokenDigests(snap *Snapshot, base *config.Document, tokens []EffectiveToken, overlay map[string]credentials.TokenDigest, lookup config.SecretLookup) error {
+	if snap.tokenIndex == nil {
+		snap.tokenIndex = map[tokenDigestKey]string{}
+	}
+	live := make(map[string]struct{}, len(tokens))
+	for _, tok := range tokens {
+		live[tok.ID] = struct{}{}
+	}
+	for id, d := range overlay {
+		if _, ok := live[id]; !ok || d.Empty() {
+			continue
+		}
+		snap.tokenIndex[tokenKey(d)] = id
+	}
+	if lookup == nil {
+		return nil
+	}
+	for _, boot := range base.API.BootstrapTokens {
+		if _, ok := live[boot.ID]; !ok {
+			continue
+		}
+		if _, have := overlay[boot.ID]; have {
+			continue
+		}
+		if !boot.Token.Set() {
+			continue
+		}
+		raw, err := lookup(boot.Token)
+		if err != nil {
+			return err
+		}
+		mat := credentials.NewTokenMaterial(raw)
+		wipeBytes(raw)
+		d := credentials.DigestToken(mat)
+		mat.Wipe()
+		if d.Empty() {
+			continue
+		}
+		snap.tokenIndex[tokenKey(d)] = boot.ID
+	}
+	return nil
+}
+
+func wipeBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
 }
 
 func tokenFromRecord(t tokenRecord, meta domain.ObjectMeta) EffectiveToken {

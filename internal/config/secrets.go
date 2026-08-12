@@ -38,6 +38,14 @@ func (o ReadOptions) maxBytes() int64 {
 	return o.MaxBytes
 }
 
+// FileLookup resolves secret references to raw bytes using ReadOptions.
+// Callers must wipe the returned buffer. Errors never include the secret value.
+func FileLookup(opts ReadOptions) SecretLookup {
+	return func(ref SecretRef) ([]byte, error) {
+		return readSecretBytes(ref, opts)
+	}
+}
+
 // ReadSecret loads the referenced bytes into a typed holder for ref.Purpose.
 // Errors never include the secret value.
 func ReadSecret(ref SecretRef, opts ReadOptions) (credentials.Purpose, any, error) {

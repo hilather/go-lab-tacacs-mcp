@@ -218,6 +218,52 @@ func TestEvaluatePolicyServiceVsCommand(t *testing.T) {
 	}
 }
 
+func TestEvaluatePolicyMatchesLiveArguments(t *testing.T) {
+	t.Parallel()
+	reg := mustRegistry(t)
+	snap := mustSnap(t, smallYAML)
+	tester := Actor{ID: "tester", Scopes: []string{"policy:test"}}
+	req := EvaluatePolicyRequest{
+		UserID:   "alice",
+		ClientID: "sw",
+		Service:  "shell",
+		Cmd:      "show",
+		CmdArgs:  []string{"ver"},
+		Arguments: []PolicyTraceAV{
+			{Name: "service", Separator: "=", Value: "shell"},
+			{Name: "cmd", Separator: "=", Value: "show"},
+			{Name: "cmd-arg", Separator: "=", Value: "ver"},
+			{Name: "password", Separator: "=", Value: "should-not-leak"},
+		},
+		AuthenMethod: "tacacs",
+		Port:         "tty0",
+		Remote:       "192.0.2.9",
+	}
+	res, err := reg.Invoke(context.Background(), IDPolicyEvaluate, snap, Input{Actor: tester, Request: req})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := res.Data.(PolicyTrace)
+	if tr.Evaluator != string(domain.RuleKindCommand) || tr.Decision != "permit_add" {
+		t.Fatalf("evaluate=%+v", tr)
+	}
+	if tr.Port != "tty0" || tr.Remote != "192.0.2.9" || tr.AuthenMethod != "tacacs" {
+		t.Fatalf("context=%+v", tr)
+	}
+	found := false
+	for _, a := range tr.RequestArguments {
+		if a.Name == "password" {
+			found = true
+			if a.Value != "[redacted]" {
+				t.Fatalf("password leaked: %q", a.Value)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("password AV missing from explain trace")
+	}
+}
+
 func TestEvaluatePolicyRequiresUserAndScope(t *testing.T) {
 	t.Parallel()
 	reg := mustRegistry(t)

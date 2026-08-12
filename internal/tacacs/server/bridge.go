@@ -75,16 +75,18 @@ func (b Bridge) Authorize(ctx context.Context, env Env, req codec.AuthorRequest)
 		return codec.AuthorResponse{Status: codec.AuthorStatusError}, nil
 	}
 	dec, err := b.AAA.Authorize(ctx, aaa.AuthorizationRequest{
-		UserID:       string(req.User),
-		ClientID:     env.ClientID,
-		Arguments:    argsToAV(req.Args),
-		AuthenMethod: domain.AuthenMethod(req.AuthenMethod),
-		Privilege:    domain.PrivilegeLevel(req.PrivLvl),
-		Port:         string(req.Port),
-		Remote:       string(req.RemAddr),
-		Revision:     env.Revision,
-		Transport:    env.Transport,
-		SessionID:    env.SessionID,
+		UserID:        string(req.User),
+		ClientID:      env.ClientID,
+		Arguments:     argsToAV(req.Args),
+		AuthenMethod:  domain.AuthenMethod(req.AuthenMethod),
+		AuthenType:    domain.AuthenType(req.AuthenType),
+		AuthenService: domain.AuthenService(req.Service),
+		Privilege:     domain.PrivilegeLevel(req.PrivLvl),
+		Port:          string(req.Port),
+		Remote:        string(req.RemAddr),
+		Revision:      env.Revision,
+		Transport:     env.Transport,
+		SessionID:     env.SessionID,
 	})
 	if err != nil {
 		return codec.AuthorResponse{Status: codec.AuthorStatusError}, nil

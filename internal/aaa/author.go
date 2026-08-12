@@ -2,6 +2,7 @@ package aaa
 
 import (
 	"context"
+	"strings"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
@@ -55,7 +56,21 @@ func (s *Service) evaluate(req AuthorizationRequest) (PolicyTrace, policy.Result
 	if err != nil {
 		return PolicyTrace{Error: err.Error(), Status: domain.AuthorStatusError.String()}, policy.Result{Status: domain.AuthorStatusError}, err
 	}
-	res := eng.Authorize(policy.Request{
+	return Evaluate(eng, req)
+}
+
+// Evaluate is the single two-evaluator walk used by live AUTHOR packets
+// and policy.evaluate. It does not record events.
+func Evaluate(eng *policy.Engine, req AuthorizationRequest) (PolicyTrace, policy.Result, error) {
+	if eng == nil {
+		return PolicyTrace{Error: "policy engine is not compiled", Status: domain.AuthorStatusError.String()}, policy.Result{Status: domain.AuthorStatusError}, domain.NewError(domain.CodeInternal, "policy engine is not compiled")
+	}
+	res := eng.Authorize(toPolicyRequest(req))
+	return finishTrace(req, res), res, nil
+}
+
+func toPolicyRequest(req AuthorizationRequest) policy.Request {
+	return policy.Request{
 		UserID:       req.UserID,
 		ClientID:     req.ClientID,
 		Service:      req.Service,
@@ -67,8 +82,16 @@ func (s *Service) evaluate(req AuthorizationRequest) (PolicyTrace, policy.Result
 		Privilege:    req.Privilege,
 		Port:         req.Port,
 		RemoteAddr:   req.Remote,
-	})
-	return copyTrace(res.Trace), res, nil
+	}
+}
+
+func finishTrace(req AuthorizationRequest, res policy.Result) PolicyTrace {
+	tr := copyTrace(res.Trace)
+	tr.Port = req.Port
+	tr.Remote = req.Remote
+	tr.AuthenType = req.AuthenType.String()
+	tr.AuthenService = req.AuthenService.String()
+	return redactTrace(tr)
 }
 
 func errorDecision(reason string) AuthorizationDecision {
@@ -115,4 +138,36 @@ func copyTraceAVs(in []policy.TraceAV) []PolicyTraceAV {
 		out[i] = PolicyTraceAV{Name: a.Name, Separator: a.Separator, Value: a.Value}
 	}
 	return out
+}
+
+func redactTrace(tr PolicyTrace) PolicyTrace {
+	tr.RequestArguments = redactTraceAVs(tr.RequestArguments)
+	tr.Arguments = redactTraceAVs(tr.Arguments)
+	return tr
+}
+
+func redactTraceAVs(in []PolicyTraceAV) []PolicyTraceAV {
+	if in == nil {
+		return []PolicyTraceAV{}
+	}
+	out := make([]PolicyTraceAV, len(in))
+	for i, a := range in {
+		out[i] = a
+		if sensitiveAVName(a.Name) {
+			out[i].Value = "[redacted]"
+		}
+	}
+	return out
+}
+
+func sensitiveAVName(name string) bool {
+	n := strings.ToLower(name)
+	switch {
+	case n == "password", n == "passwd", n == "secret", n == "key":
+		return true
+	case strings.Contains(n, "password"), strings.Contains(n, "secret"):
+		return true
+	default:
+		return false
+	}
 }

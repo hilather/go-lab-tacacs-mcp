@@ -94,7 +94,7 @@ Impossible without a preimage. Challenge methods keep a separate clear-equivalen
 - Bound concurrent KDF workers.
 - Dummy Argon2/CHAP work on unknown users so failure cost stays comparable.
 - Canary tests forbid secrets in errors and JSON.
-- Wipe ephemeral password copies after hashing.
+- Wipe ephemeral NT/LM hashes and derived copies after use (`runtime.KeepAlive` so the stores are not DCE'd). Inbound password slices are caller-owned and are not wiped.
 
 ## Compatibility impact
 

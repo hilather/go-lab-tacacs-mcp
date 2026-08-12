@@ -8,15 +8,16 @@ import (
 // Sentinel results. Error text is uniform and must never include secrets,
 // usernames, challenges, or verifier encodings.
 var (
-	ErrFailed      = errors.New("credentials: authentication failed")
-	ErrUnavailable = errors.New("credentials: method unavailable")
-	ErrMalformed   = errors.New("credentials: malformed authenticator")
-	ErrInvalid     = errors.New("credentials: invalid material")
+	ErrFailed    = errors.New("credentials: authentication failed")
+	ErrMalformed = errors.New("credentials: malformed authenticator")
+	ErrInvalid   = errors.New("credentials: invalid material")
 )
 
 // FailureKind is an internal reason for redacted events. It is not safe to
-// put on the TACACS wire; AAA maps every Kind to FAIL except Malformed
-// (protocol ERROR) and Invalid (internal ERROR).
+// put on the TACACS wire. AAA maps KindMalformed to protocol ERROR and
+// KindInvalid to internal ERROR. Every other Kind, including KindMissing,
+// is TACACS FAIL. Error() for those FAIL kinds is always ErrFailed so a
+// copied server_msg cannot leak method or user existence.
 type FailureKind string
 
 const (
@@ -59,7 +60,7 @@ func fail(kind FailureKind) AuthError {
 }
 
 func unavailable() AuthError {
-	return AuthError{Kind: KindMissing, err: ErrUnavailable}
+	return fail(KindMissing)
 }
 
 func malformed() AuthError {

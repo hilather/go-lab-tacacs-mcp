@@ -113,8 +113,14 @@ func TestVerifyUniformFailureKinds(t *testing.T) {
 			t.Fatalf("%s message %q", tc.user, err.Error())
 		}
 	}
-	if err := s.VerifyCHAP(context.Background(), "nochal", 1, bytes.Repeat([]byte{1}, 8), bytes.Repeat([]byte{2}, 16)); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("missing challenge: %v", err)
+	missing := s.VerifyCHAP(context.Background(), "nochal", 1, bytes.Repeat([]byte{1}, 8), bytes.Repeat([]byte{2}, 16))
+	unknown := s.VerifyCHAP(context.Background(), "missing-user", 1, bytes.Repeat([]byte{1}, 8), bytes.Repeat([]byte{2}, 16))
+	var ae AuthError
+	if !errorAsAuth(missing, &ae) || ae.Kind != KindMissing {
+		t.Fatalf("missing challenge: %v", missing)
+	}
+	if missing.Error() != unknown.Error() || missing.Error() != ErrFailed.Error() {
+		t.Fatalf("unknown vs missing CHAP must share Error() text: %q %q", unknown, missing)
 	}
 }
 
@@ -144,7 +150,9 @@ func TestNoFallbackAcrossCredentialClasses(t *testing.T) {
 	// Login verifier must not satisfy CHAP.
 	s.store.(*Memory).Put(Record{ID: "ascii-only", Enabled: true, Login: login})
 	resp := CHAPResponse(1, []byte("login-only-password"), bytes.Repeat([]byte{'c'}, 8))
-	if err := s.VerifyCHAP(ctx, "ascii-only", 1, bytes.Repeat([]byte{'c'}, 8), resp); !errors.Is(err, ErrUnavailable) {
+	err := s.VerifyCHAP(ctx, "ascii-only", 1, bytes.Repeat([]byte{'c'}, 8), resp)
+	var ae AuthError
+	if !errorAsAuth(err, &ae) || ae.Kind != KindMissing || !errors.Is(err, ErrFailed) {
 		t.Fatalf("CHAP without challenge secret: %v", err)
 	}
 }
@@ -216,13 +224,19 @@ func TestServiceCHAPAndMSCHAPVectors(t *testing.T) {
 	auth := mustHex(t, v.MSCHAPv2.ChallengeHex)
 	peer := mustHex(t, v.MSCHAPv2.PeerChallengeHex)
 	v2 := MSCHAPv2Response([]byte(v.MSCHAPv2.Password), []byte("User"), auth, peer)
-	if err := s.VerifyMSCHAPv2(ctx, "User", v.MSCHAPv2.ID, auth, v2); err != nil {
+	if err := s.VerifyMSCHAPv2(ctx, "User", 1, auth, v2); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.VerifyMSCHAPv2(ctx, "User", 2, auth, v2); err != nil {
 		t.Fatal(err)
 	}
 
 	v1chal := mustHex(t, v.MSCHAPv1.ChallengeHex)
 	v1 := MSCHAPv1Response([]byte(v.MSCHAPv1.Password), v1chal, true)
-	if err := s.VerifyMSCHAPv1(ctx, "User", v.MSCHAPv1.ID, v1chal, v1); err != nil {
+	if err := s.VerifyMSCHAPv1(ctx, "User", 1, v1chal, v1); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.VerifyMSCHAPv1(ctx, "User", 2, v1chal, v1); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -249,6 +263,29 @@ func TestCapabilitiesOmitSecrets(t *testing.T) {
 	}
 	if s.Capabilities("missing") != (Capabilities{}) {
 		t.Fatal("unknown user caps")
+	}
+}
+
+func TestMSCHAPv2MalformedIndependentOfUser(t *testing.T) {
+	t.Parallel()
+	s := mustService(t)
+	login := mustLogin(t, s, "pw")
+	s.store.(*Memory).Put(Record{ID: "ascii-only", Enabled: true, Login: login})
+	s.store.(*Memory).Put(Record{ID: "chal", Enabled: true, Challenge: NewChallengeSecret([]byte("challenge-secret"))})
+	ctx := context.Background()
+	chal := make([]byte, 16)
+	reserved := make([]byte, 49)
+	reserved[20] = 1
+	flags := make([]byte, 49)
+	flags[48] = 1
+	users := []string{"missing-user", "ascii-only", "chal"}
+	for _, user := range users {
+		if err := s.VerifyMSCHAPv2(ctx, user, 1, chal, reserved); !errors.Is(err, ErrMalformed) {
+			t.Fatalf("reserved %s: %v", user, err)
+		}
+		if err := s.VerifyMSCHAPv2(ctx, user, 1, chal, flags); !errors.Is(err, ErrMalformed) {
+			t.Fatalf("flags %s: %v", user, err)
+		}
 	}
 }
 

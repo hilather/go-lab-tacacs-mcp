@@ -48,10 +48,16 @@ func ReadSecret(ref SecretRef, opts ReadOptions) (credentials.Purpose, any, erro
 	defer wipeBytes(raw)
 	switch ref.Purpose {
 	case credentials.PurposeLoginVerifier:
+		if err := credentials.ValidatePHC(raw); err != nil {
+			return ref.Purpose, nil, yamlError("login verifier is not a valid argon2id PHC string")
+		}
 		return ref.Purpose, credentials.NewLoginVerifier(raw), nil
 	case credentials.PurposeChallengeSecret:
 		return ref.Purpose, credentials.NewChallengeSecret(raw), nil
 	case credentials.PurposeEnableVerifier:
+		if err := credentials.ValidatePHC(raw); err != nil {
+			return ref.Purpose, nil, yamlError("enable verifier is not a valid argon2id PHC string")
+		}
 		return ref.Purpose, credentials.NewEnableVerifier(raw), nil
 	case credentials.PurposeLegacySharedSecret:
 		return ref.Purpose, credentials.NewSharedSecret(raw), nil

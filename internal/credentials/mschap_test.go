@@ -90,10 +90,9 @@ func TestMSCHAPv1IndependentVectorIncludesPPPId(t *testing.T) {
 	if len(wire) != 1+8+49 || wire[0] != v.MSCHAPv1.ID {
 		t.Fatalf("wire len=%d id=%d", len(wire), wire[0])
 	}
-	// PPP id is not mixed into the DES response.
-	other := MSCHAPv1Response(pw, chal, true)
-	if !bytes.Equal(full, other) {
-		t.Fatal("PPP id must not change MS-CHAP v1 response")
+	// PPP id is not mixed into the DES response (generation ignores id).
+	if !bytes.Equal(full, MSCHAPv1Response(pw, chal, true)) {
+		t.Fatal("v1 response must be deterministic")
 	}
 	wrong := bytes.Clone(full)
 	wrong[30] ^= 0xff
@@ -162,6 +161,11 @@ func TestMSCHAPv2RFC2759VectorIncludesPPPId(t *testing.T) {
 	resp[20] = 1
 	if err := verifyMSCHAPv2(pw, user, auth, resp); err == nil || !isMalformed(err) {
 		t.Fatalf("nonzero reserved: %v", err)
+	}
+	resp[20] = 0
+	resp[48] = 1
+	if err := verifyMSCHAPv2(pw, user, auth, resp); err == nil || !isMalformed(err) {
+		t.Fatalf("nonzero flags: %v", err)
 	}
 }
 

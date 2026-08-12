@@ -1,0 +1,12 @@
+schema_version: 1
+title: EXEMPT_BY_ADR without adr
+operations:
+  - id: lab.static.bearer
+    description: Lab static bearer versus MCP OAuth PRM
+    parity: EXEMPT_BY_ADR
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: ExemptRequest
+    response_type: ExemptResult
+    status: NOT_STARTED

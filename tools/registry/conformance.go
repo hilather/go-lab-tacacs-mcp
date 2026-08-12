@@ -2,9 +2,7 @@ package registry
 
 import (
 	"fmt"
-	"os"
-
-	"gopkg.in/yaml.v3"
+	"strings"
 )
 
 const (
@@ -49,23 +47,24 @@ type ConformanceRegistry struct {
 
 // LoadConformance decodes a conformance registry YAML file.
 func LoadConformance(path string) (*ConformanceRegistry, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
+	var doc ConformanceRegistry
+	if err := decodeYAML(path, &doc); err != nil {
 		return nil, err
 	}
-	var doc ConformanceRegistry
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if doc.SchemaVersion == 0 && doc.RFC == "" && len(doc.Rows) == 0 {
+		return nil, fmt.Errorf("%s: empty document", path)
 	}
 	return &doc, nil
 }
 
 // Mandatory reports whether the row is a 1.0 release-blocking requirement.
 func (r ConformanceRow) Mandatory() bool {
-	switch r.Level {
-	case "MUST", "MUST NOT", "PROJECT MUST", "MUST/PROJECT MUST":
-		return true
-	default:
+	level := r.Level
+	if strings.Contains(level, "CLIENT-ROLE") || strings.Contains(level, "OPERATOR") {
 		return false
 	}
+	if strings.Contains(level, "if PSK implemented") {
+		return false
+	}
+	return strings.Contains(level, "MUST")
 }

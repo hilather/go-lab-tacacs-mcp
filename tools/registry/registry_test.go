@@ -32,8 +32,17 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 			t.Errorf("%s", issue)
 		}
 	}
-	if got := len(rep.Operations.Operations); got < 29 {
-		t.Fatalf("operations: got %d, want at least the API_PARITY matrix", got)
+	if got := len(rep.Operations.Operations); got != expectedOperationCount {
+		t.Fatalf("operations: got %d, want %d", got, expectedOperationCount)
+	}
+	have := map[string]struct{}{}
+	for _, op := range rep.Operations.Operations {
+		have[op.ID] = struct{}{}
+	}
+	for _, id := range protocolOnlyOperationIDs {
+		if _, ok := have[id]; !ok {
+			t.Errorf("missing protocol-only operation %s", id)
+		}
 	}
 	if got := len(rep.RFC8907.Rows); got != 168 {
 		t.Fatalf("RFC 8907 rows: got %d, want 168", got)
@@ -163,6 +172,7 @@ func TestInvalidOperationFixturesFail(t *testing.T) {
 		{"operations-missing-mcp.yaml", "missing MCP binding"},
 		{"operations-duplicate-id.yaml", "duplicate operation id"},
 		{"subscribe-missing-mcp.yaml", "missing MCP binding"},
+		{"operations-exempt-missing-adr.yaml", "EXEMPT_BY_ADR requires adr"},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -181,6 +191,59 @@ func TestInvalidOperationFixturesFail(t *testing.T) {
 				t.Fatalf("issues %#v, want substring %q", rep.Issues, tc.wantSub)
 			}
 		})
+	}
+}
+
+func TestUnknownYAMLFieldFailsLoad(t *testing.T) {
+	t.Parallel()
+	_, err := LoadOperations(filepath.Join("testdata", "invalid", "operations-unknown-field.yaml"))
+	if err == nil {
+		t.Fatal("expected unknown field to fail decode")
+	}
+	if !strings.Contains(err.Error(), "pull_opertion") {
+		t.Fatalf("error %v, want pull_opertion", err)
+	}
+}
+
+func TestMandatoryLevels(t *testing.T) {
+	t.Parallel()
+	root := testRoot(t)
+	rep, err := ValidateRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := map[string]ConformanceRow{}
+	for _, table := range []*ConformanceRegistry{rep.RFC8907, rep.RFC9887} {
+		for _, row := range table.Rows {
+			rows[row.ID] = row
+		}
+	}
+	cases := []struct {
+		id   string
+		want bool
+	}{
+		{"T89-H-003", true},
+		{"T89-L-004", true},
+		{"T89-AU-017", true},
+		{"T89-AC-014", true},
+		{"T89-AS-013", true},
+		{"T98-CERT-004", true},
+		{"T98-RES-005", true},
+		{"T89-SEC-014", false},
+		{"T89-SEC-015", false},
+		{"T98-ROLE-001", false},
+		{"T98-OPT-002", false},
+		{"T98-OPT-003", false},
+		{"T98-TLS-008", false},
+	}
+	for _, tc := range cases {
+		row, ok := rows[tc.id]
+		if !ok {
+			t.Fatalf("missing row %s", tc.id)
+		}
+		if got := row.Mandatory(); got != tc.want {
+			t.Errorf("%s level %q Mandatory()=%v, want %v", tc.id, row.Level, got, tc.want)
+		}
 	}
 }
 
@@ -224,15 +287,15 @@ func TestReleaseValidationRejectsNotStartedMUST(t *testing.T) {
 	if len(issues) == 0 {
 		t.Fatal("expected release validation to fail while rows are NOT_STARTED")
 	}
-	found := false
+	wantIDs := []string{"T89-H-003", "T89-AU-017", "T98-CERT-004"}
+	have := map[string]struct{}{}
 	for _, issue := range issues {
-		if issue.ID == "T89-H-003" {
-			found = true
-			break
-		}
+		have[issue.ID] = struct{}{}
 	}
-	if !found {
-		t.Fatalf("expected T89-H-003 in release issues, first=%s", issues[0])
+	for _, id := range wantIDs {
+		if _, ok := have[id]; !ok {
+			t.Fatalf("expected %s in release issues (compound MUST rows must be gated)", id)
+		}
 	}
 }
 
@@ -289,11 +352,31 @@ func TestGenerateDocs(t *testing.T) {
 			t.Errorf("api-parity.md missing %q", needle)
 		}
 	}
-	for _, needle := range []string{"T89-H-001", "T98-TLS-001", StatusNotStarted} {
+	for _, needle := range []string{
+		"T89-H-001",
+		"T98-TLS-001",
+		StatusNotStarted,
+		"T89-AV-003",
+		"Empty for session authorization; non-empty for command authorization",
+	} {
 		if !strings.Contains(string(conf), needle) {
 			t.Errorf("conformance.md missing %q", needle)
 		}
 	}
+}
+
+const expectedOperationCount = 38
+
+var protocolOnlyOperationIDs = []string{
+	"health.live",
+	"health.ready",
+	"openapi.get",
+	"session.create",
+	"session.delete",
+	"mcp.discover",
+	"mcp.tools.list",
+	"mcp.resources.list",
+	"mcp.notifications.list_changed",
 }
 
 func containsIssue(rep *Report, sub string) bool {

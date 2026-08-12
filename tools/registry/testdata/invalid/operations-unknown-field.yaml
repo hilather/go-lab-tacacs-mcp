@@ -1,0 +1,19 @@
+schema_version: 1
+title: unknown field fixture
+operations:
+  - id: users.create
+    description: Create a user
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: conditional
+    scopes: [state:write]
+    request_type: CreateUserRequest
+    response_type: User
+    rest:
+      method: POST
+      path: /api/v1/users
+    mcp:
+      kind: tool
+      name: taclab.users.create
+      pull_opertion: events.list
+    status: NOT_STARTED

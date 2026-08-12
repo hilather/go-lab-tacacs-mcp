@@ -75,8 +75,8 @@ func renderConformance(tables ...*ConformanceRegistry) string {
 			b.WriteString(table.Title)
 			b.WriteString("\n\n")
 		}
-		b.WriteString("| ID | Level | Status | Requirement |\n")
-		b.WriteString("|---|---|---|---|\n")
+		b.WriteString("| ID | Level | Status | Requirement | Required evidence |\n")
+		b.WriteString("|---|---|---|---|---|\n")
 		for _, row := range table.Rows {
 			b.WriteString("| ")
 			b.WriteString(escapeCell(row.ID))
@@ -86,6 +86,8 @@ func renderConformance(tables ...*ConformanceRegistry) string {
 			b.WriteString(escapeCell(row.Status))
 			b.WriteString(" | ")
 			b.WriteString(escapeCell(row.Requirement))
+			b.WriteString(" | ")
+			b.WriteString(escapeCell(row.EvidenceRequired))
 			b.WriteString(" |\n")
 		}
 		b.WriteByte('\n')

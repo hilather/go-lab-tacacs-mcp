@@ -11,7 +11,7 @@ go run ./tools/generate
 go run ./tools/check-registries -write-docs
 
 if ! git diff --exit-code -- docs/generated; then
-  echo "generated-file drift: docs/generated does not match tools/generate" >&2
+  echo "generated-file drift: docs/generated does not match tools/generate and tools/check-registries -write-docs" >&2
   echo "run: make generate && git add docs/generated" >&2
   exit 1
 fi

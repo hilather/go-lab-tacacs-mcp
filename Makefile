@@ -40,7 +40,7 @@ help:
 	@echo "  make vuln             govulncheck"
 	@echo "  make docs-check       README link policy"
 	@echo "  make check-hooks      prove format/type/drift/secret hooks fail closed"
-	@echo "  make ci               lint + tests + web + secrets + drift + hook self-test"
+	@echo "  make ci               lint + tests + web (incl. production build) + secrets + drift + hook self-test"
 	@echo "  make build            build $(BIN_DIR)/$(BINARY)"
 	@echo "  make clean            remove bin/ and dist/"
 
@@ -139,7 +139,7 @@ check-hooks:
 	./tools/check-hooks.sh
 
 .PHONY: ci
-ci: lint test test-race fuzz-smoke web-typecheck web-lint web-test secrets check-generated docs-check check-hooks build
+ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build secrets check-generated docs-check check-hooks build
 
 .PHONY: build
 build:

@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-// e2e tests are required from PR-19a onward.
-console.log("web e2e: placeholder skip until PR-19a");
+// Placeholder until the Playwright suite exists.
+console.log("web e2e: placeholder skip until Playwright suite exists");
 process.exit(0);

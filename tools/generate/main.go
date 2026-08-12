@@ -1,7 +1,4 @@
 // Command generate writes checked-in generated files from pinned inputs.
-//
-// Generators in later PRs replace this stub; check-generated must keep failing
-// on drift even while the only output is the toolchain record.
 package main
 
 import (
@@ -10,8 +7,9 @@ import (
 	"path/filepath"
 )
 
-// Pins recorded for P0. The official MCP Go SDK is documented here and is not
-// a compile-time dependency of this skeleton.
+// toolchainMarkdown must stay bit-identical to docs/generated/toolchain.md.
+// The official MCP Go SDK is documented here and is not a compile-time
+// dependency of this skeleton.
 const toolchainMarkdown = `# Generated toolchain record
 
 Do not hand-edit this file. Run ` + "`make generate`" + `.

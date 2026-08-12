@@ -1480,18 +1480,18 @@ Only update the documents actually affected, but explicitly review every item.
 
 The first sprint should produce a thin, testable vertical skeleton rather than UI-first mock behavior:
 
-- [ ] P0 repository/tooling/CI foundation.
+- [x] P0 repository/tooling/CI foundation.
 - [x] P1 protocol ADR and packet spike.
-- [ ] P2 minimal strict config, state snapshot, one client, one group, one user.
-- [ ] P3 common header plus minimal ASCII packet codec with golden/fuzz tests.
+- [x] P2 minimal strict config, state snapshot, one client, one group, one user.
+- [x] P3 common header plus minimal ASCII packet codec with golden/fuzz tests.
 - [x] P4 legacy listener with safe connection lifecycle.
-- [ ] P5 ASCII authentication success/failure using the real credential service.
-- [ ] P6 one shell and one command authorization rule through the real policy engine.
-- [ ] P7 one accounting START event in the bounded ring.
-- [ ] P9 status and policy-explain operations.
-- [ ] P10 REST status/policy-explain bindings.
-- [ ] P11 equivalent MCP bindings and first parity test.
+- [x] P5 ASCII authentication success/failure using the real credential service.
+- [x] P6 one shell and one command authorization rule through the real policy engine.
+- [x] P7 one accounting START event in the bounded ring.
+- [x] P9 status and policy-explain operations.
+- [x] P10 REST status/policy-explain bindings.
+- [x] P11 equivalent MCP bindings and first parity test.
 - [ ] P12 minimal React status and policy-test page using generated REST types.
-- [ ] P14 build image and start Compose on high container ports.
+- [x] P14 build image and start Compose on high container ports.
 
 This sprint is not a release and must not label TACACS support complete. Its purpose is to validate architectural boundaries, parity mechanics, test scaffolding, and deployment flow before filling the conformance matrix.

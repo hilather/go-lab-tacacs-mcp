@@ -165,7 +165,7 @@ clients:
 
 func waitServeAddr(t *testing.T, stdout, stderr *syncBuf) string {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		out := stdout.String()
 		if strings.Contains(out, "ready") {

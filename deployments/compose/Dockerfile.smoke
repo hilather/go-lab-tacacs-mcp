@@ -1,0 +1,16 @@
+# Smoke image for the vertical skeleton. Not the 1.0 lab image (PR-21).
+FROM golang:1.24.5-bookworm AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/taclabd ./cmd/taclabd
+
+FROM gcr.io/distroless/static-debian12:nonroot
+WORKDIR /taclab
+COPY --from=build /out/taclabd /taclabd
+COPY --from=build /src/go.mod /taclab/go.mod
+COPY --from=build /src/api/operations.yaml /taclab/api/operations.yaml
+USER 65532:65532
+EXPOSE 4949 8080
+ENTRYPOINT ["/taclabd"]

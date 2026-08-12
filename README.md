@@ -12,7 +12,14 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout implements the TACACS+ codec, compiled snapshots, and the **legacy TCP listener** (`taclabd serve --config`, `listeners.legacy_tacacs`) with single-connect, client match, and a stub AAA dispatcher. It does **not** implement TLS TACACS, REST, MCP, full authentication conversations, or the admin UI. Do not describe it as a complete TACACS+ server.
+This checkout is the **vertical skeleton**: ASCII LOGIN, one service rule, one command rule, accounting START, a bounded event ring, and `status` / `policy.evaluate` on REST and MCP. `taclabd serve --config` binds the legacy TACACS listener and, when enabled, the HTTP admin listener. It does **not** implement remaining authentication flows, TLS TACACS, the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
+
+High-port Compose smoke (no privileged 49/300):
+
+```bash
+docker compose -f deployments/compose/compose.smoke.yaml config
+docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-container-exit --exit-code-from smoke
+```
 
 ## Documents
 

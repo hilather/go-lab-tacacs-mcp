@@ -10,6 +10,8 @@ REST and MCP are two public adapters over one administrative operation layer. Ne
 
 The UI uses REST. Automation may use REST or MCP. A lab operator must not receive materially different server capabilities merely because a different adapter is used.
 
+The vertical skeleton implements `system.status.get` and `policy.evaluate` on both adapters through the same registry. Health probes remain `REST_ONLY_PROTOCOL`. MCP `server/discover` is `MCP_ONLY_PROTOCOL`.
+
 ## 2. Source of truth
 
 The repository contains a machine-readable operation registry at `api/operations.yaml`. Typed Go handlers live in `internal/api/operations` and must keep the same IDs. REST and MCP adapters invoke that registry; they do not implement business logic.

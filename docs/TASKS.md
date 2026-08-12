@@ -191,50 +191,56 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 **Depends on:** P0
 
-- [ ] Evaluate maintained Go TACACS codec/server packages and internal implementation scope.
-- [ ] Record license, maintenance activity, RFC 8907 coverage, RFC 9887 readiness, fuzz/race posture, API extensibility, and known interoperability evidence.
-- [ ] Reject packages that force policy or credential models into transport code.
-- [ ] Reject packages whose license or transitive dependencies are unacceptable.
+- [x] Evaluate maintained Go TACACS codec/server packages and internal implementation scope.
+- [x] Record license, maintenance activity, RFC 8907 coverage, RFC 9887 readiness, fuzz/race posture, API extensibility, and known interoperability evidence.
+- [x] Reject packages that force policy or credential models into transport code.
+- [x] Reject packages whose license or transitive dependencies are unacceptable.
 
 **Documentation**
 
-- [ ] Create an architecture decision record selecting reuse, fork, or internal codec implementation.
+- [x] Create an architecture decision record selecting reuse, fork, or internal codec implementation.
 
 ### P1.2 Implement black-box spike harness
 
 **Depends on:** P1.1
 
-- [ ] Create a small server adapter and independent test client/harness.
-- [ ] Exercise packet encode/decode, sequence progression, legacy obfuscation, session IDs, and single-connect.
+- [x] Create a small server adapter and independent test client/harness.
+- [x] Exercise packet encode/decode, sequence progression, legacy obfuscation, session IDs, and single-connect.
 - [ ] Exercise every authentication type required for 1.0.
 - [ ] Exercise authorization and accounting packet families/statuses.
-- [ ] Inject malformed lengths, unsupported versions, truncated data, and invalid sequences.
-- [ ] Run with the race detector and initial fuzz corpus.
+- [x] Inject malformed lengths, unsupported versions, truncated data, and invalid sequences.
+- [x] Run with the race detector and initial fuzz corpus.
 
 **Benchmarks**
 
-- [ ] Benchmark header/body encode/decode and legacy body transform for representative packet sizes.
+- [x] Benchmark header/body encode/decode and legacy body transform for representative packet sizes.
+
+The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. Authentication body families and author/acct statuses remain P3 (`internal/tacacs/codec`). The spike header bench does not satisfy `make bench`.
 
 ### P1.3 Decide and isolate the adapter boundary
 
 **Depends on:** P1.2
 
-- [ ] Select the implementation approach using measured evidence.
-- [ ] Define a project-owned codec/connection interface so external dependency details do not leak into AAA, policy, operations, or API packages.
-- [ ] Document patches or upstream contributions required for conformance.
-- [ ] Pin exact dependency versions or fork commit.
+- [x] Select the implementation approach using measured evidence.
+- [x] Define a project-owned codec/connection interface so external dependency details do not leak into AAA, policy, operations, or API packages.
+- [x] Document patches or upstream contributions required for conformance.
+- [x] Pin exact dependency versions or fork commit.
+
+No library is pinned. An override would require a new ADR, an isolated encode/decode surface, and a Go-version decision. See [ADR 0007](decisions/0007-codec-approach.md).
 
 **Acceptance**
 
-- [ ] Every mandatory protocol feature is either demonstrated or has a task and conformance row owner.
-- [ ] No README claim from a dependency is accepted as conformance evidence without an executable test.
+- [x] Every mandatory protocol feature is either demonstrated or has a task and conformance row owner.
+- [x] No README claim from a dependency is accepted as conformance evidence without an executable test.
+
+Body families, sequence machines, and transport adapters remain owned by P3–P4 and the T89/T98 rows.
 
 ### P1 exit gate
 
-- [ ] Protocol approach ADR approved.
-- [ ] Independent spike evidence exists.
-- [ ] Initial codec benchmarks and fuzz corpus are checked in.
-- [ ] All known feature gaps appear in this backlog and conformance matrix.
+- [x] Protocol approach ADR approved.
+- [x] Independent spike evidence exists.
+- [x] Initial codec benchmarks and fuzz corpus are checked in.
+- [x] All known feature gaps appear in this backlog and conformance matrix.
 
 ## 5. Milestone P2 - Domain model, configuration, and immutable state
 
@@ -1469,7 +1475,7 @@ Only update the documents actually affected, but explicitly review every item.
 The first sprint should produce a thin, testable vertical skeleton rather than UI-first mock behavior:
 
 - [ ] P0 repository/tooling/CI foundation.
-- [ ] P1 protocol ADR and packet spike.
+- [x] P1 protocol ADR and packet spike.
 - [ ] P2 minimal strict config, state snapshot, one client, one group, one user.
 - [ ] P3 common header plus minimal ASCII packet codec with golden/fuzz tests.
 - [ ] P4 legacy listener with safe connection lifecycle.

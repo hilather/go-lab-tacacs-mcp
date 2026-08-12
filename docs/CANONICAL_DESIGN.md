@@ -280,7 +280,7 @@ Packet files live at the packet root. README required-reading links assume `docs
 |---|---|
 | Go module path / image registry / license | **Resolved:** module `github.com/hilather/go-lab-tacacs-mcp`; image `ghcr.io/hilather/go-lab-tacacs-mcp`; license Apache-2.0; owner `hilather` |
 | Exact Go / Node / MCP SDK versions | Pin in P0 after `go version` / SDK 2026-07-28 compatibility check |
-| Codec: library vs internal | Default **internal codec**; P1 spike may override via ADR only if a library meets the isolation/conformance bar |
+| Codec: library vs internal | **Internal codec** ([ADR 0007](decisions/0007-codec-approach.md)). A later library override requires a new ADR and must meet the isolation/conformance bar |
 | Username profile implementation | `golang.org/x/text/secure/precis` `UsernameCasePreserved` |
 | Password KDF | Argon2id via `golang.org/x/crypto/argon2`; parameters recorded in ADR-0002 during P5.1 |
 | TLS revocation | 1.0: **configured CRL** (`revocation.mode: configured_crl`). OCSP/AIA is post-1.0 or ADR |
@@ -306,7 +306,7 @@ Packet files live at the packet root. README required-reading links assume `docs
 
 1. **One process, two TACACS sockets, one HTTP admin socket.** ADR 0001 is accepted. Distinct binds; immediate TLS on the secure socket; no sniffing, upgrade, or fallback. Co-location is a documented lab convenience; TLS-only is the preferred production-like profile.
 
-2. **Internal TACACS codec by default.** Protocol types stay in `internal/tacacs`. A third-party library may be used only after P1 proves license, RFC 8907/9887 coverage, bounded parse, and an adapter that does not leak policy/credentials. The independent test client does not import the server codec package.
+2. **Internal TACACS codec by default.** Protocol types stay in `internal/tacacs`. [ADR 0007](decisions/0007-codec-approach.md) records the accepted 1.0 decision: no third-party TACACS library. A later override requires a new ADR and an adapter that does not leak policy/credentials. The independent test client does not import the server codec package.
 
 3. **Single authoritative in-memory snapshot.** `internal/state.Manager` owns baseline + overlay, compiles an immutable `Snapshot`, publishes via `atomic.Pointer`. Protocol and API reads never take the write lock.
 
@@ -1073,7 +1073,7 @@ Golden files under `testdata/protocol` include provenance metadata. Shared-codec
 
 **Pros:** Less codec work.  
 **Cons:** Risk of policy/transport coupling, incomplete RFC 9887, unacceptable licenses, or untestable internals.  
-**Decision:** Evaluate in P1. Default is an internal codec with a clean `codec` API. A library may supply **only** encode/decode behind that API.
+**Decision:** Accepted internal codec ([ADR 0007](decisions/0007-codec-approach.md)). A library may later supply **only** encode/decode behind that API if a new ADR proves the isolation/conformance bar.
 
 ### F. Lexicographic client-ID tie-break
 

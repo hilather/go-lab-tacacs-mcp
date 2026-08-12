@@ -172,6 +172,8 @@ Responsibilities:
 
 The codec is independent of network I/O and can be tested using byte slices and readers with deliberate short reads.
 
+1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
+
 ### 4.8 `internal/tacacs/server`
 
 Responsibilities:

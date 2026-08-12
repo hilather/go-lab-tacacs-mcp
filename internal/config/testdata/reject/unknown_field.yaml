@@ -1,0 +1,6 @@
+schema_version: 1
+clients:
+  - id: a
+    authentcation:
+      allowed_methods:
+        - ascii

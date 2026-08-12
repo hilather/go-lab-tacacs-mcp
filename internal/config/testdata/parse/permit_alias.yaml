@@ -1,0 +1,31 @@
+schema_version: 1
+groups:
+  - id: g
+    services:
+      - service: shell
+        action: permit
+        reply_attributes:
+          - name: priv-lvl
+            separator: "="
+            value: "15"
+    command_rules:
+      - id: r
+        action: permit_replace
+        command:
+          exact: configure
+        arguments:
+          pattern: ".*"
+    default_command_action: deny
+users:
+  - id: operator
+    rules:
+      services:
+        - service: shell
+          action: permit_add
+      command_rules:
+        - id: deny-cfg
+          action: deny
+          command:
+            exact: configure
+          arguments:
+            pattern: ".*"

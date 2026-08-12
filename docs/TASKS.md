@@ -268,22 +268,22 @@ Body families, sequence machines, and transport adapters remain owned by P3–P4
 
 **Depends on:** P2.1
 
-- [ ] Implement schema version enforcement.
-- [ ] Reject unknown fields, duplicate keys, aliases/anchors, multiple documents, invalid UTF-8, and oversized input.
-- [ ] Produce stable path-qualified error codes.
-- [ ] Resolve typed file secret references.
-- [ ] Parse global and per-client legacy shared-secret policy/lifecycle metadata.
-- [ ] Implement safe default values explicitly.
+- [x] Implement schema version enforcement.
+- [x] Reject unknown fields, duplicate keys, aliases/anchors, multiple documents, invalid UTF-8, and oversized input.
+- [x] Produce stable path-qualified error codes.
+- [x] Resolve typed file secret references.
+- [x] Parse global and per-client legacy shared-secret policy/lifecycle metadata.
+- [x] Implement safe default values explicitly.
 
 **Regression tests**
 
-- [ ] Golden valid configurations.
-- [ ] One regression fixture per rejection class.
-- [ ] Secret error messages pass canary tests.
+- [x] Golden valid configurations.
+- [x] One regression fixture per rejection class.
+- [x] Secret error messages pass canary tests.
 
 **Benchmarks**
 
-- [ ] Benchmark small, standard, and maximum reference configuration parsing.
+- [x] Benchmark small, standard, and maximum reference configuration parsing.
 
 ### P2.3 Implement cross-object validation
 

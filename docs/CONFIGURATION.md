@@ -580,15 +580,15 @@ Limits are security boundaries. Reducing a limit through reload is permitted onl
 
 ### 7.8 `clients`
 
-A client identifies a Network Access Server or a group of devices. Matching uses a deterministic order:
+A client identifies a Network Access Server or a group of devices. Matching is fail-closed and uses a deterministic order:
 
-1. Listener/transport compatibility.
-2. Explicit certificate identity constraints for TLS, when configured.
-3. Most-specific source CIDR prefix.
+1. Listener/transport compatibility (`legacy` vs `tls`).
+2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN).
+3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a match key.
 4. Lowest numeric client priority.
-5. Lexicographic stable client ID as the final deterministic tie-breaker.
+5. A remaining tie is a configuration error (`CLIENT_MATCH_AMBIGUOUS`). Lexicographic client ID is not a runtime tie-breaker.
 
-Validation must reject indistinguishable client definitions unless an explicit ordering makes the result unambiguous.
+Validation must reject indistinguishable client definitions. Disabled clients are not match candidates.
 
 For a legacy connection, a selected client must have a legacy shared secret. Its resolved value must satisfy the configured length/complexity policy, and its lifecycle metadata is compiled into a non-secret health status. Secret reuse produces a warning when enabled but does not reveal the shared value or fingerprint. For a TLS connection, client identity must satisfy the configured mutual-TLS policy; the legacy shared secret is not used for packet protection.
 

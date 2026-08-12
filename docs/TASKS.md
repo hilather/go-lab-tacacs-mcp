@@ -289,86 +289,86 @@ Body families, sequence machines, and transport adapters remain owned by P3–P4
 
 **Depends on:** P2.2
 
-- [ ] Validate user-to-group, client-to-group, listener, TLS, credential-method, policy, and token-scope references.
-- [ ] Reject ambiguous client matching.
-- [ ] Validate command regexes and compile them once.
-- [ ] Validate object and string-size limits before expensive work.
-- [ ] Validate required credential material for enabled authentication methods.
-- [ ] Enforce configurable legacy shared-secret minimum length and character-class policy while accepting keys of at least 32 characters without truncation.
-- [ ] Reject configured known-weak values without echoing them.
-- [ ] Detect shared-secret reuse through process-local keyed HMAC fingerprints and emit a bounded warning when configured.
-- [ ] Validate rotation metadata and compute `current`, `due_soon`, `overdue`, or `unknown` using an injectable clock.
+- [x] Validate user-to-group, client-to-group, listener, TLS, credential-method, policy, and token-scope references.
+- [x] Reject ambiguous client matching.
+- [x] Validate command regexes and compile them once.
+- [x] Validate object and string-size limits before expensive work.
+- [x] Validate required credential material for enabled authentication methods.
+- [x] Enforce configurable legacy shared-secret minimum length and character-class policy while accepting keys of at least 32 characters without truncation.
+- [x] Reject configured known-weak values without echoing them.
+- [x] Detect shared-secret reuse through process-local keyed HMAC fingerprints and emit a bounded warning when configured.
+- [x] Validate rotation metadata and compute `current`, `due_soon`, `overdue`, or `unknown` using an injectable clock.
 
 **Regression tests**
 
-- [ ] Table-driven tests cover every machine-readable validation code.
-- [ ] Secret-policy tests cover short, weak, 32-plus-character, duplicate, due-soon, overdue, unknown, and strict-profile cases.
+- [x] Table-driven tests cover every machine-readable validation code.
+- [x] Secret-policy tests cover short, weak, 32-plus-character, duplicate, due-soon, overdue, unknown, and strict-profile cases.
 
 ### P2.4 Implement baseline, overlay, tombstone, and revision store
 
 **Depends on:** P2.3
 
-- [ ] Load immutable baseline state.
-- [ ] Implement complete-object runtime replacement.
-- [ ] Implement runtime-only creation.
-- [ ] Implement tombstones for baseline objects.
-- [ ] Implement expected-revision conflict checks.
-- [ ] Implement atomic reset.
-- [ ] Track source/shadow metadata without placing timestamps in policy ordering.
+- [x] Load immutable baseline state.
+- [x] Implement complete-object runtime replacement.
+- [x] Implement runtime-only creation.
+- [x] Implement tombstones for baseline objects.
+- [x] Implement expected-revision conflict checks.
+- [x] Implement atomic reset.
+- [x] Track source/shadow metadata without placing timestamps in policy ordering.
 
 **Regression tests**
 
-- [ ] Create/update/delete/shadow/reset tests for every object kind.
-- [ ] Concurrent stale revision tests.
-- [ ] Restart reconstruction tests using a fresh store.
+- [x] Create/update/delete/shadow/reset tests for every object kind.
+- [x] Concurrent stale revision tests.
+- [x] Restart reconstruction tests using a fresh store.
 
 **Benchmarks**
 
-- [ ] Benchmark overlay mutation and snapshot rebuild at reference sizes.
+- [x] Benchmark overlay mutation and snapshot rebuild at reference sizes.
 
 ### P2.5 Implement compiled immutable snapshots
 
 **Depends on:** P2.4
 
-- [ ] Compile client CIDR/certificate match indexes.
-- [ ] Compile user and group indexes.
-- [ ] Compile policy rule matchers.
-- [ ] Precompute safe credential capability metadata.
-- [ ] Precompute legacy shared-secret lifecycle status and deduplicated warning records without retaining serializable or exportable fingerprints.
-- [ ] Publish through an atomic pointer or equivalent lock-light read path.
-- [ ] Keep prior snapshot alive for in-flight sessions.
+- [x] Compile client CIDR/certificate match indexes.
+- [x] Compile user and group indexes.
+- [x] Compile policy rule matchers.
+- [x] Precompute safe credential capability metadata.
+- [x] Precompute legacy shared-secret lifecycle status and deduplicated warning records without retaining serializable or exportable fingerprints.
+- [x] Publish through an atomic pointer or equivalent lock-light read path.
+- [x] Keep prior snapshot alive for in-flight sessions.
 
 **Regression tests**
 
-- [ ] Readers observe either complete old or complete new snapshots, never partial state.
-- [ ] Invalid candidate publication preserves old state.
-- [ ] Race detector covers concurrent read/mutate/reload tests.
+- [x] Readers observe either complete old or complete new snapshots, never partial state.
+- [x] Invalid candidate publication preserves old state.
+- [x] Race detector covers concurrent read/mutate/reload tests.
 
 **Benchmarks**
 
-- [ ] Lookup benchmarks for user, client, group, and policy indexes.
-- [ ] Snapshot compile/publication benchmarks.
+- [x] Lookup benchmarks for user, client, group, and policy indexes.
+- [x] Snapshot compile/publication benchmarks.
 
 ### P2.6 Implement reload and rebase
 
 **Depends on:** P2.5
 
-- [ ] Implement validate-only and reload operations at service level.
-- [ ] Implement overlay `rebase` and `reset` behavior.
-- [ ] Reject invalid rebase atomically.
+- [x] Implement validate-only and reload operations at service level.
+- [x] Implement overlay `rebase` and `reset` behavior.
+- [x] Reject invalid rebase atomically.
 - [ ] Emit sanitized reload events.
 - [ ] Add signal integration without placing reload logic in signal handlers.
 
 **Documentation**
 
-- [ ] Keep `CONFIGURATION.md` example and field reference synchronized.
+- [x] Keep `CONFIGURATION.md` example and field reference synchronized.
 
 ### P2 exit gate
 
-- [ ] All configuration rules and overlay semantics have tests.
-- [ ] Atomic snapshot race tests pass.
-- [ ] Config compile benchmarks are recorded.
-- [ ] No secret value can be serialized or logged by the state packages.
+- [x] All configuration rules and overlay semantics have tests.
+- [x] Atomic snapshot race tests pass.
+- [x] Config compile benchmarks are recorded.
+- [x] No secret value can be serialized or logged by the state packages.
 
 ## 6. Milestone P3 - TACACS codec and packet conformance
 

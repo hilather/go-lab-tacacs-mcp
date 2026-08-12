@@ -388,12 +388,13 @@ Legacy client selection uses the actual TCP peer address after any explicitly co
 
 Deterministic precedence:
 
-1. Filter enabled client definitions whose CIDR contains the peer IP.
-2. Choose the longest prefix length.
-3. Choose the lowest numeric priority.
-4. A remaining tie is a configuration error and prevents publication.
+1. Filter enabled client definitions compatible with the listener transport (`legacy` vs `tls`).
+2. For TLS, apply configured certificate identity constraints (dNSName / iPAddress SAN).
+3. Unless `match.mode` is `certificate_only`, choose the longest matching source CIDR prefix using compiled IPv4 and IPv6 indexes. `certificate_only` does not use CIDR as a match key.
+4. Choose the lowest numeric priority.
+5. A remaining tie is a configuration error (`CLIENT_MATCH_AMBIGUOUS`) and prevents publication. Lexicographic client ID is not a runtime tie-breaker.
 
-Secure client selection additionally validates the peer certificate and configured identity mapping. Network address and certificate identity must both satisfy the client definition unless the definition explicitly uses a certificate-only mode permitted by the secure transport design.
+Network address and certificate identity must both satisfy the client definition unless the definition explicitly uses `certificate_only`.
 
 A connection is bound to one client definition for its lifetime. Reload does not change the identity or secret of an already accepted connection; new sessions on an existing single-connect connection continue under the bound connection context until closure. A configurable maximum connection age limits stale bindings.
 

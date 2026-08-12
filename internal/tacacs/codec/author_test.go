@@ -51,6 +51,9 @@ func TestAuthorResponseStatuses(t *testing.T) {
 	if _, err := (AuthorResponse{Status: AuthorStatusFollow}).Encode(); !errors.Is(err, ErrFollow) {
 		t.Fatalf("follow: %v", err)
 	}
+	if _, err := (AuthorResponse{Status: AuthorStatusError, Data: []byte{0x01}}).Encode(); !errors.Is(err, ErrNonPrintable) {
+		t.Fatalf("data encode: %v", err)
+	}
 }
 
 func TestAuthorArgOverflowAndMismatch(t *testing.T) {

@@ -34,6 +34,7 @@ func TestClassifyAuthenStartMatrix(t *testing.T) {
 		{"ascii none service fail", 0, AuthenStart{Action: AuthenActionLogin, Type: AuthenTypeASCII, Service: AuthenServiceNone}, FlowASCIILogin, DispositionFail},
 		{"pap none service fail", 1, AuthenStart{Action: AuthenActionLogin, Type: AuthenTypePAP, Service: AuthenServiceNone}, FlowPAPLogin, DispositionFail},
 		{"unknown service fail", 0, AuthenStart{Action: AuthenActionLogin, Type: AuthenTypeASCII, Service: 0xaa}, FlowASCIILogin, DispositionFail},
+		{"arap service fail", 0, AuthenStart{Action: AuthenActionLogin, Type: AuthenTypeASCII, Service: AuthenServiceARAP}, FlowASCIILogin, DispositionFail},
 		{"ascii ppp accept", 0, AuthenStart{Action: AuthenActionLogin, Type: AuthenTypeASCII, Service: AuthenServicePPP}, FlowASCIILogin, DispositionAccept},
 	}
 	for _, r := range rows {
@@ -54,8 +55,8 @@ func TestKnownServices(t *testing.T) {
 			t.Fatalf("service %#x", s)
 		}
 	}
-	if KnownAuthenService(0x0a) {
-		t.Fatal("0x0a is unknown")
+	if KnownAuthenService(0x0a) || KnownAuthenService(AuthenServiceARAP) {
+		t.Fatal("0x0a and ARAP 0x04 are unknown in RFC 8907")
 	}
 }
 

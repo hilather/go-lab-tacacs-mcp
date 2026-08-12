@@ -241,6 +241,34 @@ func TestMatrixTable(t *testing.T) {
 	if FamilyMinor(TypeAuthor, 1) != Error || FamilyMinor(TypeAcct, 0) != OK {
 		t.Fatal("family minor")
 	}
+	if k, v := ScoreStart(0, Start{Action: ActionLogin, AType: TypeASCII, Service: SvcARAP}); k != KindASCII || v != Fail {
+		t.Fatalf("arap service k=%d v=%d", k, v)
+	}
+}
+
+func TestAcctRepRFC8907Order(t *testing.T) {
+	t.Parallel()
+	empty, err := WriteAcctRep(AcctRep{Status: AcctOK})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(empty) != 5 || empty[4] != AcctOK || empty[0] != 0 || empty[1] != 0 || empty[2] != 0 || empty[3] != 0 {
+		t.Fatalf("empty SUCCESS %x", empty)
+	}
+	raw, err := WriteAcctRep(AcctRep{Status: AcctErr, Msg: []byte("no"), Data: []byte("log")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw[0] != 0 || raw[1] != 2 || raw[2] != 0 || raw[3] != 3 || raw[4] != AcctErr {
+		t.Fatalf("prefix %x", raw[:5])
+	}
+	got, err := ReadAcctRep(raw)
+	if err != nil || string(got.Msg) != "no" || string(got.Data) != "log" {
+		t.Fatalf("%#v %v", got, err)
+	}
+	if _, err := WriteAcctRep(AcctRep{Status: AcctOK, Data: []byte{0x01}}); !errors.Is(err, ErrASCII) {
+		t.Fatalf("data: %v", err)
+	}
 }
 
 func TestAuthorAcctPairs(t *testing.T) {

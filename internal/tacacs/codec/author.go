@@ -160,6 +160,9 @@ func DecodeAuthorResponse(p []byte) (AuthorResponse, error) {
 	if err := requirePrintable("server_msg", z.ServerMsg); err != nil {
 		return AuthorResponse{}, err
 	}
+	if err := requirePrintable("data", z.Data); err != nil {
+		return AuthorResponse{}, err
+	}
 	return z, nil
 }
 
@@ -169,6 +172,9 @@ func (r AuthorResponse) Encode() ([]byte, error) {
 		return nil, ErrFollow
 	}
 	if err := requirePrintable("server_msg", r.ServerMsg); err != nil {
+		return nil, err
+	}
+	if err := requirePrintable("data", r.Data); err != nil {
 		return nil, err
 	}
 	sl, err := u16len(r.ServerMsg)

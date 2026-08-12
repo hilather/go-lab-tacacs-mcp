@@ -22,7 +22,7 @@ const (
 	SvcLogin   = 0x01
 	SvcEnable  = 0x02
 	SvcPPP     = 0x03
-	SvcARAP    = 0x04
+	SvcARAP    = 0x04 // removed; not in RFC 8907 §5.1
 	SvcPT      = 0x05
 	SvcRCMD    = 0x06
 	SvcX25     = 0x07

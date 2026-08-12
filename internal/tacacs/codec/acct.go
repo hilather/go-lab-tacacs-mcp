@@ -154,20 +154,21 @@ type AcctReply struct {
 	Data      []byte
 }
 
-// DecodeAcctReply parses a REPLY body. FOLLOW is accepted on the wire.
+// DecodeAcctReply parses a REPLY body (RFC 8907 §7.2):
+// server_msg_len(2) || data_len(2) || status(1) || server_msg || data.
+// FOLLOW is accepted on the wire. server_msg and data are printable text.
 func DecodeAcctReply(p []byte) (AcctReply, error) {
 	var z AcctReply
 	c := cursor{b: p}
-	var err error
-	if z.Status, err = c.u8(); err != nil {
-		return AcctReply{}, err
-	}
 	smLen, err := c.u16()
 	if err != nil {
 		return AcctReply{}, err
 	}
 	dataLen, err := c.u16()
 	if err != nil {
+		return AcctReply{}, err
+	}
+	if z.Status, err = c.u8(); err != nil {
 		return AcctReply{}, err
 	}
 	need := int(smLen) + int(dataLen)
@@ -186,6 +187,9 @@ func DecodeAcctReply(p []byte) (AcctReply, error) {
 	if err := requirePrintable("server_msg", z.ServerMsg); err != nil {
 		return AcctReply{}, err
 	}
+	if err := requirePrintable("data", z.Data); err != nil {
+		return AcctReply{}, err
+	}
 	return z, nil
 }
 
@@ -195,6 +199,9 @@ func (r AcctReply) Encode() ([]byte, error) {
 		return nil, ErrFollow
 	}
 	if err := requirePrintable("server_msg", r.ServerMsg); err != nil {
+		return nil, err
+	}
+	if err := requirePrintable("data", r.Data); err != nil {
 		return nil, err
 	}
 	sl, err := u16len(r.ServerMsg)
@@ -210,9 +217,9 @@ func (r AcctReply) Encode() ([]byte, error) {
 		return nil, err
 	}
 	out := make([]byte, 5, n)
-	out[0] = r.Status
-	binary.BigEndian.PutUint16(out[1:3], sl)
-	binary.BigEndian.PutUint16(out[3:5], dl)
+	binary.BigEndian.PutUint16(out[0:2], sl)
+	binary.BigEndian.PutUint16(out[2:4], dl)
+	out[4] = r.Status
 	out = append(out, r.ServerMsg...)
 	out = append(out, r.Data...)
 	return out, nil

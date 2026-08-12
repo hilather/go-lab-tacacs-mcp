@@ -12,6 +12,8 @@ import (
 type identityStamp struct {
 	created    time.Time
 	createdRev domain.Revision
+	updated    time.Time
+	updatedRev domain.Revision
 }
 
 func copyStamps(in map[string]identityStamp) map[string]identityStamp {
@@ -22,8 +24,11 @@ func copyStamps(in map[string]identityStamp) map[string]identityStamp {
 	return out
 }
 
-func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision, now time.Time) (*Snapshot, map[string]identityStamp, error) {
+func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision, now time.Time, touchBaseline bool) (*Snapshot, map[string]identityStamp, error) {
 	born := copyStamps(m.born)
+	if touchBaseline {
+		touchBaselineStamps(born, base, rev, now)
+	}
 	users, userTombs := mergeUsers(base, ov, rev, now, born)
 	groups, groupTombs := mergeGroups(base, ov, rev, now, born)
 	clients, clientTombs := mergeClients(base, ov, rev, now, born)
@@ -48,14 +53,20 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 		synth.Clients = append(synth.Clients, cloneClient(c.Client))
 	}
 	synth.FallbackRules = fallback
-	// Overlay tokens are counted against the cap together with remaining bootstrap tokens.
-	extra := 0
+	liveTokenIDs := make(map[string]struct{}, len(tokens))
 	for _, tok := range tokens {
-		if tok.Meta.Source == domain.SourceRuntime || tok.Meta.Source == domain.SourceOverride {
-			extra++
+		liveTokenIDs[tok.ID] = struct{}{}
+	}
+	// Validate still sees baseline file-ref tokens; drop tombstoned IDs so the
+	// cap is the merged live set, not baseline+overlay.
+	kept := synth.API.BootstrapTokens[:0]
+	for _, tok := range synth.API.BootstrapTokens {
+		if _, ok := liveTokenIDs[tok.ID]; ok {
+			kept = append(kept, tok)
 		}
 	}
-	if cap := synth.Runtime.MaxObjects.APITokens; cap > 0 && len(synth.API.BootstrapTokens)+extra > cap {
+	synth.API.BootstrapTokens = kept
+	if cap := synth.Runtime.MaxObjects.APITokens; cap > 0 && len(tokens) > cap {
 		return nil, nil, domain.NewError(domain.CodeObjectLimitExceeded, "token count exceeds configured maximum").WithPath("tokens")
 	}
 
@@ -389,11 +400,36 @@ func compileRuleSet(rs config.RuleSet) (CompiledRuleSet, error) {
 	return out, nil
 }
 
+func touchBaselineStamps(born map[string]identityStamp, base *config.Document, rev domain.Revision, now time.Time) {
+	touch := func(kind domain.ObjectKind, id string) {
+		key := string(kind) + "/" + id
+		st, ok := born[key]
+		if !ok {
+			return
+		}
+		st.updated = now
+		st.updatedRev = rev
+		born[key] = st
+	}
+	for _, u := range base.Users {
+		touch(domain.KindUser, u.ID)
+	}
+	for _, g := range base.Groups {
+		touch(domain.KindGroup, g.ID)
+	}
+	for _, c := range base.Clients {
+		touch(domain.KindClient, c.ID)
+	}
+	for _, tok := range base.API.BootstrapTokens {
+		touch(domain.KindToken, tok.ID)
+	}
+}
+
 func configMeta(kind domain.ObjectKind, id, display string, enabled bool, labels map[string]string, rev domain.Revision, now time.Time, born map[string]identityStamp) domain.ObjectMeta {
 	key := string(kind) + "/" + id
 	st, ok := born[key]
 	if !ok {
-		st = identityStamp{created: now, createdRev: rev}
+		st = identityStamp{created: now, createdRev: rev, updated: now, updatedRev: rev}
 		born[key] = st
 	}
 	return domain.ObjectMeta{
@@ -404,10 +440,10 @@ func configMeta(kind domain.ObjectKind, id, display string, enabled bool, labels
 		Enabled:           enabled,
 		Labels:            cloneLabels(labels),
 		RevisionCreated:   st.createdRev,
-		RevisionUpdated:   rev,
+		RevisionUpdated:   st.updatedRev,
 		EffectiveRevision: rev,
 		CreatedAt:         st.created,
-		UpdatedAt:         now,
+		UpdatedAt:         st.updated,
 	}
 }
 

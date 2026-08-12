@@ -180,6 +180,28 @@ schema_version: 1
 	}
 }
 
+func TestValidateRejectsInvalidIPSAN(t *testing.T) {
+	t.Parallel()
+	doc, err := Parse([]byte(`
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+clients:
+  - id: c
+    match:
+      source_cidrs: ["10.0.0.0/8"]
+      transports: [tls]
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Clients[0].Match.Certificate.IPSANs = []string{"not-an-ip"}
+	err = Validate(doc)
+	if err == nil || !strings.Contains(err.Error(), "invalid IP") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestValidateRestrictedClientMissing(t *testing.T) {
 	t.Parallel()
 	_, err := parseAndValidate(t, `
@@ -251,6 +273,9 @@ clients:
 	for _, w := range warns {
 		if w.Code == domain.CodeSharedSecretPolicyViolation {
 			reuse = true
+			if !strings.Contains(w.Message, "clients a, b") {
+				t.Fatalf("reuse warning must name client ids: %+v", w)
+			}
 			if strings.Contains(w.Message, string(good)) || strings.Contains(w.Path, string(good)) {
 				t.Fatalf("warning leaked secret: %+v", w)
 			}

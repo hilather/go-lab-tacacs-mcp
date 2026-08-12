@@ -59,7 +59,7 @@ func New(baseline *config.Document, opts Options) (*Manager, error) {
 		born:     map[string]identityStamp{},
 		hook:     opts.Hook,
 	}
-	snap, born, err := m.compile(m.baseline, m.overlay, 1, clock.Now())
+	snap, born, err := m.compile(m.baseline, m.overlay, 1, clock.Now(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (m *Manager) ValidateCandidate(newBaseline *config.Document) error {
 		return domain.NewError(domain.CodeInvalidArgument, "baseline is required")
 	}
 	ov := copyOverlay(m.overlay)
-	_, _, err := m.compile(cloneDocument(newBaseline), ov, domain.Revision(m.revision.Load()+1), m.clock.Now())
+	_, _, err := m.compile(cloneDocument(newBaseline), ov, domain.Revision(m.revision.Load()+1), m.clock.Now(), true)
 	return err
 }
 
@@ -579,7 +579,7 @@ func (m *Manager) mutate(expected *domain.Revision, fn func(ov overlay, now time
 	if newBase != nil {
 		base = newBase
 	}
-	snap, born, err := m.compile(base, ov, nextRev, now)
+	snap, born, err := m.compile(base, ov, nextRev, now, newBase != nil)
 	if err != nil {
 		return nil, err
 	}

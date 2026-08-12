@@ -106,6 +106,103 @@ func TestNullSecretWhileMethodEnabledRejected(t *testing.T) {
 	}
 }
 
+func TestUserOptionalSecretNullAndDisabledLogin(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		patch   UpdateUser
+		wantErr domain.Code
+		check   func(t *testing.T, u EffectiveUser)
+	}{
+		{
+			name:  "null challenge while enabled",
+			patch: UpdateUser{Challenge: &SecretPatch{Clear: true}},
+			check: func(t *testing.T, u EffectiveUser) {
+				t.Helper()
+				if u.User.Credentials.Challenge.Secret.Set() {
+					t.Fatal("challenge should be cleared")
+				}
+				if !u.User.Credentials.Login.Verifier.Set() {
+					t.Fatal("login must remain")
+				}
+			},
+		},
+		{
+			name:  "null enable while enabled",
+			patch: UpdateUser{Enable: &SecretPatch{Clear: true}},
+			check: func(t *testing.T, u EffectiveUser) {
+				t.Helper()
+				if u.User.Credentials.Enable.Verifier.Set() {
+					t.Fatal("enable should be cleared")
+				}
+			},
+		},
+		{
+			name:    "null login while enabled",
+			patch:   UpdateUser{Login: &SecretPatch{Clear: true}},
+			wantErr: domain.CodeAuthMethodCredentialMissing,
+		},
+		{
+			name:  "null login while disabled in same patch",
+			patch: UpdateUser{Enabled: boolPtr(false), Login: &SecretPatch{Clear: true}},
+			check: func(t *testing.T, u EffectiveUser) {
+				t.Helper()
+				if u.User.Enabled {
+					t.Fatal("user should be disabled")
+				}
+				if u.User.Credentials.Login.Verifier.Set() {
+					t.Fatal("login should be cleared")
+				}
+			},
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			m := mustMgr(t, smallYAML)
+			rev := m.Revision()
+			snap, err := m.UpdateUser("alice", tc.patch, &rev)
+			if tc.wantErr != "" {
+				de, ok := domain.AsError(err)
+				if !ok || de.Code != tc.wantErr {
+					t.Fatalf("got %v", err)
+				}
+				if m.Revision() != 1 {
+					t.Fatalf("published invalid candidate: %d", m.Revision())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			u, ok := snap.User("alice")
+			if !ok {
+				t.Fatal("missing alice")
+			}
+			tc.check(t, u)
+		})
+	}
+
+	t.Run("null login on already disabled user", func(t *testing.T) {
+		t.Parallel()
+		m := mustMgr(t, smallYAML)
+		rev := m.Revision()
+		if _, err := m.UpdateUser("alice", UpdateUser{Enabled: boolPtr(false)}, &rev); err != nil {
+			t.Fatal(err)
+		}
+		rev = m.Revision()
+		snap, err := m.UpdateUser("alice", UpdateUser{Login: &SecretPatch{Clear: true}}, &rev)
+		if err != nil {
+			t.Fatal(err)
+		}
+		u, _ := snap.User("alice")
+		if u.User.Enabled || u.User.Credentials.Login.Verifier.Set() {
+			t.Fatalf("disabled user login should clear: enabled=%v login=%v", u.User.Enabled, u.User.Credentials.Login.Verifier)
+		}
+	})
+}
+
 func TestNullClientSecretWhenLegacyDisabled(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, smallYAML)

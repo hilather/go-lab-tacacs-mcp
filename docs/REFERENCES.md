@@ -134,9 +134,10 @@ The implementation spike must check the pinned Go release rather than assuming g
 - `GetCertificate` and `GetConfigForClient` expose ClientHello/SNI-driven server identity selection.
 - `SessionTicketsDisabled`, `SetSessionTicketKeys`, `WrapSession`, and `UnwrapSession` provide resumption controls, but their security properties and wire behavior require dedicated tests.
 - `VerifyPeerCertificate` is not called on resumed connections; client-identity and revocation policy that must run on every connection belongs in `VerifyConnection` or resumption must be disabled.
-- The Go source currently defines a fixed maximum TLS 1.3 session-ticket lifetime. Arbitrary advertised ticket-lifetime configuration therefore requires an implementation feasibility spike, an isolated alternative, or an approved RFC `SHOULD` disposition; setting a requested value in YAML without enforcing it is prohibited.
-- TLS 1.3 cipher suites are intentionally selected by `crypto/tls` rather than through the older `CipherSuites` field. The RFC 9887 cipher-policy `SHOULD` needs an explicit implementation/disposition review.
-- RFC 7924 Cached Information Extension support must be verified explicitly. Do not mark it complete from ordinary certificate-chain or session-resumption support.
+- The Go source currently defines a fixed maximum TLS 1.3 session-ticket lifetime (`maxSessionTicketLifetime = 7d`). TacLab accepts only `ticket_lifetime: 0` or `168h` ([ADR 0005](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0005-ticket-lifetime.md)).
+- TLS 1.3 cipher suites are selected by `crypto/tls` rather than `CipherSuites`. YAML cipher lists are rejected ([ADR 0004](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0004-tls13-cipher-policy.md)).
+- RFC 7924 Cached Information is not implemented; Go 1.24.5 has no hook ([ADR 0003](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0003-cached-information.md)).
+- External PSK and raw public keys are deferred ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)).
 
 Relevant public API/source:
 

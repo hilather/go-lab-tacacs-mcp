@@ -174,6 +174,25 @@ func validateListeners(doc *Document) error {
 	if secure.TLS.Revocation.Mode == "configured_crl" && secure.TLS.Revocation.CRLBundle.File == "" {
 		return domain.NewError(domain.CodeInvalidArgument, "CRL bundle is required when revocation.mode is configured_crl").WithPath("listeners.secure_tacacs.tls.revocation.crl_bundle")
 	}
+	if !secure.TLS.RejectEarlyData {
+		return domain.NewError(domain.CodeInvalidArgument, "reject_early_data cannot be disabled").WithPath("listeners.secure_tacacs.tls.reject_early_data")
+	}
+	if secure.TLS.SessionResumption.Enabled {
+		life := secure.TLS.SessionResumption.TicketLifetime
+		if life != 0 && life != TLSTicketLifetimeEnforced {
+			return domain.NewError(domain.CodeInvalidArgument, "ticket_lifetime must be 0 (disabled) or 168h (Go crypto/tls cap; ADR-0005)").
+				WithPath("listeners.secure_tacacs.tls.session_resumption.ticket_lifetime").
+				WithDetail("enforced", TLSTicketLifetimeEnforced.String())
+		}
+	}
+	for i, p := range secure.TLS.Identities.Profiles {
+		path := indexPath("listeners.secure_tacacs.tls.identities.profiles", i)
+		for j, name := range p.ServerNames {
+			if err := ValidateWildcardServerName(name); err != nil {
+				return domain.NewError(domain.CodeInvalidArgument, err.Error()).WithPath(indexPath(path+".server_names", j))
+			}
+		}
+	}
 	return nil
 }
 

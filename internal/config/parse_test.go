@@ -161,6 +161,7 @@ func TestRejectFixtures(t *testing.T) {
 		msg  string
 	}{
 		{"testdata/reject/unknown_field.yaml", domain.CodeConfigUnknownField, "clients[0].authentcation", "authentication"},
+		{"testdata/reject/cipher_suites.yaml", domain.CodeConfigUnknownField, "cipher_suites", "cipher"},
 		{"testdata/reject/duplicate_key.yaml", domain.CodeConfigYAMLInvalid, "metadata.name", "duplicate"},
 		{"testdata/reject/alias.yaml", domain.CodeConfigYAMLInvalid, "", "not allowed"},
 		{"testdata/reject/anchor.yaml", domain.CodeConfigYAMLInvalid, "", "anchor"},

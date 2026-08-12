@@ -1,0 +1,6 @@
+schema_version: 1
+listeners:
+  secure_tacacs:
+    tls:
+      cipher_suites:
+        - TLS_AES_128_GCM_SHA256

@@ -12,7 +12,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS on the legacy TACACS listener, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, and `status` / `policy.evaluate` / `events.list` on REST and MCP. `taclabd serve --config` binds the legacy TACACS listener and, when enabled, the HTTP admin listener. It does **not** implement TLS TACACS, the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
+This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, `status` / `policy.evaluate` / `events.list` on REST and MCP, and a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`). `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement the independent TLS test-client role (PR-14b), the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
 
 High-port Compose smoke (no privileged 49/300):
 
@@ -30,6 +30,10 @@ docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-c
 - [Architecture](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md)
 - [ADR 0001 — dual-listener lab](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0001-all-in-one-dual-listener-lab.md)
 - [ADR 0002 — password KDF and username profile](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md)
+- [ADR 0003 — RFC 7924 Cached Information](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0003-cached-information.md)
+- [ADR 0004 — TLS 1.3 cipher policy](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0004-tls13-cipher-policy.md)
+- [ADR 0005 — ticket lifetime and resumption](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0005-ticket-lifetime.md)
+- [ADR 0006 — external PSK / raw public keys](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)
 - [ADR 0007 — internal TACACS codec](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0007-codec-approach.md)
 - [ADR 0010 — lab static bearer vs MCP OAuth PRM](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)
 - [TACACS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md)

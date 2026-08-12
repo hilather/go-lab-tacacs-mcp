@@ -169,6 +169,12 @@ type SessionResumption struct {
 	RecheckClientRevocation bool
 }
 
+// TLSTicketLifetimeEnforced is the only non-zero ticket_lifetime the
+// pinned Go 1.24 crypto/tls stack can honor (maxSessionTicketLifetime).
+// Zero disables tickets. Any other positive value is a configuration error
+// (ADR-0005); the stack must not silently approximate.
+const TLSTicketLifetimeEnforced = 7 * 24 * time.Hour
+
 // HTTPListener is the admin REST/MCP/UI socket.
 type HTTPListener struct {
 	Enabled             bool

@@ -24,6 +24,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
+	tacacstls "github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/tls"
 )
 
 func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -78,8 +79,10 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	if err := config.Validate(doc); err != nil {
 		return err
 	}
-	if !doc.Listeners.LegacyTACACS.Enabled {
-		return fmt.Errorf("listeners.legacy_tacacs is disabled")
+	legacyOn := doc.Listeners.LegacyTACACS.Enabled
+	secureOn := doc.Listeners.SecureTACACS.Enabled
+	if !legacyOn && !secureOn {
+		return fmt.Errorf("at least one TACACS listener must be enabled")
 	}
 
 	lookup := secretLookup(doc)
@@ -89,8 +92,8 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 
 	logger := slog.New(slog.NewJSONHandler(stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	if doc.Listeners.SecureTACACS.Enabled {
-		logger.Warn("listeners.secure_tacacs is not implemented; TLS listener skipped")
+	if legacyOn && secureOn {
+		logger.Warn(operations.ColocatedTopologyWarning)
 	}
 
 	var ring *events.Ring
@@ -112,17 +115,39 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		defer ring.Close()
 	}
 
-	ln, err := legacy.Listen(legacy.Options{
-		Bind:     doc.Listeners.LegacyTACACS.Bind,
-		Settings: doc.Listeners.LegacyTACACS,
-		Grace:    doc.Server.ShutdownGrace,
-		Snapshot: mgr.Snapshot,
-		Secrets:  lookup,
-		Handler:  h,
-		Logger:   logger,
-	})
-	if err != nil {
-		return err
+	var legacyLn *legacy.Listener
+	if legacyOn {
+		legacyLn, err = legacy.Listen(legacy.Options{
+			Bind:     doc.Listeners.LegacyTACACS.Bind,
+			Settings: doc.Listeners.LegacyTACACS,
+			Grace:    doc.Server.ShutdownGrace,
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Handler:  h,
+			Logger:   logger,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	var secureLn *tacacstls.Listener
+	if secureOn {
+		secureLn, err = tacacstls.Listen(tacacstls.Options{
+			Bind:     doc.Listeners.SecureTACACS.Bind,
+			Settings: doc.Listeners.SecureTACACS,
+			Grace:    doc.Server.ShutdownGrace,
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Handler:  h,
+			Logger:   logger,
+		})
+		if err != nil {
+			if legacyLn != nil {
+				_ = legacyLn.Shutdown(context.Background())
+			}
+			return err
+		}
 	}
 
 	// serveCtx stops Accept only. Connection sessions use a detached drain context.
@@ -147,22 +172,37 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 	}()
 
-	errc := make(chan error, 2)
-	go func() { errc <- ln.Serve(serveCtx) }()
+	errc := make(chan error, 3)
+	if legacyLn != nil {
+		go func() { errc <- legacyLn.Serve(serveCtx) }()
+	}
+	if secureLn != nil {
+		go func() { errc <- secureLn.Serve(serveCtx) }()
+	}
 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, ln, ring)
+		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, legacyLn, secureLn, ring)
 		if err != nil {
-			_ = ln.Shutdown(context.Background())
+			if legacyLn != nil {
+				_ = legacyLn.Shutdown(context.Background())
+			}
+			if secureLn != nil {
+				_ = secureLn.Shutdown(context.Background())
+			}
 			return err
 		}
 		go func() { errc <- httpSrv.Serve(httpLn) }()
 		fmt.Fprintf(stdout, "listening http %s\n", httpLn.Addr().String())
 	}
 
-	fmt.Fprintf(stdout, "listening legacy_tacacs %s\n", ln.Addr().String())
+	if legacyLn != nil {
+		fmt.Fprintf(stdout, "listening legacy_tacacs %s\n", legacyLn.Addr().String())
+	}
+	if secureLn != nil {
+		fmt.Fprintf(stdout, "listening secure_tacacs %s\n", secureLn.Addr().String())
+	}
 	fmt.Fprintln(stdout, "ready")
 
 	var serveErr error
@@ -181,8 +221,15 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	if httpSrv != nil {
 		shutErr = httpSrv.Shutdown(shutCtx)
 	}
-	if err := ln.Shutdown(shutCtx); err != nil && shutErr == nil {
-		shutErr = err
+	if legacyLn != nil {
+		if err := legacyLn.Shutdown(shutCtx); err != nil && shutErr == nil {
+			shutErr = err
+		}
+	}
+	if secureLn != nil {
+		if err := secureLn.Shutdown(shutCtx); err != nil && shutErr == nil {
+			shutErr = err
+		}
 	}
 	if serveErr != nil && serveCtx.Err() == nil && !isHTTPClosed(serveErr) {
 		return serveErr
@@ -197,7 +244,7 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, ring *events.Ring) (*http.Server, net.Listener, error) {
+func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring) (*http.Server, net.Listener, error) {
 	reg, err := loadRegistry(operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime}, ring)
 	if err != nil {
 		return nil, nil, err
@@ -207,7 +254,13 @@ func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLoo
 		return nil, nil, err
 	}
 	ready := func() bool {
-		return mgr.Snapshot() != nil && legacyLn != nil
+		if mgr.Snapshot() == nil {
+			return false
+		}
+		if legacyLn == nil && secureLn == nil {
+			return false
+		}
+		return true
 	}
 	restSrv := &rest.Server{
 		Registry: reg,

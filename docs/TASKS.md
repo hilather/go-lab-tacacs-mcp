@@ -840,68 +840,68 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 **Depends on:** P4 common session server
 
-- [ ] Bind a port distinct from legacy TACACS; reference mapping is TCP 300 to container 4300.
-- [ ] Begin TLS immediately after TCP accept.
-- [ ] Require TLS 1.3 or later; reject older versions.
-- [ ] Never implement STARTTLS or protocol sniffing/upgrades.
-- [ ] Pass decrypted TACACS packets to the common session server.
+- [x] Bind a port distinct from legacy TACACS; reference mapping is TCP 300 to container 4300.
+- [x] Begin TLS immediately after TCP accept.
+- [x] Require TLS 1.3 or later; reject older versions.
+- [x] Never implement STARTTLS or protocol sniffing/upgrades.
+- [x] Pass decrypted TACACS packets to the common session server.
 
 **Tests**
 
-- [ ] Plaintext-on-TLS-port and TLS-on-legacy-port negatives.
-- [ ] TLS version and immediate-handshake behavior.
+- [x] Plaintext-on-TLS-port and TLS-on-legacy-port negatives.
+- [x] TLS version and immediate-handshake behavior.
 
 ### P8.2 Implement mutual certificate authentication
 
-- [ ] Load server chain/key and client CA bundle through typed secret/config references.
-- [ ] Require and validate client certificates in the baseline profile.
-- [ ] Validate certificate paths and configured network-address/SAN identity constraints.
-- [ ] Support configured chain bundles for deployments isolated from a remote CA.
-- [ ] Support SNI profile selection and document that the ClientHello name is observable metadata.
-- [ ] Enforce DNS/IP SAN and wildcard-identity restrictions and warnings.
-- [ ] Implement selected revocation mechanism and fail behavior.
-- [ ] Implement the TLS Cached Information Extension or record an approved RFC `SHOULD` disposition with interoperability impact.
-- [ ] Implement safe TLS 1.3 cipher-policy configuration where the selected stack permits it, or record an approved RFC `SHOULD` disposition.
-- [ ] Map certificate identity plus source constraints to one client.
+- [x] Load server chain/key and client CA bundle through typed secret/config references.
+- [x] Require and validate client certificates in the baseline profile.
+- [x] Validate certificate paths and configured network-address/SAN identity constraints.
+- [x] Support configured chain bundles for deployments isolated from a remote CA.
+- [x] Support SNI profile selection and document that the ClientHello name is observable metadata.
+- [x] Enforce DNS/IP SAN and wildcard-identity restrictions and warnings.
+- [x] Implement selected revocation mechanism and fail behavior.
+- [x] Implement the TLS Cached Information Extension or record an approved RFC `SHOULD` disposition with interoperability impact.
+- [x] Implement safe TLS 1.3 cipher-policy configuration where the selected stack permits it, or record an approved RFC `SHOULD` disposition.
+- [x] Map certificate identity plus source constraints to one client.
 
 **Tests**
 
-- [ ] Valid, invalid, expired, future, revoked, wrong-name, wrong-EKU, unknown-CA, missing, and unauthorized-valid certificate cases.
-- [ ] Certificate rotation/reload behavior.
+- [x] Valid, invalid, expired, future, revoked, wrong-name, wrong-EKU, unknown-CA, missing, and unauthorized-valid certificate cases.
+- [x] Certificate rotation/reload behavior.
 
 **Benchmarks**
 
-- [ ] Full handshake, resumed handshake if enabled, and post-handshake request throughput.
+- [x] Full handshake, resumed handshake if enabled, and post-handshake request throughput.
 
 ### P8.3 Enforce TACACS-over-TLS packet rules
 
-- [ ] Require the TACACS unencrypted flag state defined for TLS transport.
-- [ ] Do not apply RFC 8907 body obfuscation over TLS.
-- [ ] Apply all normal RFC 8907 packet/session checks after decryption.
-- [ ] Reject invalid flag combinations and cross-transport assumptions.
+- [x] Require the TACACS unencrypted flag state defined for TLS transport.
+- [x] Do not apply RFC 8907 body obfuscation over TLS.
+- [x] Apply all normal RFC 8907 packet/session checks after decryption.
+- [x] Reject invalid flag combinations and cross-transport assumptions.
 
 ### P8.4 Reject early data, downgrade, and unsafe resumption
 
-- [ ] Disable/reject TLS early data and the `early_data` extension.
-- [ ] Do not expose a fallback from failed TLS to legacy.
-- [ ] Make session resumption and ticket lifetime configurable, including zero.
-- [ ] Verify or disposition revocation checks between ticket issuance and resumption.
-- [ ] Review ticket reuse/linkability and implement or document client-tracking mitigations.
-- [ ] Keep listener errors and metrics explicit by transport.
-- [ ] Add security-negative tests, resumed-handshake tests, and packet-capture evidence.
+- [x] Disable/reject TLS early data and the `early_data` extension.
+- [x] Do not expose a fallback from failed TLS to legacy.
+- [x] Make session resumption and ticket lifetime configurable, including zero.
+- [x] Verify or disposition revocation checks between ticket issuance and resumption.
+- [x] Review ticket reuse/linkability and implement or document client-tracking mitigations.
+- [x] Keep listener errors and metrics explicit by transport.
+- [x] Add security-negative tests, resumed-handshake tests, and packet-capture evidence.
 
 ### P8.5 Optional TLS authentication modes disposition
 
-- [ ] Decide external PSK support for the target release.
-- [ ] Decide raw-public-key support for the target release.
-- [ ] Mark each optional conformance row implemented, deferred with rationale, or out of scope for the release.
-- [ ] If implemented, add complete config/API/UI/test/benchmark/docs support without weakening mutual certificates.
+- [x] Decide external PSK support for the target release.
+- [x] Decide raw-public-key support for the target release.
+- [x] Mark each optional conformance row implemented, deferred with rationale, or out of scope for the release.
+- [x] If implemented, add complete config/API/UI/test/benchmark/docs support without weakening mutual certificates.
 
 ### P8.6 Enforce the accepted same-host lab decision
 
-- [ ] Implement and verify `docs/decisions/0001-all-in-one-dual-listener-lab.md`.
-- [ ] Ensure deployment docs recommend TLS-only or separate instances for production-like security evaluation.
-- [ ] Prove distinct ports, no upgrade, no fallback, and separate secret types.
+- [x] Implement and verify `docs/decisions/0001-all-in-one-dual-listener-lab.md`.
+- [x] Ensure deployment docs recommend TLS-only or separate instances for production-like security evaluation.
+- [x] Prove distinct ports, no upgrade, no fallback, and separate secret types.
 
 ### P8 exit gate
 

@@ -387,11 +387,14 @@ BenchmarkEventAppend
 BenchmarkEventReadPage
 BenchmarkTokenVerify
 BenchmarkSingleConnectDispatch_Parallel
+BenchmarkFullHandshake
+BenchmarkResumedHandshake
+BenchmarkPostHandshakeAuthor
 ```
 
 Report `-benchmem`.
 
-`make bench` succeeds when `Benchmark*` functions exist under `internal/tacacs`, `internal/policy`, `internal/state`, or `internal/aaa`. Header decode/encode, `BenchmarkLegacyObfuscate_64B` / `BenchmarkLegacyObfuscate_1KiB`, `BenchmarkAuthenStartDecode`, and `BenchmarkAuthorDecode_16Args` / `BenchmarkAuthorDecode_255Args` live under `internal/tacacs/codec`. `BenchmarkCHAPLogin` is the AAA dispatch bench (no Argon2id). Header/obfuscation benches under `tools/spike` are evaluation-only.
+`make bench` succeeds when `Benchmark*` functions exist under `internal/tacacs`, `internal/policy`, `internal/state`, or `internal/aaa`. Header decode/encode, `BenchmarkLegacyObfuscate_64B` / `BenchmarkLegacyObfuscate_1KiB`, `BenchmarkAuthenStartDecode`, and `BenchmarkAuthorDecode_16Args` / `BenchmarkAuthorDecode_255Args` live under `internal/tacacs/codec`. `BenchmarkCHAPLogin` is the AAA dispatch bench (no Argon2id). `BenchmarkFullHandshake`, `BenchmarkResumedHandshake`, and `BenchmarkPostHandshakeAuthor` live under `internal/tacacs/tls`. Header/obfuscation benches under `tools/spike` are evaluation-only.
 
 ### 8.4 Credential benchmarks
 

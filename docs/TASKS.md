@@ -785,52 +785,54 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 **Depends on:** P3 accounting, P4 dispatcher
 
-- [ ] Validate flags and required contextual fields.
-- [ ] Accept START, STOP, WATCHDOG-no-update, and WATCHDOG-with-update records; ignore arguments on no-update watchdog records as required.
-- [ ] Implement the complete common accounting argument dictionary and value encodings while retaining arbitrary vendor attributes.
-- [ ] Preserve AV pairs, accounting-before-authorization argument order, and source metadata.
-- [ ] Return SUCCESS/ERROR according to protocol state.
-- [ ] Separate accounting acceptance from downstream observer availability.
+- [x] Validate flags and required contextual fields.
+- [x] Accept START, STOP, WATCHDOG-no-update, and WATCHDOG-with-update records; ignore arguments on no-update watchdog records as required.
+- [x] Implement the complete common accounting argument dictionary and value encodings while retaining arbitrary vendor attributes.
+- [x] Preserve AV pairs, accounting-before-authorization argument order, and source metadata.
+- [x] Return SUCCESS/ERROR according to protocol state.
+- [x] Separate accounting acceptance from downstream observer availability.
 
 **Tests**
 
-- [ ] Valid and invalid flag combinations.
-- [ ] Duplicate/optional/unknown AV pairs.
-- [ ] Large bounded records and disconnect behavior.
+- [x] Valid and invalid flag combinations.
+- [x] Duplicate/optional/unknown AV pairs.
+- [x] Large bounded records and disconnect behavior.
 
 ### P7.2 Implement bounded event model and ring buffer
 
-- [ ] Define versioned event schemas for authentication, authorization, accounting, config, token, listener, and system events.
-- [ ] Use bounded memory and explicit drop policy.
-- [ ] Ensure TACACS hot paths do not block indefinitely.
-- [ ] Track dropped-event counters without unbounded cardinality.
-- [ ] Redact all secret-bearing data before enqueue.
+- [x] Define versioned event schemas for authentication, authorization, accounting, config, token, listener, and system events.
+- [x] Use bounded memory and explicit drop policy.
+- [x] Ensure TACACS hot paths do not block indefinitely.
+- [x] Track dropped-event counters without unbounded cardinality.
+- [x] Redact all secret-bearing data before enqueue.
 
 **Tests and benchmarks**
 
-- [ ] Ordering, wrap, concurrent readers/writers, drop behavior, and race tests.
-- [ ] Publish/read benchmark under standard and saturated profiles.
+- [x] Ordering, wrap, concurrent readers/writers, drop behavior, and race tests.
+- [x] Publish/read benchmark under standard and saturated profiles.
 
 ### P7.3 Implement stdout JSON event/log sink
 
-- [ ] Produce stable structured fields.
-- [ ] Keep log level separate from audit event acceptance.
-- [ ] Prevent control characters and oversized fields from corrupting output.
-- [ ] Add secret-canary and injection tests.
+- [x] Produce stable structured fields.
+- [x] Keep log level separate from audit event acceptance.
+- [x] Prevent control characters and oversized fields from corrupting output.
+- [x] Add secret-canary and injection tests.
 
 ### P7.4 Implement recent-event query and stream operation
 
-- [ ] Add canonical operations for paged recent events and bounded streaming/subscription behavior.
-- [ ] Apply `events:read` authorization.
-- [ ] Define cursor/revision/drop semantics.
-- [ ] Add REST and MCP bindings with parity; where transport mechanics differ, normalize logical event content.
+- [x] Add canonical operations for paged recent events and bounded streaming/subscription behavior.
+- [x] Apply `events:read` authorization.
+- [x] Define cursor/revision/drop semantics.
+- [x] Add REST and MCP bindings with parity; where transport mechanics differ, normalize logical event content.
+
+`events.subscribe` REST SSE still emits keepalives only (body stream is later REST work). MCP listen remains a later adapter. `events.list` is the shared cursor API on both surfaces.
 
 ### P7 exit gate
 
-- [ ] Accounting conformance rows pass.
-- [ ] Event ring remains bounded under saturation.
-- [ ] No event sink failure prevents protocol responses indefinitely.
-- [ ] Event parity and redaction tests pass.
+- [x] Accounting conformance rows pass.
+- [x] Event ring remains bounded under saturation.
+- [x] No event sink failure prevents protocol responses indefinitely.
+- [x] Event parity and redaction tests pass.
 
 ## 11. Milestone P8 - Secure TACACS+ over TLS 1.3
 

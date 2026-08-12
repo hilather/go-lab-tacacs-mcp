@@ -270,41 +270,41 @@ Value encodings to test:
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T89-AC-001 | MUST | START flag only (`0x02`) | Golden/integration | [ ] |
-| T89-AC-002 | MUST | STOP flag only (`0x04`) | Golden/integration | [ ] |
-| T89-AC-003 | MUST | WATCHDOG no update (`0x08`), arguments ignored as required | Golden/integration | [ ] |
-| T89-AC-004 | MUST | WATCHDOG with update (`0x0a`) | Golden/integration | [ ] |
-| T89-AC-005 | MUST | Reject no flags, START+STOP, WATCHDOG+STOP, and other invalid combinations with ERROR | Full table test | [ ] |
-| T89-AC-006 | MUST | Return SUCCESS only after the record is accepted by the authoritative sink | Fault injection | [ ] |
-| T89-AC-007 | MUST | Return ERROR when the record cannot be accepted | Fault injection | [ ] |
-| T89-AC-008 | Deprecated | FOLLOW is not emitted | Negative test | [ ] |
-| T89-AC-009 | MUST | Preserve authentication/authorization context and ordered AV pairs | Golden fixture | [ ] |
-| T89-AC-010 | PROJECT MUST | Command accounting supports service, cmd, and ordered cmd-arg | Interop fixture | [ ] |
-| T89-AC-011 | PROJECT | Ring overwrite is bounded, observable, and does not block current acknowledgement | Load test | [ ] |
-| T89-AC-012 | MUST | `task_id` is treated as opaque; the server makes no format assumptions | Arbitrary printable task ID fixtures | [ ] |
-| T89-AC-013 | PROJECT MUST | Accounting-only arguments and following authorization arguments retain wire order | Golden ordering fixtures | [ ] |
-| T89-AC-014 | SHOULD/PROJECT MUST | Common accounting string, numeric, Boolean, address, and time representations are accepted and displayed consistently | Dictionary/value encoding suite | [ ] |
+| T89-AC-001 | MUST | START flag only (`0x02`) | Golden/integration | [x] |
+| T89-AC-002 | MUST | STOP flag only (`0x04`) | Golden/integration | [x] |
+| T89-AC-003 | MUST | WATCHDOG no update (`0x08`), arguments ignored as required | Golden/integration | [x] |
+| T89-AC-004 | MUST | WATCHDOG with update (`0x0a`) | Golden/integration | [x] |
+| T89-AC-005 | MUST | Reject no flags, START+STOP, WATCHDOG+STOP, and other invalid combinations with ERROR | Full table test | [x] |
+| T89-AC-006 | MUST | Return SUCCESS only after the record is accepted by the authoritative sink | Fault injection | [x] |
+| T89-AC-007 | MUST | Return ERROR when the record cannot be accepted | Fault injection | [x] |
+| T89-AC-008 | Deprecated | FOLLOW is not emitted | Negative test | [x] |
+| T89-AC-009 | MUST | Preserve authentication/authorization context and ordered AV pairs | Golden fixture | [x] |
+| T89-AC-010 | PROJECT MUST | Command accounting supports service, cmd, and ordered cmd-arg | Interop fixture | [x] |
+| T89-AC-011 | PROJECT | Ring overwrite is bounded, observable, and does not block current acknowledgement | Load test | [x] |
+| T89-AC-012 | MUST | `task_id` is treated as opaque; the server makes no format assumptions | Arbitrary printable task ID fixtures | [x] |
+| T89-AC-013 | PROJECT MUST | Accounting-only arguments and following authorization arguments retain wire order | Golden ordering fixtures | [x] |
+| T89-AC-014 | SHOULD/PROJECT MUST | Common accounting string, numeric, Boolean, address, and time representations are accepted and displayed consistently | Dictionary/value encoding suite | [x] |
 
 ## 13. Standard accounting argument dictionary
 
 | ID | Argument | Semantics to cover | Status |
 |---|---|---|---|
-| T89-ACAV-001 | `task_id` | Opaque, correlated without format assumptions | [ ] |
-| T89-ACAV-002 | `start_time` | Epoch seconds | [ ] |
-| T89-ACAV-003 | `stop_time` | Epoch seconds | [ ] |
-| T89-ACAV-004 | `elapsed_time` | Seconds | [ ] |
-| T89-ACAV-005 | `timezone` | Applied to packet timestamps when present | [ ] |
-| T89-ACAV-006 | `event` | Standard system event values plus extensibility | [ ] |
-| T89-ACAV-007 | `reason` | Event reason | [ ] |
-| T89-ACAV-008 | `bytes` | Numeric | [ ] |
-| T89-ACAV-009 | `bytes_in` | Numeric | [ ] |
-| T89-ACAV-010 | `bytes_out` | Numeric | [ ] |
-| T89-ACAV-011 | `paks` | Numeric | [ ] |
-| T89-ACAV-012 | `paks_in` | Numeric | [ ] |
-| T89-ACAV-013 | `paks_out` | Numeric | [ ] |
-| T89-ACAV-014 | `err_msg` | Printable status text | [ ] |
-| T89-ACAV-015 | authorization args | Follow accounting-only arguments while preserving wire order | [ ] |
-| T89-ACAV-016 | vendor/unknown | Preserve arbitrary AV pairs | [ ] |
+| T89-ACAV-001 | `task_id` | Opaque, correlated without format assumptions | [x] |
+| T89-ACAV-002 | `start_time` | Epoch seconds | [x] |
+| T89-ACAV-003 | `stop_time` | Epoch seconds | [x] |
+| T89-ACAV-004 | `elapsed_time` | Seconds | [x] |
+| T89-ACAV-005 | `timezone` | Applied to packet timestamps when present | [x] |
+| T89-ACAV-006 | `event` | Standard system event values plus extensibility | [x] |
+| T89-ACAV-007 | `reason` | Event reason | [x] |
+| T89-ACAV-008 | `bytes` | Numeric | [x] |
+| T89-ACAV-009 | `bytes_in` | Numeric | [x] |
+| T89-ACAV-010 | `bytes_out` | Numeric | [x] |
+| T89-ACAV-011 | `paks` | Numeric | [x] |
+| T89-ACAV-012 | `paks_in` | Numeric | [x] |
+| T89-ACAV-013 | `paks_out` | Numeric | [x] |
+| T89-ACAV-014 | `err_msg` | Printable status text | [x] |
+| T89-ACAV-015 | authorization args | Follow accounting-only arguments while preserving wire order | [x] |
+| T89-ACAV-016 | vendor/unknown | Preserve arbitrary AV pairs | [x] |
 
 ## 14. RFC 8907 security/deprecation requirements
 

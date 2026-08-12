@@ -12,7 +12,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS on the legacy TACACS listener, plus one service rule, one command rule, accounting START, a bounded event ring, and `status` / `policy.evaluate` on REST and MCP. It does **not** implement TLS TACACS, the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
+This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS on the legacy TACACS listener, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, and `status` / `policy.evaluate` / `events.list` on REST and MCP. `taclabd serve --config` binds the legacy TACACS listener and, when enabled, the HTTP admin listener. It does **not** implement TLS TACACS, the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
 
 High-port Compose smoke (no privileged 49/300):
 

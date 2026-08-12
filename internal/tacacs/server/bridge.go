@@ -99,16 +99,24 @@ func (b Bridge) Account(ctx context.Context, env Env, req codec.AcctRequest) (co
 	if b.AAA == nil {
 		return codec.AcctReply{Status: codec.AcctStatusError}, nil
 	}
+	args := req.Args
+	if !req.UseArguments() {
+		args = nil
+	}
 	res, err := b.AAA.RecordAccounting(ctx, aaa.AccountingRecord{
-		Flags:     req.Flags,
-		UserID:    string(req.User),
-		ClientID:  env.ClientID,
-		SessionID: env.SessionID,
-		Arguments: argsToAV(req.Args),
-		Revision:  env.Revision,
-		Transport: env.Transport,
-		Port:      string(req.Port),
-		Remote:    string(req.RemAddr),
+		Flags:        req.Flags,
+		UserID:       string(req.User),
+		ClientID:     env.ClientID,
+		SessionID:    env.SessionID,
+		Arguments:    argsToAV(args),
+		Revision:     env.Revision,
+		Transport:    env.Transport,
+		Port:         string(req.Port),
+		Remote:       string(req.RemAddr),
+		AuthenMethod: domain.AuthenMethod(req.AuthenMethod),
+		Privilege:    domain.PrivilegeLevel(req.PrivLvl),
+		AuthenType:   domain.AuthenType(req.AuthenType),
+		Service:      domain.AuthenService(req.Service),
 	})
 	if err != nil || !res.OK {
 		return codec.AcctReply{Status: codec.AcctStatusError}, nil

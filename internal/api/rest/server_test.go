@@ -60,7 +60,7 @@ users:
 		API: config.API{BootstrapTokens: []config.BootstrapToken{{
 			ID:     "lab",
 			Token:  config.SecretRef{File: "tok", Purpose: credentials.PurposeAPIBearerToken},
-			Scopes: []string{"state:read", "policy:test"},
+			Scopes: []string{"state:read", "policy:test", "events:read"},
 		}}},
 	}, func(config.SecretRef) ([]byte, error) { return []byte(restToken), nil }, nil)
 	if err != nil {
@@ -152,6 +152,34 @@ func TestStatusAndEvaluate(t *testing.T) {
 	}
 	if penv.Data.Evaluator != "command" || penv.Data.Decision != "permit_add" {
 		t.Fatalf("trace=%+v", penv.Data)
+	}
+}
+
+func TestListEvents(t *testing.T) {
+	t.Parallel()
+	_, ts := restHarness(t)
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/api/v1/events?limit=10&category=acct", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+restToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d %s", resp.StatusCode, b)
+	}
+	var env struct {
+		Data operations.EventList `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.Items == nil {
+		t.Fatal("items must be present")
 	}
 }
 

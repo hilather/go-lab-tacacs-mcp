@@ -127,15 +127,19 @@ type PolicyTraceAV struct {
 
 // AccountingRecord is one accounting request in domain terms.
 type AccountingRecord struct {
-	Flags     byte
-	UserID    string
-	ClientID  string
-	SessionID uint32
-	Arguments domain.AVPairs
-	Revision  domain.Revision
-	Transport domain.Transport
-	Port      string
-	Remote    string
+	Flags        byte
+	UserID       string
+	ClientID     string
+	SessionID    uint32
+	Arguments    domain.AVPairs
+	Revision     domain.Revision
+	Transport    domain.Transport
+	Port         string
+	Remote       string
+	AuthenMethod domain.AuthenMethod
+	Privilege    domain.PrivilegeLevel
+	AuthenType   domain.AuthenType
+	Service      domain.AuthenService
 }
 
 // AccountingResult is the sink acknowledgement.

@@ -158,7 +158,7 @@ type Service interface {
 }
 ```
 
-The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and accounting START accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
+The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. SUCCESS is returned only after ring accept. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
 
 ### 4.7 `internal/tacacs/codec`
 
@@ -277,7 +277,7 @@ Responsibilities:
 
 MCP is not an internal RPC bus. It calls the operation registry directly.
 
-This skeleton implements `server/discover` and tools `taclab.system.status.get` / `taclab.policy.evaluate` as a thin Streamable HTTP adapter. The official Go SDK (`v1.7.0`) requires Go 1.25; this repo is pinned to 1.24.5, so PR-17 replaces the adapter with the SDK. GET/DELETE `/mcp` return 405.
+This skeleton implements `server/discover` and tools `taclab.system.status.get` / `taclab.policy.evaluate` / `taclab.events.list` as a thin Streamable HTTP adapter. The official Go SDK (`v1.7.0`) requires Go 1.25; this repo is pinned to 1.24.5, so PR-17 replaces the adapter with the SDK. GET/DELETE `/mcp` return 405.
 
 ### 4.14 `internal/events`
 
@@ -290,7 +290,7 @@ Responsibilities:
 - fan out live events to REST SSE and MCP subscribers.
 - emit redacted structured logs and metrics.
 
-This skeleton is a bounded overwrite-oldest ring. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE fan-out and MCP listen notifications are later work. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics.
+This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE body fan-out and MCP listen notifications are later adapters. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
 
 ### 4.15 `web`
 

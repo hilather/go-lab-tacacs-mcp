@@ -15,12 +15,18 @@ func TestNoForbiddenImports(t *testing.T) {
 		t.Fatal(err)
 	}
 	forbidden := []string{
+		"net",
 		"net/http",
+		"net/http/httptest",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/config",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/state",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/aaa",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api/rest",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api/mcp",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/policy",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/events",
 	}
 	for _, pkg := range pkgs {
 		for name, f := range pkg.Files {

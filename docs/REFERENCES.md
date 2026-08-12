@@ -160,7 +160,7 @@ A fuzz-discovered input must be retained in the seed corpus so it becomes a norm
 - bcrypt package: https://pkg.go.dev/golang.org/x/crypto/bcrypt
 - OWASP Password Storage Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 
-The selected password verifier algorithm, parameters, upgrade behavior, and benchmark budget must be recorded in an ADR. Challenge-response methods require appropriately protected challenge secret material; a one-way login verifier is not a substitute.
+The selected password verifier algorithm, parameters, upgrade behavior, and benchmark budget are recorded in [ADR 0002](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md). Challenge-response methods require appropriately protected challenge secret material; a one-way login verifier is not a substitute.
 
 ## 5. REST and schema references
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Run hot-path benches, or fail clearly until any Benchmark exists.
+# Argon2id KDF benches stay in internal/credentials and are not run here.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"

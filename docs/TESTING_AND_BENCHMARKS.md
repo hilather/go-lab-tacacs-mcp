@@ -393,13 +393,13 @@ Report `-benchmem`.
 
 ### 8.4 Credential benchmarks
 
-Password verification is intentionally expensive and has separate benchmarks:
+Password verification is intentionally expensive and has separate benchmarks under `internal/credentials` (not `make bench`):
 
-- configured Argon2id parameters on reference hardware.
-- concurrent password verification at bounded worker count.
-- CHAP/MS-CHAP verification.
+- `BenchmarkArgon2idVerify` — ADR-0002 `DefaultParams` (64 MiB, t=3, p=1) on reference hardware.
+- `BenchmarkArgon2idVerifyParallel` — concurrent verification at the KDF worker cap (default 2).
+- `BenchmarkCHAPVerify`, `BenchmarkMSCHAPv1Verify`, `BenchmarkMSCHAPv2Verify`.
 
-Do not reduce password KDF strength merely to pass general API latency budgets. Configuration validation should warn when parameters are outside project security guidance.
+Do not reduce password KDF strength merely to pass general API latency budgets. Configuration validation should warn when parameters are outside project security guidance. See [ADR 0002](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md).
 
 ### 8.5 Frontend performance tests
 

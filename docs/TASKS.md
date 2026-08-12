@@ -578,22 +578,24 @@ The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a ra
 
 **Depends on:** P2 domain/state
 
-- [ ] Verify configured slow password verifiers for ASCII/PAP.
-- [ ] Handle runtime plaintext submission by immediately deriving a verifier.
-- [ ] Store challenge secret material only in protected process memory.
-- [ ] Verify ENABLE credentials separately.
-- [ ] Return capability metadata without secret data.
-- [ ] Use constant-time comparisons where applicable.
+- [x] Verify configured slow password verifiers for ASCII/PAP.
+- [x] Handle runtime plaintext submission by immediately deriving a verifier.
+- [x] Store challenge secret material only in protected process memory.
+- [x] Verify ENABLE credentials separately.
+- [x] Return capability metadata without secret data.
+- [x] Use constant-time comparisons where applicable.
 
 **Tests**
 
-- [ ] Correct/incorrect/missing/disabled/expired/restricted credentials.
-- [ ] Secret canaries and error uniformity.
+- [x] Correct/incorrect/missing/disabled/expired/restricted credentials.
+- [x] Secret canaries and error uniformity.
 
 **Benchmarks**
 
-- [ ] Password verification benchmark with documented cost parameters.
-- [ ] Challenge-response calculation benchmarks.
+- [x] Password verification benchmark with documented cost parameters.
+- [x] Challenge-response calculation benchmarks.
+
+Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token digests), [ADR 0002](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md). Protocol conversation tests remain P5.2–P5.7.
 
 ### P5.2 Implement ASCII login conversation
 

@@ -1,0 +1,12 @@
+title = "TacLab secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated and third-party trees"
+paths = [
+  '''(^|/)web/node_modules/''',
+  '''(^|/)web/dist/''',
+  '''(^|/)\.git/''',
+]

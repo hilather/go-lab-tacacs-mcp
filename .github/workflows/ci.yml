@@ -1,0 +1,128 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master, "execute-plan/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: lint-test-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Record toolchain versions
+        run: |
+          mkdir -p dist
+          {
+            echo "go=$(go version)"
+            echo "gofmt=$(gofmt -h 2>&1 | head -n 1 || true)"
+            echo "node=$(node --version)"
+            echo "npm=$(npm --version)"
+          } | tee dist/toolchain-versions.txt
+
+      - name: Format check
+        run: make lint
+
+      - name: Staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 $(go list ./... | grep -v '/node_modules/')
+
+      - name: Test
+        run: make test
+
+      - name: Test race
+        run: make test-race
+
+      - name: Fuzz seed smoke
+        run: make fuzz-smoke
+
+      - name: Web install
+        run: npm --prefix web ci
+
+      - name: Web typecheck
+        run: npm --prefix web run typecheck
+
+      - name: Web lint
+        run: npm --prefix web run lint
+
+      - name: Web test
+        run: npm --prefix web test
+
+      - name: Web build
+        run: npm --prefix web run build
+
+      - name: Secret scan
+        run: make secrets
+
+      - name: Generated-file drift
+        run: make check-generated
+
+      - name: Docs check
+        run: make docs-check
+
+      - name: Hook self-test
+        run: make check-hooks
+
+      - name: Build
+        run: make build
+
+      - name: Help smoke
+        run: ./bin/taclabd -h
+
+      - name: Upload toolchain and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-evidence
+          path: |
+            dist/toolchain-versions.txt
+            docs/generated/toolchain.md
+          if-no-files-found: warn
+          retention-days: 30
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          VER=8.24.3
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" -o /tmp/gitleaks.tgz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          sudo mv /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: Gitleaks
+        run: gitleaks detect --source . --verbose --redact --config .gitleaks.toml

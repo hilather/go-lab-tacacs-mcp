@@ -196,14 +196,12 @@ Exports never contain secret values. Optional operator-controlled export of pass
 Every administratively visible object includes:
 
 ```text
-id or normalized name
-source: config | runtime | override
-revision_created
-revision_updated
-enabled
-labels
-annotations safe for display
+id, display_name?, source, shadows_source?, deleted,
+revision_created, revision_updated, effective_revision,
+enabled, labels, created_at, updated_at
 ```
+
+`source` is `config`, `runtime`, or `override` only. Tombstone is not a source value; overlay deletions are exposed as `deleted: true`. `effective_revision` is a read alias of the published snapshot revision.
 
 `labels` are bounded key/value metadata for operator organization. They are not used for security policy unless a future ADR explicitly adds that capability.
 

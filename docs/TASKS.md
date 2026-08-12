@@ -242,16 +242,16 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 **Depends on:** P1 boundary decision
 
-- [ ] Implement stable IDs and metadata for users, groups, clients, tokens, rules, listeners, and revisions.
-- [ ] Implement ordered AV pairs preserving separator, duplication, and order.
-- [ ] Implement authentication method and service enums without lossy string fallbacks.
-- [ ] Keep secret-bearing types separate from response/view types.
-- [ ] Add constructors that enforce local invariants.
+- [x] Implement stable IDs and metadata for users, groups, clients, tokens, rules, listeners, and revisions.
+- [x] Implement ordered AV pairs preserving separator, duplication, and order.
+- [x] Implement authentication method and service enums without lossy string fallbacks.
+- [x] Keep secret-bearing types separate from response/view types.
+- [x] Add constructors that enforce local invariants.
 
 **Regression tests**
 
-- [ ] Round-trip and equality tests preserve every significant field.
-- [ ] Secret types cannot be serialized through normal API encoders.
+- [x] Round-trip and equality tests preserve every significant field.
+- [x] Secret types cannot be serialized through normal API encoders.
 
 **Benchmarks**
 

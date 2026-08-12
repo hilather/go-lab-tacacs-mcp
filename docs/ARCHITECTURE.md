@@ -356,9 +356,20 @@ Objects expose one of:
 - `config`: supplied only by the baseline.
 - `runtime`: created only in the overlay.
 - `override`: baseline object with one or more runtime replacements.
-- `tombstone`: baseline object hidden by a runtime deletion; normally visible only in administrative diagnostics.
 
-Object identity is type plus normalized name. Runtime updates do not edit the original configuration file.
+`tombstone` is not a source value. Overlay deletions are a distinct entry kind exposed as `deleted: true` (plus tombstone metadata) and appear only when `include_deleted=true`.
+
+Every administrative object view includes:
+
+```text
+id, display_name?, source, shadows_source?, deleted,
+revision_created, revision_updated, effective_revision,
+enabled, labels, created_at, updated_at
+```
+
+`effective_revision` is a read alias of the published snapshot `revision` this view was loaded from. `revision_created` / `revision_updated` record when the object identity was first created / last mutated and do not replace `effective_revision` for `If-Match`.
+
+Object identity is type plus stable `id`. Runtime updates do not edit the original configuration file.
 
 On configuration reload, the default behavior is `rebase`:
 

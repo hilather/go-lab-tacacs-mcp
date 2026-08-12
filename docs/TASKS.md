@@ -887,8 +887,9 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 - [x] Make session resumption and ticket lifetime configurable, including zero.
 - [x] Verify or disposition revocation checks between ticket issuance and resumption.
 - [x] Review ticket reuse/linkability and implement or document client-tracking mitigations.
-- [x] Keep listener errors and metrics explicit by transport.
-- [x] Add security-negative tests, resumed-handshake tests, and packet-capture evidence.
+- [ ] Keep listener errors and metrics explicit by transport.
+- [x] Add security-negative tests and resumed-handshake tests.
+- [ ] Add packet-capture evidence.
 
 ### P8.5 Optional TLS authentication modes disposition
 

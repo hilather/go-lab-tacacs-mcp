@@ -250,6 +250,9 @@ listeners:
       minimum_version: TLS1.3
       identities:
         default_id: lab-default
+        # ClientHello server_name (SNI) is observable metadata used only to
+        # select a certificate profile. It is not a secret and is not a
+        # client-match key.
         require_sni: false
         profiles:
           - id: lab-default

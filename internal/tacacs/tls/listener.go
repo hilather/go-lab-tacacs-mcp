@@ -38,6 +38,7 @@ type Listener struct {
 	profiles       []tlsProfile
 	defaultProfile tlsProfile
 	requireSNI     bool
+	clientCAFile   string
 	clientCAs      *x509.CertPool
 	clientCACerts  []*x509.Certificate
 	crlPath        string

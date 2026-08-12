@@ -177,6 +177,10 @@ func validateListeners(doc *Document) error {
 	if !secure.TLS.RejectEarlyData {
 		return domain.NewError(domain.CodeInvalidArgument, "reject_early_data cannot be disabled").WithPath("listeners.secure_tacacs.tls.reject_early_data")
 	}
+	if !secure.TLS.SessionResumption.RecheckClientRevocation {
+		return domain.NewError(domain.CodeInvalidArgument, "recheck_client_revocation cannot be disabled (ADR-0005)").
+			WithPath("listeners.secure_tacacs.tls.session_resumption.recheck_client_revocation")
+	}
 	if secure.TLS.SessionResumption.Enabled {
 		life := secure.TLS.SessionResumption.TicketLifetime
 		if life != 0 && life != TLSTicketLifetimeEnforced {

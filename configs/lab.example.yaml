@@ -74,6 +74,7 @@ listeners:
       minimum_version: TLS1.3
       identities:
         default_id: lab-default
+        # ClientHello server_name is observable metadata for profile selection, not a secret.
         require_sni: false
         profiles:
           - id: lab-default

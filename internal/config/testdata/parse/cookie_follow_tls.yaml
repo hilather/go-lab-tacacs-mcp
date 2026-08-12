@@ -1,0 +1,5 @@
+schema_version: 1
+listeners:
+  http:
+    tls:
+      enabled: true

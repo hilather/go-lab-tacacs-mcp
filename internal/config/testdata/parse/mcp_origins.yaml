@@ -1,0 +1,7 @@
+schema_version: 1
+api:
+  mcp:
+    allowed_origins:
+      - https://lab.example
+      - https://ui.example
+    require_origin: true

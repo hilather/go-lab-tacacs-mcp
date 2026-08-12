@@ -1,0 +1,12 @@
+schema_version: 1
+security:
+  allow_environment_secrets: true
+clients:
+  - id: c
+    match:
+      transports:
+        - legacy
+    legacy:
+      shared_secret:
+        file: /run/secrets/x
+        environment: TACLAB_TACACS_SHARED_SECRET

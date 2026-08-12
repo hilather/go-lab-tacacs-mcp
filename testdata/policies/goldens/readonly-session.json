@@ -19,7 +19,7 @@
       "value": ""
     }
   ],
-  "authen_method": "ascii",
+  "authen_method": "tacacs",
   "privilege": 0,
   "effective_group_ids": [
     "readonly"

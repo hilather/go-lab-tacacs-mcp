@@ -71,7 +71,6 @@ clients:
     priority: 10
     match: {source_cidrs: ["127.0.0.0/8", "::1/128"], transports: [legacy]}
     legacy: {shared_secret: {file: ` + sec + `}}
-    authorization: {default_group_ids: [administrators]}
     authentication: {allowed_methods: [ascii]}
 groups:
   - id: administrators
@@ -88,9 +87,32 @@ groups:
         command: {exact: configure}
         arguments: {pattern: ".*"}
     default_command_action: deny
+  - id: readonly
+    priority: 100
+    services:
+      - service: shell
+        action: permit
+        reply_attributes:
+          - {name: priv-lvl, separator: "=", value: "1"}
+    command_rules:
+      - id: show
+        priority: 10
+        action: permit
+        command: {exact: show}
+        arguments: {pattern: ".*"}
+      - id: deny-everything-else
+        priority: 10000
+        action: deny
+        command: {pattern: ".*"}
+        arguments: {pattern: ".*"}
+    default_command_action: deny
 users:
   - id: lab-admin
     group_ids: [administrators]
+    credentials:
+      login: {verifier: {file: ` + login + `}}
+  - id: lab-readonly
+    group_ids: [readonly]
     credentials:
       login: {verifier: {file: ` + login + `}}
 `
@@ -230,6 +252,32 @@ users:
 		t.Fatalf("reload should deny, got %#x", arep.Status)
 	}
 
+	roBody, err := tcodec.WriteAuthorReq(tcodec.AuthorReq{
+		Method: tcodec.MethTACACS, Service: tcodec.SvcLogin,
+		User: []byte("lab-readonly"), Port: []byte("tty0"), RemAddr: []byte("127.0.0.1"),
+		Pairs: []tcodec.Pair{
+			{Key: "service", Sep: tcodec.SepEq, Val: "shell"},
+			{Key: "cmd", Sep: tcodec.SepEq, Val: "configure"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WritePacket(tcodec.Header{Version: tcodec.VersionByte(0), Type: tcodec.TypeAuthor, SeqNo: 1, Flags: tcodec.FlagSingleConnect, SessionID: 6}, roBody); err != nil {
+		t.Fatal(err)
+	}
+	_, rbody, err = c.ReadPacket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	arep, err = tcodec.ReadAuthorRep(rbody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if arep.Status != tcodec.AuthorFail {
+		t.Fatalf("readonly configure should deny, got %#x", arep.Status)
+	}
+
 	// Accounting START.
 	acctBody, err := tcodec.WriteAcctReq(tcodec.AcctReq{
 		Flags: tcodec.AcctStart, Method: tcodec.MethTACACS, Service: tcodec.SvcLogin,
@@ -287,6 +335,24 @@ users:
 	})
 	if mcpTrace.Decision != restTrace.Decision || mcpTrace.Evaluator != restTrace.Evaluator {
 		t.Fatalf("parity rest=%+v mcp=%+v", restTrace, mcpTrace)
+	}
+
+	roREST := restEvaluate(t, base, e2eToken, operations.EvaluatePolicyRequest{
+		UserID: "lab-readonly", ClientID: "lab-switches", Service: "shell", Cmd: "configure",
+	})
+	if roREST.Evaluator != "command" || roREST.Decision != "deny" {
+		t.Fatalf("readonly rest=%+v", roREST)
+	}
+	for _, st := range roREST.Steps {
+		if st.Kind == "service" {
+			t.Fatalf("readonly configure hit service rule: %+v", st)
+		}
+	}
+	roMCP := mcpEvaluate(t, base, e2eToken, operations.EvaluatePolicyRequest{
+		UserID: "lab-readonly", ClientID: "lab-switches", Service: "shell", Cmd: "configure",
+	})
+	if roMCP.Decision != roREST.Decision || roMCP.Evaluator != roREST.Evaluator {
+		t.Fatalf("readonly parity rest=%+v mcp=%+v", roREST, roMCP)
 	}
 
 	cancel()

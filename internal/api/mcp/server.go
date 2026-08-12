@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -91,12 +92,12 @@ func Handler(opts Options) http.Handler {
 			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: -32020, Message: "HeaderMismatch"}})
 			return
 		}
-		res, httpStatus := dispatch(opts, p, req)
+		res, httpStatus := dispatch(r.Context(), opts, p, req)
 		writeRPC(w, httpStatus, res)
 	})
 }
 
-func dispatch(opts Options, p auth.Principal, req rpcRequest) (rpcResponse, int) {
+func dispatch(ctx context.Context, opts Options, p auth.Principal, req rpcRequest) (rpcResponse, int) {
 	out := rpcResponse{JSONRPC: "2.0", ID: req.ID}
 	switch req.Method {
 	case "server/discover":
@@ -122,7 +123,7 @@ func dispatch(opts Options, p auth.Principal, req rpcRequest) (rpcResponse, int)
 		}
 		return out, http.StatusOK
 	case "tools/call":
-		result, err := callTool(opts, p, req.Params)
+		result, err := callTool(ctx, opts, p, req.Params)
 		if err != nil {
 			de, ok := domain.AsError(err)
 			if !ok {
@@ -163,7 +164,7 @@ func listTools(reg *operations.Registry, p auth.Principal) []map[string]any {
 	return out
 }
 
-func callTool(opts Options, p auth.Principal, raw json.RawMessage) (map[string]any, error) {
+func callTool(ctx context.Context, opts Options, p auth.Principal, raw json.RawMessage) (map[string]any, error) {
 	var params struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
@@ -181,7 +182,7 @@ func callTool(opts Options, p auth.Principal, raw json.RawMessage) (map[string]a
 		id = operations.IDPolicyEvaluate
 		var ev operations.EvaluatePolicyRequest
 		if len(params.Arguments) > 0 {
-			if err := json.Unmarshal(params.Arguments, &ev); err != nil {
+			if err := decodeStrict(params.Arguments, &ev); err != nil {
 				return nil, domain.NewError(domain.CodeInvalidArgument, "invalid tool arguments")
 			}
 		}
@@ -196,7 +197,10 @@ func callTool(opts Options, p auth.Principal, raw json.RawMessage) (map[string]a
 	if opts.Snapshot != nil {
 		snap = opts.Snapshot()
 	}
-	res, err := opts.Registry.Invoke(context.Background(), id, snap, operations.Input{Actor: p.Actor(), Request: req})
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	res, err := opts.Registry.Invoke(ctx, id, snap, operations.Input{Actor: p.Actor(), Request: req})
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +265,12 @@ func writeRPC(w http.ResponseWriter, status int, res rpcResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(res)
+}
+
+func decodeStrict(raw json.RawMessage, dest any) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	return dec.Decode(dest)
 }
 
 func rpcCode(code domain.Code) int {

@@ -283,9 +283,9 @@ func TestAuthenMethodObservational(t *testing.T) {
 	t.Parallel()
 	eng := mustCompileFile(t, "policies", "personas.yaml")
 	a := sessionReq("lab-admin", "lab-switches")
-	a.AuthenMethod = domain.AuthenTypeASCII
+	a.AuthenMethod = domain.AuthenMethodTACACS
 	b := a
-	b.AuthenMethod = domain.AuthenTypePAP
+	b.AuthenMethod = domain.AuthenMethodLocal
 	ra, rb := eng.Authorize(a), eng.Authorize(b)
 	if ra.Decision != rb.Decision || !ra.Arguments.Equal(rb.Arguments) {
 		t.Fatalf("authen_method must not change decision: %+v vs %+v", ra, rb)

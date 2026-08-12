@@ -209,6 +209,38 @@ func TestAbortDropsSession(t *testing.T) {
 	if step.Status != domain.AuthenStatusError {
 		t.Fatalf("after abort=%s", step.Status)
 	}
+	if svc.InFlight() != 0 {
+		t.Fatalf("inflight=%d", svc.InFlight())
+	}
+	if err := svc.AbortAuthentication(ctx, AuthenticationAbort{ConnKey: 6, SessionID: 1}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoginBindsStartSnapshot(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, AuthenticationStart{
+		ConnKey: 7, SessionID: 1, UserID: "lab-admin", ClientID: "lab-switches",
+		Action: domain.AuthenActionLogin, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceLogin,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	off := false
+	rev := mgr.Revision()
+	if _, err := mgr.UpdateUser("lab-admin", state.UpdateUser{Enabled: &off}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, AuthenticationContinue{
+		ConnKey: 7, SessionID: 1, UserMsg: []byte(testPassword), ClientID: "lab-switches",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass {
+		t.Fatalf("bound START snapshot should still pass, got %s", step.Status)
+	}
 }
 
 func TestNewRequiresSnapshot(t *testing.T) {

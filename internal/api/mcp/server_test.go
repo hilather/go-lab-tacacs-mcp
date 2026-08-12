@@ -143,6 +143,21 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 	}
 }
 
+func TestEvaluateRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+	ts := mcpHarness(t)
+	got := mcpRPC(t, ts, "tools/call", map[string]any{
+		"name": "taclab.policy.evaluate",
+		"arguments": map[string]any{
+			"user_id": "alice",
+			"extra":   true,
+		},
+	})
+	if got.Err == nil || got.Err.Code != -32602 {
+		t.Fatalf("unknown field err=%+v", got.Err)
+	}
+}
+
 func TestUnknownRPCMethod(t *testing.T) {
 	t.Parallel()
 	ts := mcpHarness(t)

@@ -36,6 +36,12 @@ type Handler interface {
 	Account(ctx context.Context, env Env, req codec.AcctRequest) (codec.AcctReply, error)
 }
 
+// SessionFinalizer is optional. Bridge uses it to drop AAA conversation
+// state when a TACACS session ends without CONTINUE ABORT (TCP drop, idle).
+type SessionFinalizer interface {
+	EndSession(ctx context.Context, env Env)
+}
+
 // Stub answers every well-formed packet with a protocol-legal terminal
 // status so the listener can be tested without a real AAA service.
 type Stub struct{}

@@ -48,7 +48,16 @@ func (s *Service) BeginAuthentication(ctx context.Context, start AuthenticationS
 			user = canon
 		}
 	}
-	sess := &asciiSession{user: user, clientID: start.ClientID, needUser: user == "", needPass: true}
+	bound := snap
+	sess := &asciiSession{
+		user:      user,
+		clientID:  start.ClientID,
+		needUser:  user == "",
+		needPass:  true,
+		snap:      bound,
+		creds:     s.creds.WithStore(snapshotStore{snapshot: func() *state.Snapshot { return bound }, secrets: s.secrets}),
+		maxRounds: maxRounds(bound),
+	}
 	s.putSession(key, sess)
 	if sess.needUser {
 		return AuthenticationStep{Status: domain.AuthenStatusGetUser}, nil
@@ -71,11 +80,9 @@ func (s *Service) ContinueAuthentication(ctx context.Context, cont Authenticatio
 	}
 	if cont.Abort {
 		s.dropSession(key)
-		snap := s.snap()
-		s.recordAuth(snap, cont.ClientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "abort")
+		s.recordAuth(sess.snap, cont.ClientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "abort")
 		return AuthenticationStep{Status: domain.AuthenStatusFail}, nil
 	}
-	snap := s.snap()
 	if sess.needUser {
 		user := string(cont.UserMsg)
 		if canon, err := credentials.CanonicalUsername(user); err == nil {
@@ -93,24 +100,32 @@ func (s *Service) ContinueAuthentication(ctx context.Context, cont Authenticatio
 	}
 
 	pw := append([]byte(nil), cont.UserMsg...)
-	err := s.creds.VerifyASCIIOrPAP(ctx, sess.user, pw)
+	verifier := sess.creds
+	if verifier == nil {
+		verifier = s.creds
+	}
+	err := verifier.VerifyASCIIOrPAP(ctx, sess.user, pw)
 	wipe(pw)
 	if err == nil {
 		s.dropSession(key)
-		s.recordAuth(snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "pass")
+		s.recordAuth(sess.snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "pass")
 		return AuthenticationStep{Status: domain.AuthenStatusPass}, nil
 	}
 	// Malformed material is protocol ERROR; every other credential result is FAIL.
 	var ae credentials.AuthError
 	if errors.As(err, &ae) && (ae.Kind == credentials.KindMalformed || ae.Kind == credentials.KindInvalid) {
 		s.dropSession(key)
-		s.recordAuth(snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "error")
+		s.recordAuth(sess.snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "error")
 		return errorStep(), nil
 	}
 	sess.fails++
-	if sess.fails >= maxRounds(snap) {
+	limit := sess.maxRounds
+	if limit <= 0 {
+		limit = maxRounds(sess.snap)
+	}
+	if sess.fails >= limit {
 		s.dropSession(key)
-		s.recordAuth(snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "fail")
+		s.recordAuth(sess.snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "fail")
 		return AuthenticationStep{Status: domain.AuthenStatusFail}, nil
 	}
 	s.putSession(key, sess)
@@ -124,12 +139,11 @@ func (s *Service) AbortAuthentication(_ context.Context, abort AuthenticationAbo
 	}
 	key := sessionKey{conn: abort.ConnKey, sess: abort.SessionID}
 	sess := s.getSession(key)
-	s.dropSession(key)
-	user := ""
-	if sess != nil {
-		user = sess.user
+	if sess == nil {
+		return nil
 	}
-	s.recordAuth(s.snap(), abort.ClientID, user, abort.SessionID, "", abort.Revision, "abort")
+	s.dropSession(key)
+	s.recordAuth(sess.snap, abort.ClientID, sess.user, abort.SessionID, "", abort.Revision, "abort")
 	return nil
 }
 

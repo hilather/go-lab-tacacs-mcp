@@ -64,7 +64,7 @@ func sessionReq(user, client string) Request {
 			av("service", '=', "shell"),
 			av("cmd", '=', ""),
 		},
-		AuthenMethod: domain.AuthenTypeASCII,
+		AuthenMethod: domain.AuthenMethodTACACS,
 	}
 }
 
@@ -83,7 +83,7 @@ func cmdReq(user, client, cmd string, args ...string) Request {
 		Cmd:          cmd,
 		CmdArgs:      append([]string(nil), args...),
 		Arguments:    pairs,
-		AuthenMethod: domain.AuthenTypeASCII,
+		AuthenMethod: domain.AuthenMethodTACACS,
 	}
 }
 

@@ -178,18 +178,18 @@ The parser, policy model, event model, and configuration restrictions must recog
 
 | ID | Flow | Version | Positive evidence | Negative evidence | Status |
 |---|---|---:|---|---|---|
-| T89-FLOW-001 | ASCII LOGIN with username in START | 0 | PASS | wrong password, disabled user | [x] |
-| T89-FLOW-002 | ASCII LOGIN with GETUSER then GETPASS | 0 | PASS | empty/retry exhaustion/abort | [x] |
-| T89-FLOW-003 | PAP LOGIN | 1 | PASS | wrong version, missing user/data, wrong password | [x] |
-| T89-FLOW-004 | CHAP LOGIN | 1 | independent response vector | malformed ID/challenge/response, wrong secret | [x] |
-| T89-FLOW-005 | MS-CHAP v1 LOGIN | 1 | independent vector | challenge length, response length, wrong secret | [x] |
-| T89-FLOW-006 | MS-CHAP v2 LOGIN | 1 | independent vector | 16-byte challenge enforcement, wrong secret | [x] |
-| T89-FLOW-007 | ENABLE | 0 | target privilege granted | wrong credential, invalid service, disallowed target | [x] |
-| T89-FLOW-008 | ASCII CHPASS | 0 | runtime verifier override | wrong old password, mismatch, immutable policy, abort | [x] |
-| T89-FLOW-009 | Unsupported defined option | per RFC | clean fail/error | no panic, no state leak | [x] |
-| T89-FLOW-010 | ASCII CHPASS old/new prompt semantics | 0 | old password uses GETDATA; new password uses GETPASS | reversed status, secret echo, interrupted update | [x] |
-| T89-FLOW-011 | ASCII unused data fields | 0 | arbitrary data is ignored as specified | data cannot alter username/password decision | [x] |
-| T89-FLOW-012 | CHAP challenge policy | 1 | configurable minimum with recommended default of 8 bytes | below-minimum and oversized challenge | [x] |
+| T89-FLOW-001 | ASCII LOGIN with username in START | 0 | PASS | wrong password, disabled user | [ ] |
+| T89-FLOW-002 | ASCII LOGIN with GETUSER then GETPASS | 0 | PASS | empty/retry exhaustion/abort | [ ] |
+| T89-FLOW-003 | PAP LOGIN | 1 | PASS | wrong version, missing user/data, wrong password | [ ] |
+| T89-FLOW-004 | CHAP LOGIN | 1 | independent response vector | malformed ID/challenge/response, wrong secret | [ ] |
+| T89-FLOW-005 | MS-CHAP v1 LOGIN | 1 | independent vector | challenge length, response length, wrong secret | [ ] |
+| T89-FLOW-006 | MS-CHAP v2 LOGIN | 1 | independent vector | 16-byte challenge enforcement, wrong secret | [ ] |
+| T89-FLOW-007 | ENABLE | 0 | target privilege granted | wrong credential, invalid service, disallowed target | [ ] |
+| T89-FLOW-008 | ASCII CHPASS | 0 | runtime verifier override | wrong old password, mismatch, immutable policy, abort | [ ] |
+| T89-FLOW-009 | Unsupported defined option | per RFC | clean fail/error | no panic, no state leak | [ ] |
+| T89-FLOW-010 | ASCII CHPASS old/new prompt semantics | 0 | old password uses GETDATA; new password uses GETPASS | reversed status, secret echo, interrupted update | [ ] |
+| T89-FLOW-011 | ASCII unused data fields | 0 | arbitrary data is ignored as specified | data cannot alter username/password decision | [ ] |
+| T89-FLOW-012 | CHAP challenge policy | 1 | configurable minimum with recommended default of 8 bytes | below-minimum challenge (no maximum; well-formed longer challenges are accepted) | [ ] |
 
 Credential evidence must prove:
 

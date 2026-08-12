@@ -219,8 +219,7 @@ func (s *Service) continueCHPASS(ctx context.Context, key sessionKey, sess *auth
 			wipe(old)
 			return s.retryOrFail(key, sess, cont, "ascii_chpass", dataPrompt())
 		}
-		wipe(sess.oldPass)
-		sess.oldPass = old
+		wipe(old)
 		sess.needOld = false
 		sess.fails = 0
 		s.putSession(key, sess)
@@ -248,10 +247,8 @@ func (s *Service) continueCHPASS(ctx context.Context, key sessionKey, sess *auth
 		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
 		return failStep(), nil
 	}
-	phc, err := sess.creds.ChangeASCIIPassword(ctx, sess.user, sess.oldPass, sess.newPass)
-	wipe(sess.oldPass)
+	derived, err := sess.creds.DeriveLoginVerifier(ctx, sess.newPass)
 	wipe(sess.newPass)
-	sess.oldPass = nil
 	sess.newPass = nil
 	if err != nil {
 		s.dropSession(key)
@@ -262,6 +259,7 @@ func (s *Service) continueCHPASS(ctx context.Context, key sessionKey, sess *auth
 		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
 		return failStep(), nil
 	}
+	phc := derived.Bytes()
 	step := s.publishLogin(sess, cont, phc)
 	wipe(phc)
 	return step, nil
@@ -350,16 +348,20 @@ func (s *Service) oneShotMSCHAP(ctx context.Context, snap *state.Snapshot, start
 		s.recordAuth(snap, start, user, kind, "error")
 		return errorStep(), nil
 	}
-	if user == "" {
-		s.recordAuth(snap, start, user, kind, "fail")
-		return failStep(), nil
-	}
+	// Verify before empty-user FAIL so reserved/flags shape is ERROR for every identity.
 	creds := s.boundCreds(snap, start.ClientID)
 	var ver error
 	if v2 {
 		ver = creds.VerifyMSCHAPv2(ctx, user, id, chal, resp)
 	} else {
 		ver = creds.VerifyMSCHAPv1(ctx, user, id, chal, resp)
+	}
+	if protoError(ver) {
+		return s.finishOneShot(snap, start, user, kind, ver), nil
+	}
+	if user == "" {
+		s.recordAuth(snap, start, user, kind, "fail")
+		return failStep(), nil
 	}
 	return s.finishOneShot(snap, start, user, kind, ver), nil
 }

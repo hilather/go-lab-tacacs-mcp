@@ -46,7 +46,6 @@ type authSession struct {
 	needOld     bool
 	needNew     bool
 	needConfirm bool
-	oldPass     []byte
 	newPass     []byte
 	fails       int
 	snap        *state.Snapshot
@@ -202,9 +201,7 @@ func (s *Service) dropSession(key sessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if sess := s.sessions[key]; sess != nil {
-		wipe(sess.oldPass)
 		wipe(sess.newPass)
-		sess.oldPass = nil
 		sess.newPass = nil
 	}
 	delete(s.sessions, key)

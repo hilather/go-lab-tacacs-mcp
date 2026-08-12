@@ -70,7 +70,7 @@ func TestImplementedOperations(t *testing.T) {
 	reg := mustRegistry(t)
 	got := reg.ImplementedIDs()
 	want := []string{
-		IDEventsList,
+		IDEventsList, IDEventsSubscribe,
 		IDPolicyEvaluate,
 		IDSessionCreate, IDSessionDelete,
 		IDSystemBuildGet, IDSystemStatusGet,
@@ -81,7 +81,7 @@ func TestImplementedOperations(t *testing.T) {
 	}
 	for _, op := range reg.List() {
 		switch op.ID {
-		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDEventsList, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionDelete:
+		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDEventsList, IDEventsSubscribe, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionDelete:
 			if !op.Implemented {
 				t.Errorf("%s should be implemented", op.ID)
 			}

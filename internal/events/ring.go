@@ -49,6 +49,15 @@ type Event struct {
 	Arguments     []EventAV       `json:"arguments,omitempty"`
 	StartTime     *time.Time      `json:"start_time,omitempty"`
 	StopTime      *time.Time      `json:"stop_time,omitempty"`
+	AuthenMethod  string          `json:"authen_method,omitempty"`
+	AuthenType    string          `json:"authen_type,omitempty"`
+	Service       string          `json:"service,omitempty"`
+	Privilege     uint8           `json:"privilege,omitempty"`
+	Port          string          `json:"port,omitempty"`
+	Remote        string          `json:"remote,omitempty"`
+	// SuppressExport keeps the record in the ring (accounting ACK) but hides
+	// it from cursor reads, stdout, and fan-out when include_accounting is off.
+	SuppressExport bool `json:"-"`
 }
 
 // EventAV is one stored attribute-value pair.
@@ -267,7 +276,7 @@ func (r *Ring) Read(q Query) Page {
 	out := make([]Event, 0, limit)
 	for i := 0; i < r.n && len(out) < limit; i++ {
 		ev := r.buf[(r.start+i)%r.cap]
-		if ev.ID <= q.AfterID {
+		if ev.ID <= q.AfterID || ev.SuppressExport {
 			continue
 		}
 		if !categoryOK(want, ev.Category) {
@@ -285,7 +294,7 @@ func (r *Ring) Read(q Query) Page {
 	last := page.NextAfterID
 	for i := 0; i < r.n; i++ {
 		ev := r.buf[(r.start+i)%r.cap]
-		if ev.ID <= last {
+		if ev.ID <= last || ev.SuppressExport {
 			continue
 		}
 		if categoryOK(want, ev.Category) {
@@ -340,7 +349,7 @@ func (r *Ring) Close() {
 }
 
 func (r *Ring) emitStdout(ch chan Event, e Event) {
-	if ch == nil {
+	if ch == nil || e.SuppressExport {
 		return
 	}
 	select {
@@ -367,6 +376,9 @@ func (r *Ring) stdoutLoop() {
 }
 
 func (r *Ring) fanout(subs []chan Event, e Event) {
+	if e.SuppressExport {
+		return
+	}
 	for _, ch := range subs {
 		select {
 		case ch <- e:

@@ -176,6 +176,13 @@ func includeAuthorization(snap *state.Snapshot) bool {
 	return snap.Settings().Events.IncludeAuthorization
 }
 
+func includeAccounting(snap *state.Snapshot) bool {
+	if snap == nil || snap.Settings() == nil {
+		return true
+	}
+	return snap.Settings().Events.IncludeAccounting
+}
+
 func maxRounds(snap *state.Snapshot) int {
 	if snap == nil || snap.Settings() == nil || snap.Settings().Limits.MaxAuthenticationRounds <= 0 {
 		return 3

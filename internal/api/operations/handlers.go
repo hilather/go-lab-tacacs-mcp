@@ -38,6 +38,7 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 		IDSessionCreate:   handleSessionCreate(deps),
 		IDSessionDelete:   handleSessionDelete(deps),
 		IDEventsList:      handleListEvents(deps.Events),
+		IDEventsSubscribe: handleSubscribe,
 	}
 }
 

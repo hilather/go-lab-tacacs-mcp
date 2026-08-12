@@ -38,17 +38,24 @@ func (s *Service) RecordAccounting(ctx context.Context, rec AccountingRecord) (A
 
 	kind := acctType(rec.Flags)
 	ev := events.Event{
-		Category:  events.CategoryAcct,
-		Type:      kind,
-		Result:    "success",
-		Transport: string(rec.Transport),
-		ClientID:  rec.ClientID,
-		SessionID: rec.SessionID,
-		Revision:  rec.Revision,
-		UserID:    rec.UserID,
-		TaskID:    parsed.taskID,
-		StartTime: parsed.startTime,
-		StopTime:  parsed.stopTime,
+		Category:       events.CategoryAcct,
+		Type:           kind,
+		Result:         "success",
+		Transport:      string(rec.Transport),
+		ClientID:       rec.ClientID,
+		SessionID:      rec.SessionID,
+		Revision:       rec.Revision,
+		UserID:         rec.UserID,
+		TaskID:         parsed.taskID,
+		StartTime:      parsed.startTime,
+		StopTime:       parsed.stopTime,
+		AuthenMethod:   rec.AuthenMethod.String(),
+		AuthenType:     rec.AuthenType.String(),
+		Service:        rec.Service.String(),
+		Privilege:      uint8(rec.Privilege),
+		Port:           rec.Port,
+		Remote:         rec.Remote,
+		SuppressExport: !includeAccounting(s.snap()),
 	}
 	if cmd := commandText(args); cmd != "" {
 		ev.Command = cmd

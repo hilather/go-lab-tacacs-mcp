@@ -654,7 +654,7 @@ The request's command and argument attributes are preserved for protocol reporti
 - Authentication: deny when no enabled user and usable credential match.
 - Service authorization: deny when no applicable permit rule matches.
 - Command authorization: deny when no applicable permit rule matches.
-- Accounting: reject malformed records; otherwise acknowledge valid configured record types even if event export is degraded.
+- Accounting: reject malformed records; otherwise acknowledge valid configured record types even if event export is degraded. `events.include_accounting: false` still accepts the record into the ring (SUCCESS requires a sink ID) but hides it from `events.list` and stdout JSON.
 
 ## 9. Runtime API object rules
 

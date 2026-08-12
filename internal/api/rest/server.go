@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
@@ -32,6 +33,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /health/ready", s.ready)
 	mux.HandleFunc("GET /api/v1/status", s.status)
 	mux.HandleFunc("POST /api/v1/policy/evaluate", s.evaluate)
+	mux.HandleFunc("GET /api/v1/events", s.listEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.eventsStub)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.MaxBody > 0 {
@@ -61,6 +63,23 @@ func (s *Server) ready(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	s.invoke(w, r, operations.IDSystemStatusGet, operations.GetStatusRequest{})
+}
+
+func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	req := operations.ListEventsRequest{
+		Cursor:     q.Get("cursor"),
+		Categories: q["category"],
+	}
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, domain.NewError(domain.CodeInvalidArgument, "invalid limit"))
+			return
+		}
+		req.Limit = n
+	}
+	s.invoke(w, r, operations.IDEventsList, req)
 }
 
 func (s *Server) evaluate(w http.ResponseWriter, r *http.Request) {

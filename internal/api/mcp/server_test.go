@@ -58,7 +58,7 @@ users:
 		API: config.API{BootstrapTokens: []config.BootstrapToken{{
 			ID:     "lab",
 			Token:  config.SecretRef{File: "tok", Purpose: credentials.PurposeAPIBearerToken},
-			Scopes: []string{"state:read", "policy:test"},
+			Scopes: []string{"state:read", "policy:test", "events:read"},
 		}}},
 	}, func(config.SecretRef) ([]byte, error) { return []byte(mcpToken), nil }, nil)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 
 	listed := mcpRPC(t, ts, "tools/list", nil)
 	tools, _ := listed.Result["tools"].([]any)
-	if len(tools) != 2 {
+	if len(tools) != 3 {
 		t.Fatalf("tools=%v", listed.Result["tools"])
 	}
 
@@ -140,6 +140,18 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 	tr, _ := ev.Result["structuredContent"].(map[string]any)
 	if tr["evaluator"] != "command" || tr["decision"] != "permit_add" {
 		t.Fatalf("trace=%v", ev.Result)
+	}
+
+	listedEvents := mcpRPC(t, ts, "tools/call", map[string]any{
+		"name":      "taclab.events.list",
+		"arguments": map[string]any{"limit": 10},
+	})
+	if listedEvents.Err != nil {
+		t.Fatalf("events.list err=%+v", listedEvents.Err)
+	}
+	scEv, _ := listedEvents.Result["structuredContent"].(map[string]any)
+	if _, ok := scEv["items"]; !ok {
+		t.Fatalf("events.list=%v", listedEvents.Result)
 	}
 }
 

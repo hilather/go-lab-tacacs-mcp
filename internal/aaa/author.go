@@ -18,17 +18,19 @@ func (s *Service) Authorize(ctx context.Context, req AuthorizationRequest) (Auth
 	if err != nil {
 		return errorDecision(err.Error()), nil
 	}
-	s.record(events.Event{
-		Category:  "author",
-		Type:      tr.Evaluator,
-		Result:    tr.Decision,
-		Transport: string(req.Transport),
-		ClientID:  req.ClientID,
-		SessionID: req.SessionID,
-		Revision:  req.Revision,
-		UserID:    req.UserID,
-		Command:   tr.DisplayCmd,
-	}, redactUserInput(s.snap()))
+	if includeAuthorization(s.snap()) {
+		s.record(events.Event{
+			Category:  events.CategoryAuthor,
+			Type:      tr.Evaluator,
+			Result:    tr.Decision,
+			Transport: string(req.Transport),
+			ClientID:  req.ClientID,
+			SessionID: req.SessionID,
+			Revision:  req.Revision,
+			UserID:    req.UserID,
+			Command:   tr.DisplayCmd,
+		}, false)
+	}
 	return AuthorizationDecision{
 		Decision:  res.Decision,
 		Status:    res.Status,

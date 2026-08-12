@@ -52,6 +52,18 @@ var commonArgs = []ArgSpec{
 	{Name: "timezone", Encoding: EncTimezone, Known: true},
 	{Name: "start_time", Encoding: EncEpoch, Known: true},
 	{Name: "stop_time", Encoding: EncEpoch, Known: true},
+	// RFC 8907 §8.2 accounting-only arguments share encodings with the common table.
+	{Name: "task_id", Encoding: EncText, Known: true},
+	{Name: "elapsed_time", Encoding: EncNumeric, Known: true},
+	{Name: "event", Encoding: EncText, Known: true},
+	{Name: "reason", Encoding: EncText, Known: true},
+	{Name: "bytes", Encoding: EncNumeric, Known: true},
+	{Name: "bytes_in", Encoding: EncNumeric, Known: true},
+	{Name: "bytes_out", Encoding: EncNumeric, Known: true},
+	{Name: "paks", Encoding: EncNumeric, Known: true},
+	{Name: "paks_in", Encoding: EncNumeric, Known: true},
+	{Name: "paks_out", Encoding: EncNumeric, Known: true},
+	{Name: "err_msg", Encoding: EncText, Known: true},
 }
 
 var commonByName map[string]ArgSpec

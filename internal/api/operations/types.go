@@ -17,6 +17,7 @@ const (
 	IDTokensRevoke    = "tokens.revoke"
 	IDSessionCreate   = "session.create"
 	IDSessionDelete   = "session.delete"
+	IDEventsList      = "events.list"
 )
 
 // Specification versions reported by system.build.get.
@@ -188,8 +189,6 @@ type (
 	Client                    struct{}
 	TestAuthenticationRequest struct{}
 	AuthenticationTestResult  struct{}
-	ListEventsRequest         struct{}
-	EventList                 struct{}
 	SubscribeEventsRequest    struct{}
 	EventStream               struct{}
 	HealthRequest             struct{}
@@ -205,6 +204,46 @@ type (
 	MCPListChangedRequest     struct{}
 	MCPNotification           struct{}
 )
+
+// ListEventsRequest is the events.list cursor page.
+type ListEventsRequest struct {
+	Cursor     string   `json:"cursor,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
+	Categories []string `json:"categories,omitempty"`
+}
+
+// EventList is one redacted page from the ring.
+type EventList struct {
+	Items       []EventView `json:"items"`
+	NextCursor  *string     `json:"next_cursor"`
+	Reset       bool        `json:"reset"`
+	Overwritten uint64      `json:"overwritten"`
+}
+
+// EventView is the adapter-facing event body.
+type EventView struct {
+	SchemaVersion int             `json:"schema_version"`
+	ID            uint64          `json:"id"`
+	Time          time.Time       `json:"time"`
+	Category      string          `json:"category"`
+	Type          string          `json:"type"`
+	Result        string          `json:"result"`
+	Transport     string          `json:"transport,omitempty"`
+	ClientID      string          `json:"client_id,omitempty"`
+	SessionID     uint32          `json:"session_id,omitempty"`
+	Revision      domain.Revision `json:"revision,omitempty"`
+	UserID        string          `json:"user_id,omitempty"`
+	Command       string          `json:"command,omitempty"`
+	TaskID        string          `json:"task_id,omitempty"`
+	Arguments     []EventAV       `json:"arguments,omitempty"`
+}
+
+// EventAV is one stored attribute-value pair.
+type EventAV struct {
+	Name      string `json:"name"`
+	Separator string `json:"separator"`
+	Value     string `json:"value"`
+}
 
 // DeleteResult is the response for delete/revoke operations.
 type DeleteResult struct {

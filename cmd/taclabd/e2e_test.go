@@ -65,7 +65,7 @@ api:
   bootstrap_tokens:
     - id: lab
       token: {file: ` + tok + `}
-      scopes: [state:read, policy:test]
+      scopes: [state:read, policy:test, events:read]
 clients:
   - id: lab-switches
     priority: 10
@@ -307,11 +307,63 @@ users:
 		t.Fatalf("acct=%#x", acct.Status)
 	}
 
+	stopBody, err := tcodec.WriteAcctReq(tcodec.AcctReq{
+		Flags: tcodec.AcctStop, Method: tcodec.MethTACACS, Service: tcodec.SvcLogin,
+		User: []byte("lab-admin"), Port: []byte("tty0"), RemAddr: []byte("127.0.0.1"),
+		Pairs: []tcodec.Pair{
+			{Key: "task_id", Sep: tcodec.SepEq, Val: "sess-e2e"},
+			{Key: "service", Sep: tcodec.SepEq, Val: "shell"},
+			{Key: "cmd", Sep: tcodec.SepEq, Val: "configure"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WritePacket(tcodec.Header{Version: tcodec.VersionByte(0), Type: tcodec.TypeAcct, SeqNo: 1, Flags: tcodec.FlagSingleConnect, SessionID: 7}, stopBody); err != nil {
+		t.Fatal(err)
+	}
+	_, rbody, err = c.ReadPacket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	acct, err = tcodec.ReadAcctRep(rbody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acct.Status != tcodec.AcctOK {
+		t.Fatalf("acct stop=%#x", acct.Status)
+	}
+
+	badBody, err := tcodec.WriteAcctReq(tcodec.AcctReq{
+		Flags: tcodec.AcctStart | tcodec.AcctStop, Method: tcodec.MethTACACS,
+		User: []byte("lab-admin"),
+	})
+	if err == nil {
+		if err := c.WritePacket(tcodec.Header{Version: tcodec.VersionByte(0), Type: tcodec.TypeAcct, SeqNo: 1, Flags: tcodec.FlagSingleConnect, SessionID: 8}, badBody); err != nil {
+			t.Fatal(err)
+		}
+		_, rbody, err = c.ReadPacket()
+		if err != nil {
+			t.Fatal(err)
+		}
+		acct, err = tcodec.ReadAcctRep(rbody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if acct.Status != tcodec.AcctErr && acct.Status != 0x02 {
+			t.Fatalf("invalid flags status=%#x", acct.Status)
+		}
+	}
+
 	// REST status + evaluate (same operations as MCP).
 	base := "http://" + httpAddr
 	st := restGET(t, base+"/api/v1/status", e2eToken)
 	if st.Users < 1 {
 		t.Fatalf("status users=%d", st.Users)
+	}
+	evs := restListEvents(t, base+"/api/v1/events?category=acct&limit=20", e2eToken)
+	if len(evs.Items) < 2 {
+		t.Fatalf("acct events=%d", len(evs.Items))
 	}
 	live, err := http.Get(base + "/health/live")
 	if err != nil {
@@ -408,6 +460,31 @@ func restGET(t *testing.T, url, token string) operations.Status {
 	}
 	var env struct {
 		Data operations.Status `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	return env.Data
+}
+
+func restListEvents(t *testing.T, url, token string) operations.EventList {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("GET %s -> %d %s", url, resp.StatusCode, b)
+	}
+	var env struct {
+		Data operations.EventList `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
 		t.Fatal(err)

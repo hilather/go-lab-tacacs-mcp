@@ -29,3 +29,24 @@ func BenchmarkCHAPLogin(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkRecordAccounting(b *testing.B) {
+	svc, _, _ := testService(b)
+	rec := AccountingRecord{
+		Flags:    AcctFlagStart,
+		UserID:   "lab-admin",
+		ClientID: "lab-switches",
+		Arguments: domain.AVPairs{
+			{Name: "task_id", Separator: '=', Value: "bench"},
+			{Name: "service", Separator: '=', Value: "shell"},
+		},
+	}
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := svc.RecordAccounting(ctx, rec); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

@@ -93,13 +93,23 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		logger.Warn("listeners.secure_tacacs is not implemented; TLS listener skipped")
 	}
 
+	var ring *events.Ring
 	if h == nil {
-		ring := events.New(doc.Events.RingBufferCapacity, nil)
-		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Secrets: lookup, Events: ring})
+		var stdoutSink io.Writer
+		if doc.Events.Stdout.Enabled {
+			stdoutSink = stdout
+		}
+		ring = events.NewWithOptions(events.Options{
+			Capacity:        doc.Events.RingBufferCapacity,
+			Stdout:          stdoutSink,
+			RedactUserInput: doc.Events.RedactUserInput,
+		})
+		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring})
 		if err != nil {
 			return err
 		}
 		h = server.Bridge{AAA: aaaSvc}
+		defer ring.Close()
 	}
 
 	ln, err := legacy.Listen(legacy.Options{
@@ -143,7 +153,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, ln)
+		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, ln, ring)
 		if err != nil {
 			_ = ln.Shutdown(context.Background())
 			return err
@@ -187,8 +197,8 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener) (*http.Server, net.Listener, error) {
-	reg, err := loadRegistry(operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime})
+func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, ring *events.Ring) (*http.Server, net.Listener, error) {
+	reg, err := loadRegistry(operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime}, ring)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -235,16 +245,17 @@ func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLoo
 	return hs, ln, nil
 }
 
-func loadRegistry(meta operations.BuildMeta) (*operations.Registry, error) {
-	if reg, err := operations.NewFromRepo(".", operations.Deps{Build: meta}); err == nil {
+func loadRegistry(meta operations.BuildMeta, ring *events.Ring) (*operations.Registry, error) {
+	deps := operations.Deps{Build: meta, Events: ring}
+	if reg, err := operations.NewFromRepo(".", deps); err == nil {
 		return reg, nil
 	}
 	if exe, err := os.Executable(); err == nil {
-		if reg, err := operations.NewFromRepo(filepath.Dir(exe), operations.Deps{Build: meta}); err == nil {
+		if reg, err := operations.NewFromRepo(filepath.Dir(exe), deps); err == nil {
 			return reg, nil
 		}
 	}
-	return operations.NewFromRepo("/", operations.Deps{Build: meta})
+	return operations.NewFromRepo("/", deps)
 }
 
 func reloadSnapshot(path string, mgr *state.Manager) error {

@@ -146,7 +146,7 @@ func listTools(reg *operations.Registry, p auth.Principal) []map[string]any {
 		return []map[string]any{}
 	}
 	var names []string
-	for _, id := range []string{operations.IDSystemStatusGet, operations.IDPolicyEvaluate} {
+	for _, id := range []string{operations.IDSystemStatusGet, operations.IDPolicyEvaluate, operations.IDEventsList} {
 		op, ok := reg.Lookup(id)
 		if !ok || op.MCP.Name == "" {
 			continue
@@ -181,6 +181,15 @@ func callTool(ctx context.Context, opts Options, p auth.Principal, raw json.RawM
 	case "taclab.policy.evaluate":
 		id = operations.IDPolicyEvaluate
 		var ev operations.EvaluatePolicyRequest
+		if len(params.Arguments) > 0 {
+			if err := decodeStrict(params.Arguments, &ev); err != nil {
+				return nil, domain.NewError(domain.CodeInvalidArgument, "invalid tool arguments")
+			}
+		}
+		req = ev
+	case "taclab.events.list":
+		id = operations.IDEventsList
+		var ev operations.ListEventsRequest
 		if len(params.Arguments) > 0 {
 			if err := decodeStrict(params.Arguments, &ev); err != nil {
 				return nil, domain.NewError(domain.CodeInvalidArgument, "invalid tool arguments")

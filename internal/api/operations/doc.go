@@ -5,6 +5,6 @@
 //
 // api/operations.yaml is the enumerated inventory. Every YAML operation is
 // registered here. Implemented handlers are system.status.get, system.build.get,
-// policy.evaluate, tokens.list/create/revoke, and session.create/delete.
+// policy.evaluate, events.list, tokens.list/create/revoke, and session.create/delete.
 // Remaining handlers return unavailable until later work fills them.
 package operations

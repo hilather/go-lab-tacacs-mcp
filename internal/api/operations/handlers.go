@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -15,6 +16,7 @@ type Deps struct {
 	Entropy  io.Reader
 	Sessions SessionService
 	Usage    TokenUsage
+	Events   *events.Ring
 }
 
 // BuildMeta is linker-injected identity. Empty fields become conservative defaults.
@@ -35,6 +37,7 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 		IDTokensRevoke:    handleTokensRevoke(deps),
 		IDSessionCreate:   handleSessionCreate(deps),
 		IDSessionDelete:   handleSessionDelete(deps),
+		IDEventsList:      handleListEvents(deps.Events),
 	}
 }
 

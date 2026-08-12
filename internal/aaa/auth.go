@@ -506,8 +506,18 @@ func eventType(flow authFlow, start AuthenticationStart) string {
 }
 
 func (s *Service) recordAuth(snap *state.Snapshot, start AuthenticationStart, user, kind, result string) {
+	if snap != nil && snap.Settings() != nil {
+		ev := snap.Settings().Events
+		ok := ev.IncludeFailedAuthentication
+		if result == "pass" {
+			ok = ev.IncludeSuccessfulAuthentication
+		}
+		if !ok {
+			return
+		}
+	}
 	s.record(events.Event{
-		Category:  "authen",
+		Category:  events.CategoryAuthen,
 		Type:      kind,
 		Result:    result,
 		Transport: string(start.Transport),
@@ -515,7 +525,7 @@ func (s *Service) recordAuth(snap *state.Snapshot, start AuthenticationStart, us
 		SessionID: start.SessionID,
 		Revision:  start.Revision,
 		UserID:    user,
-	}, redactUserInput(snap))
+	}, false)
 }
 
 func protoError(err error) bool {

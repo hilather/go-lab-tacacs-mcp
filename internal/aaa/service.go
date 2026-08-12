@@ -160,22 +160,20 @@ func CompileSnapshot(snap *state.Snapshot) (*policy.Engine, error) {
 	})
 }
 
-func (s *Service) record(e events.Event, redact bool) events.Event {
+func (s *Service) record(e events.Event, _ bool) events.Event {
 	if s == nil || s.events == nil {
 		return events.Event{}
 	}
-	if redact {
-		e.UserID = ""
-		e.Command = ""
-	}
+	// UserID and command stay in the ring so events:sensitive can unredact.
+	// Stdout JSON and events.list redact unless the caller has that scope.
 	return s.events.Accept(e)
 }
 
-func redactUserInput(snap *state.Snapshot) bool {
+func includeAuthorization(snap *state.Snapshot) bool {
 	if snap == nil || snap.Settings() == nil {
 		return true
 	}
-	return snap.Settings().Events.RedactUserInput
+	return snap.Settings().Events.IncludeAuthorization
 }
 
 func maxRounds(snap *state.Snapshot) int {

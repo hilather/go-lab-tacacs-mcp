@@ -19,6 +19,40 @@ type secretView interface {
 	Empty() bool
 	Len() int
 	Purpose() Purpose
+	MarshalText() ([]byte, error)
+	MarshalYAML() (any, error)
+}
+
+// canaryEncodings is ASCII plus the decimal and hex dumps fmt uses for []byte.
+func canaryEncodings(canary string) []string {
+	b := []byte(canary)
+	dec := make([]string, len(b))
+	hex0x := make([]string, len(b))
+	hexBare := make([]string, len(b))
+	for i, c := range b {
+		dec[i] = fmt.Sprintf("%d", c)
+		hex0x[i] = fmt.Sprintf("0x%02x", c)
+		hexBare[i] = fmt.Sprintf("%02x", c)
+	}
+	return []string{
+		canary,
+		strings.Join(dec, " "),
+		strings.Join(dec, ", "),
+		"[" + strings.Join(dec, " ") + "]",
+		strings.Join(hex0x, ", "),
+		strings.Join(hexBare, " "),
+		strings.Join(hexBare, ""),
+	}
+}
+
+func assertNoCanary(t *testing.T, where, out, canary string) {
+	t.Helper()
+	lower := strings.ToLower(out)
+	for _, enc := range canaryEncodings(canary) {
+		if enc != "" && strings.Contains(lower, strings.ToLower(enc)) {
+			t.Fatalf("%s leaked encoding %q in %q", where, enc, out)
+		}
+	}
 }
 
 func TestSecretNonSerialization(t *testing.T) {
@@ -76,31 +110,21 @@ func TestSecretNonSerialization(t *testing.T) {
 
 			for _, verb := range verbs {
 				out := fmt.Sprintf(verb, h.value)
-				if strings.Contains(out, h.canary) {
-					t.Fatalf("fmt %s leaked canary: %q", verb, out)
-				}
+				assertNoCanary(t, "fmt "+verb, out, h.canary)
 			}
 
 			wrapped := fmt.Sprintf("holder=%v extra=%#v", h.value, struct{ S secretView }{h.value})
-			if strings.Contains(wrapped, h.canary) {
-				t.Fatalf("wrapped fmt leaked: %q", wrapped)
-			}
+			assertNoCanary(t, "wrapped fmt", wrapped, h.canary)
 
 			errStr := fmt.Errorf("verify failed: %v", h.value).Error()
-			if strings.Contains(errStr, h.canary) {
-				t.Fatalf("error string leaked: %q", errStr)
-			}
+			assertNoCanary(t, "error string", errStr, h.canary)
 
 			raw, err := json.Marshal(h.value)
 			if err == nil {
 				t.Fatal("json.Marshal of secret must fail")
 			}
-			if strings.Contains(err.Error(), h.canary) {
-				t.Fatalf("json error leaked: %v", err)
-			}
-			if bytes.Contains(raw, []byte(h.canary)) {
-				t.Fatalf("json output leaked: %q", raw)
-			}
+			assertNoCanary(t, "json error", err.Error(), h.canary)
+			assertNoCanary(t, "json output", string(raw), h.canary)
 
 			type envelope struct {
 				Secret secretView `json:"secret"`
@@ -109,16 +133,29 @@ func TestSecretNonSerialization(t *testing.T) {
 			if err == nil {
 				t.Fatal("json.Marshal of envelope must fail")
 			}
-			if strings.Contains(err.Error(), h.canary) || bytes.Contains(raw, []byte(h.canary)) {
-				t.Fatalf("envelope leaked: err=%v raw=%q", err, raw)
+			assertNoCanary(t, "envelope error", err.Error(), h.canary)
+			assertNoCanary(t, "envelope output", string(raw), h.canary)
+
+			text, err := h.value.MarshalText()
+			if err == nil {
+				t.Fatal("MarshalText of secret must fail")
+			}
+			assertNoCanary(t, "MarshalText error", err.Error(), h.canary)
+			assertNoCanary(t, "MarshalText output", string(text), h.canary)
+
+			y, err := h.value.MarshalYAML()
+			if err == nil {
+				t.Fatal("MarshalYAML of secret must fail")
+			}
+			assertNoCanary(t, "MarshalYAML error", err.Error(), h.canary)
+			if y != nil {
+				assertNoCanary(t, "MarshalYAML value", fmt.Sprint(y), h.canary)
 			}
 
 			var buf bytes.Buffer
 			log := slog.New(slog.NewTextHandler(&buf, nil))
 			log.Info("credential", "secret", h.value)
-			if strings.Contains(buf.String(), h.canary) {
-				t.Fatalf("slog leaked: %q", buf.String())
-			}
+			assertNoCanary(t, "slog", buf.String(), h.canary)
 
 			cp := h.value.Bytes()
 			if string(cp) != h.canary {
@@ -150,9 +187,7 @@ func TestSecretWipe(t *testing.T) {
 	if !s.Empty() || s.Len() != 0 || s.Bytes() != nil {
 		t.Fatalf("after wipe: empty=%v len=%d bytes=%q", s.Empty(), s.Len(), s.Bytes())
 	}
-	if strings.Contains(fmt.Sprintf("%#v", s), canary) {
-		t.Fatal("wiped secret still formats canary")
-	}
+	assertNoCanary(t, "wiped %#v", fmt.Sprintf("%#v", s), canary)
 }
 
 func TestSecretEqual(t *testing.T) {
@@ -214,16 +249,32 @@ func TestSecretParentStructFormatting(t *testing.T) {
 		fmt.Sprintf("%#v", w),
 		fmt.Sprintf("%#v", &w),
 	} {
-		if strings.Contains(out, canary) {
-			t.Fatalf("parent struct format leaked: %q", out)
-		}
+		assertNoCanary(t, "exported parent fmt", out, canary)
 	}
 	raw, err := json.Marshal(w)
 	if err == nil {
 		t.Fatal("json.Marshal of parent struct must fail")
 	}
-	if strings.Contains(err.Error(), canary) || bytes.Contains(raw, []byte(canary)) {
-		t.Fatalf("parent json leaked: err=%v raw=%q", err, raw)
+	assertNoCanary(t, "parent json error", err.Error(), canary)
+	assertNoCanary(t, "parent json output", string(raw), canary)
+}
+
+func TestUnexportedHolderFmtFootgun(t *testing.T) {
+	t.Parallel()
+	// fmt walks unexported fields without calling Format. Later AAA request
+	// types must export holders or log via slog/Redacted — never %+v of req.
+	canary := "unit-test-unexported-fmt-canary"
+	type req struct {
+		sec Password
+	}
+	out := fmt.Sprintf("%+v", req{sec: NewPassword([]byte(canary))})
+	if strings.Contains(out, canary) {
+		t.Fatalf("ASCII canary leaked from unexported field: %q", out)
+	}
+	encs := canaryEncodings(canary)
+	decimal, hexDump := encs[1], encs[4]
+	if !strings.Contains(out, decimal) && !strings.Contains(strings.ToLower(out), hexDump) {
+		t.Fatalf("expected decimal or hex dump of unexported holder (callers must not %%+v this): %q", out)
 	}
 }
 

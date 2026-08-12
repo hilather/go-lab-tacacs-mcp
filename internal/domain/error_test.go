@@ -62,6 +62,19 @@ func TestErrorWithDetailDoesNotMutateOriginal(t *testing.T) {
 	}
 }
 
+func TestRevisionMismatchIsTheOperationCode(t *testing.T) {
+	t.Parallel()
+	if CodeRevisionMismatch != "revision_mismatch" {
+		t.Fatalf("If-Match / expected_revision must use revision_mismatch, got %q", CodeRevisionMismatch)
+	}
+	if CodeRevisionConflict != "REVISION_CONFLICT" {
+		t.Fatalf("compile spelling must stay REVISION_CONFLICT, got %q", CodeRevisionConflict)
+	}
+	if CodeRevisionMismatch == CodeRevisionConflict {
+		t.Fatal("adapter and compile spellings are distinct strings; do not silently alias them")
+	}
+}
+
 func TestAsError(t *testing.T) {
 	t.Parallel()
 	e := NewError(CodeNotFound, "missing")

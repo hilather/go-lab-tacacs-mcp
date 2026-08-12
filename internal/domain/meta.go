@@ -65,7 +65,7 @@ type (
 
 // ObjectMeta is the common administrative view of an object.
 // EffectiveRevision is a read alias of the snapshot revision the view was
-// loaded from; it is not a third competing revision field.
+// loaded from.
 type ObjectMeta struct {
 	ID                ObjectID
 	Kind              ObjectKind

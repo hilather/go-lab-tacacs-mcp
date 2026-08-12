@@ -10,10 +10,11 @@ type Code string
 
 // Adapter-facing codes shared by REST, MCP, and events.
 const (
-	CodeInvalidArgument  Code = "invalid_argument"
-	CodeNotFound         Code = "not_found"
-	CodeAlreadyExists    Code = "already_exists"
-	CodeConflict         Code = "conflict"
+	CodeInvalidArgument Code = "invalid_argument"
+	CodeNotFound        Code = "not_found"
+	CodeAlreadyExists   Code = "already_exists"
+	CodeConflict        Code = "conflict"
+	// CodeRevisionMismatch is the operation / If-Match / expected_revision code (HTTP 412).
 	CodeRevisionMismatch Code = "revision_mismatch"
 	CodeUnauthenticated  Code = "unauthenticated"
 	CodePermissionDenied Code = "permission_denied"
@@ -35,7 +36,9 @@ const (
 	CodeTLSVersionUnsupported       Code = "TLS_VERSION_UNSUPPORTED"
 	CodeObjectLimitExceeded         Code = "OBJECT_LIMIT_EXCEEDED"
 	CodeRegexInvalid                Code = "REGEX_INVALID"
-	CodeRevisionConflict            Code = "REVISION_CONFLICT"
+	// CodeRevisionConflict is the compile/validation spelling of a stale
+	// expected revision. Operation handlers and If-Match use CodeRevisionMismatch.
+	CodeRevisionConflict Code = "REVISION_CONFLICT"
 )
 
 func (c Code) String() string { return string(c) }

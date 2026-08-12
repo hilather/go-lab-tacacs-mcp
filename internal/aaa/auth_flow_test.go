@@ -241,6 +241,32 @@ func TestMSCHAPv1AndV2Vectors(t *testing.T) {
 	}
 }
 
+func TestMSCHAPv2MalformedIndependentOfUser(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := testService(t)
+	ctx := context.Background()
+	authCh := bytes.Repeat([]byte{0x5b}, 16)
+	// Well-formed length, reserved[16:24] and flags[48] nonzero.
+	resp := make([]byte, credentials.MSCHAPResponseLen)
+	copy(resp[0:16], bytes.Repeat([]byte{0x21}, 16))
+	copy(resp[16:24], bytes.Repeat([]byte{0xff}, 8))
+	resp[48] = 1
+	data := append([]byte{17}, append(authCh, resp...)...)
+	for i, user := range []string{"", "missing-user", "lab-readonly", "lab-admin"} {
+		step, err := svc.BeginAuthentication(ctx, AuthenticationStart{
+			ConnKey: 28, SessionID: uint32(i + 1), UserID: user, ClientID: "lab-switches",
+			Action: domain.AuthenActionLogin, Type: domain.AuthenTypeMSCHAPV2, Service: domain.AuthenServicePPP,
+			Data: data,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if step.Status != domain.AuthenStatusError {
+			t.Fatalf("user=%q status=%s want ERROR", user, step.Status)
+		}
+	}
+}
+
 func TestEnableIgnoresTypeGoldens(t *testing.T) {
 	t.Parallel()
 	svc, _, _ := testService(t)

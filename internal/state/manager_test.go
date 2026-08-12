@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
@@ -201,6 +202,118 @@ func TestFreshManagerHasNoOverlay(t *testing.T) {
 	u, _ := fresh.Snapshot().User("alice")
 	if u.User.DisplayName != "Alice" || u.Meta.Source != domain.SourceConfig {
 		t.Fatalf("restart leaked overlay: %+v", u)
+	}
+}
+
+func TestTokenLimitUsesLiveSet(t *testing.T) {
+	t.Parallel()
+	const tokenYAML = `
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+runtime:
+  max_objects:
+    api_tokens: 1
+api:
+  bootstrap_tokens:
+    - id: boot
+      token: {file: /run/secrets/boot}
+      scopes: [state:read]
+`
+	t.Run("tombstone frees slot", func(t *testing.T) {
+		t.Parallel()
+		m := mustMgr(t, tokenYAML)
+		rev := m.Revision()
+		if _, err := m.DeleteToken("boot", DeleteOptions{}, &rev); err != nil {
+			t.Fatal(err)
+		}
+		rev = m.Revision()
+		mat := credentials.NewTokenMaterial([]byte("unit-test-token-material-aabbccdd"))
+		if _, err := m.CreateToken(CreateToken{ID: "rt", Name: "rt", Scopes: []string{"state:read"}, Material: mat}, &rev); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := m.Snapshot().Token("rt"); !ok {
+			t.Fatal("runtime token missing")
+		}
+		if _, ok := m.Snapshot().Token("boot"); ok {
+			t.Fatal("tombstoned bootstrap still live")
+		}
+	})
+	t.Run("override is one identity", func(t *testing.T) {
+		t.Parallel()
+		m := mustMgr(t, tokenYAML)
+		rev := m.Revision()
+		mat := credentials.NewTokenMaterial([]byte("unit-test-token-material-eeff0011"))
+		snap, err := m.CreateToken(CreateToken{ID: "boot", Name: "over", Scopes: []string{"state:read"}, Material: mat, Override: true}, &rev)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tok, ok := snap.Token("boot")
+		if !ok || tok.Meta.Source != domain.SourceOverride {
+			t.Fatalf("override token=%+v ok=%v", tok, ok)
+		}
+	})
+	t.Run("live over cap rejected", func(t *testing.T) {
+		t.Parallel()
+		m := mustMgr(t, tokenYAML)
+		rev := m.Revision()
+		mat := credentials.NewTokenMaterial([]byte("unit-test-token-material-22334455"))
+		_, err := m.CreateToken(CreateToken{ID: "other", Name: "x", Scopes: []string{"state:read"}, Material: mat}, &rev)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeObjectLimitExceeded {
+			t.Fatalf("got %v", err)
+		}
+		if m.Revision() != 1 {
+			t.Fatalf("published over-cap: %d", m.Revision())
+		}
+	})
+}
+
+func TestConfigOnlyRevisionUpdatedStableAcrossOverlay(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	alice, _ := m.Snapshot().User("alice")
+	if alice.Meta.RevisionUpdated != 1 || alice.Meta.RevisionCreated != 1 {
+		t.Fatalf("initial meta=%+v", alice.Meta)
+	}
+	rev := m.Revision()
+	if _, err := m.CreateUser(CreateUser{ID: "bob", DisplayName: strPtr("Bob")}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	alice, _ = m.Snapshot().User("alice")
+	if alice.Meta.RevisionUpdated != 1 {
+		t.Fatalf("overlay publish bumped config-only revision_updated=%d", alice.Meta.RevisionUpdated)
+	}
+	if alice.Meta.EffectiveRevision != 2 {
+		t.Fatalf("effective_revision=%d", alice.Meta.EffectiveRevision)
+	}
+	rev = m.Revision()
+	if _, err := m.Reload(mustParse(t, smallYAML), &rev); err != nil {
+		t.Fatal(err)
+	}
+	alice, _ = m.Snapshot().User("alice")
+	if alice.Meta.RevisionUpdated != m.Revision() {
+		t.Fatalf("reload should bump baseline compile revision, got %d want %d", alice.Meta.RevisionUpdated, m.Revision())
+	}
+}
+
+func TestInvalidOverlayIPSANRejected(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	before := m.Snapshot()
+	rev := before.Revision
+	match := config.ClientMatch{
+		SourceCIDRs: []string{"10.20.0.0/16"},
+		Transports:  []domain.Transport{domain.TransportTLS},
+		Mode:        domain.MatchCertificateOnly,
+		Certificate: config.CertMatch{IPSANs: []string{"not-an-ip"}},
+	}
+	_, err := m.UpdateClient("sw", UpdateClient{Match: &match}, &rev)
+	if err == nil {
+		t.Fatal("expected invalid ip_sans to fail")
+	}
+	if m.Snapshot() != before {
+		t.Fatal("invalid ip_sans published")
 	}
 }
 

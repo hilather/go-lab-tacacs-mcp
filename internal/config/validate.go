@@ -207,6 +207,11 @@ func validateClient(c Client, groups map[string]struct{}, path string) error {
 	if hasTransport(c.Match.Transports, domain.TransportLegacy) && !c.Legacy.SharedSecret.Set() {
 		return domain.NewError(domain.CodeAuthMethodCredentialMissing, "legacy transport requires a shared secret").WithPath(path + ".legacy.shared_secret")
 	}
+	for i, s := range c.Match.Certificate.IPSANs {
+		if net.ParseIP(s) == nil {
+			return domain.NewError(domain.CodeInvalidArgument, "invalid IP address").WithPath(indexPath(path+".match.certificate.ip_sans", i))
+		}
+	}
 	for i, id := range c.Authorization.DefaultGroupIDs {
 		if _, ok := groups[id]; !ok {
 			return domain.NewError(domain.CodeGroupNotFound, "default group does not exist").WithPath(indexPath(path+".authorization.default_group_ids", i))

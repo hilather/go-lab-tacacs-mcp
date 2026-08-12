@@ -155,14 +155,15 @@ func applyUserPatch(cur config.User, p UpdateUser) (config.User, error) {
 		out.Restrictions.ValidBefore = cloneTimePtr(p.Restrictions.ValidBefore)
 	}
 	var err error
-	// Users have no per-method disable flag, so an explicit null is rejected.
-	if out.Credentials.Login.Verifier, err = applySecret(out.Credentials.Login.Verifier, p.Login, true, "credentials.login.verifier"); err != nil {
+	// Login remains required while the user is an enabled login identity.
+	// Challenge and ENABLE material are optional and may be cleared.
+	if out.Credentials.Login.Verifier, err = applySecret(out.Credentials.Login.Verifier, p.Login, out.Enabled, "credentials.login.verifier"); err != nil {
 		return config.User{}, err
 	}
-	if out.Credentials.Challenge.Secret, err = applySecret(out.Credentials.Challenge.Secret, p.Challenge, true, "credentials.challenge.secret"); err != nil {
+	if out.Credentials.Challenge.Secret, err = applySecret(out.Credentials.Challenge.Secret, p.Challenge, false, "credentials.challenge.secret"); err != nil {
 		return config.User{}, err
 	}
-	if out.Credentials.Enable.Verifier, err = applySecret(out.Credentials.Enable.Verifier, p.Enable, true, "credentials.enable.verifier"); err != nil {
+	if out.Credentials.Enable.Verifier, err = applySecret(out.Credentials.Enable.Verifier, p.Enable, false, "credentials.enable.verifier"); err != nil {
 		return config.User{}, err
 	}
 	return out, nil

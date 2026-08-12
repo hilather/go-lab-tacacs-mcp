@@ -77,8 +77,12 @@ func indexFromClient(c Client, i int) (indexClient, []string, error) {
 		mode:       c.Match.Mode,
 		transports: append([]domain.Transport(nil), c.Match.Transports...),
 		dns:        append([]string(nil), c.Match.Certificate.DNSSANs...),
-		ips:        parseStoredIPSAN(c.Match.Certificate.IPSANs),
 	}
+	ips, err := parseStoredIPSAN(c.Match.Certificate.IPSANs, path)
+	if err != nil {
+		return indexClient{}, nil, err
+	}
+	ic.ips = ips
 	var warnings []string
 	if c.Match.Mode == domain.MatchCertificateOnly && len(c.Match.SourceCIDRs) > 0 {
 		warnings = append(warnings, path+".match.source_cidrs is ignored when match.mode is certificate_only")
@@ -105,16 +109,16 @@ func indexFromClient(c Client, i int) (indexClient, []string, error) {
 	return ic, warnings, nil
 }
 
-func parseStoredIPSAN(vals []string) []net.IP {
+func parseStoredIPSAN(vals []string, path string) ([]net.IP, error) {
 	out := make([]net.IP, 0, len(vals))
-	for _, s := range vals {
+	for i, s := range vals {
 		ip := net.ParseIP(s)
 		if ip == nil {
-			continue
+			return nil, domain.NewError(domain.CodeInvalidArgument, "invalid IP address").WithPath(indexPath(path+".match.certificate.ip_sans", i))
 		}
 		out = append(out, ip)
 	}
-	return out
+	return out, nil
 }
 
 // Warnings returns compile diagnostics that did not fail the index.

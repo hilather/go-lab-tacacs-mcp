@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -165,14 +166,13 @@ func (t *reuseTracker) warnings() []SecretWarning {
 			continue
 		}
 		sort.Strings(ids)
-		// IDs identify the colliding objects; the HMAC itself is not emitted.
 		out = append(out, SecretWarning{
 			Code:    domain.CodeSharedSecretPolicyViolation,
-			Message: "legacy shared secret is reused by multiple clients",
+			Message: "legacy shared secret is reused by clients " + strings.Join(ids, ", "),
 			Path:    "clients",
 		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	sort.Slice(out, func(i, j int) bool { return out[i].Message < out[j].Message })
 	return out
 }
 

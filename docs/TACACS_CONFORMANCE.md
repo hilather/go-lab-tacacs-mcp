@@ -92,29 +92,29 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 
 | ID | Level | Requirement | Required implementation and evidence | Status |
 |---|---|---|---|---|
-| T89-L-001 | MUST | Accept connections only from configured known clients | Unknown-IP integration test | [ ] |
-| T89-L-002 | MUST | Allow a unique shared secret per client | Two clients with distinct secrets and cross-secret failure tests | [ ] |
-| T89-L-003 | MUST | Apply RFC 8907 packet-body obfuscation with flag clear | Independent known-answer vectors for multiple body lengths | [ ] |
-| T89-L-004 | MUST NOT | Do not accept legacy packets with `TAC_PLUS_UNENCRYPTED_FLAG` set | Raw cleartext fixture is dropped/rejected | [ ] |
-| T89-L-005 | MUST | Invalid shared secret or invalid decoded component lengths returns ERROR when possible | Wrong-secret fixtures for authen/author/acct | [ ] |
+| T89-L-001 | MUST | Accept connections only from configured known clients | Unknown-IP integration test | [x] |
+| T89-L-002 | MUST | Allow a unique shared secret per client | Two clients with distinct secrets and cross-secret failure tests | [x] |
+| T89-L-003 | MUST | Apply RFC 8907 packet-body obfuscation with flag clear | Independent known-answer vectors for multiple body lengths | [x] |
+| T89-L-004 | MUST NOT | Do not accept legacy packets with `TAC_PLUS_UNENCRYPTED_FLAG` set | Raw cleartext fixture is dropped/rejected | [x] |
+| T89-L-005 | MUST | Invalid shared secret or invalid decoded component lengths returns ERROR when possible | Wrong-secret fixtures for authen/author/acct | [x] |
 | T89-L-006 | MUST | After a connection-level secret error, accept no new sessions and close after existing valid sessions complete | Multiplexed integration test | [ ] |
 | T89-L-007 | MUST | Shared-secret values are never logged or returned | Secret canary scanning tests | [ ] |
-| T89-L-008 | PROJECT MUST | IPv4 and IPv6 configured client matching | Integration tests on both families where CI supports IPv6 | [ ] |
-| T89-L-009 | PROJECT | Longest-prefix then priority selection is deterministic; unresolved ties reject config | State compiler table tests | [ ] |
+| T89-L-008 | PROJECT MUST | IPv4 and IPv6 configured client matching | Integration tests on both families where CI supports IPv6 | [x] |
+| T89-L-009 | PROJECT | Longest-prefix then priority selection is deterministic; unresolved ties reject config | State compiler table tests | [x] |
 
 ## 6. Single Connection Mode
 
 | ID | Level | Requirement | Required implementation and evidence | Status |
 |---|---|---|---|---|
-| T89-SC-001 | MUST | Negotiate single-connect only through the first request/reply flag exchange | Positive and invalid late-flag tests | [ ] |
-| T89-SC-002 | MUST | Client cannot send a second packet before negotiation is established | Connection-state negative test | [ ] |
-| T89-SC-003 | MUST | If single-connect is not established, close after the first session | Integration test | [ ] |
-| T89-SC-004 | MAY | Server may refuse single-connect per client configuration | Config and interop test | [ ] |
-| T89-SC-005 | PROJECT MUST | Multiplex sessions by session ID on one connection | Concurrent authen/author/acct test | [ ] |
-| T89-SC-006 | PROJECT MUST | Preserve packet order within one session while allowing concurrency across sessions | Race test and stress test | [ ] |
-| T89-SC-007 | MUST | Idle timeout is configurable and closes inactive single-connect connections | Fake-clock or bounded integration test | [ ] |
-| T89-SC-008 | PROJECT MUST | Connection closure does not leak session goroutines or block server shutdown | Leak/race tests | [ ] |
-| T89-SC-009 | PROJECT | Per-connection session cap and fair write serialization prevent resource starvation | Load and adversarial tests | [ ] |
+| T89-SC-001 | MUST | Negotiate single-connect only through the first request/reply flag exchange | Positive and invalid late-flag tests | [x] |
+| T89-SC-002 | MUST | Client cannot send a second packet before negotiation is established | Connection-state negative test | [x] |
+| T89-SC-003 | MUST | If single-connect is not established, close after the first session | Integration test | [x] |
+| T89-SC-004 | MAY | Server may refuse single-connect per client configuration | Config and interop test | [x] |
+| T89-SC-005 | PROJECT MUST | Multiplex sessions by session ID on one connection | Concurrent authen/author/acct test | [x] |
+| T89-SC-006 | PROJECT MUST | Preserve packet order within one session while allowing concurrency across sessions | Race test and stress test | [x] |
+| T89-SC-007 | MUST | Idle timeout is configurable and closes inactive single-connect connections | Fake-clock or bounded integration test | [x] |
+| T89-SC-008 | PROJECT MUST | Connection closure does not leak session goroutines or block server shutdown | Leak/race tests | [x] |
+| T89-SC-009 | PROJECT | Per-connection session cap and fair write serialization prevent resource starvation | Load and adversarial tests | [x] |
 
 ## 7. Authentication actions, types, services, and statuses
 

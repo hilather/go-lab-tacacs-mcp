@@ -12,7 +12,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout implements the 12-byte TACACS+ header codec and RFC 8907 §4.5 legacy body pad. It does **not** implement packet-family bodies, listeners, REST, MCP, or the admin UI. Do not describe it as a complete TACACS+ server.
+This checkout implements the TACACS+ codec, compiled snapshots, and the **legacy TCP listener** (`taclabd serve --config`, `listeners.legacy_tacacs`) with single-connect, client match, and a stub AAA dispatcher. It does **not** implement TLS TACACS, REST, MCP, full authentication conversations, or the admin UI. Do not describe it as a complete TACACS+ server.
 
 ## Documents
 

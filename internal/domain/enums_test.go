@@ -28,6 +28,34 @@ func TestAuthenTypeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAuthenMethodRoundTrip(t *testing.T) {
+	t.Parallel()
+	vals := []AuthenMethod{
+		AuthenMethodNotSet, AuthenMethodNone, AuthenMethodKRB5, AuthenMethodLine,
+		AuthenMethodEnable, AuthenMethodLocal, AuthenMethodTACACS, AuthenMethodGuest,
+		AuthenMethodRADIUS, AuthenMethodKRB4, AuthenMethodRCMD,
+	}
+	for _, v := range vals {
+		if !v.Valid() || v.String() == "" {
+			t.Fatalf("%v", v)
+		}
+		got, err := ParseAuthenMethod(v.String())
+		if err != nil || got != v {
+			t.Fatalf("Parse(%q)=%v err=%v", v.String(), got, err)
+		}
+	}
+	if AuthenMethod(0x99).Valid() || AuthenMethod(0x99).String() != "" {
+		t.Fatal("unknown method must not invent a name")
+	}
+	if _, err := ParseAuthenMethod("ascii"); err == nil {
+		t.Fatal("type name must not parse as a method")
+	}
+	got, err := ParseAuthenMethod("tacacs+")
+	if err != nil || got != AuthenMethodTACACS {
+		t.Fatalf("tacacs+ alias: %v %v", got, err)
+	}
+}
+
 func TestAuthenServiceRoundTrip(t *testing.T) {
 	t.Parallel()
 	vals := []AuthenService{

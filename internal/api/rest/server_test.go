@@ -155,6 +155,34 @@ func TestStatusAndEvaluate(t *testing.T) {
 	}
 }
 
+func TestEvaluateRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+	_, ts := restHarness(t)
+	preq, err := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/policy/evaluate", bytes.NewReader([]byte(`{"user_id":"alice","extra":true}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	preq.Header.Set("Authorization", "Bearer "+restToken)
+	preq.Header.Set("Content-Type", "application/json")
+	presp, err := http.DefaultClient.Do(preq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer presp.Body.Close()
+	if presp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d", presp.StatusCode)
+	}
+	var problem struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(presp.Body).Decode(&problem); err != nil {
+		t.Fatal(err)
+	}
+	if problem.Code != "invalid_argument" {
+		t.Fatalf("code=%q", problem.Code)
+	}
+}
+
 func TestEventsStubClearsDeadline(t *testing.T) {
 	t.Parallel()
 	s, _ := restHarness(t)

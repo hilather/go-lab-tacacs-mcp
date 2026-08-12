@@ -524,6 +524,15 @@ func (cs *connState) dropSession(s *session) {
 		delete(cs.sessions, s.id)
 	}
 	cs.mu.Unlock()
+	cs.endAAA(s.id)
+}
+
+func (cs *connState) endAAA(sessionID uint32) {
+	f, ok := cs.h.(SessionFinalizer)
+	if !ok {
+		return
+	}
+	f.EndSession(context.Background(), Env{Identity: cs.id, SessionID: sessionID, ConnKey: cs.connKey})
 }
 
 func (cs *connState) sessionCount() int {

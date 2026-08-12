@@ -76,7 +76,7 @@ func (b Bridge) Authorize(ctx context.Context, env Env, req codec.AuthorRequest)
 		UserID:       string(req.User),
 		ClientID:     env.ClientID,
 		Arguments:    argsToAV(req.Args),
-		AuthenMethod: domain.AuthenType(req.AuthenType),
+		AuthenMethod: domain.AuthenMethod(req.AuthenMethod),
 		Privilege:    domain.PrivilegeLevel(req.PrivLvl),
 		Port:         string(req.Port),
 		Remote:       string(req.RemAddr),
@@ -110,6 +110,19 @@ func (b Bridge) Account(ctx context.Context, env Env, req codec.AcctRequest) (co
 		return codec.AcctReply{Status: codec.AcctStatusError}, nil
 	}
 	return codec.AcctReply{Status: codec.AcctStatusSuccess}, nil
+}
+
+// EndSession drops AAA conversation state on TACACS session teardown.
+func (b Bridge) EndSession(ctx context.Context, env Env) {
+	if b.AAA == nil {
+		return
+	}
+	_ = b.AAA.AbortAuthentication(ctx, aaa.AuthenticationAbort{
+		ConnKey:   env.ConnKey,
+		SessionID: env.SessionID,
+		ClientID:  env.ClientID,
+		Revision:  env.Revision,
+	})
 }
 
 func mapAuthen(step aaa.AuthenticationStep) codec.AuthenReply {

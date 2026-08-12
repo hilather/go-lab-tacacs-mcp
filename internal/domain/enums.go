@@ -63,6 +63,95 @@ func ParseAuthenType(s string) (AuthenType, error) {
 	}
 }
 
+// AuthenMethod is how the user authenticated (RFC 8907 §6.1 authen_method).
+// It is distinct from AuthenType (ASCII/PAP/CHAP). Unknown wire values are
+// stored as-is and are not Valid.
+type AuthenMethod uint8
+
+const (
+	AuthenMethodNotSet AuthenMethod = 0x00
+	AuthenMethodNone   AuthenMethod = 0x01
+	AuthenMethodKRB5   AuthenMethod = 0x02
+	AuthenMethodLine   AuthenMethod = 0x03
+	AuthenMethodEnable AuthenMethod = 0x04
+	AuthenMethodLocal  AuthenMethod = 0x05
+	AuthenMethodTACACS AuthenMethod = 0x06
+	AuthenMethodGuest  AuthenMethod = 0x08
+	AuthenMethodRADIUS AuthenMethod = 0x10
+	AuthenMethodKRB4   AuthenMethod = 0x11
+	AuthenMethodRCMD   AuthenMethod = 0x20
+)
+
+func (m AuthenMethod) Valid() bool {
+	switch m {
+	case AuthenMethodNotSet, AuthenMethodNone, AuthenMethodKRB5, AuthenMethodLine,
+		AuthenMethodEnable, AuthenMethodLocal, AuthenMethodTACACS, AuthenMethodGuest,
+		AuthenMethodRADIUS, AuthenMethodKRB4, AuthenMethodRCMD:
+		return true
+	default:
+		return false
+	}
+}
+
+func (m AuthenMethod) String() string {
+	switch m {
+	case AuthenMethodNotSet:
+		return "not_set"
+	case AuthenMethodNone:
+		return "none"
+	case AuthenMethodKRB5:
+		return "krb5"
+	case AuthenMethodLine:
+		return "line"
+	case AuthenMethodEnable:
+		return "enable"
+	case AuthenMethodLocal:
+		return "local"
+	case AuthenMethodTACACS:
+		return "tacacs"
+	case AuthenMethodGuest:
+		return "guest"
+	case AuthenMethodRADIUS:
+		return "radius"
+	case AuthenMethodKRB4:
+		return "krb4"
+	case AuthenMethodRCMD:
+		return "rcmd"
+	default:
+		return ""
+	}
+}
+
+// ParseAuthenMethod accepts canonical names only.
+func ParseAuthenMethod(s string) (AuthenMethod, error) {
+	switch strings.ToLower(s) {
+	case "not_set":
+		return AuthenMethodNotSet, nil
+	case "none":
+		return AuthenMethodNone, nil
+	case "krb5":
+		return AuthenMethodKRB5, nil
+	case "line":
+		return AuthenMethodLine, nil
+	case "enable":
+		return AuthenMethodEnable, nil
+	case "local":
+		return AuthenMethodLocal, nil
+	case "tacacs", "tacacs+":
+		return AuthenMethodTACACS, nil
+	case "guest":
+		return AuthenMethodGuest, nil
+	case "radius":
+		return AuthenMethodRADIUS, nil
+	case "krb4":
+		return AuthenMethodKRB4, nil
+	case "rcmd":
+		return AuthenMethodRCMD, nil
+	default:
+		return 0, NewError(CodeInvalidArgument, "unknown authentication method")
+	}
+}
+
 // AuthenService is a TACACS+ authentication service (RFC 8907 §5.4.1).
 type AuthenService uint8
 

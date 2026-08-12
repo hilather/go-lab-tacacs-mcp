@@ -90,6 +90,42 @@ func TestServicePermitNeverAuthorizesCommand(t *testing.T) {
 	}
 }
 
+func TestReadonlyConfigureDeniesWithoutServiceSteps(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := testService(t)
+	dec, err := svc.Authorize(context.Background(), AuthorizationRequest{
+		UserID:   "lab-readonly",
+		ClientID: "lab-switches",
+		Service:  "shell",
+		Cmd:      "configure",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dec.Decision != domain.DecisionDeny || dec.Status != domain.AuthorStatusFail {
+		t.Fatalf("readonly configure=%+v", dec)
+	}
+	if dec.Trace.Evaluator != string(domain.RuleKindCommand) {
+		t.Fatalf("evaluator=%s", dec.Trace.Evaluator)
+	}
+	for _, st := range dec.Trace.Steps {
+		if st.Kind == string(domain.RuleKindService) {
+			t.Fatalf("command walk hit service rule: %+v", st)
+		}
+	}
+	sess, err := svc.Authorize(context.Background(), AuthorizationRequest{
+		UserID:   "lab-readonly",
+		ClientID: "lab-switches",
+		Service:  "shell",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sess.Decision != domain.DecisionPermitAdd {
+		t.Fatalf("readonly session=%+v", sess)
+	}
+}
+
 func TestExplainDoesNotRequireRing(t *testing.T) {
 	t.Parallel()
 	svc, _, ring := testService(t)

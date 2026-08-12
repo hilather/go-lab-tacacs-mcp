@@ -60,8 +60,6 @@ clients:
       transports: [legacy]
     legacy:
       shared_secret: {file: ` + sec + `}
-    authorization:
-      default_group_ids: [administrators]
     authentication:
       allowed_methods: [ascii]
 groups:
@@ -81,9 +79,35 @@ groups:
         command: {exact: configure}
         arguments: {pattern: ".*"}
     default_command_action: deny
+  - id: readonly
+    priority: 100
+    services:
+      - service: shell
+        action: permit
+        reply_attributes:
+          - name: priv-lvl
+            separator: "="
+            value: "1"
+    command_rules:
+      - id: show
+        priority: 10
+        action: permit
+        command: {exact: show}
+        arguments: {pattern: ".*"}
+      - id: deny-everything-else
+        priority: 10000
+        action: deny
+        command: {pattern: ".*"}
+        arguments: {pattern: ".*"}
+    default_command_action: deny
 users:
   - id: lab-admin
     group_ids: [administrators]
+    credentials:
+      login:
+        verifier: {file: ` + login + `}
+  - id: lab-readonly
+    group_ids: [readonly]
     credentials:
       login:
         verifier: {file: ` + login + `}

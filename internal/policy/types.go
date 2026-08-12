@@ -19,7 +19,7 @@ type Request struct {
 	Cmd          string
 	CmdArgs      []string
 	Arguments    domain.AVPairs
-	AuthenMethod domain.AuthenType
+	AuthenMethod domain.AuthenMethod
 	Privilege    domain.PrivilegeLevel
 	Port         string
 	RemoteAddr   string

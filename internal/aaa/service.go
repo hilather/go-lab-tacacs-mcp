@@ -30,11 +30,14 @@ type sessionKey struct {
 }
 
 type asciiSession struct {
-	user     string
-	clientID string
-	needUser bool
-	needPass bool
-	fails    int
+	user      string
+	clientID  string
+	needUser  bool
+	needPass  bool
+	fails     int
+	snap      *state.Snapshot
+	creds     *credentials.Service
+	maxRounds int
 }
 
 // Options construct a Service.
@@ -179,4 +182,14 @@ func (s *Service) dropSession(key sessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.sessions, key)
+}
+
+// InFlight is the number of in-progress authentication conversations.
+func (s *Service) InFlight() int {
+	if s == nil {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.sessions)
 }

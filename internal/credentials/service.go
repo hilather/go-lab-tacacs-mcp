@@ -89,6 +89,20 @@ func NewService(store Store, opts Options) (*Service, error) {
 
 var _ Verifier = (*Service)(nil)
 
+// WithStore returns a shallow copy that looks up material in store.
+// The KDF limiter and dummy hashes are shared. Used to bind a START snapshot.
+func (s *Service) WithStore(store Store) *Service {
+	if s == nil {
+		return nil
+	}
+	if store == nil {
+		return s
+	}
+	cp := *s
+	cp.store = store
+	return &cp
+}
+
 // DeriveLoginVerifier hashes a runtime plaintext password. password is
 // caller-owned and is not wiped.
 func (s *Service) DeriveLoginVerifier(ctx context.Context, password []byte) (LoginVerifier, error) {

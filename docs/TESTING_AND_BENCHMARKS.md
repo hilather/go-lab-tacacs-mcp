@@ -388,7 +388,7 @@ BenchmarkSingleConnectDispatch_Parallel
 
 Report `-benchmem`.
 
-`make bench` succeeds only when those functions (or other `Benchmark*` tests) exist under `internal/tacacs`, `internal/policy`, or `internal/state`. Header/obfuscation benches under `tools/spike` are evaluation-only and do not satisfy that gate.
+`make bench` succeeds when `Benchmark*` functions exist under `internal/tacacs`, `internal/policy`, or `internal/state`. Header decode/encode and `BenchmarkLegacyObfuscate_64B` / `BenchmarkLegacyObfuscate_1KiB` live under `internal/tacacs/codec`. Header/obfuscation benches under `tools/spike` are evaluation-only.
 
 ### 8.4 Credential benchmarks
 

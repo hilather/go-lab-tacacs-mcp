@@ -1,0 +1,258 @@
+{
+  "rfc": "8907 \u00a74.1 and \u00a73.6",
+  "source": "Constructed 12-byte headers from RFC 8907 field layout; unknown-type reply from \u00a73.6.",
+  "seeds": [
+    {
+      "name": "extra-13",
+      "path": "fuzz/header/extra-13.bin",
+      "raw_hex": "c00101000102030400000000ff",
+      "len": 13,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 16909060,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "junk-all-ff",
+      "path": "fuzz/header/junk-all-ff.bin",
+      "raw_hex": "ffffffffffffffffffffffff",
+      "len": 12,
+      "header": {
+        "version": 255,
+        "type": 255,
+        "seq_no": 255,
+        "flags": 255,
+        "session_id": 4294967295,
+        "length": 4294967295,
+        "major": 15,
+        "minor": 15
+      }
+    },
+    {
+      "name": "junk-all-zero",
+      "path": "fuzz/header/junk-all-zero.bin",
+      "raw_hex": "000000000000000000000000",
+      "len": 12,
+      "header": {
+        "version": 0,
+        "type": 0,
+        "seq_no": 0,
+        "flags": 0,
+        "session_id": 0,
+        "length": 0,
+        "major": 0,
+        "minor": 0
+      }
+    },
+    {
+      "name": "junk-ascii-a",
+      "path": "fuzz/header/junk-ascii-a.bin",
+      "raw_hex": "414141414141414141414141",
+      "len": 12,
+      "header": {
+        "version": 65,
+        "type": 65,
+        "seq_no": 65,
+        "flags": 65,
+        "session_id": 1094795585,
+        "length": 1094795585,
+        "major": 4,
+        "minor": 1
+      }
+    },
+    {
+      "name": "junk-huge-length",
+      "path": "fuzz/header/junk-huge-length.bin",
+      "raw_hex": "c001010000000004ffffffff",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 4,
+        "length": 4294967295,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "junk-unknown-type",
+      "path": "fuzz/header/junk-unknown-type.bin",
+      "raw_hex": "c09901000000000300000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 153,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 3,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "seq-255",
+      "path": "fuzz/header/seq-255.bin",
+      "raw_hex": "c001ff000102030400000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 255,
+        "flags": 0,
+        "session_id": 16909060,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "seq-zero",
+      "path": "fuzz/header/seq-zero.bin",
+      "raw_hex": "c00100000102030400000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 0,
+        "flags": 0,
+        "session_id": 16909060,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "truncated-11",
+      "path": "fuzz/header/truncated-11.bin",
+      "raw_hex": "c001010001020304000000",
+      "len": 11
+    },
+    {
+      "name": "unknown-flags",
+      "path": "fuzz/header/unknown-flags.bin",
+      "raw_hex": "c00101080000000500000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 8,
+        "session_id": 5,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "valid-acct",
+      "path": "fuzz/header/valid-acct.bin",
+      "raw_hex": "c00301005566778800000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 3,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 1432778632,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "valid-authen-minor0",
+      "path": "fuzz/header/valid-authen-minor0.bin",
+      "raw_hex": "c00101000102030400000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 16909060,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "valid-authen-minor1",
+      "path": "fuzz/header/valid-authen-minor1.bin",
+      "raw_hex": "c1010100aabbccdd00000020",
+      "len": 12,
+      "header": {
+        "version": 193,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 2864434397,
+        "length": 32,
+        "major": 12,
+        "minor": 1
+      }
+    },
+    {
+      "name": "valid-author",
+      "path": "fuzz/header/valid-author.bin",
+      "raw_hex": "c00201001122334400000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 2,
+        "seq_no": 1,
+        "flags": 0,
+        "session_id": 287454020,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "valid-single-connect-flag",
+      "path": "fuzz/header/valid-single-connect-flag.bin",
+      "raw_hex": "c00101040000000200000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 4,
+        "session_id": 2,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    },
+    {
+      "name": "valid-unencrypted-flag",
+      "path": "fuzz/header/valid-unencrypted-flag.bin",
+      "raw_hex": "c00101010000000100000000",
+      "len": 12,
+      "header": {
+        "version": 192,
+        "type": 1,
+        "seq_no": 1,
+        "flags": 1,
+        "session_id": 1,
+        "length": 0,
+        "major": 12,
+        "minor": 0
+      }
+    }
+  ],
+  "unknown_type_reply": {
+    "request_path": "fuzz/header/junk-unknown-type.bin",
+    "reply_path": "header/unknown-type-error-reply.bin",
+    "reply_hex": "c09902000000000300000000",
+    "notes": "identical header, seq_no+1, length 0"
+  }
+}

@@ -172,7 +172,7 @@ Responsibilities:
 
 The codec is independent of network I/O and can be tested using byte slices and readers with deliberate short reads.
 
-1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
+1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header encode/decode, unknown-type §3.6 replies, bounded body allocation, and the RFC 8907 §4.5 pad live here; packet-family bodies are not implemented yet. Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
 
 ### 4.8 `internal/tacacs/server`
 

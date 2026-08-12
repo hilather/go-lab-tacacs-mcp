@@ -15,7 +15,7 @@ make fmt
 make ci
 ```
 
-`make bench` is expected to fail until benchmark packages exist.
+`make bench` runs the header and obfuscation benches under `internal/tacacs/codec`.
 
 Regenerate checked-in generated files with `make generate`. CI fails on drift.
 

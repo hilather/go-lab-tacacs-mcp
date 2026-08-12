@@ -199,6 +199,9 @@ users:
 	if arep.Status != tcodec.AuthorPassAdd {
 		t.Fatalf("session author=%#x", arep.Status)
 	}
+	if len(arep.Pairs) != 1 || arep.Pairs[0].Key != "priv-lvl" || arep.Pairs[0].Val != "15" {
+		t.Fatalf("session PASS_ADD args=%+v", arep.Pairs)
+	}
 
 	cmdBody, err := tcodec.WriteAuthorReq(tcodec.AuthorReq{
 		Method: tcodec.MethTACACS, Service: tcodec.SvcLogin,
@@ -224,6 +227,9 @@ users:
 	}
 	if arep.Status != tcodec.AuthorPassAdd {
 		t.Fatalf("configure author=%#x", arep.Status)
+	}
+	if len(arep.Pairs) != 0 {
+		t.Fatalf("configure PASS_ADD must return zero args, got %+v", arep.Pairs)
 	}
 
 	denyBody, err := tcodec.WriteAuthorReq(tcodec.AuthorReq{

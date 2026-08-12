@@ -39,3 +39,38 @@ func TestConcurrentPAPAndCHAP(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestAuthorizeExplainRace(t *testing.T) {
+	svc, _, _ := testService(t)
+	ctx := context.Background()
+	reqs := []AuthorizationRequest{
+		{UserID: "lab-admin", ClientID: "lab-switches", Arguments: domain.AVPairs{av("service", '=', "shell")}},
+		{UserID: "lab-admin", ClientID: "lab-switches", Arguments: domain.AVPairs{av("service", '=', "shell"), av("cmd", '=', "configure")}},
+		{UserID: "lab-readonly", ClientID: "lab-switches", Arguments: domain.AVPairs{av("service", '=', "shell"), av("cmd", '=', "configure")}},
+	}
+	var wg sync.WaitGroup
+	errc := make(chan error, 64)
+	for i := 0; i < 16; i++ {
+		for _, req := range reqs {
+			req := req
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				if _, err := svc.Authorize(ctx, req); err != nil {
+					errc <- err
+				}
+			}()
+			go func() {
+				defer wg.Done()
+				if _, err := svc.ExplainAuthorization(ctx, req); err != nil {
+					errc <- err
+				}
+			}()
+		}
+	}
+	wg.Wait()
+	close(errc)
+	for err := range errc {
+		t.Fatal(err)
+	}
+}

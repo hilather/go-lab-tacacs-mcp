@@ -1,0 +1,97 @@
+# Data-driven vendor AUTHOR cases. Load with testdata/vendors/policy.yaml.
+fixtures:
+  - id: cisco-ios-xe-session
+    vendor: cisco-ios-xe
+    kind: session
+    notes: Empty cmd is session authorization. NAS may send cisco-av-pair and a requested priv-lvl; the service evaluator returns configured reply attributes including optional vendor pairs.
+    user: lab-admin
+    client: lab-switches
+    arguments:
+      - {name: service, separator: "=", value: shell}
+      - {name: protocol, separator: "=", value: ""}
+      - {name: cmd, separator: "=", value: ""}
+      - {name: priv-lvl, separator: "=", value: "1"}
+      - {name: cisco-av-pair, separator: "=", value: "shell:roles=network-operator"}
+      - {name: addr, separator: "=", value: "192.0.2.10"}
+      - {name: noescape, separator: "=", value: "false"}
+    expect:
+      evaluator: service
+      decision: permit_add
+      status: pass_add
+      arguments:
+        - {name: priv-lvl, separator: "=", value: "15"}
+        - {name: cisco-av-pair, separator: "*", value: "shell:roles=network-admin"}
+        - {name: timeout, separator: "=", value: "30"}
+        - {name: idletime, separator: "=", value: "10"}
+
+  - id: cisco-ios-xe-configure
+    vendor: cisco-ios-xe
+    kind: command
+    notes: Non-empty cmd must use the command evaluator. A service shell permit must not authorize configure.
+    user: lab-admin
+    client: lab-switches
+    arguments:
+      - {name: service, separator: "=", value: shell}
+      - {name: cmd, separator: "=", value: configure}
+      - {name: cmd-arg, separator: "=", value: terminal}
+      - {name: cisco-av-pair, separator: "=", value: "shell:roles=network-admin"}
+    expect:
+      evaluator: command
+      decision: permit_add
+      status: pass_add
+      arguments: []
+      winner_rule: permit-all
+
+  - id: cisco-ios-xe-readonly-configure
+    vendor: cisco-ios-xe
+    kind: command
+    notes: Readonly configure is deny via command rules; service priv-lvl=1 must not leak through.
+    user: lab-readonly
+    client: lab-switches
+    arguments:
+      - {name: service, separator: "=", value: shell}
+      - {name: cmd, separator: "=", value: configure}
+    expect:
+      evaluator: command
+      decision: deny
+      status: fail
+      arguments: []
+      winner_rule: deny-everything-else
+
+  - id: juniper-junos-session
+    vendor: juniper-junos
+    kind: session
+    notes: Junos remote authorization uses service=junos-exec and PASS_REPL of vendor attributes.
+    user: lab-admin
+    client: lab-switches
+    arguments:
+      - {name: service, separator: "=", value: junos-exec}
+      - {name: local-user-name, separator: "=", value: "remote"}
+    expect:
+      evaluator: service
+      decision: permit_replace
+      status: pass_repl
+      arguments:
+        - {name: local-user-name, separator: "=", value: "remote"}
+        - {name: allow-commands, separator: "=", value: "(^show )|(^ping )"}
+        - {name: deny-commands, separator: "=", value: "(^configure)|(^request system)"}
+        - {name: user-permissions, separator: "=", value: "view,view-configuration"}
+
+  - id: arista-eos-show
+    vendor: arista-eos
+    kind: command
+    notes: EOS exec authorization sends cmd plus ordered cmd-arg. PASS_ADD with zero reply args approves without modification.
+    user: lab-admin
+    client: lab-switches
+    arguments:
+      - {name: service, separator: "=", value: shell}
+      - {name: cmd, separator: "=", value: show}
+      - {name: cmd-arg, separator: "=", value: running-config}
+      - {name: cmd-arg, separator: "=", value: "section=interface*mgmt"}
+    expect:
+      evaluator: command
+      decision: permit_add
+      status: pass_add
+      arguments: []
+      winner_rule: permit-all
+      preserve_cmd_args: ["running-config", "section=interface*mgmt"]

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -166,4 +167,18 @@ func testService(t testing.TB) (*Service, *state.Manager, *events.Ring) {
 		t.Fatal(err)
 	}
 	return svc, mgr, ring
+}
+
+func testdata(t testing.TB, elems ...string) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	parts := append([]string{filepath.Dir(file), "..", "..", "testdata"}, elems...)
+	return filepath.Join(parts...)
+}
+
+func av(name string, sep byte, value string) domain.AVPair {
+	return domain.AVPair{Name: name, Separator: sep, Value: value}
 }

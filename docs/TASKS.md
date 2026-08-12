@@ -755,29 +755,29 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 ### P6.4 Implement policy explanation operation
 
-- [ ] Define typed request/result in the operation layer.
-- [ ] Produce bounded trace steps.
-- [ ] Redact credentials and sensitive input.
-- [ ] Use the exact evaluator used by live authorization.
-- [ ] Expose through parity-equivalent REST and MCP bindings and UI console later.
+- [x] Define typed request/result in the operation layer.
+- [x] Produce bounded trace steps.
+- [x] Redact credentials and sensitive input.
+- [x] Use the exact evaluator used by live authorization.
+- [x] Expose through parity-equivalent REST and MCP bindings and UI console later.
 
 **Regression tests**
 
-- [ ] Live and explain decisions are identical for the same snapshot/request.
+- [x] Live and explain decisions are identical for the same snapshot/request.
 
 ### P6.5 Add vendor policy fixtures
 
-- [ ] Capture representative shell/command AV pairs from supported lab systems.
-- [ ] Store sanitized fixtures with provenance notes.
-- [ ] Add golden decisions and response attributes.
-- [ ] Do not hard-code vendor names in core policy logic without ADR approval.
+- [x] Capture representative shell/command AV pairs from supported lab systems.
+- [x] Store sanitized fixtures with provenance notes.
+- [x] Add golden decisions and response attributes.
+- [x] Do not hard-code vendor names in core policy logic without ADR approval.
 
 ### P6 exit gate
 
-- [ ] Authorization conformance rows pass.
-- [ ] Policy trace matches live behavior.
-- [ ] Worst-case policy benchmark is within the agreed budget.
-- [ ] Vendor fixtures are data-driven and documented.
+- [x] Authorization conformance rows pass.
+- [x] Policy trace matches live behavior.
+- [x] Worst-case policy benchmark is within the agreed budget.
+- [x] Vendor fixtures are data-driven and documented.
 
 ## 10. Milestone P7 - Accounting and event pipeline
 

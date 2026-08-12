@@ -46,21 +46,24 @@ type AuthenticationStep struct {
 }
 
 // AuthorizationRequest is protocol-independent authorization input.
+// AuthenType and AuthenService are observational auth context (DESIGN §12.1).
 type AuthorizationRequest struct {
-	UserID       string
-	ClientID     string
-	Service      string
-	Protocol     string
-	Cmd          string
-	CmdArgs      []string
-	Arguments    domain.AVPairs
-	AuthenMethod domain.AuthenMethod
-	Privilege    domain.PrivilegeLevel
-	Port         string
-	Remote       string
-	Revision     domain.Revision
-	Transport    domain.Transport
-	SessionID    uint32
+	UserID        string
+	ClientID      string
+	Service       string
+	Protocol      string
+	Cmd           string
+	CmdArgs       []string
+	Arguments     domain.AVPairs
+	AuthenMethod  domain.AuthenMethod
+	AuthenType    domain.AuthenType
+	AuthenService domain.AuthenService
+	Privilege     domain.PrivilegeLevel
+	Port          string
+	Remote        string
+	Revision      domain.Revision
+	Transport     domain.Transport
+	SessionID     uint32
 }
 
 // AuthorizationDecision is the evaluator result plus a redacted trace.
@@ -83,7 +86,11 @@ type PolicyTrace struct {
 	DisplayCmd        string             `json:"display_cmd"`
 	RequestArguments  []PolicyTraceAV    `json:"request_arguments"`
 	AuthenMethod      string             `json:"authen_method"`
+	AuthenType        string             `json:"authen_type,omitempty"`
+	AuthenService     string             `json:"authen_service,omitempty"`
 	Privilege         uint8              `json:"privilege"`
+	Port              string             `json:"port,omitempty"`
+	Remote            string             `json:"remote,omitempty"`
 	EffectiveGroupIDs []string           `json:"effective_group_ids"`
 	Steps             []PolicyTraceStep  `json:"steps"`
 	Winner            *PolicyTraceWinner `json:"winner"`

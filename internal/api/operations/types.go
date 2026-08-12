@@ -84,14 +84,22 @@ type BuildInfo struct {
 	MCPSpecification  string `json:"mcp_specification"`
 }
 
-// EvaluatePolicyRequest is the policy.evaluate input.
+// EvaluatePolicyRequest is the policy.evaluate input. Arguments replay a
+// live AUTHOR AV list so explain uses the same evaluator as the wire path.
 type EvaluatePolicyRequest struct {
-	UserID   string   `json:"user_id"`
-	ClientID string   `json:"client_id,omitempty"`
-	Service  string   `json:"service"`
-	Protocol string   `json:"protocol,omitempty"`
-	Cmd      string   `json:"cmd,omitempty"`
-	CmdArgs  []string `json:"cmd_args,omitempty"`
+	UserID        string          `json:"user_id"`
+	ClientID      string          `json:"client_id,omitempty"`
+	Service       string          `json:"service"`
+	Protocol      string          `json:"protocol,omitempty"`
+	Cmd           string          `json:"cmd,omitempty"`
+	CmdArgs       []string        `json:"cmd_args,omitempty"`
+	Arguments     []PolicyTraceAV `json:"arguments,omitempty"`
+	AuthenMethod  string          `json:"authen_method,omitempty"`
+	AuthenType    string          `json:"authen_type,omitempty"`
+	AuthenService string          `json:"authen_service,omitempty"`
+	Privilege     uint8           `json:"privilege,omitempty"`
+	Port          string          `json:"port,omitempty"`
+	Remote        string          `json:"remote,omitempty"`
 }
 
 // PolicyTrace is the redacted explanation returned by policy.evaluate.
@@ -106,7 +114,11 @@ type PolicyTrace struct {
 	DisplayCmd        string             `json:"display_cmd"`
 	RequestArguments  []PolicyTraceAV    `json:"request_arguments"`
 	AuthenMethod      string             `json:"authen_method"`
+	AuthenType        string             `json:"authen_type,omitempty"`
+	AuthenService     string             `json:"authen_service,omitempty"`
 	Privilege         uint8              `json:"privilege"`
+	Port              string             `json:"port,omitempty"`
+	Remote            string             `json:"remote,omitempty"`
 	EffectiveGroupIDs []string           `json:"effective_group_ids"`
 	Steps             []PolicyTraceStep  `json:"steps"`
 	Winner            *PolicyTraceWinner `json:"winner"`

@@ -1,0 +1,76 @@
+# Vendor-lab policy. Secrets are dummy file refs; compile does not resolve them.
+# Vendor AV names appear only as opaque reply/request attributes.
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+
+clients:
+  - id: lab-switches
+    priority: 100
+    enabled: true
+    match:
+      source_cidrs: ["10.20.0.0/16"]
+      transports: [legacy]
+    legacy:
+      shared_secret: {file: /run/secrets/lab_switches_tacacs_secret}
+
+groups:
+  - id: administrators
+    priority: 10
+    enabled: true
+    services:
+      - service: shell
+        action: permit
+        reply_attributes:
+          - {name: priv-lvl, separator: "=", value: "15"}
+          - {name: cisco-av-pair, separator: "*", value: "shell:roles=network-admin"}
+          - {name: timeout, separator: "=", value: "30"}
+          - {name: idletime, separator: "=", value: "10"}
+      - service: junos-exec
+        action: permit_replace
+        reply_attributes:
+          - {name: local-user-name, separator: "=", value: "remote"}
+          - {name: allow-commands, separator: "=", value: "(^show )|(^ping )"}
+          - {name: deny-commands, separator: "=", value: "(^configure)|(^request system)"}
+          - {name: user-permissions, separator: "=", value: "view,view-configuration"}
+    command_rules:
+      - id: permit-all
+        priority: 10
+        action: permit
+        command: {pattern: ".*"}
+        arguments: {pattern: ".*"}
+    default_command_action: deny
+
+  - id: readonly
+    priority: 100
+    enabled: true
+    services:
+      - service: shell
+        action: permit
+        reply_attributes:
+          - {name: priv-lvl, separator: "=", value: "1"}
+          - {name: cisco-av-pair, separator: "*", value: "shell:roles=network-operator"}
+    command_rules:
+      - id: show
+        priority: 10
+        action: permit
+        command: {exact: show}
+        arguments: {pattern: ".*"}
+      - id: deny-everything-else
+        priority: 10000
+        action: deny
+        command: {pattern: ".*"}
+        arguments: {pattern: ".*"}
+    default_command_action: deny
+
+users:
+  - id: lab-admin
+    enabled: true
+    group_ids: [administrators]
+    credentials:
+      login: {verifier: {file: /run/secrets/lab_admin_argon2id}}
+  - id: lab-readonly
+    enabled: true
+    group_ids: [readonly]
+    credentials:
+      login: {verifier: {file: /run/secrets/lab_readonly_argon2id}}

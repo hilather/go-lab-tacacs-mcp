@@ -268,7 +268,7 @@ listeners:
           file: /etc/taclab/certs-public/client-crl.pem
       session_resumption:
         enabled: true
-        ticket_lifetime: 24h
+        ticket_lifetime: 168h
         recheck_client_revocation: true
       reject_early_data: true
 

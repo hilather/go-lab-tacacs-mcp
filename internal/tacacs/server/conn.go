@@ -155,7 +155,7 @@ func (cs *connState) readDeadline(first bool) time.Time {
 
 func (cs *connState) handleReadError(ctx context.Context, hdr codec.Header, err error) (cont bool, out error) {
 	switch {
-	case errors.Is(err, ErrUnencrypted):
+	case errors.Is(err, ErrUnencrypted), errors.Is(err, ErrMissingUnencrypted):
 		cs.replyError(ctx, hdr)
 		cs.drain.Store(true)
 		return true, nil

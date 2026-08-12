@@ -45,7 +45,7 @@ func defaultDocument() Document {
 					Revocation:           Revocation{Mode: "configured_crl"},
 					SessionResumption: SessionResumption{
 						Enabled:                 true,
-						TicketLifetime:          24 * time.Hour,
+						TicketLifetime:          TLSTicketLifetimeEnforced,
 						RecheckClientRevocation: true,
 					},
 					RejectEarlyData: true,

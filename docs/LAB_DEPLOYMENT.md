@@ -257,6 +257,8 @@ Reuse and overdue status are warnings in the reference profile so historical lab
 
 ## 9. Certificate lab
 
+Generate the reference tree with `go run ./tools/labcerts <dir>` (`internal/tacacs/tls.GenerateLabPKI`). Tests materialize the same set under a temp directory so private keys are never committed.
+
 ### 9.1 Minimum identities
 
 The reference secure TACACS lab needs:

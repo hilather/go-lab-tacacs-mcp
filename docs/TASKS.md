@@ -601,100 +601,100 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 
 **Depends on:** P3 auth packets, P4 dispatcher, P5.1
 
-- [ ] Handle GETUSER/GETPASS/GETDATA and CONTINUE exchanges as required.
-- [ ] Bound rounds and message/data sizes.
-- [ ] Handle abort flag and disconnect.
-- [ ] Avoid username enumeration in prompts and failures.
-- [ ] Produce PASS, FAIL, ERROR, and RESTART only under specified conditions.
+- [x] Handle GETUSER/GETPASS/GETDATA and CONTINUE exchanges as required.
+- [x] Bound rounds and message/data sizes.
+- [x] Handle abort flag and disconnect.
+- [x] Avoid username enumeration in prompts and failures.
+- [x] Produce PASS, FAIL, ERROR, and RESTART only under specified conditions.
 
 **Tests**
 
-- [ ] Success, wrong password, unknown user, disabled user, abort, timeout, malformed continuation, excessive rounds, and restart scenarios.
-- [ ] Independent client interoperability.
+- [x] Success, wrong password, unknown user, disabled user, abort, timeout, malformed continuation, excessive rounds, and restart scenarios.
+- [x] Independent client interoperability.
 
 ### P5.3 Implement PAP
 
-- [ ] Validate action/type/version/service combinations.
-- [ ] Verify supplied password through the credential service.
-- [ ] Handle empty and oversized fields safely.
-- [ ] Return standards-compliant statuses.
+- [x] Validate action/type/version/service combinations.
+- [x] Verify supplied password through the credential service.
+- [x] Handle empty and oversized fields safely.
+- [x] Return standards-compliant statuses.
 
 **Tests/benchmarks/docs**
 
-- [ ] Positive, negative, malformed, and unavailable-verifier tests.
-- [ ] End-to-end PAP benchmark excluding and including verifier cost.
-- [ ] Update method capability documentation.
+- [x] Positive, negative, malformed, and unavailable-verifier tests.
+- [ ] End-to-end PAP benchmark excluding and including verifier cost (KDF benches stay under `internal/credentials`).
+- [x] Update method capability documentation.
 
 ### P5.4 Implement CHAP
 
-- [ ] Parse challenge/identifier/response data exactly.
-- [ ] Calculate expected response using challenge secret material.
-- [ ] Reject unavailable challenge secret without fallback to a login hash.
-- [ ] Bound all fields and compare safely.
+- [x] Parse challenge/identifier/response data exactly.
+- [x] Calculate expected response using challenge secret material.
+- [x] Reject unavailable challenge secret without fallback to a login hash.
+- [x] Bound all fields and compare safely.
 
 **Tests**
 
-- [ ] Independent known vectors, wrong response, malformed length, altered challenge, and missing-secret cases.
+- [x] Independent known vectors, wrong response, malformed length, altered challenge, and missing-secret cases.
 
 ### P5.5 Implement MS-CHAP v1
 
-- [ ] Implement with vetted cryptographic primitives and independent vectors.
-- [ ] Validate exact wire data sizes.
-- [ ] Separate protocol errors from credential failure in internal events while keeping wire behavior safe.
+- [x] Implement with vetted cryptographic primitives and independent vectors.
+- [x] Validate exact wire data sizes.
+- [x] Separate protocol errors from credential failure in internal events while keeping wire behavior safe.
 
 **Tests/benchmarks**
 
-- [ ] Known vectors and all malformed boundaries.
-- [ ] Calculation benchmark.
+- [x] Known vectors and all malformed boundaries.
+- [x] Calculation benchmark.
 
 ### P5.6 Implement MS-CHAP v2
 
-- [ ] Implement peer/authenticator challenge processing and response validation.
-- [ ] Use independent vectors.
-- [ ] Handle username canonicalization exactly as selected in the design ADR.
+- [x] Implement peer/authenticator challenge processing and response validation.
+- [x] Use independent vectors.
+- [x] Handle username canonicalization exactly as selected in the design ADR.
 
 **Tests/benchmarks**
 
-- [ ] Known vectors, altered username/challenges/response, malformed sizes, and missing secret.
-- [ ] Calculation benchmark.
+- [x] Known vectors, altered username/challenges/response, malformed sizes, and missing secret.
+- [x] Calculation benchmark.
 
 ### P5.7 Implement ENABLE
 
-- [ ] Match service/action semantics.
-- [ ] Verify separate enable credential.
-- [ ] Apply client and user restrictions.
-- [ ] Avoid implicit reuse of login or shared secret unless explicitly modeled and documented.
+- [x] Match service/action semantics.
+- [x] Verify separate enable credential.
+- [x] Apply client and user restrictions.
+- [x] Avoid implicit reuse of login or shared secret unless explicitly modeled and documented.
 
 **Tests**
 
-- [ ] Success/failure/missing verifier/restriction/version cases.
+- [x] Success/failure/missing verifier/restriction/version cases. ENABLE START goldens with `authen_type=ASCII` and `authen_type=PAP` both enter ENABLE.
 
 ### P5.8 Implement ASCII password change
 
-- [ ] Implement the complete state machine.
-- [ ] Verify current credential before accepting a new password.
-- [ ] Derive and atomically publish a runtime verifier override.
-- [ ] Preserve baseline config and reset semantics.
-- [ ] Define behavior when only challenge credentials exist.
-- [ ] Never log old or new password.
+- [x] Implement the complete state machine.
+- [x] Verify current credential before accepting a new password.
+- [x] Derive and atomically publish a runtime verifier override.
+- [x] Preserve baseline config and reset semantics.
+- [x] Define behavior when only challenge credentials exist.
+- [x] Never log old or new password.
 
 **Tests**
 
-- [ ] Success, incorrect old password, policy failure, interrupted conversation, compile failure rollback, revision conflict, and restart restoration.
+- [x] Success, incorrect old password, policy failure, interrupted conversation, compile failure rollback, revision conflict, and restart restoration.
 - [ ] REST/MCP/UI state views reflect capability change without secrets.
 
 **Benchmarks**
 
-- [ ] Password derivation cost and state publication separately.
+- [x] Password derivation cost and state publication separately.
 
 ### P5.9 Implement authentication policy restrictions
 
-- [ ] Enforce allowed method per client, including a challenge-response-only profile.
-- [ ] Recognize every RFC-defined authentication service code and reject invalid action/type/service combinations without inventing undocumented flows.
-- [ ] Enforce enabled state, client restrictions, and validity windows.
+- [x] Enforce allowed method per client, including a challenge-response-only profile.
+- [x] Recognize every RFC-defined authentication service code and reject invalid action/type/service combinations without inventing undocumented flows.
+- [x] Enforce enabled state, client restrictions, and validity windows.
 - [ ] Warn when non-challenge methods are enabled according to the configured security profile.
-- [ ] Define normalization and exact username lookup behavior.
-- [ ] Emit consistent audit events.
+- [x] Define normalization and exact username lookup behavior.
+- [x] Emit consistent audit events.
 
 ### P5 exit gate
 

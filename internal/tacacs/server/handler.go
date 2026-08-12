@@ -26,9 +26,8 @@ type Env struct {
 	ConnKey uint64
 }
 
-// Handler is the AAA hook. Full ASCII/PAP/CHAP conversations are owned by
-// later work; a stub is enough to exercise decode, match, and sessions.
-// Implementations must not put secrets or internal error text on the wire.
+// Handler is the AAA hook. Implementations must not put secrets or internal
+// error text on the wire.
 type Handler interface {
 	AuthenStart(ctx context.Context, env Env, start codec.AuthenStart) (codec.AuthenReply, error)
 	AuthenContinue(ctx context.Context, env Env, cont codec.AuthenContinue) (codec.AuthenReply, error)

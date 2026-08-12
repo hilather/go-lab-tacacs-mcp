@@ -13,6 +13,7 @@ import (
 
 // Service is the protocol-independent AAA implementation.
 type Service struct {
+	mgr      *state.Manager
 	snapshot func() *state.Snapshot
 	secrets  config.SecretLookup
 	events   *events.Ring
@@ -20,7 +21,7 @@ type Service struct {
 	clock    domain.Clock
 
 	mu       sync.Mutex
-	sessions map[sessionKey]*asciiSession
+	sessions map[sessionKey]*authSession
 	engines  map[domain.Revision]*policy.Engine
 }
 
@@ -29,19 +30,34 @@ type sessionKey struct {
 	sess uint32
 }
 
-type asciiSession struct {
-	user      string
-	clientID  string
-	needUser  bool
-	needPass  bool
-	fails     int
-	snap      *state.Snapshot
-	creds     *credentials.Service
-	maxRounds int
+type authFlow byte
+
+const (
+	flowASCII authFlow = iota
+	flowEnable
+	flowCHPASS
+)
+
+type authSession struct {
+	flow        authFlow
+	user        string
+	clientID    string
+	needUser    bool
+	needOld     bool
+	needNew     bool
+	needConfirm bool
+	oldPass     []byte
+	newPass     []byte
+	fails       int
+	snap        *state.Snapshot
+	creds       *credentials.Service
+	maxRounds   int
+	rev         domain.Revision
 }
 
 // Options construct a Service.
 type Options struct {
+	Manager  *state.Manager
 	Snapshot func() *state.Snapshot
 	Secrets  config.SecretLookup
 	Events   *events.Ring
@@ -49,8 +65,11 @@ type Options struct {
 	Creds    credentials.Options
 }
 
-// New builds a Service. Snapshot is required.
+// New builds a Service. Snapshot or Manager is required.
 func New(opts Options) (*Service, error) {
+	if opts.Snapshot == nil && opts.Manager != nil {
+		opts.Snapshot = opts.Manager.Snapshot
+	}
 	if opts.Snapshot == nil {
 		return nil, domain.NewError(domain.CodeInvalidArgument, "snapshot func is required")
 	}
@@ -66,12 +85,13 @@ func New(opts Options) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		mgr:      opts.Manager,
 		snapshot: opts.Snapshot,
 		secrets:  opts.Secrets,
 		events:   opts.Events,
 		creds:    creds,
 		clock:    opts.Clock,
-		sessions: map[sessionKey]*asciiSession{},
+		sessions: map[sessionKey]*authSession{},
 		engines:  map[domain.Revision]*policy.Engine{},
 	}, nil
 }
@@ -166,13 +186,13 @@ func maxRounds(snap *state.Snapshot) int {
 	return snap.Settings().Limits.MaxAuthenticationRounds
 }
 
-func (s *Service) getSession(key sessionKey) *asciiSession {
+func (s *Service) getSession(key sessionKey) *authSession {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.sessions[key]
 }
 
-func (s *Service) putSession(key sessionKey, sess *asciiSession) {
+func (s *Service) putSession(key sessionKey, sess *authSession) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sessions[key] = sess
@@ -181,6 +201,12 @@ func (s *Service) putSession(key sessionKey, sess *asciiSession) {
 func (s *Service) dropSession(key sessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if sess := s.sessions[key]; sess != nil {
+		wipe(sess.oldPass)
+		wipe(sess.newPass)
+		sess.oldPass = nil
+		sess.newPass = nil
+	}
 	delete(s.sessions, key)
 }
 

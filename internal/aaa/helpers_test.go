@@ -15,15 +15,17 @@ import (
 )
 
 const (
-	testPassword = "labpass1!"
-	testSecret   = "LabSecret-16chars!"
+	testPassword  = "labpass1!"
+	testEnablePW  = "enablepass1!"
+	testChallenge = "chap-secret-16ch!"
+	testSecret    = "LabSecret-16chars!"
 )
 
 type fixedClock struct{ t time.Time }
 
 func (c fixedClock) Now() time.Time { return c.t }
 
-func testPHC(t *testing.T) []byte {
+func testPHC(t testing.TB) []byte {
 	t.Helper()
 	enc, err := credentials.DeriveArgon2id([]byte(testPassword), credentials.TestParams, rand.Reader)
 	if err != nil {
@@ -32,17 +34,30 @@ func testPHC(t *testing.T) []byte {
 	return enc
 }
 
-func writeSkeleton(t *testing.T, extra string) (string, config.SecretLookup, *state.Manager) {
+func writeSkeleton(t testing.TB, extra string) (string, config.SecretLookup, *state.Manager) {
 	t.Helper()
 	dir := t.TempDir()
 	phc := testPHC(t)
-	login := filepath.Join(dir, "login")
-	sec := filepath.Join(dir, "shared")
-	if err := os.WriteFile(login, phc, 0o600); err != nil {
+	en, err := credentials.DeriveArgon2id([]byte(testEnablePW), credentials.TestParams, rand.Reader)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(sec, []byte(testSecret), 0o600); err != nil {
-		t.Fatal(err)
+	login := filepath.Join(dir, "login")
+	enable := filepath.Join(dir, "enable")
+	chal := filepath.Join(dir, "chal")
+	sec := filepath.Join(dir, "shared")
+	for _, f := range []struct {
+		path string
+		data []byte
+	}{
+		{login, phc},
+		{enable, en},
+		{chal, []byte(testChallenge)},
+		{sec, []byte(testSecret)},
+	} {
+		if err := os.WriteFile(f.path, f.data, 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	src := `
 schema_version: 1
@@ -61,7 +76,7 @@ clients:
     legacy:
       shared_secret: {file: ` + sec + `}
     authentication:
-      allowed_methods: [ascii]
+      allowed_methods: [ascii, pap, chap, mschapv1, mschapv2, enable, ascii_chpass]
 groups:
   - id: administrators
     priority: 10
@@ -106,6 +121,10 @@ users:
     credentials:
       login:
         verifier: {file: ` + login + `}
+      challenge:
+        secret: {file: ` + chal + `}
+      enable:
+        verifier: {file: ` + enable + `}
   - id: lab-readonly
     group_ids: [readonly]
     credentials:
@@ -133,15 +152,15 @@ users:
 	return dir, lookup, mgr
 }
 
-func testService(t *testing.T) (*Service, *state.Manager, *events.Ring) {
+func testService(t testing.TB) (*Service, *state.Manager, *events.Ring) {
 	t.Helper()
 	_, lookup, mgr := writeSkeleton(t, "")
 	ring := events.New(32, domain.SystemClock{})
 	svc, err := New(Options{
-		Snapshot: mgr.Snapshot,
-		Secrets:  lookup,
-		Events:   ring,
-		Creds:    credentials.Options{Params: credentials.TestParams},
+		Manager: mgr,
+		Secrets: lookup,
+		Events:  ring,
+		Creds:   credentials.Options{Params: credentials.TestParams},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -28,8 +28,10 @@ func (b Bridge) AuthenStart(ctx context.Context, env Env, start codec.AuthenStar
 		Action:    domain.AuthenAction(start.Action),
 		Type:      domain.AuthenType(start.Type),
 		Service:   domain.AuthenService(start.Service),
+		PrivLvl:   start.PrivLvl,
 		Port:      string(start.Port),
 		Remote:    string(start.RemAddr),
+		Data:      start.Data,
 		Revision:  env.Revision,
 		Transport: env.Transport,
 	})
@@ -129,6 +131,9 @@ func mapAuthen(step aaa.AuthenticationStep) codec.AuthenReply {
 	r := codec.AuthenReply{Status: byte(step.Status)}
 	if step.NoEcho {
 		r.Flags = codec.ReplyFlagNoEcho
+	}
+	if step.ServerMsg != "" {
+		r.ServerMsg = []byte(step.ServerMsg)
 	}
 	return r
 }

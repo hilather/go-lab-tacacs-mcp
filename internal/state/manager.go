@@ -184,6 +184,55 @@ func (m *Manager) CreateUser(req CreateUser, expected *domain.Revision) (*Snapsh
 	})
 }
 
+// OverrideLoginVerifier publishes a runtime Argon2id login verifier. It does
+// not derive or replace challenge or ENABLE material and does not edit files.
+func (m *Manager) OverrideLoginVerifier(userID string, verifier []byte, expected *domain.Revision) (*Snapshot, error) {
+	if err := credentials.ValidatePHC(verifier); err != nil {
+		return nil, domain.NewError(domain.CodeInvalidArgument, "login verifier is not a valid argon2id PHC string")
+	}
+	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {
+		id, err := normalizeUserID(userID)
+		if err != nil {
+			return ov, nil, err
+		}
+		cur, ok := liveUser(m.baseline, ov, id)
+		if !ok {
+			return ov, nil, domain.NewError(domain.CodeNotFound, "user not found").WithPath("users/" + id)
+		}
+		_, inBase := baselineUser(m.baseline, id)
+		if inBase && !m.baseline.Runtime.AllowShadowing {
+			if e, ok := ov.users[id]; !ok || e.deleted {
+				return ov, nil, domain.NewError(domain.CodeConflict, "shadowing is disabled").WithPath("users/" + id)
+			}
+		}
+		key := "login:" + id
+		if ov.secrets == nil {
+			ov.secrets = map[string][]byte{}
+		}
+		ov.secrets[key] = append([]byte(nil), verifier...)
+		next := cloneUser(cur)
+		next.Credentials.Login.Verifier = config.SecretRef{
+			Purpose:  credentials.PurposeLoginVerifier,
+			MemoryID: key,
+		}
+		src := domain.SourceRuntime
+		var shadows domain.ObjectSource
+		if inBase {
+			src = domain.SourceOverride
+			shadows = domain.SourceConfig
+		}
+		var prev *domain.ObjectMeta
+		if e, ok := ov.users[id]; ok && !e.deleted {
+			prev = &e.meta
+		}
+		ov.users[id] = overlayUser{
+			user: next,
+			meta: newOverlayMeta(domain.KindUser, id, next.DisplayName, src, shadows, next.Enabled, next.Labels, rev, now, prev),
+		}
+		return ov, nil, nil
+	})
+}
+
 // UpdateUser applies a typed patch to the current effective user.
 func (m *Manager) UpdateUser(id string, patch UpdateUser, expected *domain.Revision) (*Snapshot, error) {
 	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {

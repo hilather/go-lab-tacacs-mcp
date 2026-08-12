@@ -36,7 +36,7 @@ Cover:
 - common error mapping.
 - operation registry completeness against `api/operations.yaml` (every ID registered; status/build/policy.evaluate against a real snapshot).
 - REST/MCP parity for `system.status.get` and `policy.evaluate` (same operation registry; adapters never call each other).
-- ASCII LOGIN + one service rule + one command rule + accounting START through the legacy listener (`cmd/taclabd` e2e).
+- ASCII LOGIN + PAP + CHAP + ENABLE (type ignored) + one service rule + one command rule + accounting START through the legacy listener (`cmd/taclabd` e2e).
 
 Unit tests must be deterministic and use injectable clocks/random sources.
 
@@ -391,7 +391,7 @@ BenchmarkSingleConnectDispatch_Parallel
 
 Report `-benchmem`.
 
-`make bench` succeeds when `Benchmark*` functions exist under `internal/tacacs`, `internal/policy`, or `internal/state`. Header decode/encode, `BenchmarkLegacyObfuscate_64B` / `BenchmarkLegacyObfuscate_1KiB`, `BenchmarkAuthenStartDecode`, and `BenchmarkAuthorDecode_16Args` / `BenchmarkAuthorDecode_255Args` live under `internal/tacacs/codec`. Header/obfuscation benches under `tools/spike` are evaluation-only.
+`make bench` succeeds when `Benchmark*` functions exist under `internal/tacacs`, `internal/policy`, `internal/state`, or `internal/aaa`. Header decode/encode, `BenchmarkLegacyObfuscate_64B` / `BenchmarkLegacyObfuscate_1KiB`, `BenchmarkAuthenStartDecode`, and `BenchmarkAuthorDecode_16Args` / `BenchmarkAuthorDecode_255Args` live under `internal/tacacs/codec`. `BenchmarkCHAPLogin` is the AAA dispatch bench (no Argon2id). Header/obfuscation benches under `tools/spike` are evaluation-only.
 
 ### 8.4 Credential benchmarks
 

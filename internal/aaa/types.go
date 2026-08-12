@@ -11,8 +11,10 @@ type AuthenticationStart struct {
 	Action    domain.AuthenAction
 	Type      domain.AuthenType
 	Service   domain.AuthenService
+	PrivLvl   uint8
 	Port      string
 	Remote    string
+	Data      []byte
 	Revision  domain.Revision
 	Transport domain.Transport
 }
@@ -38,8 +40,9 @@ type AuthenticationAbort struct {
 
 // AuthenticationStep is the next prompt or terminal result.
 type AuthenticationStep struct {
-	Status domain.AuthenStatus
-	NoEcho bool
+	Status    domain.AuthenStatus
+	NoEcho    bool
+	ServerMsg string
 }
 
 // AuthorizationRequest is protocol-independent authorization input.

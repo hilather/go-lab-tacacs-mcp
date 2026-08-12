@@ -95,7 +95,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 
 	if h == nil {
 		ring := events.New(doc.Events.RingBufferCapacity, nil)
-		aaaSvc, err := aaa.New(aaa.Options{Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring})
+		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Secrets: lookup, Events: ring})
 		if err != nil {
 			return err
 		}

@@ -133,6 +133,9 @@ func writeClients(b *strings.Builder, clients []config.Client) {
 }
 
 func secretRefKey(r config.SecretRef) string {
+	if r.MemoryID != "" {
+		return "m:" + r.MemoryID
+	}
 	if r.File != "" {
 		return "f:" + r.File
 	}

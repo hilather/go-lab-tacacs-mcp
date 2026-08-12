@@ -33,23 +33,24 @@ type Snapshot struct {
 	OverlayHash  string
 	CompiledAt   time.Time
 
-	settings      *config.Document
-	users         map[string]EffectiveUser
-	groups        map[string]EffectiveGroup
-	clients       map[string]EffectiveClient
-	tokens        map[string]EffectiveToken
-	userIDs       []string
-	groupIDs      []string
-	clientIDs     []string
-	tokenIDs      []string
-	tokenIndex    map[tokenDigestKey]string
-	tombstones    []domain.Tombstone
-	fallback      config.RuleSet
-	fallbackRules CompiledRuleSet
-	index         *config.ClientIndex
-	secretWarns   []config.SecretWarning
-	matchWarnings []string
-	lifecycles    map[string]domain.SecretLifecycle
+	settings       *config.Document
+	users          map[string]EffectiveUser
+	groups         map[string]EffectiveGroup
+	clients        map[string]EffectiveClient
+	tokens         map[string]EffectiveToken
+	userIDs        []string
+	groupIDs       []string
+	clientIDs      []string
+	tokenIDs       []string
+	tokenIndex     map[tokenDigestKey]string
+	tombstones     []domain.Tombstone
+	fallback       config.RuleSet
+	fallbackRules  CompiledRuleSet
+	index          *config.ClientIndex
+	secretWarns    []config.SecretWarning
+	matchWarnings  []string
+	lifecycles     map[string]domain.SecretLifecycle
+	runtimeSecrets map[string][]byte
 }
 
 // tokenDigestKey is a map key whose fmt output never includes digest bytes.
@@ -107,6 +108,18 @@ type EffectiveToken struct {
 	Enabled   bool
 	ExpiresAt *time.Time
 	HasDigest bool
+}
+
+// RuntimeSecret copies in-process overlay material for id. Callers wipe the buffer.
+func (s *Snapshot) RuntimeSecret(id string) ([]byte, bool) {
+	if s == nil || id == "" {
+		return nil, false
+	}
+	b, ok := s.runtimeSecrets[id]
+	if !ok {
+		return nil, false
+	}
+	return append([]byte(nil), b...), true
 }
 
 // Settings returns the compiled non-overlay baseline settings. The returned

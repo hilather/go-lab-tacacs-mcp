@@ -8,7 +8,7 @@ cd "$root"
 
 export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${PATH}"
 
-pkgs=(internal/tacacs internal/policy internal/state)
+pkgs=(internal/tacacs internal/policy internal/state internal/aaa)
 found=0
 for pkg in "${pkgs[@]}"; do
   if [[ -d "$pkg" ]] && grep -R --include='*_test.go' -E '^func Benchmark' "$pkg" >/dev/null 2>&1; then
@@ -23,4 +23,4 @@ if [[ "$found" -eq 0 ]]; then
   exit 1
 fi
 
-go test -bench=. -benchmem ./internal/tacacs/... ./internal/policy/... ./internal/state/...
+go test -bench=. -benchmem ./internal/tacacs/... ./internal/policy/... ./internal/state/... ./internal/aaa

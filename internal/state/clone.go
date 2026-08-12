@@ -37,6 +37,17 @@ func cloneTimePtr(t *time.Time) *time.Time {
 
 func cloneSecretRef(r config.SecretRef) config.SecretRef { return r }
 
+func cloneSecretBag(in map[string][]byte) map[string][]byte {
+	if len(in) == 0 {
+		return map[string][]byte{}
+	}
+	out := make(map[string][]byte, len(in))
+	for k, v := range in {
+		out[k] = append([]byte(nil), v...)
+	}
+	return out
+}
+
 func cloneRuleSet(r config.RuleSet) config.RuleSet {
 	return config.RuleSet{
 		Services:     cloneServiceRules(r.Services),

@@ -161,9 +161,9 @@ users:
 		t.Fatal(err)
 	}
 	svc, err := aaa.New(aaa.Options{
-		Snapshot: mgr.Snapshot,
-		Secrets:  lookup,
-		Creds:    credentials.Options{Params: credentials.TestParams},
+		Manager: mgr,
+		Secrets: lookup,
+		Creds:   credentials.Options{Params: credentials.TestParams},
 	})
 	if err != nil {
 		t.Fatal(err)

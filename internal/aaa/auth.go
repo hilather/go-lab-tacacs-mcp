@@ -2,6 +2,7 @@ package aaa
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -9,6 +10,11 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
+)
+
+const (
+	promptUser = "Username: "
+	promptPass = "Password: "
 )
 
 // BeginAuthentication starts an authentication conversation.
@@ -27,45 +33,35 @@ func (s *Service) BeginAuthentication(ctx context.Context, start AuthenticationS
 		return errorStep(), nil
 	}
 
-	// ENABLE ignores type at the codec. AAA still treats ENABLE as unimplemented
-	// in this skeleton (PR-11). ASCII LOGIN is the only implemented flow.
-	if start.Action != domain.AuthenActionLogin || start.Service == domain.AuthenServiceEnable {
-		s.recordAuth(snap, start.ClientID, start.UserID, start.SessionID, start.Transport, start.Revision, "error")
-		return errorStep(), nil
+	flow, term := classifyStart(start)
+	if term != 0 {
+		s.recordAuth(snap, start, "", eventType(flow, start), term.String())
+		return AuthenticationStep{Status: term}, nil
 	}
-	if start.Type != domain.AuthenTypeASCII {
-		s.recordAuth(snap, start.ClientID, start.UserID, start.SessionID, start.Transport, start.Revision, "error")
-		return errorStep(), nil
-	}
-	if !asciiAllowed(snap, start.ClientID) {
-		s.recordAuth(snap, start.ClientID, start.UserID, start.SessionID, start.Transport, start.Revision, "restart")
+	method := methodForFlow(flow)
+	if !methodAllowed(snap, start.ClientID, method) {
+		s.recordAuth(snap, start, canonUser(start.UserID), eventType(flow, start), "restart")
 		return AuthenticationStep{Status: domain.AuthenStatusRestart}, nil
 	}
 
-	user := start.UserID
-	if user != "" {
-		if canon, err := credentials.CanonicalUsername(user); err == nil {
-			user = canon
-		}
+	switch flow {
+	case flowPAP:
+		return s.oneShotPAP(ctx, snap, start)
+	case flowCHAP:
+		return s.oneShotCHAP(ctx, snap, start)
+	case flowMSCHAPv1:
+		return s.oneShotMSCHAP(ctx, snap, start, false)
+	case flowMSCHAPv2:
+		return s.oneShotMSCHAP(ctx, snap, start, true)
+	case flowASCII, flowEnable, flowCHPASS:
+		return s.beginInteractive(start, snap, flow)
+	default:
+		s.recordAuth(snap, start, canonUser(start.UserID), "unsupported", "error")
+		return errorStep(), nil
 	}
-	bound := snap
-	sess := &asciiSession{
-		user:      user,
-		clientID:  start.ClientID,
-		needUser:  user == "",
-		needPass:  true,
-		snap:      bound,
-		creds:     s.creds.WithStore(snapshotStore{snapshot: func() *state.Snapshot { return bound }, secrets: s.secrets}),
-		maxRounds: maxRounds(bound),
-	}
-	s.putSession(key, sess)
-	if sess.needUser {
-		return AuthenticationStep{Status: domain.AuthenStatusGetUser}, nil
-	}
-	return AuthenticationStep{Status: domain.AuthenStatusGetPass, NoEcho: true}, nil
 }
 
-// ContinueAuthentication advances an ASCII LOGIN conversation.
+// ContinueAuthentication advances an interactive conversation.
 func (s *Service) ContinueAuthentication(ctx context.Context, cont AuthenticationContinue) (AuthenticationStep, error) {
 	if s == nil {
 		return errorStep(), domain.NewError(domain.CodeInternal, "aaa service is not initialized")
@@ -79,57 +75,27 @@ func (s *Service) ContinueAuthentication(ctx context.Context, cont Authenticatio
 		return errorStep(), nil
 	}
 	if cont.Abort {
+		kind := eventType(sess.flow, AuthenticationStart{})
 		s.dropSession(key)
-		s.recordAuth(sess.snap, cont.ClientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "abort")
-		return AuthenticationStep{Status: domain.AuthenStatusFail}, nil
+		s.recordAuth(sess.snap, AuthenticationStart{
+			ClientID:  cont.ClientID,
+			SessionID: cont.SessionID,
+			Transport: cont.Transport,
+			Revision:  cont.Revision,
+		}, sess.user, kind, "abort")
+		return failStep(), nil
 	}
-	if sess.needUser {
-		user := string(cont.UserMsg)
-		if canon, err := credentials.CanonicalUsername(user); err == nil {
-			user = canon
-		}
-		sess.user = user
-		sess.needUser = false
-		sess.needPass = true
-		s.putSession(key, sess)
-		return AuthenticationStep{Status: domain.AuthenStatusGetPass, NoEcho: true}, nil
-	}
-	if !sess.needPass {
+	switch sess.flow {
+	case flowASCII:
+		return s.continueASCII(ctx, key, sess, cont)
+	case flowEnable:
+		return s.continueEnable(ctx, key, sess, cont)
+	case flowCHPASS:
+		return s.continueCHPASS(ctx, key, sess, cont)
+	default:
 		s.dropSession(key)
 		return errorStep(), nil
 	}
-
-	pw := append([]byte(nil), cont.UserMsg...)
-	verifier := sess.creds
-	if verifier == nil {
-		verifier = s.creds
-	}
-	err := verifier.VerifyASCIIOrPAP(ctx, sess.user, pw)
-	wipe(pw)
-	if err == nil {
-		s.dropSession(key)
-		s.recordAuth(sess.snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "pass")
-		return AuthenticationStep{Status: domain.AuthenStatusPass}, nil
-	}
-	// Malformed material is protocol ERROR; every other credential result is FAIL.
-	var ae credentials.AuthError
-	if errors.As(err, &ae) && (ae.Kind == credentials.KindMalformed || ae.Kind == credentials.KindInvalid) {
-		s.dropSession(key)
-		s.recordAuth(sess.snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "error")
-		return errorStep(), nil
-	}
-	sess.fails++
-	limit := sess.maxRounds
-	if limit <= 0 {
-		limit = maxRounds(sess.snap)
-	}
-	if sess.fails >= limit {
-		s.dropSession(key)
-		s.recordAuth(sess.snap, sess.clientID, sess.user, cont.SessionID, cont.Transport, cont.Revision, "fail")
-		return AuthenticationStep{Status: domain.AuthenStatusFail}, nil
-	}
-	s.putSession(key, sess)
-	return AuthenticationStep{Status: domain.AuthenStatusGetPass, NoEcho: true}, nil
 }
 
 // AbortAuthentication records a redacted abort and drops conversation state.
@@ -142,17 +108,356 @@ func (s *Service) AbortAuthentication(_ context.Context, abort AuthenticationAbo
 	if sess == nil {
 		return nil
 	}
+	kind := eventType(sess.flow, AuthenticationStart{})
+	user := sess.user
+	snap := sess.snap
 	s.dropSession(key)
-	s.recordAuth(sess.snap, abort.ClientID, sess.user, abort.SessionID, "", abort.Revision, "abort")
+	s.recordAuth(snap, AuthenticationStart{
+		ClientID:  abort.ClientID,
+		SessionID: abort.SessionID,
+		Revision:  abort.Revision,
+	}, user, kind, "abort")
 	return nil
 }
 
-func errorStep() AuthenticationStep {
-	return AuthenticationStep{Status: domain.AuthenStatusError}
+func (s *Service) beginInteractive(start AuthenticationStart, snap *state.Snapshot, flow authFlow) (AuthenticationStep, error) {
+	if flow == flowEnable && start.PrivLvl > uint8(domain.PrivilegeMax) {
+		s.recordAuth(snap, start, canonUser(start.UserID), "enable", "fail")
+		return failStep(), nil
+	}
+	user := canonUser(start.UserID)
+	bound := snap
+	sess := &authSession{
+		flow:      flow,
+		user:      user,
+		clientID:  start.ClientID,
+		needUser:  user == "",
+		needOld:   flow == flowCHPASS,
+		needNew:   flow == flowCHPASS,
+		snap:      bound,
+		creds:     s.creds.WithStore(snapshotStore{snapshot: func() *state.Snapshot { return bound }, secrets: s.secrets, clientID: start.ClientID}),
+		maxRounds: maxRounds(bound),
+		rev:       bound.Revision,
+	}
+	s.putSession(sessionKey{conn: start.ConnKey, sess: start.SessionID}, sess)
+	if sess.needUser {
+		return userPrompt(), nil
+	}
+	if flow == flowCHPASS {
+		return dataPrompt(), nil
+	}
+	return passPrompt(), nil
 }
 
-func asciiAllowed(snap *state.Snapshot, clientID string) bool {
-	if snap == nil || clientID == "" {
+func (s *Service) continueASCII(ctx context.Context, key sessionKey, sess *authSession, cont AuthenticationContinue) (AuthenticationStep, error) {
+	if sess.needUser {
+		sess.user = canonUser(string(cont.UserMsg))
+		sess.needUser = false
+		s.putSession(key, sess)
+		return passPrompt(), nil
+	}
+	return s.finishPassword(ctx, key, sess, cont, false)
+}
+
+func (s *Service) continueEnable(ctx context.Context, key sessionKey, sess *authSession, cont AuthenticationContinue) (AuthenticationStep, error) {
+	if sess.needUser {
+		sess.user = canonUser(string(cont.UserMsg))
+		sess.needUser = false
+		s.putSession(key, sess)
+		return passPrompt(), nil
+	}
+	return s.finishPassword(ctx, key, sess, cont, true)
+}
+
+func (s *Service) finishPassword(ctx context.Context, key sessionKey, sess *authSession, cont AuthenticationContinue, enable bool) (AuthenticationStep, error) {
+	pw := append([]byte(nil), cont.UserMsg...)
+	verifier := sess.creds
+	if verifier == nil {
+		verifier = s.creds
+	}
+	var err error
+	if enable {
+		err = verifier.VerifyEnable(ctx, sess.user, pw)
+	} else {
+		err = verifier.VerifyASCIIOrPAP(ctx, sess.user, pw)
+	}
+	wipe(pw)
+	kind := "ascii_login"
+	if enable {
+		kind = "enable"
+	}
+	if err == nil {
+		s.dropSession(key)
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, kind, "pass")
+		return passStep(), nil
+	}
+	if protoError(err) {
+		s.dropSession(key)
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, kind, "error")
+		return errorStep(), nil
+	}
+	return s.retryOrFail(key, sess, cont, kind, passPrompt())
+}
+
+func (s *Service) continueCHPASS(ctx context.Context, key sessionKey, sess *authSession, cont AuthenticationContinue) (AuthenticationStep, error) {
+	if sess.needUser {
+		sess.user = canonUser(string(cont.UserMsg))
+		sess.needUser = false
+		s.putSession(key, sess)
+		return dataPrompt(), nil
+	}
+	if sess.needOld {
+		old := append([]byte(nil), cont.UserMsg...)
+		err := sess.creds.VerifyASCIIOrPAP(ctx, sess.user, old)
+		if protoError(err) {
+			wipe(old)
+			s.dropSession(key)
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "error")
+			return errorStep(), nil
+		}
+		if err != nil {
+			wipe(old)
+			return s.retryOrFail(key, sess, cont, "ascii_chpass", dataPrompt())
+		}
+		wipe(sess.oldPass)
+		sess.oldPass = old
+		sess.needOld = false
+		sess.fails = 0
+		s.putSession(key, sess)
+		return passPrompt(), nil
+	}
+	if sess.needNew {
+		if len(cont.UserMsg) == 0 {
+			s.dropSession(key)
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
+			return failStep(), nil
+		}
+		wipe(sess.newPass)
+		sess.newPass = append([]byte(nil), cont.UserMsg...)
+		sess.needNew = false
+		sess.needConfirm = true
+		s.putSession(key, sess)
+		return passPrompt(), nil
+	}
+	if !sess.needConfirm {
+		s.dropSession(key)
+		return errorStep(), nil
+	}
+	if subtle.ConstantTimeCompare(sess.newPass, cont.UserMsg) != 1 {
+		s.dropSession(key)
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
+		return failStep(), nil
+	}
+	phc, err := sess.creds.ChangeASCIIPassword(ctx, sess.user, sess.oldPass, sess.newPass)
+	wipe(sess.oldPass)
+	wipe(sess.newPass)
+	sess.oldPass = nil
+	sess.newPass = nil
+	if err != nil {
+		s.dropSession(key)
+		if protoError(err) {
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "error")
+			return errorStep(), nil
+		}
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
+		return failStep(), nil
+	}
+	step := s.publishLogin(sess, cont, phc)
+	wipe(phc)
+	return step, nil
+}
+
+func (s *Service) publishLogin(sess *authSession, cont AuthenticationContinue, phc []byte) AuthenticationStep {
+	if s.mgr == nil {
+		s.dropSession(sessionKey{conn: cont.ConnKey, sess: cont.SessionID})
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "error")
+		return errorStep()
+	}
+	expected := sess.rev
+	_, err := s.mgr.OverrideLoginVerifier(sess.user, phc, &expected)
+	s.dropSession(sessionKey{conn: cont.ConnKey, sess: cont.SessionID})
+	if err != nil {
+		if de, ok := domain.AsError(err); ok && (de.Code == domain.CodeConflict || de.Code == domain.CodeNotFound) {
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
+			return failStep()
+		}
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "error")
+		return errorStep()
+	}
+	s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "pass")
+	return passStep()
+}
+
+func (s *Service) retryOrFail(key sessionKey, sess *authSession, cont AuthenticationContinue, kind string, retry AuthenticationStep) (AuthenticationStep, error) {
+	sess.fails++
+	limit := sess.maxRounds
+	if limit <= 0 {
+		limit = maxRounds(sess.snap)
+	}
+	if sess.fails >= limit {
+		s.dropSession(key)
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, kind, "fail")
+		return failStep(), nil
+	}
+	s.putSession(key, sess)
+	return retry, nil
+}
+
+func (s *Service) oneShotPAP(ctx context.Context, snap *state.Snapshot, start AuthenticationStart) (AuthenticationStep, error) {
+	user := canonUser(start.UserID)
+	if user == "" || len(start.Data) == 0 {
+		s.recordAuth(snap, start, user, "pap_login", "fail")
+		return failStep(), nil
+	}
+	pw := append([]byte(nil), start.Data...)
+	err := s.boundCreds(snap, start.ClientID).VerifyASCIIOrPAP(ctx, user, pw)
+	wipe(pw)
+	return s.finishOneShot(snap, start, user, "pap_login", err), nil
+}
+
+func (s *Service) oneShotCHAP(ctx context.Context, snap *state.Snapshot, start AuthenticationStart) (AuthenticationStep, error) {
+	user := canonUser(start.UserID)
+	min := credentials.DefaultMinCHAPChallenge
+	id, chal, resp, err := credentials.SplitCHAPData(start.Data, min)
+	if err != nil {
+		s.recordAuth(snap, start, user, "chap_login", "error")
+		return errorStep(), nil
+	}
+	if user == "" {
+		s.recordAuth(snap, start, user, "chap_login", "fail")
+		return failStep(), nil
+	}
+	ver := s.boundCreds(snap, start.ClientID).VerifyCHAP(ctx, user, id, chal, resp)
+	return s.finishOneShot(snap, start, user, "chap_login", ver), nil
+}
+
+func (s *Service) oneShotMSCHAP(ctx context.Context, snap *state.Snapshot, start AuthenticationStart, v2 bool) (AuthenticationStep, error) {
+	user := canonUser(start.UserID)
+	kind := "mschapv1_login"
+	var (
+		id   byte
+		chal []byte
+		resp []byte
+		err  error
+	)
+	if v2 {
+		kind = "mschapv2_login"
+		id, chal, resp, err = credentials.SplitMSCHAPv2Data(start.Data)
+	} else {
+		id, chal, resp, err = credentials.SplitMSCHAPv1Data(start.Data)
+	}
+	if err != nil {
+		s.recordAuth(snap, start, user, kind, "error")
+		return errorStep(), nil
+	}
+	if user == "" {
+		s.recordAuth(snap, start, user, kind, "fail")
+		return failStep(), nil
+	}
+	creds := s.boundCreds(snap, start.ClientID)
+	var ver error
+	if v2 {
+		ver = creds.VerifyMSCHAPv2(ctx, user, id, chal, resp)
+	} else {
+		ver = creds.VerifyMSCHAPv1(ctx, user, id, chal, resp)
+	}
+	return s.finishOneShot(snap, start, user, kind, ver), nil
+}
+
+func (s *Service) finishOneShot(snap *state.Snapshot, start AuthenticationStart, user, kind string, err error) AuthenticationStep {
+	if err == nil {
+		s.recordAuth(snap, start, user, kind, "pass")
+		return passStep()
+	}
+	if protoError(err) {
+		s.recordAuth(snap, start, user, kind, "error")
+		return errorStep()
+	}
+	s.recordAuth(snap, start, user, kind, "fail")
+	return failStep()
+}
+
+func (s *Service) boundCreds(snap *state.Snapshot, clientID string) *credentials.Service {
+	bound := snap
+	return s.creds.WithStore(snapshotStore{
+		snapshot: func() *state.Snapshot { return bound },
+		secrets:  s.secrets,
+		clientID: clientID,
+	})
+}
+
+func classifyStart(start AuthenticationStart) (authFlow, domain.AuthenStatus) {
+	switch start.Action {
+	case domain.AuthenActionSendAuth, domain.AuthenActionSendPass:
+		return flowNone, domain.AuthenStatusError
+	case domain.AuthenActionCHPASS:
+		if start.Service == domain.AuthenServiceEnable {
+			return flowNone, domain.AuthenStatusFail
+		}
+		if start.Type != domain.AuthenTypeASCII {
+			return flowNone, domain.AuthenStatusError
+		}
+		if start.Service == domain.AuthenServiceNone || !start.Service.Valid() {
+			return flowNone, domain.AuthenStatusFail
+		}
+		return flowCHPASS, 0
+	case domain.AuthenActionLogin:
+		if start.Service == domain.AuthenServiceEnable {
+			return flowEnable, 0
+		}
+		if start.Service == domain.AuthenServiceNone || !start.Service.Valid() {
+			return flowNone, domain.AuthenStatusFail
+		}
+		switch start.Type {
+		case domain.AuthenTypeASCII:
+			return flowASCII, 0
+		case domain.AuthenTypePAP:
+			return flowPAP, 0
+		case domain.AuthenTypeCHAP:
+			return flowCHAP, 0
+		case domain.AuthenTypeMSCHAP:
+			return flowMSCHAPv1, 0
+		case domain.AuthenTypeMSCHAPV2:
+			return flowMSCHAPv2, 0
+		default:
+			return flowNone, domain.AuthenStatusError
+		}
+	default:
+		return flowNone, domain.AuthenStatusError
+	}
+}
+
+const (
+	flowNone     authFlow = 255
+	flowPAP      authFlow = 10
+	flowCHAP     authFlow = 11
+	flowMSCHAPv1 authFlow = 12
+	flowMSCHAPv2 authFlow = 13
+)
+
+func methodForFlow(flow authFlow) config.AuthMethod {
+	switch flow {
+	case flowASCII:
+		return config.AuthMethodASCII
+	case flowPAP:
+		return config.AuthMethodPAP
+	case flowCHAP:
+		return config.AuthMethodCHAP
+	case flowMSCHAPv1:
+		return config.AuthMethodMSCHAPv1
+	case flowMSCHAPv2:
+		return config.AuthMethodMSCHAPv2
+	case flowEnable:
+		return config.AuthMethodEnable
+	case flowCHPASS:
+		return config.AuthMethodASCIIChpass
+	default:
+		return ""
+	}
+}
+
+func methodAllowed(snap *state.Snapshot, clientID string, method config.AuthMethod) bool {
+	if snap == nil || clientID == "" || method == "" {
 		return true
 	}
 	c, ok := snap.Client(clientID)
@@ -164,22 +469,88 @@ func asciiAllowed(snap *state.Snapshot, clientID string) bool {
 		return true
 	}
 	for _, m := range methods {
-		if m == config.AuthMethodASCII {
+		if m == method {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *Service) recordAuth(snap *state.Snapshot, clientID, user string, sessionID uint32, transport domain.Transport, rev domain.Revision, result string) {
+func eventType(flow authFlow, start AuthenticationStart) string {
+	switch flow {
+	case flowASCII:
+		return "ascii_login"
+	case flowPAP:
+		return "pap_login"
+	case flowCHAP:
+		return "chap_login"
+	case flowMSCHAPv1:
+		return "mschapv1_login"
+	case flowMSCHAPv2:
+		return "mschapv2_login"
+	case flowEnable:
+		return "enable"
+	case flowCHPASS:
+		return "ascii_chpass"
+	default:
+		if start.Action == domain.AuthenActionSendAuth {
+			return "sendauth"
+		}
+		if start.Action == domain.AuthenActionSendPass {
+			return "sendpass"
+		}
+		return "authen"
+	}
+}
+
+func (s *Service) recordAuth(snap *state.Snapshot, start AuthenticationStart, user, kind, result string) {
 	s.record(events.Event{
 		Category:  "authen",
-		Type:      "ascii_login",
+		Type:      kind,
 		Result:    result,
-		Transport: string(transport),
-		ClientID:  clientID,
-		SessionID: sessionID,
-		Revision:  rev,
+		Transport: string(start.Transport),
+		ClientID:  start.ClientID,
+		SessionID: start.SessionID,
+		Revision:  start.Revision,
 		UserID:    user,
 	}, redactUserInput(snap))
+}
+
+func protoError(err error) bool {
+	var ae credentials.AuthError
+	return errors.As(err, &ae) && (ae.Kind == credentials.KindMalformed || ae.Kind == credentials.KindInvalid)
+}
+
+func canonUser(user string) string {
+	if user == "" {
+		return ""
+	}
+	if canon, err := credentials.CanonicalUsername(user); err == nil {
+		return canon
+	}
+	return user
+}
+
+func errorStep() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusError}
+}
+
+func failStep() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusFail}
+}
+
+func passStep() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusPass}
+}
+
+func userPrompt() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusGetUser, ServerMsg: promptUser}
+}
+
+func passPrompt() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusGetPass, NoEcho: true, ServerMsg: promptPass}
+}
+
+func dataPrompt() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusGetData, NoEcho: true, ServerMsg: promptPass}
 }

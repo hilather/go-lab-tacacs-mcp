@@ -436,15 +436,17 @@ type Toggle struct {
 	Enabled bool
 }
 
-// SecretRef is a typed file or environment pointer. It never holds secret bytes.
+// SecretRef is a typed file, environment, or in-process overlay pointer.
+// It never holds secret bytes. MemoryID is never present in YAML.
 type SecretRef struct {
 	Purpose                 credentials.Purpose
 	File                    string
 	Environment             string
 	PreserveTrailingNewline bool
+	MemoryID                string
 }
 
 // Set reports whether a source is present.
 func (r SecretRef) Set() bool {
-	return r.File != "" || r.Environment != ""
+	return r.File != "" || r.Environment != "" || r.MemoryID != ""
 }

@@ -10,6 +10,7 @@ import (
 type snapshotStore struct {
 	snapshot func() *state.Snapshot
 	secrets  config.SecretLookup
+	clientID string
 }
 
 func (s snapshotStore) Lookup(userID string) (credentials.Record, bool) {
@@ -27,30 +28,57 @@ func (s snapshotStore) Lookup(userID string) (credentials.Record, bool) {
 	rec := credentials.Record{
 		ID:          u.User.ID,
 		Enabled:     u.User.Enabled,
+		Restricted:  clientRestricted(u.User.Restrictions.ClientIDs, s.clientID),
 		ValidAfter:  u.User.Restrictions.ValidAfter,
 		ValidBefore: u.User.Restrictions.ValidBefore,
 	}
-	if s.secrets != nil {
-		if ref := u.User.Credentials.Login.Verifier; ref.Set() {
-			if b, err := s.secrets(ref); err == nil {
-				rec.Login = credentials.NewLoginVerifier(b)
-				wipe(b)
-			}
+	if ref := u.User.Credentials.Login.Verifier; ref.Set() {
+		if b, ok := resolveSecret(snap, s.secrets, ref); ok {
+			rec.Login = credentials.NewLoginVerifier(b)
+			wipe(b)
 		}
-		if ref := u.User.Credentials.Challenge.Secret; ref.Set() {
-			if b, err := s.secrets(ref); err == nil {
-				rec.Challenge = credentials.NewChallengeSecret(b)
-				wipe(b)
-			}
+	}
+	if ref := u.User.Credentials.Challenge.Secret; ref.Set() {
+		if b, ok := resolveSecret(snap, s.secrets, ref); ok {
+			rec.Challenge = credentials.NewChallengeSecret(b)
+			wipe(b)
 		}
-		if ref := u.User.Credentials.Enable.Verifier; ref.Set() {
-			if b, err := s.secrets(ref); err == nil {
-				rec.Enable = credentials.NewEnableVerifier(b)
-				wipe(b)
-			}
+	}
+	if ref := u.User.Credentials.Enable.Verifier; ref.Set() {
+		if b, ok := resolveSecret(snap, s.secrets, ref); ok {
+			rec.Enable = credentials.NewEnableVerifier(b)
+			wipe(b)
 		}
 	}
 	return rec, true
+}
+
+func resolveSecret(snap *state.Snapshot, lookup config.SecretLookup, ref config.SecretRef) ([]byte, bool) {
+	if ref.MemoryID != "" && snap != nil {
+		if b, ok := snap.RuntimeSecret(ref.MemoryID); ok {
+			return b, true
+		}
+	}
+	if lookup == nil || !ref.Set() || ref.MemoryID != "" {
+		return nil, false
+	}
+	b, err := lookup(ref)
+	if err != nil {
+		return nil, false
+	}
+	return b, true
+}
+
+func clientRestricted(allowed []string, clientID string) bool {
+	if len(allowed) == 0 {
+		return false
+	}
+	for _, id := range allowed {
+		if id == clientID {
+			return false
+		}
+	}
+	return true
 }
 
 func wipe(b []byte) {

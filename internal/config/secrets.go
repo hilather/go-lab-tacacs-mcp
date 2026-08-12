@@ -81,6 +81,9 @@ func ReadSecret(ref SecretRef, opts ReadOptions) (credentials.Purpose, any, erro
 }
 
 func readSecretBytes(ref SecretRef, opts ReadOptions) ([]byte, error) {
+	if ref.MemoryID != "" && ref.File == "" && ref.Environment == "" {
+		return nil, yamlError("memory secret references cannot be read from the filesystem")
+	}
 	if !ref.Set() {
 		return nil, yamlError("secret reference requires file or environment")
 	}

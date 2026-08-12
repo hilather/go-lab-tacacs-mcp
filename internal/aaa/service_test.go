@@ -120,14 +120,15 @@ func TestASCIIMissingUserPrompts(t *testing.T) {
 	}
 }
 
-func TestUnimplementedFlowsError(t *testing.T) {
+func TestUnsupportedOptionsError(t *testing.T) {
 	t.Parallel()
 	svc, _, _ := testService(t)
 	ctx := context.Background()
 	cases := []AuthenticationStart{
-		{ConnKey: 4, SessionID: 1, Action: domain.AuthenActionLogin, Type: domain.AuthenTypePAP, Service: domain.AuthenServiceLogin},
-		{ConnKey: 4, SessionID: 2, Action: domain.AuthenActionLogin, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceEnable},
-		{ConnKey: 4, SessionID: 3, Action: domain.AuthenActionCHPASS, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceLogin},
+		{ConnKey: 4, SessionID: 1, Action: domain.AuthenActionSendAuth, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceLogin},
+		{ConnKey: 4, SessionID: 2, Action: domain.AuthenActionSendPass, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceLogin},
+		{ConnKey: 4, SessionID: 3, Action: domain.AuthenActionLogin, Type: domain.AuthenTypeARAP, Service: domain.AuthenServiceLogin},
+		{ConnKey: 4, SessionID: 4, Action: domain.AuthenActionLogin, Type: 0x7f, Service: domain.AuthenServiceLogin},
 	}
 	for _, start := range cases {
 		step, err := svc.BeginAuthentication(ctx, start)

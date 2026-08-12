@@ -12,7 +12,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout is the **vertical skeleton**: ASCII LOGIN, one service rule, one command rule, accounting START, a bounded event ring, and `status` / `policy.evaluate` on REST and MCP. `taclabd serve --config` binds the legacy TACACS listener and, when enabled, the HTTP admin listener. It does **not** implement remaining authentication flows, TLS TACACS, the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
+This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS on the legacy TACACS listener, plus one service rule, one command rule, accounting START, a bounded event ring, and `status` / `policy.evaluate` on REST and MCP. It does **not** implement TLS TACACS, the admin UI, or complete TACACS+. Do not describe it as a complete TACACS+ server.
 
 High-port Compose smoke (no privileged 49/300):
 
@@ -69,6 +69,6 @@ make build
 ./bin/taclabd -h
 ```
 
-`make bench` runs header decode/encode and 64 B / 1 KiB obfuscation benches under `internal/tacacs/codec`, plus later policy/state benches. Argon2id KDF benches live under `internal/credentials` and are excluded from that target so KDF cost does not dominate the ordinary suite.
+`make bench` runs hot-path benches under `internal/tacacs`, `internal/policy`, `internal/state`, and `internal/aaa` (including header/obfuscation benches). Argon2id KDF benches live under `internal/credentials` and are excluded from that target so KDF cost does not dominate the ordinary suite.
 
 `make ci` is the local equivalent of the GitHub Actions merge gate (without `govulncheck` network install unless you run `make vuln`).

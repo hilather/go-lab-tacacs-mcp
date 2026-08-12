@@ -13,6 +13,7 @@ type overlay struct {
 	groups   map[string]overlayGroup
 	clients  map[string]overlayClient
 	tokens   map[string]overlayToken
+	secrets  map[string][]byte
 	fallback *config.RuleSet
 }
 
@@ -60,6 +61,7 @@ func newOverlay() overlay {
 		groups:  map[string]overlayGroup{},
 		clients: map[string]overlayClient{},
 		tokens:  map[string]overlayToken{},
+		secrets: map[string][]byte{},
 	}
 }
 
@@ -69,6 +71,7 @@ func copyOverlay(in overlay) overlay {
 		groups:  make(map[string]overlayGroup, len(in.groups)),
 		clients: make(map[string]overlayClient, len(in.clients)),
 		tokens:  make(map[string]overlayToken, len(in.tokens)),
+		secrets: cloneSecretBag(in.secrets),
 	}
 	for k, v := range in.users {
 		e := v

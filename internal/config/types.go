@@ -257,7 +257,7 @@ type Client struct {
 	Accounting     ClientAcct
 }
 
-// ClientMatch is identity selection input. LPM compilation is not done here.
+// ClientMatch is identity selection input.
 type ClientMatch struct {
 	SourceCIDRs []string
 	Transports  []domain.Transport

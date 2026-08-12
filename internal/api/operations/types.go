@@ -11,6 +11,7 @@ import (
 const (
 	IDSystemStatusGet = "system.status.get"
 	IDSystemBuildGet  = "system.build.get"
+	IDPolicyEvaluate  = "policy.evaluate"
 )
 
 // Specification versions reported by system.build.get.
@@ -78,6 +79,62 @@ type BuildInfo struct {
 	MCPSpecification  string `json:"mcp_specification"`
 }
 
+// EvaluatePolicyRequest is the policy.evaluate input.
+type EvaluatePolicyRequest struct {
+	UserID   string   `json:"user_id"`
+	ClientID string   `json:"client_id,omitempty"`
+	Service  string   `json:"service"`
+	Protocol string   `json:"protocol,omitempty"`
+	Cmd      string   `json:"cmd,omitempty"`
+	CmdArgs  []string `json:"cmd_args,omitempty"`
+}
+
+// PolicyTrace is the redacted explanation returned by policy.evaluate.
+type PolicyTrace struct {
+	Evaluator         string             `json:"evaluator"`
+	UserID            string             `json:"user_id"`
+	ClientID          string             `json:"client_id"`
+	Service           string             `json:"service"`
+	Protocol          string             `json:"protocol"`
+	Cmd               string             `json:"cmd"`
+	CmdArgs           []string           `json:"cmd_args"`
+	DisplayCmd        string             `json:"display_cmd"`
+	RequestArguments  []PolicyTraceAV    `json:"request_arguments"`
+	AuthenMethod      string             `json:"authen_method"`
+	Privilege         uint8              `json:"privilege"`
+	EffectiveGroupIDs []string           `json:"effective_group_ids"`
+	Steps             []PolicyTraceStep  `json:"steps"`
+	Winner            *PolicyTraceWinner `json:"winner"`
+	Decision          string             `json:"decision"`
+	Status            string             `json:"status"`
+	Arguments         []PolicyTraceAV    `json:"arguments"`
+	DefaultDeny       string             `json:"default_deny,omitempty"`
+	Error             string             `json:"error,omitempty"`
+}
+
+// PolicyTraceStep is one considered rule.
+type PolicyTraceStep struct {
+	Source  string `json:"source"`
+	RuleID  string `json:"rule_id"`
+	Kind    string `json:"kind"`
+	Matched bool   `json:"matched"`
+	Reason  string `json:"reason"`
+}
+
+// PolicyTraceWinner names the first matching rule.
+type PolicyTraceWinner struct {
+	Source string `json:"source"`
+	RuleID string `json:"rule_id"`
+	Action string `json:"action"`
+}
+
+// PolicyTraceAV is a stable AV encoding.
+type PolicyTraceAV struct {
+	Name      string `json:"name"`
+	Separator string `json:"separator"`
+	Value     string `json:"value"`
+}
+
 // Stub request and response types named to match api/operations.yaml.
 // Fields are added when those handlers are implemented.
 type (
@@ -118,8 +175,6 @@ type (
 	RevokeTokenRequest        struct{}
 	TokenList                 struct{}
 	CreatedToken              struct{}
-	EvaluatePolicyRequest     struct{}
-	PolicyTrace               struct{}
 	TestAuthenticationRequest struct{}
 	AuthenticationTestResult  struct{}
 	ListEventsRequest         struct{}

@@ -27,8 +27,8 @@ Usage:
   taclabd version
   taclabd -h | --help
 
-serve binds listeners.legacy_tacacs only. The TLS and HTTP listeners
-are not implemented in this build.
+serve binds listeners.legacy_tacacs and, when enabled, the HTTP admin
+listener (REST + MCP). The TLS TACACS listener is not implemented.
 `
 
 func main() {
@@ -53,7 +53,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 0
 		}
 		return serve(context.Background(), args[1:], stdout, stderr)
-	case "validate", "print-effective", "healthcheck":
+	case "healthcheck":
+		if isHelp(args[1:]) {
+			fmt.Fprint(stdout, usage)
+			return 0
+		}
+		return healthcheck(args[1:], stdout, stderr)
+	case "validate", "print-effective":
 		if isHelp(args[1:]) {
 			fmt.Fprint(stdout, usage)
 			return 0

@@ -1,0 +1,49 @@
+# High-port compose smoke baseline. One client, one user, one token.
+schema_version: 1
+server:
+  instance_id: smoke
+  shutdown_grace: 5s
+listeners:
+  legacy_tacacs:
+    enabled: true
+    bind: 0.0.0.0:4949
+    advertised_port: 14949
+  secure_tacacs:
+    enabled: false
+  http:
+    enabled: true
+    bind: 0.0.0.0:8080
+    write_timeout: 30s
+    idle_timeout: 60s
+api:
+  bootstrap_tokens:
+    - id: smoke
+      token: {file: /run/secrets/api_token}
+      scopes: [state:read, policy:test]
+clients:
+  - id: lab-switches
+    priority: 10
+    match:
+      source_cidrs: ["0.0.0.0/0", "::/0"]
+      transports: [legacy]
+    legacy:
+      shared_secret: {file: /run/secrets/legacy_shared}
+    authorization:
+      default_group_ids: [administrators]
+    authentication:
+      allowed_methods: [ascii]
+groups:
+  - id: administrators
+    priority: 10
+    services:
+      - service: shell
+        action: permit
+        reply_attributes:
+          - {name: priv-lvl, separator: "=", value: "15"}
+    command_rules:
+      - id: permit-configure
+        priority: 10
+        action: permit
+        command: {exact: configure}
+        arguments: {pattern: ".*"}
+    default_command_action: deny

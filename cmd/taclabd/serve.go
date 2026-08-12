@@ -5,12 +5,22 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
+	mcpapi "github.com/hilather/go-lab-tacacs-mcp/internal/api/mcp"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/rest"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
@@ -82,11 +92,14 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	if doc.Listeners.SecureTACACS.Enabled {
 		logger.Warn("listeners.secure_tacacs is not implemented; TLS listener skipped")
 	}
-	if doc.Listeners.HTTP.Enabled {
-		logger.Warn("listeners.http is not implemented; admin listener skipped")
-	}
+
 	if h == nil {
-		h = server.Stub{}
+		ring := events.New(doc.Events.RingBufferCapacity, nil)
+		aaaSvc, err := aaa.New(aaa.Options{Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring})
+		if err != nil {
+			return err
+		}
+		h = server.Bridge{AAA: aaaSvc}
 	}
 
 	ln, err := legacy.Listen(legacy.Options{
@@ -124,8 +137,20 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 	}()
 
-	errc := make(chan error, 1)
+	errc := make(chan error, 2)
 	go func() { errc <- ln.Serve(serveCtx) }()
+
+	var httpSrv *http.Server
+	var httpLn net.Listener
+	if doc.Listeners.HTTP.Enabled {
+		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, ln)
+		if err != nil {
+			_ = ln.Shutdown(context.Background())
+			return err
+		}
+		go func() { errc <- httpSrv.Serve(httpLn) }()
+		fmt.Fprintf(stdout, "listening http %s\n", httpLn.Addr().String())
+	}
 
 	fmt.Fprintf(stdout, "listening legacy_tacacs %s\n", ln.Addr().String())
 	fmt.Fprintln(stdout, "ready")
@@ -142,14 +167,84 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 
 	shutCtx, cancel := context.WithTimeout(context.Background(), doc.Server.ShutdownGrace)
 	defer cancel()
-	shutErr := ln.Shutdown(shutCtx)
-	if serveErr != nil && serveCtx.Err() == nil {
+	var shutErr error
+	if httpSrv != nil {
+		shutErr = httpSrv.Shutdown(shutCtx)
+	}
+	if err := ln.Shutdown(shutCtx); err != nil && shutErr == nil {
+		shutErr = err
+	}
+	if serveErr != nil && serveCtx.Err() == nil && !isHTTPClosed(serveErr) {
 		return serveErr
 	}
 	if shutErr != nil && shutCtx.Err() == nil {
 		return shutErr
 	}
 	return nil
+}
+
+func isHTTPClosed(err error) bool {
+	return err == http.ErrServerClosed
+}
+
+func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener) (*http.Server, net.Listener, error) {
+	reg, err := loadRegistry(operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime})
+	if err != nil {
+		return nil, nil, err
+	}
+	verifier, err := auth.Load(doc, lookup, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	ready := func() bool {
+		return mgr.Snapshot() != nil && legacyLn != nil
+	}
+	restSrv := &rest.Server{
+		Registry: reg,
+		Snapshot: mgr.Snapshot,
+		Auth:     verifier,
+		Ready:    ready,
+		MaxBody:  doc.Listeners.HTTP.MaxRequestBodyBytes,
+	}
+	mux := http.NewServeMux()
+	mcpH := mcpapi.Handler(mcpapi.Options{
+		Registry: reg,
+		Snapshot: mgr.Snapshot,
+		Auth:     verifier,
+		MCP:      doc.API.MCP,
+		Version:  version,
+	})
+	mux.Handle("/mcp", mcpH)
+	mux.Handle("/mcp/", mcpH)
+	mux.Handle("/", restSrv.Handler())
+
+	ln, err := net.Listen("tcp", doc.Listeners.HTTP.Bind)
+	if err != nil {
+		return nil, nil, err
+	}
+	hs := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: doc.Listeners.HTTP.ReadHeaderTimeout,
+		ReadTimeout:       doc.Listeners.HTTP.ReadTimeout,
+		WriteTimeout:      doc.Listeners.HTTP.WriteTimeout,
+		IdleTimeout:       doc.Listeners.HTTP.IdleTimeout,
+	}
+	if hs.ReadHeaderTimeout == 0 {
+		hs.ReadHeaderTimeout = 5 * time.Second
+	}
+	return hs, ln, nil
+}
+
+func loadRegistry(meta operations.BuildMeta) (*operations.Registry, error) {
+	if reg, err := operations.NewFromRepo(".", operations.Deps{Build: meta}); err == nil {
+		return reg, nil
+	}
+	if exe, err := os.Executable(); err == nil {
+		if reg, err := operations.NewFromRepo(filepath.Dir(exe), operations.Deps{Build: meta}); err == nil {
+			return reg, nil
+		}
+	}
+	return operations.NewFromRepo("/", operations.Deps{Build: meta})
 }
 
 func reloadSnapshot(path string, mgr *state.Manager) error {

@@ -32,11 +32,14 @@ type session struct {
 	close sync.Once
 }
 
+var connSeq atomic.Uint64
+
 type connState struct {
 	pio      PacketIO
 	id       Identity
 	lim      Limits
 	h        Handler
+	connKey  uint64
 	sc       codec.SingleConnect
 	sessions map[uint32]*session
 	mu       sync.Mutex
@@ -69,6 +72,7 @@ func ServeConn(ctx context.Context, pio PacketIO, id Identity, lim Limits, h Han
 		id:       id,
 		lim:      lim,
 		h:        h,
+		connKey:  connSeq.Add(1),
 		sessions: make(map[uint32]*session),
 		started:  time.Now(),
 	}
@@ -351,7 +355,7 @@ func (cs *connState) dispatch(ctx context.Context, sess *session, hdr codec.Head
 	rh.Version = hdr.Version
 	rh.Flags = 0
 
-	env := Env{Identity: cs.id, SessionID: hdr.SessionID}
+	env := Env{Identity: cs.id, SessionID: hdr.SessionID, ConnKey: cs.connKey}
 	switch hdr.Type {
 	case codec.TypeAuthen:
 		return cs.dispatchAuthen(ctx, env, hdr, rh, body)

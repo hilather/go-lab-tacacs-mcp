@@ -1,0 +1,35 @@
+# High-port smoke topology. Does not map privileged 49/300.
+# Usage: docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-container-exit --exit-code-from smoke
+services:
+  taclab:
+    build:
+      context: ../..
+      dockerfile: deployments/compose/Dockerfile.smoke
+    ports:
+      - "14949:4949"
+      - "18080:8080"
+    volumes:
+      - ./smoke/lab.yaml:/etc/taclab/lab.yaml:ro
+      - ./smoke/secrets:/run/secrets:ro
+    command: ["serve", "--config", "/etc/taclab/lab.yaml"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "/taclabd", "healthcheck", "--url", "http://127.0.0.1:8080/health/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+      start_period: 15s
+
+  smoke:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      taclab:
+        condition: service_healthy
+    command: ["curl", "-fsS", "http://taclab:8080/health/ready"]

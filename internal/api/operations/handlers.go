@@ -24,6 +24,7 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 	return map[string]handleFunc{
 		IDSystemStatusGet: handleStatus,
 		IDSystemBuildGet:  handleBuild(deps.Build),
+		IDPolicyEvaluate:  handleEvaluate,
 	}
 }
 

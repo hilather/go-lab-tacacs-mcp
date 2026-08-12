@@ -182,6 +182,57 @@ func TestBuildOmitsPaths(t *testing.T) {
 	}
 }
 
+func TestEvaluatePolicyServiceVsCommand(t *testing.T) {
+	t.Parallel()
+	reg := mustRegistry(t)
+	snap := mustSnap(t, smallYAML)
+	tester := Actor{ID: "tester", Scopes: []string{"policy:test"}}
+
+	sess, err := reg.Invoke(context.Background(), IDPolicyEvaluate, snap, Input{
+		Actor:   tester,
+		Request: EvaluatePolicyRequest{UserID: "alice", ClientID: "sw", Service: "shell"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := sess.Data.(PolicyTrace)
+	if tr.Evaluator != string(domain.RuleKindService) || tr.Decision != "deny" {
+		t.Fatalf("session trace=%+v", tr)
+	}
+
+	cmd, err := reg.Invoke(context.Background(), IDPolicyEvaluate, snap, Input{
+		Actor:   tester,
+		Request: EvaluatePolicyRequest{UserID: "alice", ClientID: "sw", Service: "shell", Cmd: "show", CmdArgs: []string{"ver"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctr := cmd.Data.(PolicyTrace)
+	if ctr.Evaluator != string(domain.RuleKindCommand) || ctr.Decision != "permit_add" {
+		t.Fatalf("command trace=%+v", ctr)
+	}
+	for _, st := range ctr.Steps {
+		if st.Kind == string(domain.RuleKindService) {
+			t.Fatalf("command walk hit service rule: %+v", st)
+		}
+	}
+}
+
+func TestEvaluatePolicyRequiresUserAndScope(t *testing.T) {
+	t.Parallel()
+	reg := mustRegistry(t)
+	snap := mustSnap(t, smallYAML)
+	_, err := reg.Invoke(context.Background(), IDPolicyEvaluate, snap, Input{Actor: reader, Request: EvaluatePolicyRequest{UserID: "alice"}})
+	if !isCode(err, domain.CodePermissionDenied) {
+		t.Fatalf("scope err=%v", err)
+	}
+	tester := Actor{ID: "tester", Scopes: []string{"policy:test"}}
+	_, err = reg.Invoke(context.Background(), IDPolicyEvaluate, snap, Input{Actor: tester, Request: EvaluatePolicyRequest{}})
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("user err=%v", err)
+	}
+}
+
 func TestInvokeConcurrentReads(t *testing.T) {
 	t.Parallel()
 	reg := mustRegistry(t)

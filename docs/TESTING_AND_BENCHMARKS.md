@@ -34,7 +34,9 @@ Cover:
 - token hashing and scope checks.
 - cursor and revision behavior.
 - common error mapping.
-- operation registry completeness against `api/operations.yaml` (every ID registered; status/build against a real snapshot).
+- operation registry completeness against `api/operations.yaml` (every ID registered; status/build/policy.evaluate against a real snapshot).
+- REST/MCP parity for `system.status.get` and `policy.evaluate` (same operation registry; adapters never call each other).
+- ASCII LOGIN + one service rule + one command rule + accounting START through the legacy listener (`cmd/taclabd` e2e).
 
 Unit tests must be deterministic and use injectable clocks/random sources.
 

@@ -158,7 +158,7 @@ type Service interface {
 }
 ```
 
-Actual interfaces may be split by responsibility, but TACACS packet structs must not leak into the domain API.
+The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and accounting START accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
 
 ### 4.7 `internal/tacacs/codec`
 
@@ -200,7 +200,7 @@ Responsibilities:
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
 
-`taclabd serve --config` binds only this listener. The TLS and HTTP sockets remain unimplemented; enabled-but-unimplemented listeners are logged and skipped.
+`taclabd serve --config` binds the legacy TACACS listener and, when enabled, the HTTP admin listener (REST + MCP). The TLS socket remains unimplemented; an enabled TLS listener is logged and skipped.
 
 ### 4.10 `internal/tacacs/tls`
 
@@ -232,7 +232,7 @@ The canonical administrative application API. Each operation has:
 
 Operation handlers invoke state, AAA, event, and token services. REST and MCP register adapters from this registry or are verified against it by generated tests.
 
-The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. `system.status.get` and `system.build.get` read a published `state.Snapshot`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
+The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. `system.status.get`, `system.build.get`, and `policy.evaluate` read a published `state.Snapshot`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
 
 ### 4.12 `internal/api/rest`
 
@@ -246,6 +246,8 @@ Responsibilities:
 - support cursor pagination, conditional revision writes, and idempotency keys.
 - serve OpenAPI.
 - provide SSE event streams.
+
+This skeleton serves `/health/live`, `/health/ready`, `GET /api/v1/status`, `POST /api/v1/policy/evaluate`, and a write-deadline-opt-out SSE stub at `/api/v1/events/stream`. Adapters invoke the operation registry and never the MCP package.
 
 It contains no independent business rules.
 
@@ -263,6 +265,8 @@ Responsibilities:
 
 MCP is not an internal RPC bus. It calls the operation registry directly.
 
+This skeleton implements `server/discover` and tools `taclab.system.status.get` / `taclab.policy.evaluate` as a thin Streamable HTTP adapter. The official Go SDK (`v1.7.0`) requires Go 1.25; this repo is pinned to 1.24.5, so PR-17 replaces the adapter with the SDK. GET/DELETE `/mcp` return 405.
+
 ### 4.14 `internal/events`
 
 Responsibilities:
@@ -274,7 +278,7 @@ Responsibilities:
 - fan out live events to REST SSE and MCP subscribers.
 - emit redacted structured logs and metrics.
 
-Accounting success is returned only after the accounting record has been accepted by the authoritative in-memory accounting sink. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics.
+This skeleton is a bounded overwrite-oldest ring. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE fan-out and MCP listen notifications are later work. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics.
 
 ### 4.15 `web`
 

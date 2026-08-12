@@ -21,6 +21,9 @@ type Identity struct {
 type Env struct {
 	Identity
 	SessionID uint32
+	// ConnKey is unique per accepted connection so ASCII conversations
+	// from different peers cannot share session_id state.
+	ConnKey uint64
 }
 
 // Handler is the AAA hook. Full ASCII/PAP/CHAP conversations are owned by

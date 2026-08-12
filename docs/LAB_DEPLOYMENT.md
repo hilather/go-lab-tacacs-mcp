@@ -117,6 +117,8 @@ The release image must:
 
 No Linux capability should be required when high container ports are mapped from the host. The reference deployment must drop all capabilities and set `no-new-privileges`.
 
+Until the 1.0 image (PR-21), a high-port smoke Compose file lives at `deployments/compose/compose.smoke.yaml`. It maps host `14949` → container `4949` and host `18080` → container `8080`. It does not publish privileged ports 49 or 300.
+
 ## 6. Reference directory layout
 
 ```text

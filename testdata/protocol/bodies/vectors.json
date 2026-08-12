@@ -393,19 +393,22 @@
     {
       "name": "acct-reply-success",
       "family": "acct_reply",
-      "raw_hex": "0100000000",
+      "raw_hex": "0000000001",
       "len": 5,
       "fields": {
-        "status": 1
+        "status": 1,
+        "layout": "server_msg_len||data_len||status"
       }
     },
     {
       "name": "acct-reply-error",
       "family": "acct_reply",
-      "raw_hex": "02000200006e6f",
+      "raw_hex": "00020000026e6f",
       "len": 7,
       "fields": {
-        "status": 2
+        "status": 2,
+        "server_msg": "no",
+        "layout": "server_msg_len||data_len||status"
       }
     }
   ],
@@ -458,6 +461,13 @@
       "raw_hex": "0c060101010500000061646d696e",
       "len": 14,
       "reason": "acct_flags"
+    },
+    {
+      "name": "acct-reply-control-data",
+      "family": "acct_reply",
+      "raw_hex": "000000010101",
+      "len": 6,
+      "reason": "non_printable"
     }
   ]
 }

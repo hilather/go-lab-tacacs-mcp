@@ -71,6 +71,34 @@ func TestAcctReplyAndFollow(t *testing.T) {
 	}
 }
 
+func TestAcctReplyRFC8907FieldOrder(t *testing.T) {
+	t.Parallel()
+	empty, err := (AcctReply{Status: AcctStatusSuccess}).Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(empty) != string([]byte{0, 0, 0, 0, AcctStatusSuccess}) {
+		t.Fatalf("empty SUCCESS %x", empty)
+	}
+	raw, err := (AcctReply{Status: AcctStatusError, ServerMsg: []byte("no"), Data: []byte("log")}).Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw[0] != 0 || raw[1] != 2 || raw[2] != 0 || raw[3] != 3 || raw[4] != AcctStatusError {
+		t.Fatalf("prefix %x is not server_msg_len||data_len||status", raw[:5])
+	}
+	got, err := DecodeAcctReply(raw)
+	if err != nil || string(got.ServerMsg) != "no" || string(got.Data) != "log" {
+		t.Fatalf("%#v %v", got, err)
+	}
+	if _, err := (AcctReply{Status: AcctStatusSuccess, Data: []byte{0x01}}).Encode(); !errors.Is(err, ErrNonPrintable) {
+		t.Fatalf("data encode: %v", err)
+	}
+	if _, err := DecodeAcctReply([]byte{0, 0, 0, 1, AcctStatusSuccess, 0x01}); !errors.Is(err, ErrNonPrintable) {
+		t.Fatalf("data decode: %v", err)
+	}
+}
+
 func TestClassifyAcctAuthorMinor(t *testing.T) {
 	t.Parallel()
 	if ClassifyAcctMinor(0) != DispositionAccept || ClassifyAuthorMinor(0) != DispositionAccept {

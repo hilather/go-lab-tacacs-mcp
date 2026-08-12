@@ -40,7 +40,7 @@ func (d Disposition) AuthenStatus() byte {
 func KnownAuthenService(service byte) bool {
 	switch service {
 	case AuthenServiceNone, AuthenServiceLogin, AuthenServiceEnable, AuthenServicePPP,
-		AuthenServiceARAP, AuthenServicePT, AuthenServiceRCMD, AuthenServiceX25,
+		AuthenServicePT, AuthenServiceRCMD, AuthenServiceX25,
 		AuthenServiceNASI, AuthenServiceFWProxy:
 		return true
 	default:

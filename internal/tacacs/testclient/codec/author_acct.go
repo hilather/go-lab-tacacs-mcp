@@ -162,6 +162,9 @@ func ReadAuthorRep(p []byte) (AuthorRep, error) {
 	if err := mustPrint("server_msg", msg); err != nil {
 		return AuthorRep{}, err
 	}
+	if err := mustPrint("data", data); err != nil {
+		return AuthorRep{}, err
+	}
 	return AuthorRep{Status: st, Msg: clone(msg), Data: clone(data), Pairs: pairs}, nil
 }
 
@@ -170,6 +173,9 @@ func WriteAuthorRep(z AuthorRep) ([]byte, error) {
 		return nil, ErrFollow
 	}
 	if err := mustPrint("server_msg", z.Msg); err != nil {
+		return nil, err
+	}
+	if err := mustPrint("data", z.Data); err != nil {
 		return nil, err
 	}
 	ml, err := fit16(z.Msg)
@@ -344,34 +350,23 @@ type AcctRep struct {
 }
 
 func ReadAcctRep(p []byte) (AcctRep, error) {
-	s := slice{p: p}
-	st, err := s.octet()
-	if err != nil {
-		return AcctRep{}, err
-	}
-	ml, err := s.word()
-	if err != nil {
-		return AcctRep{}, err
-	}
-	dl, err := s.word()
-	if err != nil {
-		return AcctRep{}, err
-	}
-	if s.left() != int(ml)+int(dl) {
+	// RFC 8907 §7.2: server_msg_len || data_len || status || fields.
+	if len(p) < 5 {
 		return AcctRep{}, ErrLen
 	}
-	msg, err := s.take(int(ml))
-	if err != nil {
-		return AcctRep{}, err
+	ml := be16(p[0:2])
+	dl := be16(p[2:4])
+	st := p[4]
+	need := int(ml) + int(dl)
+	if len(p)-5 != need {
+		return AcctRep{}, ErrLen
 	}
-	data, err := s.take(int(dl))
-	if err != nil {
-		return AcctRep{}, err
-	}
-	if err := s.empty(); err != nil {
-		return AcctRep{}, err
-	}
+	msg := p[5 : 5+int(ml)]
+	data := p[5+int(ml) : 5+need]
 	if err := mustPrint("server_msg", msg); err != nil {
+		return AcctRep{}, err
+	}
+	if err := mustPrint("data", data); err != nil {
 		return AcctRep{}, err
 	}
 	return AcctRep{Status: st, Msg: clone(msg), Data: clone(data)}, nil
@@ -382,6 +377,9 @@ func WriteAcctRep(z AcctRep) ([]byte, error) {
 		return nil, ErrFollow
 	}
 	if err := mustPrint("server_msg", z.Msg); err != nil {
+		return nil, err
+	}
+	if err := mustPrint("data", z.Data); err != nil {
 		return nil, err
 	}
 	ml, err := fit16(z.Msg)
@@ -396,12 +394,12 @@ func WriteAcctRep(z AcctRep) ([]byte, error) {
 	if err := capBody(n); err != nil {
 		return nil, err
 	}
-	out := make([]byte, 5, n)
-	out[0] = z.Status
-	put16(out[1:3], ml)
-	put16(out[3:5], dl)
-	out = append(out, z.Msg...)
-	out = append(out, z.Data...)
+	out := make([]byte, n)
+	put16(out[0:2], ml)
+	put16(out[2:4], dl)
+	out[4] = z.Status
+	copy(out[5:], z.Msg)
+	copy(out[5+int(ml):], z.Data)
 	return out, nil
 }
 

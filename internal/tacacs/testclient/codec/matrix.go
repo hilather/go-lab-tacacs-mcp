@@ -25,7 +25,7 @@ const (
 
 func knownSvc(s byte) bool {
 	switch s {
-	case SvcNone, SvcLogin, SvcEnable, SvcPPP, SvcARAP, SvcPT, SvcRCMD, SvcX25, SvcNASI, SvcFWProxy:
+	case SvcNone, SvcLogin, SvcEnable, SvcPPP, SvcPT, SvcRCMD, SvcX25, SvcNASI, SvcFWProxy:
 		return true
 	default:
 		return false

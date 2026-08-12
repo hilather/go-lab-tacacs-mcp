@@ -15,10 +15,11 @@ const (
 	AuthenTypeMSCHAP   = 0x05
 	AuthenTypeMSCHAPV2 = 0x06
 
-	AuthenServiceNone    = 0x00
-	AuthenServiceLogin   = 0x01
-	AuthenServiceEnable  = 0x02
-	AuthenServicePPP     = 0x03
+	AuthenServiceNone   = 0x00
+	AuthenServiceLogin  = 0x01
+	AuthenServiceEnable = 0x02
+	AuthenServicePPP    = 0x03
+	// AuthenServiceARAP is the removed Draft service 0x04. RFC 8907 does not list it.
 	AuthenServiceARAP    = 0x04
 	AuthenServicePT      = 0x05
 	AuthenServiceRCMD    = 0x06

@@ -13,10 +13,4 @@ var (
 
 	// ErrConnLimit is returned when the listener connection cap is reached.
 	ErrConnLimit = errors.New("connection limit reached")
-
-	// ErrSessionLimit is returned when a connection is at its session cap.
-	ErrSessionLimit = errors.New("session limit reached")
-
-	// ErrUnknownClient is returned when the peer matches no compiled client.
-	ErrUnknownClient = errors.New("no client matches the peer")
 )

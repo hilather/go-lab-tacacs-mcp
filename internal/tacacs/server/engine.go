@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,7 +11,6 @@ import (
 type Engine struct {
 	Limits  Limits
 	Handler Handler
-	Logger  *slog.Logger
 
 	sem    chan struct{}
 	wg     sync.WaitGroup
@@ -26,14 +24,14 @@ func (e *Engine) init() {
 		if e.Handler == nil {
 			e.Handler = Stub{}
 		}
-		if e.Logger == nil {
-			e.Logger = slog.Default()
-		}
 		if e.Limits.MaxConnections > 0 {
 			e.sem = make(chan struct{}, e.Limits.MaxConnections)
 		}
 	})
 }
+
+// Prepare initializes the engine so Accept can check the cap immediately.
+func (e *Engine) Prepare() { e.init() }
 
 // Active is the number of connections currently inside Serve.
 func (e *Engine) Active() int {
@@ -70,13 +68,19 @@ func (e *Engine) Release() {
 	}
 }
 
-// Serve runs one bound connection. It occupies a slot for the duration.
+// Serve acquires a slot and runs one bound connection.
 func (e *Engine) Serve(ctx context.Context, pio PacketIO, id Identity) error {
 	e.init()
 	if !e.TryAcquire() {
 		_ = pio.Close()
 		return ErrConnLimit
 	}
+	return e.ServeHeld(ctx, pio, id)
+}
+
+// ServeHeld runs a connection that already holds a slot from TryAcquire.
+func (e *Engine) ServeHeld(ctx context.Context, pio PacketIO, id Identity) error {
+	e.init()
 	e.wg.Add(1)
 	defer e.wg.Done()
 	defer e.Release()

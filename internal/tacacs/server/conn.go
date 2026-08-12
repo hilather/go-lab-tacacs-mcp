@@ -92,7 +92,15 @@ func (cs *connState) readLoop(ctx context.Context) error {
 
 		hdr, body, err := cs.pio.Read(ctx, cs.lim.MaxPacketBodyBytes, cs.readDeadline(first))
 		if err != nil {
-			return cs.handleReadError(ctx, hdr, err)
+			cont, herr := cs.handleReadError(ctx, hdr, err)
+			first = false
+			if !cont {
+				return herr
+			}
+			if cs.shouldClose() {
+				return nil
+			}
+			continue
 		}
 		cs.lastAct.Store(time.Now().UnixNano())
 
@@ -141,20 +149,20 @@ func (cs *connState) readDeadline(first bool) time.Time {
 	return dl
 }
 
-func (cs *connState) handleReadError(ctx context.Context, hdr codec.Header, err error) error {
+func (cs *connState) handleReadError(ctx context.Context, hdr codec.Header, err error) (cont bool, out error) {
 	switch {
 	case errors.Is(err, ErrUnencrypted):
 		cs.replyError(ctx, hdr)
 		cs.drain.Store(true)
-		return ErrUnencrypted
+		return true, nil
 	case errors.Is(err, codec.ErrBodyTooLarge):
 		if hdr.KnownType() {
 			cs.replyError(ctx, hdr)
 		}
 		cs.drain.Store(true)
-		return err
+		return false, err
 	default:
-		return err
+		return false, err
 	}
 }
 
@@ -178,7 +186,7 @@ func (cs *connState) handlePacket(ctx context.Context, hdr codec.Header, body []
 	if err := hdr.Validate(); err != nil {
 		cs.replyError(ctx, hdr)
 		cs.drain.Store(true)
-		return err
+		return nil
 	}
 
 	cs.mu.Lock()
@@ -248,6 +256,8 @@ func (s *session) offer(ctx context.Context, p packet) bool {
 		return false
 	case s.in <- p:
 		return true
+	default:
+		return false
 	}
 }
 
@@ -463,7 +473,10 @@ func (cs *connState) replyError(ctx context.Context, req codec.Header) {
 	}
 	seq, err := codec.NextSeq(req.SeqNo)
 	if err != nil {
-		return
+		if req.SeqNo != 0 {
+			return
+		}
+		seq = 1
 	}
 	h := codec.Header{
 		Version:   req.Version,

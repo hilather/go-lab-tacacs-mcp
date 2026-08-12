@@ -33,6 +33,11 @@ func New(nc net.Conn, key []byte) *Conn {
 	return &Conn{nc: nc, key: append([]byte(nil), key...)}
 }
 
+// SetKey replaces the obfuscation key. Callers must not race I/O.
+func (c *Conn) SetKey(key []byte) {
+	c.key = append([]byte(nil), key...)
+}
+
 // Close closes the underlying connection.
 func (c *Conn) Close() error {
 	if c == nil || c.nc == nil {

@@ -151,10 +151,22 @@ func authenStartBody() []byte {
 }
 
 func startServe(lim Limits) (client net.Conn, done chan error) {
+	return startServeH(lim, Stub{})
+}
+
+func startServeH(lim Limits, h Handler) (client net.Conn, done chan error) {
 	a, b := net.Pipe()
 	done = make(chan error, 1)
 	go func() {
-		done <- ServeConn(context.Background(), &pipeIO{nc: b}, testIdentity(), lim, Stub{})
+		done <- ServeConn(context.Background(), &pipeIO{nc: b}, testIdentity(), lim, h)
 	}()
 	return a, done
+}
+
+func continueBody() []byte {
+	b, err := codec.AuthenContinue{}.Encode()
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

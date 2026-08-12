@@ -230,6 +230,8 @@ The canonical administrative application API. Each operation has:
 
 Operation handlers invoke state, AAA, event, and token services. REST and MCP register adapters from this registry or are verified against it by generated tests.
 
+The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. `system.status.get` and `system.build.get` read a published `state.Snapshot`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
+
 ### 4.12 `internal/api/rest`
 
 Responsibilities:

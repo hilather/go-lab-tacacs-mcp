@@ -12,7 +12,7 @@ The UI uses REST. Automation may use REST or MCP. A lab operator must not receiv
 
 ## 2. Source of truth
 
-The repository contains a machine-readable operation registry at `api/operations.yaml`. Typed Go handlers are added later and must keep the same IDs.
+The repository contains a machine-readable operation registry at `api/operations.yaml`. Typed Go handlers live in `internal/api/operations` and must keep the same IDs. REST and MCP adapters invoke that registry; they do not implement business logic.
 
 Each operation descriptor includes:
 

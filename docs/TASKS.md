@@ -912,14 +912,14 @@ The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a ra
 
 **Depends on:** P2 services, P6/P7 diagnostics as available
 
-- [ ] Define stable operation IDs, request/result types, scopes, mutability, idempotency, revision behavior, and REST/MCP bindings.
-- [ ] Generate or validate parity documentation.
-- [ ] Make protocol-only and UI-session-only exceptions explicit.
-- [ ] Prevent transport handlers from constructing domain state directly.
+- [x] Define stable operation IDs, request/result types, scopes, mutability, idempotency, revision behavior, and REST/MCP bindings.
+- [x] Generate or validate parity documentation.
+- [x] Make protocol-only and UI-session-only exceptions explicit.
+- [x] Prevent transport handlers from constructing domain state directly.
 
 **Tests**
 
-- [ ] Missing binding/scope/schema/error mapping fails registry tests.
+- [x] Missing binding/scope/schema/error mapping fails registry tests.
 
 ### P9.2 Implement typed application service handlers
 

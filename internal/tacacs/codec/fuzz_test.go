@@ -1,6 +1,7 @@
 package codec
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -86,6 +87,113 @@ func FuzzDecodePacket(f *testing.F) {
 		cap := ClampMaxBody(max)
 		if uint32(len(body)) > cap {
 			t.Fatalf("body %d > cap %d", len(body), cap)
+		}
+	})
+}
+
+func addBodySeeds(f *testing.F) {
+	f.Helper()
+	dir := protocolFile(f, "fuzz", "bodies")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(raw)
+	}
+}
+
+func FuzzAuthenStart(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		st, err := DecodeAuthenStart(data)
+		if err != nil {
+			return
+		}
+		enc, err := st.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := DecodeAuthenStart(enc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Action != st.Action || got.Type != st.Type || got.Service != st.Service {
+			t.Fatalf("round-trip %#v vs %#v", got, st)
+		}
+		_, _ = ClassifyAuthenStart(0, st)
+		_, _ = ClassifyAuthenStart(1, st)
+	})
+}
+
+func FuzzAuthorRequest(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		req, err := DecodeAuthorRequest(data)
+		if err != nil {
+			return
+		}
+		enc, err := req.Encode()
+		if err != nil {
+			return
+		}
+		if uint32(len(enc)) > MaxBodyBytes {
+			t.Fatalf("encoded %d", len(enc))
+		}
+	})
+}
+
+func FuzzAcctRequest(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		req, err := DecodeAcctRequest(data)
+		if err != nil && !errors.Is(err, ErrAcctFlags) {
+			return
+		}
+		if err == nil && !ValidAcctFlags(req.Flags) {
+			t.Fatalf("accepted flags %#x", req.Flags)
+		}
+	})
+}
+
+func FuzzSequence(f *testing.F) {
+	dir := protocolFile(f, "fuzz", "sequence")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, e := range entries {
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(raw)
+	}
+	f.Add([]byte{1, 3, 5})
+	f.Add([]byte{0, 2, 255})
+	f.Fuzz(func(t *testing.T, seqs []byte) {
+		s := NewSequence(1, TypeAuthen)
+		for _, seq := range seqs {
+			h := Header{Version: 0xc0, Type: TypeAuthen, SeqNo: seq, SessionID: 1}
+			if err := s.CheckRequest(h); err != nil {
+				if s.Closed() {
+					return
+				}
+				continue
+			}
+			if !ClientSeq(seq) {
+				t.Fatalf("accepted even or zero seq %d", seq)
+			}
+			if _, err := s.NextReply(0); err != nil {
+				return
+			}
 		}
 	})
 }

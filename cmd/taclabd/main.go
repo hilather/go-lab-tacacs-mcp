@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -26,7 +27,8 @@ Usage:
   taclabd version
   taclabd -h | --help
 
-Protocol listeners and admin surfaces are not implemented in this skeleton.
+serve binds listeners.legacy_tacacs only. The TLS and HTTP listeners
+are not implemented in this build.
 `
 
 func main() {
@@ -45,7 +47,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	cmd := args[0]
 	switch cmd {
-	case "serve", "validate", "print-effective", "healthcheck":
+	case "serve":
+		if isHelp(args[1:]) {
+			fmt.Fprint(stdout, usage)
+			return 0
+		}
+		return serve(context.Background(), args[1:], stdout, stderr)
+	case "validate", "print-effective", "healthcheck":
 		if isHelp(args[1:]) {
 			fmt.Fprint(stdout, usage)
 			return 0

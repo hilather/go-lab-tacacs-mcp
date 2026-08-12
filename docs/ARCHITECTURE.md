@@ -172,7 +172,7 @@ Responsibilities:
 
 The codec is independent of network I/O and can be tested using byte slices and readers with deliberate short reads.
 
-1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header encode/decode, unknown-type §3.6 replies, bounded body allocation, and the RFC 8907 §4.5 pad live here; packet-family bodies are not implemented yet. Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
+1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header encode/decode, unknown-type §3.6 replies, bounded body allocation, RFC 8907 §4.5 pad, and packet-family bodies live here. Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
 
 ### 4.8 `internal/tacacs/server`
 
@@ -188,7 +188,7 @@ Responsibilities:
 - Translate AAA results to RFC-correct replies.
 - Coordinate shutdown without abandoning accepted accounting records.
 
-The session map is connection-local. Single-connect sessions may execute concurrently, but packets within one authentication session are serialized in sequence order.
+The session map is connection-local. Single-connect sessions may execute concurrently, but packets within one authentication session are serialized in sequence order. Transport adapters call `ServeConn` after identity bind; the first request/reply pair is processed synchronously so a second session cannot start before single-connect negotiation completes.
 
 ### 4.9 `internal/tacacs/legacy`
 
@@ -199,6 +199,8 @@ Responsibilities:
 - select the client's shared secret.
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
+
+`taclabd serve --config` binds only this listener. The TLS and HTTP sockets remain unimplemented; enabled-but-unimplemented listeners are logged and skipped.
 
 ### 4.10 `internal/tacacs/tls`
 

@@ -124,7 +124,7 @@ func TestSingleConnectNegotiation(t *testing.T) {
 	if err := sc.AllowNewSession(); !errors.Is(err, ErrPrematurePacket) {
 		t.Fatalf("guard: %v", err)
 	}
-	if !sc.OnServerFirst(FlagSingleConnect) || !sc.Negotiated() {
+	if !sc.OnServerFirst(FlagSingleConnect) || !sc.Negotiated() || !sc.Complete() {
 		t.Fatal("both flags")
 	}
 	if err := sc.AllowNewSession(); err != nil {

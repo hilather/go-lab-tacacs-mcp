@@ -46,14 +46,14 @@ func TestUnknownCommand(t *testing.T) {
 	}
 }
 
-func TestServeStub(t *testing.T) {
+func TestServeRequiresConfig(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"serve", "--config", "lab.yaml"}, &stdout, &stderr)
+	code := run([]string{"serve"}, &stdout, &stderr)
 	if code != 2 {
-		t.Fatalf("exit %d, want 2", code)
+		t.Fatalf("exit %d, want 2, stderr=%q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "not implemented") {
+	if !strings.Contains(stderr.String(), "--config") {
 		t.Fatalf("stderr=%q", stderr.String())
 	}
 }

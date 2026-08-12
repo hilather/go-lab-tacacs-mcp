@@ -485,92 +485,92 @@ The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a ra
 
 **Depends on:** P2 snapshot, P3 codec
 
-- [ ] Bind configured addresses.
-- [ ] Apply connection limits and timeouts.
-- [ ] Support graceful drain and shutdown.
-- [ ] Report listener readiness and runtime failures.
-- [ ] Keep legacy and TLS listeners structurally separate while sharing the session engine.
+- [x] Bind configured addresses.
+- [x] Apply connection limits and timeouts.
+- [x] Support graceful drain and shutdown.
+- [x] Report listener readiness and runtime failures.
+- [x] Keep legacy and TLS listeners structurally separate while sharing the session engine.
 
 **Tests**
 
-- [ ] Bind failure, shutdown, timeout, and readiness transitions.
-- [ ] Leak tests for repeated start/stop.
+- [x] Bind failure, shutdown, timeout, and readiness transitions.
+- [x] Leak tests for repeated start/stop.
 
 ### P4.2 Implement client matching
 
 **Depends on:** P2 indexes, P4.1
 
-- [ ] Match transport and source IP using deterministic ordering.
-- [ ] Select legacy shared secret only after a unique client match.
-- [ ] Fail closed for unknown or ambiguous clients.
-- [ ] Store sanitized connection identity for events.
+- [x] Match transport and source IP using deterministic ordering.
+- [x] Select legacy shared secret only after a unique client match.
+- [x] Fail closed for unknown or ambiguous clients.
+- [x] Store sanitized connection identity for events.
 
 **Tests and benchmarks**
 
-- [ ] IPv4/IPv6, overlapping CIDRs, priority, and unknown client cases.
-- [ ] Benchmark client matching at maximum reference client count.
+- [x] IPv4/IPv6, overlapping CIDRs, priority, and unknown client cases.
+- [x] Benchmark client matching at maximum reference client count.
 
 ### P4.3 Implement connection/session dispatcher
 
 **Depends on:** P3, P4.2
 
-- [ ] Read exact headers and bounded bodies.
-- [ ] Decode legacy body after client selection.
-- [ ] Dispatch by packet type and session ID.
-- [ ] Isolate per-session state.
-- [ ] Apply cancellation on disconnect and shutdown.
-- [ ] Prevent one connection from monopolizing worker resources.
+- [x] Read exact headers and bounded bodies.
+- [x] Decode legacy body after client selection.
+- [x] Dispatch by packet type and session ID.
+- [x] Isolate per-session state.
+- [x] Apply cancellation on disconnect and shutdown.
+- [x] Prevent one connection from monopolizing worker resources.
 
 **Regression tests**
 
-- [ ] Interleaved session IDs.
-- [ ] Duplicate session ID while active.
-- [ ] Partial reads/writes and abrupt disconnects.
-- [ ] Slowloris and timeout behavior.
+- [x] Interleaved session IDs.
+- [x] Duplicate session ID while active.
+- [x] Partial reads/writes and abrupt disconnects.
+- [x] Slowloris and timeout behavior.
 
 **Benchmarks**
 
-- [ ] End-to-end in-memory connection dispatch without credential cost.
+- [x] End-to-end in-memory connection dispatch without credential cost.
 
 ### P4.4 Implement single-connect
 
 **Depends on:** P4.3
 
-- [ ] Negotiate and reflect the single-connect flag correctly.
-- [ ] Keep eligible connections open between sessions.
-- [ ] Support concurrent sessions safely.
-- [ ] Enforce idle, lifetime, and session-count bounds.
-- [ ] Close or reject invalid flag/sequence behavior predictably.
+- [x] Negotiate and reflect the single-connect flag correctly.
+- [x] Keep eligible connections open between sessions.
+- [x] Support concurrent sessions safely.
+- [x] Enforce idle, lifetime, and session-count bounds.
+- [x] Close or reject invalid flag/sequence behavior predictably.
 
 **Tests**
 
-- [ ] Negotiated and non-negotiated cases.
-- [ ] Multiplexed authentication, authorization, and accounting sessions.
-- [ ] Race, leak, timeout, and forced-close cases.
+- [x] Negotiated and non-negotiated cases.
+- [x] Multiplexed authentication, authorization, and accounting sessions.
+- [x] Race, leak, timeout, and forced-close cases.
 
 **Benchmarks**
 
-- [ ] Connection-per-session versus single-connect throughput and allocations.
+- [x] Connection-per-session versus single-connect throughput and allocations.
 
 ### P4.5 Implement protocol-safe error strategy
 
 **Depends on:** P4.3
 
-- [ ] Map parser, state, policy, internal, timeout, and resource errors to allowed reply/close behavior.
-- [ ] Avoid oracle-like detail on the wire.
-- [ ] Emit stable internal error codes with redacted context.
-- [ ] Define which malformed inputs require immediate connection close.
+- [x] Map parser, state, policy, internal, timeout, and resource errors to allowed reply/close behavior.
+- [x] Avoid oracle-like detail on the wire.
+- [x] Emit stable internal error codes with redacted context.
+- [x] Define which malformed inputs require immediate connection close.
 
 **Documentation**
 
-- [ ] Update error handling tables in `DESIGN.md` and `TACACS_CONFORMANCE.md`.
+- [x] Update error handling tables in `DESIGN.md` and `TACACS_CONFORMANCE.md`.
 
 ### P4 exit gate
 
-- [ ] Legacy listener can safely carry all packet families to stub handlers.
-- [ ] Single-connect race and load tests pass.
-- [ ] Source matching and body transformation are correct.
-- [ ] Connection/resource benchmarks are recorded.
+- [x] Legacy listener can safely carry all packet families to stub handlers.
+- [x] Single-connect race and load tests pass.
+- [x] Source matching and body transformation are correct.
+- [x] Connection/resource benchmarks are recorded.
 
 ## 8. Milestone P5 - Authentication service completeness
 
@@ -1484,7 +1484,7 @@ The first sprint should produce a thin, testable vertical skeleton rather than U
 - [x] P1 protocol ADR and packet spike.
 - [ ] P2 minimal strict config, state snapshot, one client, one group, one user.
 - [ ] P3 common header plus minimal ASCII packet codec with golden/fuzz tests.
-- [ ] P4 legacy listener with safe connection lifecycle.
+- [x] P4 legacy listener with safe connection lifecycle.
 - [ ] P5 ASCII authentication success/failure using the real credential service.
 - [ ] P6 one shell and one command authorization rule through the real policy engine.
 - [ ] P7 one accounting START event in the bounded ring.

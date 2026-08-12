@@ -436,6 +436,28 @@ The connection reader must not create unbounded goroutines or queues. When sessi
 
 Writes on one connection are serialized to preserve packet boundaries. Fairness must prevent one session from starving others.
 
+### 10.6 Connection and session errors
+
+Replies never include secrets, internal traces, or decoder details. `server_msg` is empty for protocol ERROR.
+
+| Condition | Wire | Connection |
+|---|---|---|
+| Unknown peer / no client match | no packet | close |
+| Connection cap reached | no packet | close |
+| `TAC_PLUS_UNENCRYPTED_FLAG` on legacy | type-specific ERROR | no new sessions; drain; close |
+| Body length-sum mismatch after deobfuscation | type-specific ERROR | no new sessions; drain; close |
+| Unknown header type | identical header, seq+1, length 0 | drain; close |
+| Unsupported major or sequence 0 | type-specific ERROR if type known | drain; close |
+| Body longer than `max_packet_body_bytes` | type-specific ERROR if type known | close |
+| Per-connection session cap | type-specific ERROR | stay open if single-connect |
+| Active session ID reused with a different type | type-specific ERROR | that session ends |
+| Idle timeout or `single_connect.max_lifetime` | none | close |
+| Malformed body that is not a length-sum failure | type-specific ERROR | that session ends |
+| Invalid accounting flags | ACCT ERROR | that session ends |
+| SENDAUTH / SENDPASS / unknown action | AUTHEN ERROR | that session ends |
+
+AAA remains protocol-independent. The PR-10 stub replies ERROR for accepted authentication starts, FAIL for authorization, and SUCCESS for valid accounting flags. Full ASCII and policy are later work.
+
 ## 11. Authentication design
 
 ### 11.1 Supported flows

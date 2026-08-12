@@ -46,7 +46,8 @@ type AuthenticationStep struct {
 }
 
 // AuthorizationRequest is protocol-independent authorization input.
-// AuthenType and AuthenService are observational auth context (DESIGN §12.1).
+// AuthenType and AuthenService are copied onto the trace only; they are
+// never match keys (matchService / matchCommand use AV service/cmd).
 type AuthorizationRequest struct {
 	UserID        string
 	ClientID      string

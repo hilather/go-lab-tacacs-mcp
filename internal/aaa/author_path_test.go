@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/policy"
 )
@@ -163,25 +164,102 @@ func TestAuthenMethodCodesRecordedNotTrusted(t *testing.T) {
 	}
 }
 
-func TestSensitiveRequestAVsRedactedInTrace(t *testing.T) {
+func TestWireAVsWinOverTypedCmd(t *testing.T) {
 	t.Parallel()
 	svc, _, _ := testService(t)
-	tr, err := svc.ExplainAuthorization(context.Background(), AuthorizationRequest{
+	// lab-admin permits configure only. Typed show would deny; AV configure must permit.
+	dec, err := svc.Authorize(context.Background(), AuthorizationRequest{
 		UserID: "lab-admin", ClientID: "lab-switches",
+		Service: "shell", Cmd: "show", CmdArgs: []string{"ver"},
 		Arguments: domain.AVPairs{
 			av("service", '=', "shell"),
-			av("password", '=', "labpass1!"),
-			av("shared-secret", '=', "LabSecret-16chars!"),
+			av("cmd", '=', "configure"),
+			av("cmd-arg", '=', "terminal"),
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if dec.Decision != domain.DecisionPermitAdd || dec.Status != domain.AuthorStatusPassAdd {
+		t.Fatalf("AV cmd=configure must win over typed show: %+v", dec)
+	}
+	if dec.Trace.Cmd != "configure" || dec.Trace.Evaluator != string(domain.RuleKindCommand) {
+		t.Fatalf("trace cmd/evaluator=%s/%s", dec.Trace.Cmd, dec.Trace.Evaluator)
+	}
+	if !reflect.DeepEqual(dec.Trace.CmdArgs, []string{"terminal"}) {
+		t.Fatalf("cmd-arg from AV: %v", dec.Trace.CmdArgs)
+	}
+}
+
+func TestSensitiveRequestAVsRedactedInTrace(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := testService(t)
+	dec, err := svc.Authorize(context.Background(), AuthorizationRequest{
+		UserID: "lab-admin", ClientID: "lab-switches",
+		Arguments: domain.AVPairs{
+			av("service", '=', "shell"),
+			av("password", '=', "labpass1!"),
+			av("shared-secret", '=', "LabSecret-16chars!"),
+			av("token", '=', "live-token-value"),
+			av("tacacs-key", '=', "LabSecret-16chars!"),
+			av("ms-chap", '=', "challenge-material"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRedact := map[string]struct{}{
+		"password": {}, "shared-secret": {}, "token": {}, "tacacs-key": {}, "ms-chap": {},
+	}
+	for _, a := range dec.Trace.RequestArguments {
+		if _, ok := wantRedact[a.Name]; !ok {
+			continue
+		}
+		if a.Value != "[redacted]" {
+			t.Fatalf("%s not redacted: %q", a.Name, a.Value)
+		}
+	}
+	if !dec.Arguments.Equal(domain.AVPairs{av("priv-lvl", '=', "15")}) {
+		t.Fatalf("wire/decision args must stay unredacted: %+v", dec.Arguments)
+	}
+
+	eng, err := policy.Compile(policy.Input{Users: []config.User{{
+		ID:      "u",
+		Enabled: true,
+		Rules: config.RuleSet{Services: []config.ServiceRule{{
+			Service: "shell",
+			Action:  domain.DecisionPermitAdd,
+			ReplyAttributes: domain.AVPairs{
+				av("token", '=', "live-token-value"),
+				av("tacacs-key", '=', "wire-key"),
+			},
+		}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr, res, err := Evaluate(eng, AuthorizationRequest{
+		UserID: "u",
+		Arguments: domain.AVPairs{
+			av("service", '=', "shell"),
+			av("token", '=', "request-token"),
+			av("tacacs-key", '=', "request-key"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Arguments.Equal(domain.AVPairs{av("token", '=', "live-token-value"), av("tacacs-key", '=', "wire-key")}) {
+		t.Fatalf("decision args must not be redacted: %+v", res.Arguments)
+	}
 	for _, a := range tr.RequestArguments {
-		if a.Name == "password" || a.Name == "shared-secret" {
-			if a.Value != "[redacted]" {
-				t.Fatalf("%s not redacted: %q", a.Name, a.Value)
-			}
+		if (a.Name == "token" || a.Name == "tacacs-key") && a.Value != "[redacted]" {
+			t.Fatalf("request %s leaked: %q", a.Name, a.Value)
+		}
+	}
+	for _, a := range tr.Arguments {
+		if (a.Name == "token" || a.Name == "tacacs-key") && a.Value != "[redacted]" {
+			t.Fatalf("trace reply %s leaked: %q", a.Name, a.Value)
 		}
 	}
 }

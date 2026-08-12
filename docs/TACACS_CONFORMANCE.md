@@ -71,21 +71,21 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 
 | ID | Level | Requirement | Required implementation and evidence | Status |
 |---|---|---|---|---|
-| T89-H-001 | PROJECT MUST | Support TACACS+ major version `0xc` and minor versions 0 and 1 in their valid contexts | Header codec and version table tests | [ ] |
-| T89-H-002 | PROJECT MUST | Support Authentication, Authorization, and Accounting packet types | Independent golden encode/decode fixtures for each request and reply body | [ ] |
-| T89-H-003 | MUST | First packet sequence is 1; client packets are odd and server packets are even | State-machine positive and negative tests | [ ] |
-| T89-H-004 | MUST | Sequence numbers never wrap | Boundary fixture at 255 and required session termination | [ ] |
+| T89-H-001 | PROJECT MUST | Support TACACS+ major version `0xc` and minor versions 0 and 1 in their valid contexts | Header codec and version table tests | [x] |
+| T89-H-002 | PROJECT MUST | Support Authentication, Authorization, and Accounting packet types | Independent golden encode/decode fixtures for each request and reply body | [x] |
+| T89-H-003 | MUST | First packet sequence is 1; client packets are odd and server packets are even | State-machine positive and negative tests | [x] |
+| T89-H-004 | MUST | Sequence numbers never wrap | Boundary fixture at 255 and required session termination | [x] |
 | T89-H-005 | MUST | Unknown header options or unsupported defined options produce ERROR and terminate when packet type is known | Golden malformed cases for each packet type | [ ] |
 | T89-H-006 | MUST | When packet type cannot be determined, return identical clear header with sequence incremented and zero body length as required | Independent raw fixture | [x] |
 | T89-H-007 | MUST | Ignore unknown flag bits when reading and set them to zero when writing | Unit/golden tests | [x] |
-| T89-H-008 | MUST | Session ID remains stable for the session; generated server-side IDs use cryptographic randomness where applicable | Unit test with injectable randomness | [ ] |
+| T89-H-008 | MUST | Session ID remains stable for the session; generated server-side IDs use cryptographic randomness where applicable | Unit test with injectable randomness | [x] |
 | T89-H-009 | MUST | Maximum accepted body size is configurable; default/recommended budget is 65536 bytes | Limit tests before allocation and memory benchmark | [x] |
-| T89-H-010 | MUST | Sum of decoded body component lengths exactly matches header body length | Mismatch fixtures and fuzz assertion | [ ] |
+| T89-H-010 | MUST | Sum of decoded body component lengths exactly matches header body length | Mismatch fixtures and fuzz assertion | [x] |
 | T89-H-011 | MUST | Bounded short-read handling for header and body | Fragmented reader tests and fuzz corpus | [ ] |
 | T89-H-012 | MUST | Username text follows the required UsernameCasePreserved profile | Normalization and invalid-input cases | [ ] |
-| T89-H-013 | MUST | Other text fields reject non-printable control characters where RFC requires printable US-ASCII | Field-specific tests | [ ] |
-| T89-H-014 | MUST | Arbitrary-byte `data` fields are not incorrectly treated as printable text | CHAP/MS-CHAP fixtures | [ ] |
-| T89-H-015 | MUST | A variable-length field whose encoded length is zero is ignored and treated as absent | Zero-length fixtures for every packet family | [ ] |
+| T89-H-013 | MUST | Other text fields reject non-printable control characters where RFC requires printable US-ASCII | Field-specific tests | [x] |
+| T89-H-014 | MUST | Arbitrary-byte `data` fields are not incorrectly treated as printable text | CHAP/MS-CHAP fixtures | [x] |
+| T89-H-015 | MUST | A variable-length field whose encoded length is zero is ignored and treated as absent | Zero-length fixtures for every packet family | [x] |
 | T89-H-016 | PROJECT | All length arithmetic is overflow-safe before slicing or allocating | Boundary, fuzz, and memory-limit tests | [x] |
 
 ## 5. Legacy transport and obfuscation

@@ -46,7 +46,7 @@ TacLab 1.0 implements an **internal codec** in `internal/tacacs/codec`.
 4. `tools/spike` holds the evaluation harness and header/obfuscation experiment. It is not the production codec and must not be imported from `internal/`, `cmd/`, or `web/`.
 5. A later override requires a new ADR that names the isolated encode/decode surface, the pinned module version, the Go-version impact, and executable rows that close every gap below.
 
-Header encode/decode, unknown-type §3.6 zero-body replies, bounded body allocation, and RFC 8907 §4.5 obfuscation live in `internal/tacacs/codec`. Packet-family bodies remain unimplemented. The test client keeps a separate copy under `internal/tacacs/testclient/codec`.
+Header encode/decode, unknown-type §3.6 zero-body replies, bounded body allocation, RFC 8907 §4.5 obfuscation, START/CONTINUE/REPLY, author/acct bodies, the version/status matrix, and sequence/single-connect helpers live in `internal/tacacs/codec`. The test client keeps a separate copy under `internal/tacacs/testclient/codec`.
 
 ## Candidate evaluation
 

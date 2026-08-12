@@ -28,7 +28,7 @@ help:
 	@echo "  make fmt              gofmt -w"
 	@echo "  make lint             gofmt check + go vet (+ staticcheck if installed)"
 	@echo "  make fuzz-smoke       fuzz seed corpus as unit tests"
-	@echo "  make bench            header + 64B/1KiB obfuscate benches under internal/tacacs"
+	@echo "  make bench            header, body, and 64B/1KiB obfuscate benches under internal/tacacs"
 	@echo "  make web-install      npm ci in web/"
 	@echo "  make web-test         npm test (placeholder suite)"
 	@echo "  make web-typecheck    tsc --noEmit"

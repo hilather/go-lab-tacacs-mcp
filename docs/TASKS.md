@@ -215,7 +215,7 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 - [x] Benchmark header/body encode/decode and legacy body transform for representative packet sizes.
 
-The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. Production header + pad live in `internal/tacacs/codec`; the independent copy is `internal/tacacs/testclient/codec`. There is no listener or `net.Conn` adapter yet. Authentication body families and author/acct statuses remain later P3 work.
+The spike under `tools/spike` covers header layout, sequence wrap, single-connect flag inspection, and RFC 8907 §4.5 obfuscation. Production header, body families, and pad live in `internal/tacacs/codec`; the independent copy is `internal/tacacs/testclient/codec`. There is no listener or `net.Conn` adapter yet.
 
 ### P1.3 Decide and isolate the adapter boundary
 
@@ -234,7 +234,7 @@ No library is pinned. The typed codec API lands with P3. An override would requi
 - [x] Every mandatory protocol feature is either demonstrated or has a task and conformance row owner.
 - [x] No README claim from a dependency is accepted as conformance evidence without an executable test.
 
-Body families, sequence machines, and transport adapters remain owned by P3–P4 and the T89/T98 rows.
+Transport adapters remain owned by P4 and the T89/T98 rows.
 
 ### P1 exit gate
 
@@ -420,57 +420,57 @@ The codec exposes `Obfuscate(sessionID, version, seq, key, body)` and takes a ra
 
 **Depends on:** P3.1
 
-- [ ] Encode/decode START, CONTINUE, and REPLY fields.
-- [ ] Enforce per-packet field lengths and total body consistency.
-- [ ] Preserve data/message bytes without unsafe string assumptions.
-- [ ] Validate action/type/service/version combinations in the protocol layer.
+- [x] Encode/decode START, CONTINUE, and REPLY fields.
+- [x] Enforce per-packet field lengths and total body consistency.
+- [x] Preserve data/message bytes without unsafe string assumptions.
+- [x] Validate action/type/service/version combinations in the protocol layer.
 
 **Tests**
 
-- [ ] Golden packet for every action, type, service, and reply status.
-- [ ] Malformed offset/length and continuation flag cases.
+- [x] Golden packet for every action, type, service, and reply status.
+- [x] Malformed offset/length and continuation flag cases.
 
 ### P3.4 Implement authorization packet family
 
 **Depends on:** P3.1
 
-- [ ] Encode/decode REQUEST and RESPONSE.
-- [ ] Preserve argument count/order and AV separators.
-- [ ] Support PASS_ADD, PASS_REPL, FAIL, and ERROR statuses.
-- [ ] Validate length arrays without overflow.
+- [x] Encode/decode REQUEST and RESPONSE.
+- [x] Preserve argument count/order and AV separators.
+- [x] Support PASS_ADD, PASS_REPL, FAIL, and ERROR statuses.
+- [x] Validate length arrays without overflow.
 
 **Tests and benchmarks**
 
-- [ ] Golden cases for empty, duplicate, mandatory, and optional attributes.
-- [ ] Benchmark representative and maximum argument lists.
+- [x] Golden cases for empty, duplicate, mandatory, and optional attributes.
+- [x] Benchmark representative and maximum argument lists.
 
 ### P3.5 Implement accounting packet family
 
 **Depends on:** P3.1
 
-- [ ] Encode/decode REQUEST and REPLY.
-- [ ] Preserve flags and arguments.
-- [ ] Validate START/STOP/WATCHDOG flag semantics.
-- [ ] Support SUCCESS and ERROR replies as specified.
+- [x] Encode/decode REQUEST and REPLY.
+- [x] Preserve flags and arguments.
+- [x] Validate START/STOP/WATCHDOG flag semantics.
+- [x] Support SUCCESS and ERROR replies as specified.
 
 **Tests**
 
-- [ ] Golden records for each valid action.
-- [ ] Invalid zero/multiple action flag cases.
+- [x] Golden records for each valid action.
+- [x] Invalid zero/multiple action flag cases.
 
 ### P3.6 Implement sequence/version/session validation helpers
 
 **Depends on:** P3.3-P3.5
 
-- [ ] Centralize packet sequence state machines by session type.
-- [ ] Enforce client/server odd/even sequence behavior.
-- [ ] Enforce permitted minor versions by authentication flow.
-- [ ] Detect wrap and excessive continuation rounds.
+- [x] Centralize packet sequence state machines by session type.
+- [x] Enforce client/server odd/even sequence behavior.
+- [x] Enforce permitted minor versions by authentication flow.
+- [x] Detect wrap and excessive continuation rounds.
 
 **Tests**
 
-- [ ] Full valid and invalid sequence tables.
-- [ ] Fuzz state-machine transitions.
+- [x] Full valid and invalid sequence tables.
+- [x] Fuzz state-machine transitions.
 
 ### P3 exit gate
 

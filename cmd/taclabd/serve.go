@@ -44,6 +44,7 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func parseConfigFlag(args []string) (string, error) {
 	var path string
+args:
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -56,7 +57,7 @@ func parseConfigFlag(args []string) (string, error) {
 		case len(a) > 9 && a[:9] == "--config=":
 			path = a[9:]
 		case a == "--":
-			break
+			break args
 		case len(a) > 0 && a[0] == '-':
 			return "", fmt.Errorf("unknown flag: %s", a)
 		default:
@@ -67,10 +68,6 @@ func parseConfigFlag(args []string) (string, error) {
 		return "", fmt.Errorf("--config is required")
 	}
 	return path, nil
-}
-
-func runServe(ctx context.Context, path string, stdout, stderr io.Writer) error {
-	return runServeWith(ctx, path, stdout, stderr, nil)
 }
 
 func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h server.Handler) error {

@@ -7,7 +7,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | Go module | `github.com/hilather/go-lab-tacacs-mcp` |
 | Image | `ghcr.io/hilather/go-lab-tacacs-mcp` |
 | License | Apache-2.0 |
-| Go | 1.25.0 |
+| Go | 1.25.12 (module `go 1.25.0`) |
 | Node.js | 22.14.0 |
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not imported — requires Go 1.25; see [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
@@ -88,7 +88,7 @@ On conflict, the canonical design wins over copied packet documents.
 
 ## Prerequisites
 
-- Go **1.25.0** (see `go.mod`)
+- Go **1.25.12** (see `go.mod` `toolchain`)
 - Node.js **22.14.0** and npm **10.9.x** (see `.nvmrc` and `web/package.json`)
 - `make`
 

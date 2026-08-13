@@ -8,6 +8,7 @@ import (
 	"testing"
 	"unicode/utf16"
 
+	//lint:ignore SA1019 MS-CHAP (RFC 2433/2759) requires MD4
 	"golang.org/x/crypto/md4"
 )
 

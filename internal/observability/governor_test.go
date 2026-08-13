@@ -9,8 +9,11 @@ import (
 func TestSemaphoreSaturation(t *testing.T) {
 	t.Parallel()
 	s := NewSemaphore(2)
-	if !s.TryAcquire() || !s.TryAcquire() {
-		t.Fatal("expected two slots")
+	if !s.TryAcquire() {
+		t.Fatal("expected first slot")
+	}
+	if !s.TryAcquire() {
+		t.Fatal("expected second slot")
 	}
 	if s.TryAcquire() {
 		t.Fatal("cap should reject")

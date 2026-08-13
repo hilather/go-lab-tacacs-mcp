@@ -14,10 +14,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeDomain(w http.ResponseWriter, err error) {
-	writeDomainID(w, err, "")
-}
-
 func writeDomainID(w http.ResponseWriter, err error, requestID string) {
 	de, ok := domain.AsError(err)
 	if !ok {

@@ -147,7 +147,7 @@ func TestParseLabExample(t *testing.T) {
 	if doc.Users[0].Credentials.Login.Verifier.Purpose != credentials.PurposeLoginVerifier {
 		t.Fatal("login verifier purpose")
 	}
-	if doc.FallbackRules.Services != nil && len(doc.FallbackRules.Services) != 0 {
+	if len(doc.FallbackRules.Services) != 0 {
 		t.Fatalf("fallback=%+v", doc.FallbackRules)
 	}
 }

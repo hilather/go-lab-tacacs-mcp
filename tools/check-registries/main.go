@@ -38,9 +38,7 @@ func main() {
 	}
 
 	if *release {
-		for _, issue := range append(registry.CheckReleaseStatuses(rep.RFC8907, rep.RFC9887), registry.CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887)...) {
-			rep.Issues = append(rep.Issues, issue)
-		}
+		rep.Issues = append(rep.Issues, append(registry.CheckReleaseStatuses(rep.RFC8907, rep.RFC9887), registry.CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887)...)...)
 		if !rep.Valid() {
 			for _, issue := range rep.Issues {
 				fmt.Fprintln(os.Stderr, issue)

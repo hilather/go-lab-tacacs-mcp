@@ -11,7 +11,7 @@ import (
 func TestDecodeEncodeRoundTrip(t *testing.T) {
 	t.Parallel()
 	in := Header{
-		Version:   MajorVer<<4 | 0,
+		Version:   MajorVer << 4,
 		Type:      TypeAuthen,
 		SeqNo:     1,
 		Flags:     FlagSingleConnect,

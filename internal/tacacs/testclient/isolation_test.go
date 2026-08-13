@@ -13,6 +13,9 @@ func TestIndependentOfServerCodec(t *testing.T) {
 	t.Parallel()
 	forbidden := []string{
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/codec",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/tls",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy",
 		"github.com/hilather/go-lab-tacacs-mcp/tools/spike",
 	}
 	fset := token.NewFileSet()

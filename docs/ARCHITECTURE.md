@@ -200,7 +200,7 @@ Responsibilities:
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
 
-`taclabd serve --config` binds the legacy TACACS listener and, when enabled, the HTTP admin listener (REST + MCP). The TLS socket remains unimplemented; an enabled TLS listener is logged and skipped.
+`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener (REST + MCP).
 
 ### 4.10 `internal/tacacs/tls`
 
@@ -216,6 +216,20 @@ Responsibilities:
 - make resumption policy and ticket lifetime configurable.
 
 Optional external PSK or raw-public-key support must be isolated behind a transport authentication interface and may not weaken certificate-based mutual-authentication support.
+
+### 4.10.1 `internal/tacacs/testclient`
+
+Independent TACACS+ test client. Encode/decode uses `internal/tacacs/testclient/codec` only. Production code must not import the server codec, `internal/tacacs/tls`, or `internal/tacacs/server`.
+
+`DialTLS` implements the RFC 9887 **client role** (T98-ROLE-001–005):
+
+- Begin TLS 1.3 immediately; send no TACACS bytes before handshake completion.
+- Never fall back to legacy `Dial` after a TLS failure.
+- Validate server identity with RFC 9525 DNS-ID / IP-ID / SRV-ID. URI-ID is rejected and URI SANs are never consulted.
+- Set `TAC_PLUS_UNENCRYPTED_FLAG` on every TLS packet; terminate if a reply lacks it. Obfuscation is never applied.
+- Send no 0-RTT and include no `early_data` extension (`ClientSessionCache` is unset).
+
+T98-ROLE evidence uses independent `crypto/tls` peers and raw 12-byte header fixtures. Shared-codec loopback against the production listener is not T98-ROLE evidence.
 
 ### 4.11 `internal/api/operations`
 

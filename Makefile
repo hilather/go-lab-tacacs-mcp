@@ -17,7 +17,8 @@ VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo de
 COMMIT    ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILDTIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GOVER     := $(shell $(GO) version 2>/dev/null | awk '{print $$3}')
-LDFLAGS   := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildTime=$(BUILDTIME)
+UI_VERSION ?= 0.0.0
+LDFLAGS   := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildTime=$(BUILDTIME) -X main.uiVersion=$(UI_VERSION)
 
 .PHONY: help
 help:
@@ -44,6 +45,9 @@ help:
 	@echo "  make check-hooks      prove format/type/drift/secret hooks fail closed"
 	@echo "  make ci               lint + tests + web (incl. production build) + secrets + registries + drift + hook self-test"
 	@echo "  make build            build $(BIN_DIR)/$(BINARY)"
+	@echo "  make image            docker build ghcr.io/hilather/go-lab-tacacs-mcp:\$(VERSION)"
+	@echo "  make lab-gen          generate secrets/certs into deployments/compose"
+	@echo "  make lab-test         build image, generate ephemeral lab, run LAB-*"
 	@echo "  make clean            remove bin/ and dist/"
 
 .PHONY: test
@@ -156,6 +160,26 @@ check-hooks:
 
 .PHONY: ci
 ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build web-e2e secrets check-registries check-generated docs-check check-hooks build
+
+.PHONY: image
+image:
+	docker build \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILDTIME=$(BUILDTIME) \
+		--build-arg UI_VERSION=$(UI_VERSION) \
+		-t ghcr.io/hilather/go-lab-tacacs-mcp:$(VERSION) \
+		-t ghcr.io/hilather/go-lab-tacacs-mcp:dev \
+		.
+
+.PHONY: lab-gen
+lab-gen:
+	$(GO) run ./tools/labgen -force deployments/compose
+
+.PHONY: lab-test
+lab-test:
+	@chmod +x tools/lab-test.sh
+	./tools/lab-test.sh
 
 .PHONY: build
 build:

@@ -1,0 +1,66 @@
+# Overlay for make lab-test / CI. High host ports so 49/300/8080 need not be free.
+# Integration tests talk on the compose network (taclab:4949/4300/8080).
+# Source-IP on this path is the test container address — see LAB_DEPLOYMENT §4.3.
+services:
+  taclab:
+    restart: "no"
+    ports: !override
+      - target: 4949
+        published: ${TACLAB_LEGACY_PORT:-14949}
+        protocol: tcp
+      - target: 4300
+        published: ${TACLAB_TLS_PORT:-14300}
+        protocol: tcp
+      - target: 8080
+        published: ${TACLAB_HTTP_PORT:-18080}
+        protocol: tcp
+
+  integration-tests:
+    image: ${TACLAB_LABTEST_IMAGE:-ghcr.io/hilather/go-lab-tacacs-mcp:labtest}
+    build:
+      context: ${TACLAB_CONTEXT:-../..}
+      dockerfile: Dockerfile
+      target: labtest
+    restart: "no"
+    depends_on:
+      taclab:
+        condition: service_healthy
+    environment:
+      TACLAB_HTTP: http://taclab:8080
+      TACLAB_LEGACY: taclab:4949
+      TACLAB_TLS: taclab:4300
+      TACLAB_TOKEN_FILE: /run/secrets/api_admin_token
+      TACLAB_SHARED_SECRET_FILE: /run/secrets/lab_switches_tacacs_secret
+      TACLAB_PKI: /pki
+      TACLAB_PASSWORDS: /lab/secrets/PASSWORDS.txt
+      TACLAB_WRITE_TIMEOUT: ${TACLAB_WRITE_TIMEOUT:-2s}
+      TACLAB_REPORT: /lab/evidence/lab-test-report.json
+    volumes:
+      - type: bind
+        source: ./pki
+        target: /pki
+        read_only: true
+      - type: bind
+        source: ./
+        target: /lab
+    secrets:
+      - api_admin_token
+      - lab_switches_tacacs_secret
+    user: "65532:65532"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    command:
+      - -http=http://taclab:8080
+      - -legacy=taclab:4949
+      - -tls=taclab:4300
+      - -token-file=/run/secrets/api_admin_token
+      - -secret-file=/run/secrets/lab_switches_tacacs_secret
+      - -pki=/pki
+      - -passwords=/lab/secrets/PASSWORDS.txt
+      - -write-timeout=2s
+      - -report=/lab/evidence/lab-test-report.json

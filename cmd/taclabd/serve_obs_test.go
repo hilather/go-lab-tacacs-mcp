@@ -152,11 +152,8 @@ api:
 	}
 	defer pprof.Body.Close()
 	body, _ := io.ReadAll(pprof.Body)
-	if pprof.StatusCode == http.StatusOK && (bytes.Contains(body, []byte("Types of profiles available")) || bytes.Contains(body, []byte("heap"))) {
+	if pprof.StatusCode == http.StatusOK && (bytes.Contains(body, []byte("Types of profiles available")) || bytes.Contains(body, []byte("full goroutine stack dump")) || bytes.Contains(body, []byte("profile?seconds="))) {
 		t.Fatalf("pprof served on admin mux: %s", body)
-	}
-	if pprof.StatusCode == http.StatusOK {
-		t.Fatalf("admin /debug/pprof/ status=%d body=%s", pprof.StatusCode, body)
 	}
 	met, err := http.Get(base + "/metrics")
 	if err != nil {

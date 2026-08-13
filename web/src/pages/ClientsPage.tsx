@@ -220,10 +220,11 @@ function ClientEditor({
       });
       const authorization = { default_group_ids: splitList(defaultGroups) };
       const shared_secret = secretPayload(secret);
+      const rotated = rotatedAt !== "" ? fromDatetimeLocal(rotatedAt) : undefined;
       const lifecycle =
-        rotatedAt !== "" || interval !== ""
+        rotated !== undefined || interval !== ""
           ? {
-              ...(rotatedAt !== "" ? { last_rotated_at: fromDatetimeLocal(rotatedAt) } : {}),
+              ...(rotated !== undefined ? { last_rotated_at: rotated } : {}),
               ...(interval !== "" ? { rotation_interval: interval } : {}),
             }
           : undefined;

@@ -15,6 +15,7 @@ var (
 	version   = "dev"
 	commit    = "unknown"
 	buildTime = "unknown"
+	uiVersion = "0.0.0"
 )
 
 const usage = `taclabd — TacLab lab appliance
@@ -27,8 +28,9 @@ Usage:
   taclabd version
   taclabd -h | --help
 
-serve binds listeners.legacy_tacacs and, when enabled, the HTTP admin
-listener (REST + MCP). The TLS TACACS listener is not implemented.
+serve binds the enabled TACACS listeners (legacy TCP and/or TLS 1.3)
+and the HTTP admin listener (UI + REST + MCP). Reload is SIGHUP or
+config.reload. File-watch reload is off.
 `
 
 func main() {
@@ -59,12 +61,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 0
 		}
 		return healthcheck(args[1:], stdout, stderr)
-	case "validate", "print-effective":
+	case "validate":
 		if isHelp(args[1:]) {
 			fmt.Fprint(stdout, usage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "taclabd %s: not implemented in this repository skeleton\n", cmd)
+		return validateCmd(args[1:], stdout, stderr)
+	case "print-effective":
+		if isHelp(args[1:]) {
+			fmt.Fprint(stdout, usage)
+			return 0
+		}
+		fmt.Fprintf(stderr, "taclabd print-effective: not implemented in this repository skeleton\n")
 		return 2
 	default:
 		if strings.HasPrefix(cmd, "-") {
@@ -78,7 +86,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func printVersion(w io.Writer) {
-	fmt.Fprintf(w, "taclabd %s commit=%s built=%s go=%s\n", version, commit, buildTime, runtime.Version())
+	fmt.Fprintf(w, "taclabd %s commit=%s built=%s ui=%s go=%s\n", version, commit, buildTime, uiVersion, runtime.Version())
 }
 
 func isHelp(args []string) bool {

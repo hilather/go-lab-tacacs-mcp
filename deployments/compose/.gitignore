@@ -1,0 +1,7 @@
+/secrets/
+/certs-public/
+/pki/
+/evidence/
+/config/taclab.yaml
+/config/taclab.tls-only.yaml
+.env

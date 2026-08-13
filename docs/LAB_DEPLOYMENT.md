@@ -84,6 +84,17 @@ Before declaring a topology supported, verify the address observed by TacLab usi
 
 Client matching must never trust `X-Forwarded-For` or HTTP proxy headers for TACACS connections.
 
+### 4.3.1 How to verify the observed peer
+
+1. Start the reference Compose project (`make lab-gen` then `docker compose -f deployments/compose/compose.yaml up -d --build`).
+2. Send a legacy TACACS session from the intended device or from `internal/tacacs/testclient`.
+3. Read `/api/v1/events` and the JSON stdout connection/auth records. The selected `client_id` is the compiled match for the TCP peer, not the TACACS `rem_addr` field.
+4. On the host, capture the same SYN (`tcpdump -n tcp port 49 or port 300`) and compare the source address to the address you configured in `match.source_cidrs`.
+
+On typical Linux published-port mappings the peer TacLab sees is a docker-proxy or bridge SNAT address, not the device. The generated lab YAML therefore uses `0.0.0.0/0` and `::/0` so the appliance still matches. `configs/lab.example.yaml` keeps the narrow `10.20.0.0/16` / `10.30.0.0/16` lab VLAN example — use that only with host network or macvlan.
+
+`make lab-test` records this disposition as `LAB-SOURCE-001`. It does **not** claim published-port NAT preserves device addresses.
+
 ## 5. Image contract
 
 ### 5.1 Build stages
@@ -117,7 +128,7 @@ The release image must:
 
 No Linux capability should be required when high container ports are mapped from the host. The reference deployment must drop all capabilities and set `no-new-privileges`.
 
-Until the 1.0 image (PR-21), a high-port smoke Compose file lives at `deployments/compose/compose.smoke.yaml`. It maps host `14949` → container `4949` and host `18080` → container `8080`. It does not publish privileged ports 49 or 300.
+The 1.0 image is `ghcr.io/hilather/go-lab-tacacs-mcp`. Pin a version tag or digest in reproducible labs; do not use `latest`. A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test`.
 
 ## 6. Reference directory layout
 
@@ -137,7 +148,8 @@ taclab-lab/
 │   ├── lab_admin_argon2id
 │   ├── lab_admin_challenge_secret
 │   ├── lab_admin_enable_argon2id
-│   └── lab_readonly_argon2id
+│   ├── lab_readonly_argon2id
+│   └── lab_disabled_argon2id
 ├── evidence/
 │   ├── captures/
 │   ├── events/
@@ -155,7 +167,7 @@ Agents must maintain a working Compose example equivalent to the following. Exac
 ```yaml
 services:
   taclab:
-    image: ghcr.io/example/taclab:0.1.0
+    image: ghcr.io/hilather/go-lab-tacacs-mcp:0.1.0
     container_name: taclab
     restart: unless-stopped
 
@@ -192,6 +204,7 @@ services:
       - lab_admin_challenge_secret
       - lab_admin_enable_argon2id
       - lab_readonly_argon2id
+      - lab_disabled_argon2id
 
     read_only: true
     tmpfs:
@@ -228,6 +241,8 @@ secrets:
     file: ./secrets/lab_admin_enable_argon2id
   lab_readonly_argon2id:
     file: ./secrets/lab_readonly_argon2id
+  lab_disabled_argon2id:
+    file: ./secrets/lab_disabled_argon2id
 ```
 
 The checked-in example must use placeholders or generation instructions. It must never contain live credentials or private keys.
@@ -478,11 +493,13 @@ Each scenario has a stable ID, setup fixture, expected protocol exchange, expect
 
 ## 14. Automated Compose test workflow
 
-The repository must provide a non-interactive target similar to:
+The repository target is:
 
 ```text
 make lab-test
 ```
+
+`tools/labgen` writes the ephemeral directory (`go run ./tools/labgen <dir>`). `tools/lab-test.sh` builds `ghcr.io/hilather/go-lab-tacacs-mcp:<version>`, generates secrets/certs, starts a unique Compose project with `compose.lab-test.yaml` (high host ports), runs LAB-*, restarts, and writes `dist/lab-test-report.json`.
 
 The target should:
 
@@ -637,19 +654,19 @@ Because runtime state is memory-only, an image replacement intentionally discard
 
 A deployment-related change is complete only when:
 
-- [ ] The release image builds reproducibly from a clean checkout.
-- [ ] Frontend and backend versions are aligned and reported.
-- [ ] The final image contains no build toolchain or source secrets.
-- [ ] The container runs as non-root with all capabilities dropped.
-- [ ] Read-only root filesystem operation passes.
-- [ ] Port mappings 49, 300, and 8080 work on the reference Linux host.
-- [ ] Source-IP behavior has an automated or documented verification.
-- [ ] Baseline config and all secret references load through Compose.
+- [x] The release image builds reproducibly from a clean checkout.
+- [x] Frontend and backend versions are aligned and reported.
+- [x] The final image contains no build toolchain or source secrets.
+- [x] The container runs as non-root with all capabilities dropped.
+- [x] Read-only root filesystem operation passes.
+- [x] Port mappings 49, 300, and 8080 work on the reference Linux host.
+- [x] Source-IP behavior has an automated or documented verification.
+- [x] Baseline config and all secret references load through Compose.
 - [ ] Shared-secret complexity, uniqueness warning, lifecycle status, and rotation workflow pass across config, REST, MCP, UI, events, and evidence.
-- [ ] Legacy and TLS listeners pass their smoke and negative tests.
-- [ ] The restart-reset scenario passes.
-- [ ] REST/MCP parity and UI smoke tests pass against the image.
-- [ ] Health checks reflect listener and snapshot readiness accurately.
-- [ ] Logs and evidence contain no secret canaries.
+- [x] Legacy and TLS listeners pass their smoke and negative tests.
+- [x] The restart-reset scenario passes.
+- [x] REST/MCP parity and UI smoke tests pass against the image.
+- [x] Health checks reflect listener and snapshot readiness accurately.
+- [x] Logs and evidence contain no secret canaries.
 - [ ] Resource usage and benchmark evidence are recorded.
-- [ ] Compose, certificate-generation, operator, and troubleshooting documentation are updated in the same change.
+- [x] Compose, certificate-generation, operator, and troubleshooting documentation are updated in the same change.

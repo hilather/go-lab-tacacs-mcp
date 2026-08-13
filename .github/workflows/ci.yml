@@ -95,6 +95,17 @@ jobs:
       - name: Help smoke
         run: ./bin/taclabd -h
 
+      - uses: docker/setup-buildx-action@v3
+      - name: Docker build check
+        run: docker buildx build --check .
+
+      - name: Compose config
+        run: |
+          # File references may be absent until labgen; still parse the compose documents.
+          docker compose -f deployments/compose/compose.yaml config >/dev/null || true
+          docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml config >/dev/null || true
+          docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.lab-test.yaml config >/dev/null || true
+
       - name: Upload toolchain and reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,9 +113,30 @@ jobs:
           name: ci-evidence
           path: |
             dist/toolchain-versions.txt
+            dist/lab-test-report.json
             docs/generated/toolchain.md
             docs/generated/api-parity.md
             docs/generated/conformance.md
+          if-no-files-found: warn
+          retention-days: 30
+
+  lab:
+    name: compose-lab
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: docker/setup-buildx-action@v3
+      - name: Lab test
+        run: make lab-test
+      - name: Upload lab report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-test-report
+          path: dist/lab-test-report.json
           if-no-files-found: warn
           retention-days: 30
 

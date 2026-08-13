@@ -112,7 +112,7 @@ func isProbe(path string) bool {
 }
 
 func skipInFlight(path string) bool {
-	// SSE (and later MCP listen) must not consume the short-request budget.
+	// SSE and MCP listen clear the write deadline in their handlers.
 	return isProbe(path) || path == "/api/v1/events/stream"
 }
 

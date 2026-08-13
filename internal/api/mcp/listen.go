@@ -58,6 +58,19 @@ func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.P
 		}
 	}
 
+	var sub <-chan events.Event
+	var dropped <-chan struct{}
+	var cancel func()
+	if wantEvents && opts.Events != nil {
+		sub, dropped, cancel = opts.Events.Subscribe(16)
+		defer cancel()
+	}
+
+	var lastRev domain.Revision
+	if snap != nil {
+		lastRev = snap.Revision
+	}
+
 	_ = clearWriteDeadline(w)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -83,24 +96,17 @@ func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.P
 	_, _ = io.WriteString(w, ": keepalive\n\n")
 	flush()
 
-	var sub <-chan events.Event
-	var dropped <-chan struct{}
-	var cancel func()
-	if wantEvents && opts.Events != nil {
-		sub, dropped, cancel = opts.Events.Subscribe(16)
-		defer cancel()
-	}
-
-	var lastRev domain.Revision
-	if snap != nil {
-		lastRev = snap.Revision
-	}
-
 	tick := time.NewTicker(heartbeat(opts.WriteTimeout, opts.IdleTimeout))
 	defer tick.Stop()
 	for {
 		select {
 		case <-r.Context().Done():
+			writeSSEJSON(w, listenComplete(req.ID, subID))
+			flush()
+			return
+		case <-doneOrNil(opts.Done):
+			writeSSEJSON(w, listenComplete(req.ID, subID))
+			flush()
 			return
 		case <-tick.C:
 			_, _ = io.WriteString(w, ": keepalive\n\n")
@@ -153,11 +159,29 @@ func notifyRevision(w http.ResponseWriter, opts Options, accepted listenNotifica
 	}
 	*last = snap.Revision
 	sent := false
+	if accepted.ToolsListChanged {
+		writeListChanged(w, subID, "notifications/tools/list_changed")
+		sent = true
+	}
+	if accepted.ResourcesListChanged {
+		writeListChanged(w, subID, "notifications/resources/list_changed")
+		sent = true
+	}
 	for _, uri := range accepted.ResourceSubscriptions {
 		writeResourceUpdated(w, subID, uri)
 		sent = true
 	}
 	return sent
+}
+
+func writeListChanged(w http.ResponseWriter, subID any, method string) {
+	writeSSEJSON(w, map[string]any{
+		"jsonrpc": jsonRPCVersion,
+		"method":  method,
+		"params": map[string]any{
+			"_meta": map[string]any{metaSubscriptionID: subID},
+		},
+	})
 }
 
 func writeResourceUpdated(w http.ResponseWriter, subID any, uri string) {
@@ -229,6 +253,10 @@ func subOrNil(ch <-chan events.Event) <-chan events.Event {
 }
 
 func dropOrNil(ch <-chan struct{}) <-chan struct{} {
+	return doneOrNil(ch)
+}
+
+func doneOrNil(ch <-chan struct{}) <-chan struct{} {
 	if ch == nil {
 		return nil
 	}

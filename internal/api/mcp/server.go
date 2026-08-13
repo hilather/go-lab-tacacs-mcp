@@ -64,6 +64,9 @@ type Options struct {
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 	MaxBody      int64
+	// Done is closed on HTTP server shutdown (RegisterOnShutdown). Listen
+	// writes resultType complete so SIGTERM is not an abrupt SSE drop.
+	Done <-chan struct{}
 }
 
 type rpcRequest struct {

@@ -334,6 +334,7 @@ For every operation:
 - missing/invalid client certificate.
 - TLS packet missing required unencrypted flag.
 - attempted early data.
+- independent testclient TLS role (not shared-codec loopback): immediate handshake, no legacy fallback, DNS-ID/IP-ID/SRV-ID (URI-ID unused), UNENCRYPTED on every packet, ClientHello without `early_data`.
 
 ## 8. Benchmark policy
 

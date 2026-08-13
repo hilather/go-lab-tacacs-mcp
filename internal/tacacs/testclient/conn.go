@@ -14,6 +14,7 @@ import (
 type Conn struct {
 	nc      net.Conn
 	key     []byte
+	tls     bool
 	writeMu sync.Mutex
 	readMu  sync.Mutex
 }
@@ -47,11 +48,14 @@ func (c *Conn) Close() error {
 }
 
 // WritePacket encodes h+body, optionally obfuscates, and writes one packet.
+// Over TLS the UNENCRYPTED flag is forced and obfuscation is never applied.
 func (c *Conn) WritePacket(h codec.Header, body []byte) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	out := body
-	if len(body) > 0 && h.Flags&codec.FlagUnencrypted == 0 && len(c.key) > 0 {
+	if c.tls {
+		h.Flags |= codec.FlagUnencrypted
+	} else if len(body) > 0 && h.Flags&codec.FlagUnencrypted == 0 && len(c.key) > 0 {
 		out = codec.Obfuscate(h.SessionID, h.Version, h.SeqNo, c.key, body)
 	}
 	h.Length = uint32(len(out))
@@ -78,11 +82,18 @@ func (c *Conn) ReadPacket() (codec.Header, []byte, error) {
 	if err != nil {
 		return h, nil, err
 	}
+	if c.tls && h.Flags&codec.FlagUnencrypted == 0 {
+		if len(body) > 0 {
+			_, _ = io.ReadFull(c.nc, body)
+		}
+		_ = c.nc.Close()
+		return h, nil, ErrMissingUnencrypted
+	}
 	if len(body) > 0 {
 		if _, err := io.ReadFull(c.nc, body); err != nil {
 			return h, nil, err
 		}
-		if h.Flags&codec.FlagUnencrypted == 0 && len(c.key) > 0 {
+		if !c.tls && h.Flags&codec.FlagUnencrypted == 0 && len(c.key) > 0 {
 			body = codec.Obfuscate(h.SessionID, h.Version, h.SeqNo, c.key, body)
 		}
 	}

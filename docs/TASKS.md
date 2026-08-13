@@ -904,6 +904,25 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 - [x] Ensure deployment docs recommend TLS-only or separate instances for production-like security evaluation.
 - [x] Prove distinct ports, no upgrade, no fallback, and separate secret types.
 
+### P8.7 Independent test-client TLS role (PR-14b)
+
+- [x] `DialTLS` begins TLS immediately; no TACACS bytes before handshake completion.
+- [x] Never fall back to legacy after a TLS failure.
+- [x] Validate DNS-ID / IP-ID / SRV-ID; do not use URI-ID.
+- [x] Set `TAC_PLUS_UNENCRYPTED_FLAG` on every TLS packet; terminate if a reply lacks it.
+- [x] Send no 0-RTT and no `early_data` extension.
+
+**Tests**
+
+- [x] Independent `crypto/tls` peer (not shared-codec loopback) for T98-ROLE-001–005.
+- [x] Negative downgrade: plaintext TACACS peer and TLS 1.2-only peer.
+- [x] Certificate-name matrix including URI-ID rejection.
+- [x] Raw peer flag fixtures (hand-built 12-byte headers).
+- [x] ClientHello `early_data` inspection.
+- [x] Race: concurrent `DialTLS`.
+
+Machine-readable `testdata/conformance/rfc9887.yaml` stays `NOT_STARTED` until PR-22.
+
 ### P8 exit gate
 
 - [ ] Every RFC 9887 MUST/MUST NOT server row passes.

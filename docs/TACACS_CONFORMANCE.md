@@ -403,6 +403,8 @@ Certificate-based mutual authentication remains mandatory regardless of optional
 
 ### 15.6 Client-role and operational requirements
 
+PR-14b implements T98-ROLE-001–005 in `internal/tacacs/testclient` (`DialTLS`) with independent `crypto/tls` peers and raw header fixtures. Shared-codec loopback is not evidence. Machine-readable registry rows stay `NOT_STARTED` until PR-22.
+
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
 | T98-ROLE-001 | CLIENT-ROLE MUST | Test client begins TLS immediately and sends no TACACS data before handshake completion | Independent client integration | [ ] |

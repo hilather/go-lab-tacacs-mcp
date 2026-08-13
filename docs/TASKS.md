@@ -825,7 +825,7 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 - [x] Define cursor/revision/drop semantics.
 - [x] Add REST and MCP bindings with parity; where transport mechanics differ, normalize logical event content.
 
-`events.subscribe` REST SSE streams redacted bodies (PR-16a) with keepalives and write-deadline opt-out. MCP listen remains a later adapter. `events.list` is the shared cursor API on both surfaces.
+`events.subscribe` REST SSE streams redacted bodies (PR-16a) with keepalives and write-deadline opt-out. MCP `subscriptions/listen` is the C8 URI-only notify channel; bodies stay on `events.list`.
 
 ### P7 exit gate
 

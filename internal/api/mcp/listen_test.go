@@ -8,12 +8,14 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
 func TestListenAcknowledgedAndURIOnly(t *testing.T) {
@@ -131,6 +133,100 @@ func TestListenOmitsUnauthorizedResources(t *testing.T) {
 	if len(subs) != 1 || subs[0] != "taclab://status" {
 		t.Fatalf("subs=%v notes=%v", subs, notes)
 	}
+}
+
+func TestListenCompleteOnShutdown(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	stop := make(chan struct{})
+	h.Opts.Done = stop
+	hs := &http.Server{Addr: "127.0.0.1:0", Handler: Handler(h.Opts)}
+	hs.RegisterOnShutdown(func() { close(stop) })
+	ln, err := net.Listen("tcp", hs.Addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go hs.Serve(ln) //nolint:errcheck
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req := listenRequest(t, ctx, "http://"+ln.Addr().String()+"/mcp", h.Token, map[string]any{
+		"resourceSubscriptions": []string{resourceEventsRecent},
+	})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	_ = readSSEData(t, resp.Body)
+
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), time.Second)
+	defer shutCancel()
+	if err := hs.Shutdown(shutCtx); err != nil {
+		t.Fatal(err)
+	}
+	final := readSSEData(t, resp.Body)
+	res, _ := final["result"].(map[string]any)
+	if res["resultType"] != resultTypeComplete {
+		t.Fatalf("expected complete on shutdown, got %v", final)
+	}
+}
+
+func TestListenListChangedOnOverlayRevision(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	h.Opts.WriteTimeout = 20 * time.Millisecond
+	h.Opts.IdleTimeout = 20 * time.Millisecond
+	ts := httptest.NewServer(Handler(h.Opts))
+	t.Cleanup(ts.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req := listenRequest(t, ctx, ts.URL+"/mcp", h.Token, map[string]any{
+		"toolsListChanged":     true,
+		"resourcesListChanged": true,
+	})
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	ack := readSSEData(t, resp.Body)
+	notes, _ := ack["params"].(map[string]any)["notifications"].(map[string]any)
+	if notes["toolsListChanged"] != true || notes["resourcesListChanged"] != true {
+		t.Fatalf("ack notes=%v", notes)
+	}
+
+	before := h.Mgr.Revision()
+	enabled := false
+	if _, err := h.Mgr.CreateUser(state.CreateUser{ID: "listen-rev", Enabled: &enabled}, &before); err != nil {
+		t.Fatal(err)
+	}
+
+	var acc []byte
+	tmp := make([]byte, 512)
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		n, err := resp.Body.Read(tmp)
+		if n > 0 {
+			acc = append(acc, tmp[:n]...)
+		}
+		got := string(acc)
+		if strings.Contains(got, "notifications/tools/list_changed") && strings.Contains(got, "notifications/resources/list_changed") {
+			return
+		}
+		if err != nil && err != io.EOF {
+			t.Fatal(err)
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+	t.Fatalf("missing list_changed after overlay mutation body=%q", acc)
 }
 
 func TestListenCompleteOnRingClose(t *testing.T) {

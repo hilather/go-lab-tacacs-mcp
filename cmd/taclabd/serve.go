@@ -296,6 +296,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		Logger:       logger,
 	}
 	mux := http.NewServeMux()
+	mcpStop := make(chan struct{})
 	mcpH := mcpapi.Handler(mcpapi.Options{
 		Registry:     reg,
 		Snapshot:     mgr.Snapshot,
@@ -306,6 +307,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		WriteTimeout: doc.Listeners.HTTP.WriteTimeout,
 		IdleTimeout:  doc.Listeners.HTTP.IdleTimeout,
 		MaxBody:      doc.Listeners.HTTP.MaxRequestBodyBytes,
+		Done:         mcpStop,
 	})
 	mux.Handle("/mcp", mcpH)
 	mux.Handle("/mcp/", mcpH)
@@ -325,6 +327,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 	if hs.ReadHeaderTimeout == 0 {
 		hs.ReadHeaderTimeout = 5 * time.Second
 	}
+	hs.RegisterOnShutdown(func() { close(mcpStop) })
 	return hs, ln, nil
 }
 

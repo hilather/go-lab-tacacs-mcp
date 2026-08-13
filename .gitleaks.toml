@@ -4,9 +4,10 @@ title = "TacLab secret scan"
 useDefault = true
 
 [allowlist]
-description = "Generated and third-party trees"
+description = "Generated trees, published RFC test vectors, and lab fixtures that are not live secrets"
 paths = [
   '''(^|/)web/node_modules/''',
   '''(^|/)web/dist/''',
   '''(^|/)\.git/''',
+  '''(^|/)internal/credentials/testdata/''',
 ]

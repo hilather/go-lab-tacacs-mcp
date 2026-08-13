@@ -4,7 +4,7 @@ Read [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.
 
 ## Toolchains
 
-- Go 1.24.5 (`go.mod`)
+- Go 1.25.0 (`go.mod`)
 - Node.js 22.14.0 (`.nvmrc`)
 - npm 10.9.x (`web/package.json` `packageManager`)
 

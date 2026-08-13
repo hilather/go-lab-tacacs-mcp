@@ -116,7 +116,7 @@ Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=confi
 - Same bearer + scopes as REST. Lab static bearer is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md): **no** `.well-known/oauth-protected-resource`. Clients that require OAuth PRM will not complete discovery.
 - Events: `subscriptions/listen` on `taclab://events/recent` notifies URI-only; pull bodies with `taclab.events.list`. Not a firehose.
 
-Pinned official Go SDK is recorded but not imported on Go 1.24.5 ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
+Pinned official Go SDK is recorded but not imported ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
 
 ## 9. Reload, reset, export
 

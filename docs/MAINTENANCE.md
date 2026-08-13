@@ -11,7 +11,7 @@ Last updated: 2026-08-13
 | REST | `/api/v1` |
 | MCP | `2026-07-28` only |
 | Image | `ghcr.io/hilather/go-lab-tacacs-mcp:<tag-or-digest>` |
-| Go | 1.24.5 |
+| Go | 1.25.0 |
 | Node | 22.14.0 |
 
 Unknown YAML/JSON mutation fields remain errors. Adding a field is a minor change; changing meaning is a major change and needs an ADR.

@@ -8,10 +8,10 @@ cd "$root"
 export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${PATH}"
 
 go run ./tools/generate
-go run ./tools/check-registries -write-docs
+go run ./tools/check-registries -write-docs -release
 
 if ! git diff --exit-code -- docs/generated api/openapi.json web/src/generated; then
-  echo "generated-file drift: generated artifacts do not match tools/generate and tools/check-registries -write-docs" >&2
+  echo "generated-file drift: generated artifacts do not match tools/generate and tools/check-registries -write-docs -release" >&2
   echo "run: make generate && git add docs/generated api/openapi.json web/src/generated" >&2
   exit 1
 fi

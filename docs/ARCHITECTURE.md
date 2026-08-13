@@ -291,7 +291,7 @@ Responsibilities:
 
 MCP is not an internal RPC bus. It calls the operation registry directly.
 
-The official Go SDK (`v1.7.0`) supports 2026-07-28 but requires Go 1.25. This repo is pinned to 1.24.5, so the adapter is a thin in-tree JSON-RPC implementation ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Origin policy: missing Origin is allowed when a valid bearer is present unless `api.mcp.require_origin` is true; a present Origin must match `api.mcp.allowed_origins` or the same-host UI origin.
+The official Go SDK (`v1.7.0`) supports 2026-07-28. The repo is pinned to Go 1.25.0; the adapter remains a thin in-tree JSON-RPC implementation until a dedicated SDK adoption change ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Origin policy: missing Origin is allowed when a valid bearer is present unless `api.mcp.require_origin` is true; a present Origin must match `api.mcp.allowed_origins` or the same-host UI origin.
 
 ### 4.14 `internal/events`
 

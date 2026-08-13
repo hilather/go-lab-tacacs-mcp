@@ -243,7 +243,7 @@ enabled, labels, created_at, updated_at
 
 Source docs say “current MCP resource/subscription mechanism.” MCP 2026-07-28 removed protocol sessions, GET SSE, and `Last-Event-ID` resume. Long-lived notifications use `subscriptions/listen`.
 
-**Resolution:** Prefer the official Go SDK pinned to a 2026-07-28-capable release. `go-sdk v1.7.0` requires Go 1.25; this repo is pinned to Go 1.24.5, so 1.0 ships a thin in-tree JSON-RPC adapter that implements the same checklist ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Event parity is `PARITY_DIFFERENT_BINDING` with this **binding spec** — MCP `subscriptions/listen` is **not** a TacLab event firehose and MUST NOT invent a non-conformant notification type.
+**Resolution:** Prefer the official Go SDK pinned to a 2026-07-28-capable release. `go-sdk v1.7.0` is recorded but not imported; 1.0 ships a thin in-tree JSON-RPC adapter that implements the same checklist ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Event parity is `PARITY_DIFFERENT_BINDING` with this **binding spec** — MCP `subscriptions/listen` is **not** a TacLab event firehose and MUST NOT invent a non-conformant notification type.
 
 REST:
 

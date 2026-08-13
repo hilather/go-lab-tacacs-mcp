@@ -2,6 +2,17 @@
 
 All notable changes to TacLab (`taclabd`) are documented here.
 
+## [Unreleased]
+
+### Security
+
+- Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970). The module Go pin is 1.25.0 so that release can be used.
+- Gitleaks allowlists published RFC MS-CHAP test vectors in `internal/credentials/testdata/` only.
+
+### CI
+
+- Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab only on pull request and `main`.
+
 ## [1.0.0] — 2026-08-13
 
 First qualified lab-appliance release. Module `github.com/hilather/go-lab-tacacs-mcp`. Image `ghcr.io/hilather/go-lab-tacacs-mcp`.

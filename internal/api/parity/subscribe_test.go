@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 )
 
@@ -140,6 +141,68 @@ func TestEventsSubscribeRedactsWithoutSensitiveScope(t *testing.T) {
 	}
 	if got["type"] != body["type"] || got["category"] != body["category"] {
 		t.Fatalf("domain mismatch rest=%v mcp=%v", body, got)
+	}
+}
+
+func TestEventsSubscribeDenyShapes(t *testing.T) {
+	t.Parallel()
+	_, restW, mcpW := isolatedTrio(t, []string{"state:read"})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	restReq, err := http.NewRequestWithContext(ctx, http.MethodGet, restW.HTTP.URL+"/api/v1/events/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restReq.Header.Set("Authorization", "Bearer "+restW.Token)
+	restResp, err := http.DefaultClient.Do(restReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restResp.Body.Close()
+	if restResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("REST subscribe without events:read status=%d", restResp.StatusCode)
+	}
+	var problem struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(restResp.Body).Decode(&problem); err != nil {
+		t.Fatal(err)
+	}
+	if problem.Code != string(domain.CodePermissionDenied) {
+		t.Fatalf("REST subscribe code=%q", problem.Code)
+	}
+
+	mcpReq := listenRequest(t, ctx, mcpW.HTTP.URL+"/mcp", mcpW.Token, map[string]any{
+		"resourceSubscriptions": []string{"taclab://events/recent", "taclab://status"},
+	})
+	mcpResp, err := http.DefaultClient.Do(mcpReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mcpResp.Body.Close()
+	if mcpResp.StatusCode != http.StatusOK {
+		t.Fatalf("MCP listen status=%d", mcpResp.StatusCode)
+	}
+	ack := newSSEReader(mcpResp.Body).nextJSON(t)
+	if ack["method"] != "notifications/subscriptions/acknowledged" {
+		t.Fatalf("ack=%v", ack)
+	}
+	params, _ := ack["params"].(map[string]any)
+	notes, _ := params["notifications"].(map[string]any)
+	subs, _ := notes["resourceSubscriptions"].([]any)
+	for _, s := range subs {
+		if s == "taclab://events/recent" {
+			t.Fatalf("MCP listen accepted unauthorized events URI: %v", notes)
+		}
+	}
+	if len(subs) != 1 || subs[0] != "taclab://status" {
+		t.Fatalf("expected only taclab://status, notes=%v", notes)
+	}
+
+	listed := invoke(t, mcpW, operations.IDEventsList, operations.ListEventsRequest{Limit: 5}, callOpts{})
+	if listed.Code != string(domain.CodePermissionDenied) {
+		t.Fatalf("events.list without events:read code=%q body=%s", listed.Code, listed.Raw)
 	}
 }
 

@@ -3,7 +3,6 @@ package parity
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -45,7 +44,7 @@ func TestSchemaEquivalence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tsTypes := tsInterfaceNames(string(tsRaw))
+	tsProps := tsInterfaceProps(string(tsRaw))
 
 	for _, op := range reg.List() {
 		if op.Parity != registry.ParityRequired {
@@ -57,13 +56,36 @@ func TestSchemaEquivalence(t *testing.T) {
 		}
 		goReq := goJSONFields(op.Request)
 		goResp := goJSONFields(op.Response)
-		oaReq := schemaPropNames(schemas[op.RequestType])
-		oaResp := schemaPropNames(schemas[op.ResponseType])
-		if op.RequestType != "" && schemas[op.RequestType] != nil && !sameStrings(goReq, oaReq) {
-			t.Errorf("%s request fields go=%v openapi=%v", op.ID, goReq, oaReq)
+		if len(goReq) > 0 && schemas[op.RequestType] == nil {
+			t.Errorf("%s request type %s missing from OpenAPI", op.ID, op.RequestType)
 		}
-		if op.ResponseType != "" && schemas[op.ResponseType] != nil && !sameStrings(goResp, oaResp) {
-			t.Errorf("%s response fields go=%v openapi=%v", op.ID, goResp, oaResp)
+		if len(goResp) > 0 && schemas[op.ResponseType] == nil {
+			t.Errorf("%s response type %s missing from OpenAPI", op.ID, op.ResponseType)
+		}
+		if schemas[op.RequestType] != nil && !sameStrings(goReq, schemaPropNames(schemas[op.RequestType])) {
+			t.Errorf("%s request fields go=%v openapi=%v", op.ID, goReq, schemaPropNames(schemas[op.RequestType]))
+		}
+		if schemas[op.ResponseType] != nil && !sameStrings(goResp, schemaPropNames(schemas[op.ResponseType])) {
+			t.Errorf("%s response fields go=%v openapi=%v", op.ID, goResp, schemaPropNames(schemas[op.ResponseType]))
+		}
+		if wo := goWriteOnlyFields(op.Request); len(wo) > 0 && schemas[op.RequestType] != nil {
+			if got := schemaWriteOnlyNames(schemas[op.RequestType]); !sameStrings(wo, got) {
+				t.Errorf("%s writeOnly go=%v openapi=%v", op.ID, wo, got)
+			}
+		}
+		if len(goReq) > 0 {
+			if ts, ok := tsProps[op.RequestType]; !ok {
+				t.Errorf("%s request type %s missing from generated TypeScript", op.ID, op.RequestType)
+			} else if !sameStrings(goReq, ts) {
+				t.Errorf("%s request TS fields go=%v ts=%v", op.ID, goReq, ts)
+			}
+		}
+		if len(goResp) > 0 {
+			if ts, ok := tsProps[op.ResponseType]; !ok {
+				t.Errorf("%s response type %s missing from generated TypeScript", op.ID, op.ResponseType)
+			} else if !sameStrings(goResp, ts) {
+				t.Errorf("%s response TS fields go=%v ts=%v", op.ID, goResp, ts)
+			}
 		}
 		if op.MCP.Kind != "tool" || op.MCP.Name == "" {
 			continue
@@ -73,9 +95,8 @@ func TestSchemaEquivalence(t *testing.T) {
 			t.Errorf("%s MCP tool %s missing from tools/list", op.ID, op.MCP.Name)
 			continue
 		}
-		inProps := schemaPropNames(tool["inputSchema"])
+		inProps := dropStrings(schemaPropNames(tool["inputSchema"]), "expected_revision", "idempotency_key")
 		outProps := schemaPropNames(tool["outputSchema"])
-		inProps = dropStrings(inProps, "expected_revision", "idempotency_key")
 		if !sameStrings(goReq, inProps) {
 			t.Errorf("%s MCP input fields go=%v mcp=%v", op.ID, goReq, inProps)
 		}
@@ -87,12 +108,6 @@ func TestSchemaEquivalence(t *testing.T) {
 			if !contains(allIn, "expected_revision") || !contains(allIn, "idempotency_key") {
 				t.Errorf("%s mutating MCP input missing expected_revision/idempotency_key: %v", op.ID, allIn)
 			}
-		}
-		if _, ok := tsTypes[op.RequestType]; op.RequestType != "" && op.Request != nil && op.Request.Kind() == reflect.Struct && op.Request.NumField() > 0 && !ok {
-			t.Errorf("%s request type %s missing from generated TypeScript", op.ID, op.RequestType)
-		}
-		if _, ok := tsTypes[op.ResponseType]; op.ResponseType != "" && !ok {
-			t.Errorf("%s response type %s missing from generated TypeScript", op.ID, op.ResponseType)
 		}
 	}
 }
@@ -114,6 +129,23 @@ func schemaPropNames(v any) []string {
 	return out
 }
 
+func schemaWriteOnlyNames(v any) []string {
+	m, _ := v.(map[string]any)
+	if m == nil {
+		return nil
+	}
+	props, _ := m["properties"].(map[string]any)
+	var out []string
+	for k, raw := range props {
+		pm, _ := raw.(map[string]any)
+		if wo, _ := pm["writeOnly"].(bool); wo {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 func sameStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -124,6 +156,15 @@ func sameStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func contains(have []string, want string) bool {
+	for _, s := range have {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }
 
 func dropStrings(in []string, drop ...string) []string {
@@ -140,13 +181,43 @@ func dropStrings(in []string, drop ...string) []string {
 	return out
 }
 
-func tsInterfaceNames(src string) map[string]struct{} {
-	re := regexp.MustCompile(`(?m)^export interface (\w+)`)
-	out := map[string]struct{}{}
-	for _, m := range re.FindAllStringSubmatch(src, -1) {
-		out[m[1]] = struct{}{}
+func tsInterfaceProps(src string) map[string][]string {
+	re := regexp.MustCompile(`export interface (\w+) \{`)
+	fieldRe := regexp.MustCompile(`(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\??:`)
+	out := map[string][]string{}
+	for _, loc := range re.FindAllStringSubmatchIndex(src, -1) {
+		name := src[loc[2]:loc[3]]
+		body, ok := tsBraceBody(src, loc[1]-1)
+		if !ok {
+			continue
+		}
+		var fields []string
+		for _, f := range fieldRe.FindAllStringSubmatch(body, -1) {
+			fields = append(fields, f[1])
+		}
+		sort.Strings(fields)
+		out[name] = fields
 	}
 	return out
+}
+
+func tsBraceBody(src string, open int) (string, bool) {
+	if open < 0 || open >= len(src) || src[open] != '{' {
+		return "", false
+	}
+	depth := 0
+	for i := open; i < len(src); i++ {
+		switch src[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return src[open+1 : i], true
+			}
+		}
+	}
+	return "", false
 }
 
 func TestTSTypesCoverParityResponses(t *testing.T) {

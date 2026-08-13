@@ -255,6 +255,20 @@ func TestEveryParityRequiredHasCase(t *testing.T) {
 	}
 }
 
+func TestEmptyOptionalSecretObject(t *testing.T) {
+	t.Parallel()
+	_, restW, mcpW := isolatedTrio(t, allScopes)
+	body := map[string]any{"id": "alice", "login": map[string]any{}}
+	r := invoke(t, restW, operations.IDUsersUpdate, operations.UpdateUserRequest{ID: "alice"}, callOpts{Body: body})
+	m := invoke(t, mcpW, operations.IDUsersUpdate, operations.UpdateUserRequest{ID: "alice"}, callOpts{Body: body})
+	if r.Code != m.Code {
+		t.Fatalf("rest=%q mcp=%q restBody=%s mcpBody=%s", r.Code, m.Code, r.Raw, m.Raw)
+	}
+	if r.Code != string(domain.CodeAuthMethodCredentialMissing) && r.Code != string(domain.CodeInvalidArgument) {
+		t.Fatalf("login:{} code=%q want credential-missing or invalid_argument restBody=%s", r.Code, r.Raw)
+	}
+}
+
 func TestIdempotentCreateSameFailure(t *testing.T) {
 	t.Parallel()
 	direct, restW, mcpW := isolatedTrio(t, allScopes)

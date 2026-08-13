@@ -81,21 +81,26 @@ func schemaOf(t reflect.Type, seen map[reflect.Type]bool) map[string]any {
 			if skip {
 				continue
 			}
-			// encoding/json promotes anonymous structs with no json tag.
-			if f.Anonymous && (f.Tag.Get("json") == "") && f.Type.Kind() == reflect.Struct {
-				emb := schemaOf(f.Type, seen)
-				if ep, ok := emb["properties"].(map[string]any); ok {
+			// encoding/json promotes anonymous structs (and *struct) when the
+			// json name is empty, including json:",omitempty".
+			emb := f.Type
+			if emb.Kind() == reflect.Pointer {
+				emb = emb.Elem()
+			}
+			if f.Anonymous && name == "" && emb.Kind() == reflect.Struct {
+				nested := schemaOf(f.Type, seen)
+				if ep, ok := nested["properties"].(map[string]any); ok {
 					for k, v := range ep {
 						props[k] = v
 					}
 				}
-				if req, ok := emb["required"].([]string); ok {
+				if req, ok := nested["required"].([]string); ok {
 					required = append(required, req...)
 				}
 				continue
 			}
 			if name == "" {
-				continue
+				name = f.Name
 			}
 			props[name] = schemaOf(f.Type, seen)
 			if !omit && f.Type.Kind() != reflect.Pointer && f.Type.Kind() != reflect.Slice && f.Type.Kind() != reflect.Map {
@@ -118,17 +123,20 @@ func jsonField(f reflect.StructField) (name string, omitempty, skip bool) {
 		return "", false, true
 	}
 	if tag == "" {
+		if f.Anonymous {
+			return "", false, false
+		}
 		return f.Name, false, false
 	}
 	parts := strings.Split(tag, ",")
 	name = parts[0]
-	if name == "" {
-		name = f.Name
-	}
 	for _, p := range parts[1:] {
 		if p == "omitempty" {
 			omitempty = true
 		}
+	}
+	if name == "" && !f.Anonymous {
+		name = f.Name
 	}
 	return name, omitempty, false
 }

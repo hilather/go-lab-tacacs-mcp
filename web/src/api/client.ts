@@ -1,11 +1,36 @@
 import type {
+  AuthenticationTestResult,
   BuildInfo,
+  Client,
+  ClientList,
+  CreateClientRequest,
+  CreateGroupRequest,
+  CreateTokenRequest,
+  CreateUserRequest,
+  CreatedToken,
+  DeleteResult,
+  EffectiveConfig,
   Envelope,
+  EvaluatePolicyRequest,
   EventList,
+  ExportConfigResult,
+  Group,
+  GroupList,
+  PolicyTrace,
   ProblemDetails,
+  ReloadConfigResult,
+  ResetRuntimeResult,
   Session,
   Status,
+  TestAuthenticationRequest,
   TokenList,
+  UpdateClientRequest,
+  UpdateGroupRequest,
+  UpdateUserRequest,
+  User,
+  UserList,
+  ValidateConfigRequest,
+  ValidateConfigResult,
 } from "../generated/api";
 import { assertNoTokenStorage } from "./storage";
 
@@ -124,12 +149,165 @@ export async function getBuild(): Promise<Envelope<BuildInfo>> {
   return readEnvelope<BuildInfo>(await apiFetch("/api/v1/build"));
 }
 
-export async function listEvents(limit: number): Promise<Envelope<EventList>> {
-  return readEnvelope<EventList>(await apiFetch(`/api/v1/events?limit=${String(limit)}`));
+export function revisionETag(revision: number): string {
+  return `"revision-${String(revision)}"`;
 }
 
-export async function listTokens(): Promise<Envelope<TokenList>> {
-  return readEnvelope<TokenList>(await apiFetch("/api/v1/tokens"));
+export function isRevisionMismatch(err: unknown): boolean {
+  return err instanceof APIError && (err.problem.code === "revision_mismatch" || err.problem.status === 412);
+}
+
+function queryString(params: Record<string, string | number | boolean | undefined | readonly string[]>): string {
+  const u = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === "") {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== "") {
+          u.append(key, item);
+        }
+      }
+      continue;
+    }
+    if (typeof value === "boolean") {
+      if (value) {
+        u.set(key, "true");
+      }
+      continue;
+    }
+    u.set(key, String(value));
+  }
+  const encoded = u.toString();
+  return encoded === "" ? "" : `?${encoded}`;
+}
+
+async function sendJSON<T>(path: string, method: string, body: unknown, revision?: number): Promise<Envelope<T>> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (revision !== undefined) {
+    headers.set("If-Match", revisionETag(revision));
+  }
+  const init: RequestInit = { method, headers };
+  if (body !== undefined) {
+    init.body = JSON.stringify(body);
+  }
+  return readEnvelope<T>(await apiFetch(path, init));
+}
+
+export async function listEvents(opts: { limit?: number; cursor?: string; categories?: string[] } = {}): Promise<Envelope<EventList>> {
+  const limit = opts.limit ?? 50;
+  return readEnvelope<EventList>(
+    await apiFetch(
+      `/api/v1/events${queryString({ limit, cursor: opts.cursor, category: opts.categories })}`,
+    ),
+  );
+}
+
+export async function listTokens(opts: { limit?: number; cursor?: string } = {}): Promise<Envelope<TokenList>> {
+  return readEnvelope<TokenList>(await apiFetch(`/api/v1/tokens${queryString(opts)}`));
+}
+
+export async function createToken(body: CreateTokenRequest, revision?: number): Promise<Envelope<CreatedToken>> {
+  return sendJSON<CreatedToken>("/api/v1/tokens", "POST", body, revision);
+}
+
+export async function revokeToken(id: string, revision: number, tombstone = false): Promise<Envelope<DeleteResult>> {
+  return sendJSON<DeleteResult>(`/api/v1/tokens/${encodeURIComponent(id)}${queryString({ tombstone })}`, "DELETE", undefined, revision);
+}
+
+export async function listUsers(opts: { limit?: number; cursor?: string; include_deleted?: boolean } = {}): Promise<Envelope<UserList>> {
+  return readEnvelope<UserList>(await apiFetch(`/api/v1/users${queryString(opts)}`));
+}
+
+export async function getUser(id: string, includeDeleted = false): Promise<Envelope<User>> {
+  return readEnvelope<User>(
+    await apiFetch(`/api/v1/users/${encodeURIComponent(id)}${queryString({ include_deleted: includeDeleted })}`),
+  );
+}
+
+export async function createUser(body: CreateUserRequest, revision?: number): Promise<Envelope<User>> {
+  return sendJSON<User>("/api/v1/users", "POST", body, revision);
+}
+
+export async function updateUser(id: string, body: UpdateUserRequest, revision: number): Promise<Envelope<User>> {
+  return sendJSON<User>(`/api/v1/users/${encodeURIComponent(id)}`, "PATCH", { ...body, id }, revision);
+}
+
+export async function deleteUser(id: string, revision: number, tombstone = false): Promise<Envelope<DeleteResult>> {
+  return sendJSON<DeleteResult>(`/api/v1/users/${encodeURIComponent(id)}${queryString({ tombstone })}`, "DELETE", undefined, revision);
+}
+
+export async function listGroups(opts: { limit?: number; cursor?: string; include_deleted?: boolean } = {}): Promise<Envelope<GroupList>> {
+  return readEnvelope<GroupList>(await apiFetch(`/api/v1/groups${queryString(opts)}`));
+}
+
+export async function getGroup(id: string, includeDeleted = false): Promise<Envelope<Group>> {
+  return readEnvelope<Group>(
+    await apiFetch(`/api/v1/groups/${encodeURIComponent(id)}${queryString({ include_deleted: includeDeleted })}`),
+  );
+}
+
+export async function createGroup(body: CreateGroupRequest, revision?: number): Promise<Envelope<Group>> {
+  return sendJSON<Group>("/api/v1/groups", "POST", body, revision);
+}
+
+export async function updateGroup(id: string, body: UpdateGroupRequest, revision: number): Promise<Envelope<Group>> {
+  return sendJSON<Group>(`/api/v1/groups/${encodeURIComponent(id)}`, "PATCH", { ...body, id }, revision);
+}
+
+export async function deleteGroup(id: string, revision: number, tombstone = false): Promise<Envelope<DeleteResult>> {
+  return sendJSON<DeleteResult>(`/api/v1/groups/${encodeURIComponent(id)}${queryString({ tombstone })}`, "DELETE", undefined, revision);
+}
+
+export async function listClients(opts: { limit?: number; cursor?: string; include_deleted?: boolean } = {}): Promise<Envelope<ClientList>> {
+  return readEnvelope<ClientList>(await apiFetch(`/api/v1/clients${queryString(opts)}`));
+}
+
+export async function getClient(id: string, includeDeleted = false): Promise<Envelope<Client>> {
+  return readEnvelope<Client>(
+    await apiFetch(`/api/v1/clients/${encodeURIComponent(id)}${queryString({ include_deleted: includeDeleted })}`),
+  );
+}
+
+export async function createClient(body: CreateClientRequest, revision?: number): Promise<Envelope<Client>> {
+  return sendJSON<Client>("/api/v1/clients", "POST", body, revision);
+}
+
+export async function updateClient(id: string, body: UpdateClientRequest, revision: number): Promise<Envelope<Client>> {
+  return sendJSON<Client>(`/api/v1/clients/${encodeURIComponent(id)}`, "PATCH", { ...body, id }, revision);
+}
+
+export async function deleteClient(id: string, revision: number, tombstone = false): Promise<Envelope<DeleteResult>> {
+  return sendJSON<DeleteResult>(`/api/v1/clients/${encodeURIComponent(id)}${queryString({ tombstone })}`, "DELETE", undefined, revision);
+}
+
+export async function evaluatePolicy(body: EvaluatePolicyRequest): Promise<Envelope<PolicyTrace>> {
+  return sendJSON<PolicyTrace>("/api/v1/policy/evaluate", "POST", body);
+}
+
+export async function testAuthentication(body: TestAuthenticationRequest): Promise<Envelope<AuthenticationTestResult>> {
+  return sendJSON<AuthenticationTestResult>("/api/v1/authentication/test", "POST", body);
+}
+
+export async function getEffectiveConfig(view?: string): Promise<Envelope<EffectiveConfig>> {
+  return readEnvelope<EffectiveConfig>(await apiFetch(`/api/v1/config/effective${queryString({ view })}`));
+}
+
+export async function exportConfig(view?: string): Promise<Envelope<ExportConfigResult>> {
+  return readEnvelope<ExportConfigResult>(await apiFetch(`/api/v1/config/export${queryString({ view })}`));
+}
+
+export async function validateConfig(body: ValidateConfigRequest): Promise<Envelope<ValidateConfigResult>> {
+  return sendJSON<ValidateConfigResult>("/api/v1/config/validate", "POST", body);
+}
+
+export async function reloadConfig(revision?: number): Promise<Envelope<ReloadConfigResult>> {
+  return sendJSON<ReloadConfigResult>("/api/v1/config/reload", "POST", {}, revision);
+}
+
+export async function resetRuntime(revision?: number): Promise<Envelope<ResetRuntimeResult>> {
+  return sendJSON<ResetRuntimeResult>("/api/v1/runtime/reset", "POST", {}, revision);
 }
 
 export function hashPrefix(value: string, n = 12): string {

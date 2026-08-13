@@ -1130,55 +1130,55 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P12.4 Implement users and credentials UI
 
-- [ ] List/filter users with `CONFIG`/`RUNTIME` source badges.
-- [ ] Create/update/shadow/delete runtime users.
-- [ ] Capture password/challenge/enable secret values in write-only fields.
-- [ ] Clear secret fields immediately after submission.
-- [ ] Display authentication capability metadata, not secret values.
-- [ ] Handle revision conflicts with explicit refresh/retry UX.
+- [x] List/filter users with `CONFIG`/`RUNTIME` source badges.
+- [x] Create/update/shadow/delete runtime users.
+- [x] Capture password/challenge/enable secret values in write-only fields.
+- [x] Clear secret fields immediately after submission.
+- [x] Display authentication capability metadata, not secret values.
+- [x] Handle revision conflicts with explicit refresh/retry UX.
 
 **Tests**
 
-- [ ] Component, API-mock, accessibility, secret-field, and end-to-end runtime reset tests.
+- [x] Component, API-mock, accessibility, secret-field, and end-to-end runtime reset tests.
 
 ### P12.5 Implement groups and policy UI
 
-- [ ] CRUD runtime groups and ordered rules.
-- [ ] Preserve AV-pair separator and order.
-- [ ] Validate exact versus regex matching.
-- [ ] Show deterministic priorities and default-deny behavior.
-- [ ] Add policy explanation console using the public REST operation.
+- [x] CRUD runtime groups and ordered rules.
+- [x] Preserve AV-pair separator and order.
+- [x] Validate exact versus regex matching.
+- [x] Show deterministic priorities and default-deny behavior.
+- [x] Add policy explanation console using the public REST operation.
 
 ### P12.6 Implement clients and TLS identity UI
 
-- [ ] CRUD runtime clients.
-- [ ] CIDR, transport, legacy secret, secret lifecycle, certificate identity, method, and default-group fields.
-- [ ] Write-only shared-secret input.
-- [ ] Display `current`, `due soon`, `overdue`, or `unknown` rotation status without exposing fingerprints.
-- [ ] Display deduplicated reuse/weak/rotation warnings returned by validation and provide safe rotation guidance.
-- [ ] Display warnings for ambiguous or unsafe configurations returned by validation.
+- [x] CRUD runtime clients.
+- [x] CIDR, transport, legacy secret, secret lifecycle, certificate identity, method, and default-group fields.
+- [x] Write-only shared-secret input.
+- [x] Display `current`, `due soon`, `overdue`, or `unknown` rotation status without exposing fingerprints.
+- [x] Display deduplicated reuse/weak/rotation warnings returned by validation and provide safe rotation guidance.
+- [x] Display warnings for ambiguous or unsafe configurations returned by validation.
 
 ### P12.7 Implement token management UI
 
-- [ ] List token metadata.
-- [ ] Create token with scopes/expiry.
-- [ ] Show one-time token with explicit copy/acknowledge flow.
-- [ ] Never display token again after leaving the result state.
-- [ ] Revoke runtime tokens.
+- [x] List token metadata.
+- [x] Create token with scopes/expiry.
+- [x] Show one-time token with explicit copy/acknowledge flow.
+- [x] Never display token again after leaving the result state.
+- [x] Revoke runtime tokens.
 
 ### P12.8 Implement event viewer
 
-- [ ] Recent event pagination and live stream.
-- [ ] Filters for transport, result, client, user, packet/operation type, and error code.
-- [ ] Visible dropped-event/reconnect indicators.
-- [ ] Safe rendering of untrusted device/user strings.
+- [x] Recent event pagination and live stream.
+- [x] Filters for transport, result, client, user, packet/operation type, and error code.
+- [x] Visible dropped-event/reconnect indicators.
+- [x] Safe rendering of untrusted device/user strings.
 
 ### P12.9 Implement config and runtime controls
 
-- [ ] Sanitized effective config viewer/export.
-- [ ] Validate/reload baseline controls with detailed non-secret errors.
-- [ ] Runtime reset with clear consequence and revision handling.
-- [ ] Display runtime shadow/tombstone state.
+- [x] Sanitized effective config viewer/export.
+- [x] Validate/reload baseline controls with detailed non-secret errors.
+- [x] Runtime reset with clear consequence and revision handling.
+- [x] Display runtime shadow/tombstone state.
 
 ### P12.10 Embed production assets in Go server
 

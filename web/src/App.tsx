@@ -1,9 +1,19 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
-import { BrowserRouter, Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useState, type ReactNode } from "react";
+import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+
+const UsersPage = lazy(async () => ({ default: (await import("./pages/UsersPage")).UsersPage }));
+const GroupsPage = lazy(async () => ({ default: (await import("./pages/GroupsPage")).GroupsPage }));
+const ClientsPage = lazy(async () => ({ default: (await import("./pages/ClientsPage")).ClientsPage }));
+const TokensPage = lazy(async () => ({ default: (await import("./pages/TokensPage")).TokensPage }));
+const EventsPage = lazy(async () => ({ default: (await import("./pages/EventsPage")).EventsPage }));
+const AuthTestPage = lazy(async () => ({ default: (await import("./pages/AuthTestPage")).AuthTestPage }));
+const PolicyExplainPage = lazy(async () => ({ default: (await import("./pages/PolicyExplainPage")).PolicyExplainPage }));
+const ConfigPage = lazy(async () => ({ default: (await import("./pages/ConfigPage")).ConfigPage }));
+const AboutPage = lazy(async () => ({ default: (await import("./pages/AboutPage")).AboutPage }));
 
 function queryClient() {
   return new QueryClient({
@@ -21,26 +31,54 @@ function SkipLink() {
   );
 }
 
+function NavItem({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <NavLink to={to} className={({ isActive }) => (isActive ? "nav-active" : undefined)} end={to === "/"}>
+      {children}
+    </NavLink>
+  );
+}
+
 function Shell() {
-  const { state, logout } = useAuth();
+  const { state, hasScope, logout } = useAuth();
+  const signedIn = state.status === "signed_in";
   return (
     <div className="app">
       <SkipLink />
       <header className="topbar">
-        <Link className="brand" to="/">
+        <NavLink className="brand" to="/">
           TacLab
-        </Link>
+        </NavLink>
         <nav aria-label="Primary">
-          <Link to="/">Status</Link>
-          {state.status === "signed_in" ? (
-            <button type="button" className="linkish" onClick={() => void logout()}>
-              Sign out
-            </button>
+          {signedIn ? (
+            <>
+              <NavItem to="/">Status</NavItem>
+              {hasScope("state:read") ? <NavItem to="/users">Users</NavItem> : null}
+              {hasScope("state:read") ? <NavItem to="/groups">Groups</NavItem> : null}
+              {hasScope("state:read") ? <NavItem to="/clients">Clients</NavItem> : null}
+              {hasScope("tokens:manage") ? <NavItem to="/tokens">Tokens</NavItem> : null}
+              {hasScope("events:read") ? <NavItem to="/events">Events</NavItem> : null}
+              {hasScope("policy:test") ? <NavItem to="/auth-test">Auth test</NavItem> : null}
+              {hasScope("policy:test") ? <NavItem to="/explain">Explain</NavItem> : null}
+              {hasScope("state:read") ? <NavItem to="/config">Config</NavItem> : null}
+              {hasScope("state:read") ? <NavItem to="/about">About</NavItem> : null}
+              <button type="button" className="linkish" onClick={() => void logout()}>
+                Sign out
+              </button>
+            </>
           ) : null}
         </nav>
       </header>
       <div id="app-main">
-        <Outlet />
+        <Suspense
+          fallback={
+            <main className="page">
+              <p role="status">Loading page…</p>
+            </main>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   );
@@ -89,6 +127,15 @@ export function App() {
               </Route>
               <Route element={<RequireSession />}>
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/groups" element={<GroupsPage />} />
+                <Route path="/clients" element={<ClientsPage />} />
+                <Route path="/tokens" element={<TokensPage />} />
+                <Route path="/events" element={<EventsPage />} />
+                <Route path="/auth-test" element={<AuthTestPage />} />
+                <Route path="/explain" element={<PolicyExplainPage />} />
+                <Route path="/config" element={<ConfigPage />} />
+                <Route path="/about" element={<AboutPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

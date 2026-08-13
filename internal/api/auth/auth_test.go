@@ -19,7 +19,7 @@ import (
 
 type fixedClock struct{ t time.Time }
 
-func (c *fixedClock) Now() time.Time { return c.t }
+func (c fixedClock) Now() time.Time { return c.t }
 
 func TestVerifyBearerCorrectAndNegatives(t *testing.T) {
 	t.Parallel()

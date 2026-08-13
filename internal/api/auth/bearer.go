@@ -5,22 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
-
-// Principal is an authenticated actor. Scopes are exact-match only.
-type Principal struct {
-	ID     string
-	Scopes []string
-}
-
-// Actor converts p to the operation-registry actor type.
-func (p Principal) Actor() operations.Actor {
-	return operations.Actor{ID: p.ID, Scopes: append([]string(nil), p.Scopes...)}
-}
 
 // Verifier looks up bootstrap token digests. It is safe for concurrent use.
 type Verifier struct {
@@ -81,7 +69,7 @@ func (v *Verifier) Authenticate(token string) (Principal, error) {
 	if got.expiresAt != nil && !v.clock.Now().Before(got.expiresAt.UTC()) {
 		return Principal{}, domain.NewError(domain.CodeUnauthenticated, "authentication required")
 	}
-	return Principal{ID: got.id, Scopes: append([]string(nil), got.scopes...)}, nil
+	return Principal{TokenID: got.id, Scopes: append([]string(nil), got.scopes...)}, nil
 }
 
 // ParseBearer extracts the token from an Authorization header value.

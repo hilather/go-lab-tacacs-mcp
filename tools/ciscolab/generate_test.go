@@ -141,6 +141,9 @@ func TestNoDockerPullInShippedSources(t *testing.T) {
 		if strings.Contains(src, "exec.Command(\"docker\", \"pull\"") || strings.Contains(src, "exec.CommandContext(ctx, \"docker\", \"pull\"") {
 			t.Errorf("%s must not pull Cisco images", path)
 		}
+		if strings.Contains(src, `"golang.org/x/crypto/ssh"`) {
+			t.Errorf("%s must not import x/crypto/ssh (govulncheck GO-2026-5020)", path)
+		}
 		return nil
 	})
 	if err != nil {

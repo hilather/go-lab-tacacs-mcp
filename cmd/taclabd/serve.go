@@ -20,6 +20,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/rest"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -451,12 +452,18 @@ func emitLifecycleWarnings(rec *observability.Recorder, snap *state.Snapshot) {
 	if rec == nil || snap == nil {
 		return
 	}
-	for st, n := range snap.LifecycleCounts() {
-		switch st {
-		case "due_soon", "overdue", "unknown":
-			for i := 0; i < n; i++ {
-				rec.SecretWarning(string(st))
-			}
-		}
+	for _, w := range snap.SecretWarnings() {
+		rec.SecretWarning(warningStatus(w.Code))
+	}
+}
+
+func warningStatus(code domain.Code) string {
+	switch code {
+	case domain.CodeSharedSecretRotationOverdue:
+		return observability.StatusOverdue
+	case domain.CodeSharedSecretPolicyViolation:
+		return observability.StatusReuse
+	default:
+		return observability.StatusUnknown
 	}
 }

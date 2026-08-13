@@ -190,8 +190,9 @@ func EvaluateSecrets(doc *Document, lookup SecretLookup, now time.Time, hmacKey 
 		reuse = newReuseTracker(hmacKey)
 	}
 	for i, c := range doc.Clients {
+		// TLS-only (or any client without a legacy secret) is omitted.
+		// unknown is reserved for a present secret with missing rotation metadata.
 		if !c.Legacy.SharedSecret.Set() {
-			lifecycles[c.ID] = domain.LifecycleUnknown
 			continue
 		}
 		path := indexPath("clients", i) + ".legacy.shared_secret"

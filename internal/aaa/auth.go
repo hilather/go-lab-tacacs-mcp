@@ -9,6 +9,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -23,6 +24,9 @@ func (s *Service) BeginAuthentication(ctx context.Context, start AuthenticationS
 		return errorStep(), domain.NewError(domain.CodeInternal, "aaa service is not initialized")
 	}
 	if err := ctx.Err(); err != nil {
+		return errorStep(), err
+	}
+	if err := checkAuthenFields(s, start.UserID, start.Port, start.Remote); err != nil {
 		return errorStep(), err
 	}
 	key := sessionKey{conn: start.ConnKey, sess: start.SessionID}
@@ -546,6 +550,29 @@ func canonUser(user string) string {
 
 func errorStep() AuthenticationStep {
 	return AuthenticationStep{Status: domain.AuthenStatusError}
+}
+
+func checkAuthenFields(s *Service, user, port, remote string) error {
+	maxUser, maxPort, maxRemote := 253, 253, 253
+	if snap := s.snap(); snap != nil && snap.Settings() != nil {
+		lim := snap.Settings().Limits
+		if lim.MaxUsernameBytes > 0 {
+			maxUser = lim.MaxUsernameBytes
+		}
+		if lim.MaxPortBytes > 0 {
+			maxPort = lim.MaxPortBytes
+		}
+		if lim.MaxRemoteAddressBytes > 0 {
+			maxRemote = lim.MaxRemoteAddressBytes
+		}
+	}
+	if err := observability.CheckBytes("user", []byte(user), maxUser); err != nil {
+		return err
+	}
+	if err := observability.CheckBytes("port", []byte(port), maxPort); err != nil {
+		return err
+	}
+	return observability.CheckBytes("rem_addr", []byte(remote), maxRemote)
 }
 
 func failStep() AuthenticationStep {

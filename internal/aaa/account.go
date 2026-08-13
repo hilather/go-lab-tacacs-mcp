@@ -5,6 +5,7 @@ import (
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 )
 
 // RecordAccounting accepts a valid record into the ring. Invalid flags ERROR.
@@ -121,14 +122,23 @@ func checkArgBudget(s *Service, args domain.AVPairs) error {
 		return nil
 	}
 	maxArgs := 256
+	maxBytes := 65535
 	snap := s.snap()
-	if snap != nil && snap.Settings() != nil && snap.Settings().Limits.MaxAuthorizationArguments > 0 {
-		maxArgs = snap.Settings().Limits.MaxAuthorizationArguments
+	if snap != nil && snap.Settings() != nil {
+		if snap.Settings().Limits.MaxAuthorizationArguments > 0 {
+			maxArgs = snap.Settings().Limits.MaxAuthorizationArguments
+		}
+		if snap.Settings().Limits.MaxArgumentBytes > 0 {
+			maxBytes = snap.Settings().Limits.MaxArgumentBytes
+		}
 	}
-	if len(args) > maxArgs {
-		return domain.NewError(domain.CodeInvalidArgument, "too many accounting arguments").
-			WithDetail("count", len(args)).
-			WithDetail("max", maxArgs)
+	if err := observability.CheckCount("arguments", len(args), maxArgs); err != nil {
+		return err
+	}
+	for _, a := range args {
+		if err := observability.CheckBytes("argument", []byte(a.Name+"="+a.Value), maxBytes); err != nil {
+			return err
+		}
 	}
 	return nil
 }

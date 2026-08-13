@@ -133,6 +133,8 @@ const (
 	StatusDueSoon = "due_soon"
 	StatusOverdue = "overdue"
 	StatusUnknown = "unknown"
+	// StatusReuse is warnings-only; it is not a lifecycle gauge label.
+	StatusReuse = "reuse"
 )
 
 // SecretLifecycleStatuses is the closed set of lifecycle gauge labels.
@@ -163,4 +165,8 @@ func knownLifecycleStatus(v string) bool {
 	default:
 		return false
 	}
+}
+
+func knownWarningStatus(v string) bool {
+	return knownLifecycleStatus(v) || v == StatusReuse
 }

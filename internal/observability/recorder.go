@@ -140,7 +140,7 @@ func (r *Recorder) SetSecretLifecycle(counts map[string]int) {
 
 // SecretWarning increments the warning counter. Status is the only label.
 func (r *Recorder) SecretWarning(status string) {
-	if !knownLifecycleStatus(status) {
+	if !knownWarningStatus(status) {
 		status = StatusUnknown
 	}
 	r.registry().Inc(MetricSecretWarnings, Labels{LabelStatus: status}, 1)

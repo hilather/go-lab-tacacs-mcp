@@ -298,13 +298,22 @@ func (r *Registry) normalize(name string, labels Labels) (Labels, bool) {
 	return out, true
 }
 
-func (r *Registry) normalizeLifecycle(_ string, labels Labels) (Labels, bool) {
+func (r *Registry) normalizeLifecycle(name string, labels Labels) (Labels, bool) {
 	if len(labels) == 0 {
 		r.dropped.Add(1)
 		return nil, false
 	}
 	status, ok := labels[LabelStatus]
-	if !ok || !knownLifecycleStatus(status) {
+	if !ok {
+		r.dropped.Add(1)
+		return nil, false
+	}
+	if name == MetricSecretWarnings {
+		if !knownWarningStatus(status) {
+			r.dropped.Add(1)
+			return nil, false
+		}
+	} else if !knownLifecycleStatus(status) {
 		r.dropped.Add(1)
 		return nil, false
 	}

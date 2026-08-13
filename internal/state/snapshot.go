@@ -143,6 +143,17 @@ func (s *Snapshot) LifecycleCounts() map[domain.SecretLifecycle]int {
 	return out
 }
 
+// SecretWarnings returns compiled shared-secret diagnostics (overdue, reuse).
+// Copies so callers cannot mutate the snapshot.
+func (s *Snapshot) SecretWarnings() []config.SecretWarning {
+	if s == nil || len(s.secretWarns) == 0 {
+		return nil
+	}
+	out := make([]config.SecretWarning, len(s.secretWarns))
+	copy(out, s.secretWarns)
+	return out
+}
+
 // SecretWarningCount is the number of compiled secret warnings.
 func (s *Snapshot) SecretWarningCount() int {
 	if s == nil {

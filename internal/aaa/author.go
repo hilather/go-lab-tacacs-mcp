@@ -6,6 +6,7 @@ import (
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/policy"
 )
 
@@ -13,6 +14,10 @@ import (
 func (s *Service) Authorize(ctx context.Context, req AuthorizationRequest) (AuthorizationDecision, error) {
 	if err := ctx.Err(); err != nil {
 		return errorDecision("context canceled"), err
+	}
+	if err := checkAuthorFields(s, req); err != nil {
+		s.metrics.Author(string(req.Transport), "error")
+		return errorDecision(err.Error()), nil
 	}
 	tr, res, err := s.evaluate(req)
 	if err != nil {
@@ -185,6 +190,52 @@ func redactTrace(tr PolicyTrace) PolicyTrace {
 	tr.RequestArguments = redactTraceAVs(tr.RequestArguments)
 	tr.Arguments = redactTraceAVs(tr.Arguments)
 	return tr
+}
+
+func checkAuthorFields(s *Service, req AuthorizationRequest) error {
+	maxUser, maxPort, maxRemote, maxCmd, maxArgs, maxArgBytes := 253, 253, 253, 65535, 256, 65535
+	if snap := s.snap(); snap != nil && snap.Settings() != nil {
+		lim := snap.Settings().Limits
+		if lim.MaxUsernameBytes > 0 {
+			maxUser = lim.MaxUsernameBytes
+		}
+		if lim.MaxPortBytes > 0 {
+			maxPort = lim.MaxPortBytes
+		}
+		if lim.MaxRemoteAddressBytes > 0 {
+			maxRemote = lim.MaxRemoteAddressBytes
+		}
+		if lim.MaxCommandBytes > 0 {
+			maxCmd = lim.MaxCommandBytes
+		}
+		if lim.MaxAuthorizationArguments > 0 {
+			maxArgs = lim.MaxAuthorizationArguments
+		}
+		if lim.MaxArgumentBytes > 0 {
+			maxArgBytes = lim.MaxArgumentBytes
+		}
+	}
+	if err := observability.CheckBytes("user", []byte(req.UserID), maxUser); err != nil {
+		return err
+	}
+	if err := observability.CheckBytes("port", []byte(req.Port), maxPort); err != nil {
+		return err
+	}
+	if err := observability.CheckBytes("rem_addr", []byte(req.Remote), maxRemote); err != nil {
+		return err
+	}
+	if err := observability.CheckBytes("cmd", []byte(req.Cmd), maxCmd); err != nil {
+		return err
+	}
+	if err := observability.CheckCount("arguments", len(req.Arguments), maxArgs); err != nil {
+		return err
+	}
+	for _, a := range req.Arguments {
+		if err := observability.CheckBytes("argument", []byte(a.Name+"="+a.Value), maxArgBytes); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func redactTraceAVs(in []PolicyTraceAV) []PolicyTraceAV {

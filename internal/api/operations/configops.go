@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -22,21 +23,24 @@ func handleEffectiveConfig(_ context.Context, snap *state.Snapshot, in Input) (a
 	return buildEffective(snap, view), nil
 }
 
-func handleExportConfig(_ context.Context, snap *state.Snapshot, in Input) (any, error) {
-	if snap == nil {
-		return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
+func handleExportConfig(deps Deps) handleFunc {
+	return func(_ context.Context, snap *state.Snapshot, in Input) (any, error) {
+		if snap == nil {
+			return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
+		}
+		req, _ := in.Request.(ExportConfigRequest)
+		view, err := normalizeConfigView(req.View)
+		if err != nil {
+			return nil, err
+		}
+		eff := buildEffective(snap, view)
+		raw, err := marshalExportYAML(eff)
+		if err != nil {
+			return nil, domain.NewError(domain.CodeInternal, "cannot encode export")
+		}
+		audit(deps, "api.config.exported", "ok", snap.Revision)
+		return ExportConfigResult{Revision: snap.Revision, View: view, Format: "yaml", YAML: string(raw)}, nil
 	}
-	req, _ := in.Request.(ExportConfigRequest)
-	view, err := normalizeConfigView(req.View)
-	if err != nil {
-		return nil, err
-	}
-	eff := buildEffective(snap, view)
-	raw, err := marshalExportYAML(eff)
-	if err != nil {
-		return nil, domain.NewError(domain.CodeInternal, "cannot encode export")
-	}
-	return ExportConfigResult{Revision: snap.Revision, View: view, Format: "yaml", YAML: string(raw)}, nil
 }
 
 func handleValidateConfig(deps Deps) handleFunc {
@@ -195,7 +199,15 @@ func buildEffective(snap *state.Snapshot, view string) EffectiveConfig {
 		}
 		out.Warnings = snap.Warnings()
 	}
+	sortConfigObjects(&out)
 	return out
+}
+
+func sortConfigObjects(out *EffectiveConfig) {
+	sort.Slice(out.Users, func(i, j int) bool { return out.Users[i].ID < out.Users[j].ID })
+	sort.Slice(out.Groups, func(i, j int) bool { return out.Groups[i].ID < out.Groups[j].ID })
+	sort.Slice(out.Clients, func(i, j int) bool { return out.Clients[i].ID < out.Clients[j].ID })
+	sort.Slice(out.Tokens, func(i, j int) bool { return out.Tokens[i].ID < out.Tokens[j].ID })
 }
 
 func baselineObjects(snap *state.Snapshot) ([]User, []Group, []Client) {
@@ -294,21 +306,24 @@ type exportUser struct {
 	ASCIIPapConfigured  bool              `yaml:"ascii_pap_configured"`
 	ChallengeConfigured bool              `yaml:"challenge_configured"`
 	EnableConfigured    bool              `yaml:"enable_configured"`
+	Rules               RuleSetView       `yaml:"rules,omitempty"`
+	Restrictions        RestrictionsView  `yaml:"restrictions,omitempty"`
 	Login               exportSecret      `yaml:"credentials_login,omitempty"`
 	Challenge           exportSecret      `yaml:"credentials_challenge,omitempty"`
 	Enable              exportSecret      `yaml:"credentials_enable,omitempty"`
 }
 
 type exportGroup struct {
-	ID           string            `yaml:"id"`
-	DisplayName  string            `yaml:"display_name,omitempty"`
-	Enabled      bool              `yaml:"enabled"`
-	Priority     int               `yaml:"priority"`
-	Source       string            `yaml:"source"`
-	Deleted      bool              `yaml:"deleted,omitempty"`
-	Labels       map[string]string `yaml:"labels,omitempty"`
-	Services     []ServiceRuleView `yaml:"services,omitempty"`
-	CommandRules []CommandRuleView `yaml:"command_rules,omitempty"`
+	ID                   string            `yaml:"id"`
+	DisplayName          string            `yaml:"display_name,omitempty"`
+	Enabled              bool              `yaml:"enabled"`
+	Priority             int               `yaml:"priority"`
+	Source               string            `yaml:"source"`
+	Deleted              bool              `yaml:"deleted,omitempty"`
+	Labels               map[string]string `yaml:"labels,omitempty"`
+	Services             []ServiceRuleView `yaml:"services,omitempty"`
+	CommandRules         []CommandRuleView `yaml:"command_rules,omitempty"`
+	DefaultCommandAction string            `yaml:"default_command_action,omitempty"`
 }
 
 type exportClient struct {
@@ -325,6 +340,7 @@ type exportClient struct {
 	SharedSecret           exportSecret      `yaml:"shared_secret,omitempty"`
 	Authentication         ClientAuthView    `yaml:"authentication"`
 	Authorization          ClientAuthzView   `yaml:"authorization"`
+	Accounting             ClientAcctView    `yaml:"accounting"`
 }
 
 type exportToken struct {
@@ -355,6 +371,7 @@ func marshalExportYAML(eff EffectiveConfig) ([]byte, error) {
 			ID: u.ID, DisplayName: u.DisplayName, Enabled: u.Enabled, Source: string(u.Source),
 			Deleted: u.Deleted, GroupIDs: u.GroupIDs, Labels: u.Labels,
 			ASCIIPapConfigured: u.ASCIIPapConfigured, ChallengeConfigured: u.ChallengeConfigured, EnableConfigured: u.EnableConfigured,
+			Rules: u.Rules, Restrictions: u.Restrictions,
 		}
 		if u.ASCIIPapConfigured {
 			eu.Login = exportSecret{Redacted: true, Source: "file"}
@@ -371,7 +388,7 @@ func marshalExportYAML(eff EffectiveConfig) ([]byte, error) {
 		doc.Groups = append(doc.Groups, exportGroup{
 			ID: g.ID, DisplayName: g.DisplayName, Enabled: g.Enabled, Priority: g.Priority,
 			Source: string(g.Source), Deleted: g.Deleted, Labels: g.Labels,
-			Services: g.Services, CommandRules: g.CommandRules,
+			Services: g.Services, CommandRules: g.CommandRules, DefaultCommandAction: g.DefaultCommandAction,
 		})
 	}
 	for _, c := range eff.Clients {
@@ -379,7 +396,7 @@ func marshalExportYAML(eff EffectiveConfig) ([]byte, error) {
 			ID: c.ID, DisplayName: c.DisplayName, Enabled: c.Enabled, Priority: c.Priority,
 			Source: string(c.Source), Deleted: c.Deleted, Labels: c.Labels, Match: c.Match,
 			SharedSecretConfigured: c.SharedSecretConfigured, SharedSecretLifecycle: c.SharedSecretLifecycle,
-			Authentication: c.Authentication, Authorization: c.Authorization,
+			Authentication: c.Authentication, Authorization: c.Authorization, Accounting: c.Accounting,
 		}
 		if c.SharedSecretConfigured {
 			ec.SharedSecret = exportSecret{Redacted: true, Source: "file"}

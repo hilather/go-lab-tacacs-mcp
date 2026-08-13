@@ -39,7 +39,7 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 		IDConfigEffectiveGet: handleEffectiveConfig,
 		IDConfigValidate:     handleValidateConfig(deps),
 		IDConfigReload:       handleReloadConfig(deps),
-		IDConfigExport:       handleExportConfig,
+		IDConfigExport:       handleExportConfig(deps),
 		IDRuntimeReset:       handleResetRuntime(deps),
 		IDUsersList:          handleUsersList,
 		IDUsersGet:           handleUsersGet,

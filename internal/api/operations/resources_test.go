@@ -8,6 +8,7 @@ import (
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -54,8 +55,11 @@ func TestUsersListGetCreateUpdateDelete(t *testing.T) {
 	if created.Data.(User).Source != domain.SourceRuntime || created.Data.(User).ID != "bob" {
 		t.Fatalf("create=%+v", created.Data)
 	}
+	if created.Revision != m.Snapshot().Revision || created.Data.(User).EffectiveRevision != created.Revision {
+		t.Fatalf("create envelope rev=%d data=%d snap=%d", created.Revision, created.Data.(User).EffectiveRevision, m.Snapshot().Revision)
+	}
 
-	rev := m.Revision()
+	rev := created.Revision
 	patchedName := "Bobby"
 	updated, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
 		Actor:            writer,
@@ -67,6 +71,9 @@ func TestUsersListGetCreateUpdateDelete(t *testing.T) {
 	}
 	if updated.Data.(User).DisplayName != "Bobby" {
 		t.Fatalf("update=%+v", updated.Data)
+	}
+	if updated.Revision != m.Snapshot().Revision || updated.Data.(User).EffectiveRevision != updated.Revision {
+		t.Fatalf("update envelope rev=%d data=%d snap=%d", updated.Revision, updated.Data.(User).EffectiveRevision, m.Snapshot().Revision)
 	}
 
 	rev = m.Revision()
@@ -140,6 +147,28 @@ func TestGroupsAndClientsCRUD(t *testing.T) {
 	if created.Data.(Group).ID != "netops" || len(created.Data.(Group).CommandRules) != 1 {
 		t.Fatalf("group create=%+v", created.Data)
 	}
+	if created.Revision != m.Snapshot().Revision {
+		t.Fatalf("group create rev=%d snap=%d", created.Revision, m.Snapshot().Revision)
+	}
+	rev := created.Revision
+	name := "Net Ops"
+	updated, err := reg.Invoke(context.Background(), IDGroupsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateGroupRequest{ID: "netops", DisplayName: &name},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Revision != m.Snapshot().Revision || updated.Data.(Group).DisplayName != "Net Ops" {
+		t.Fatalf("group update=%+v rev=%d", updated.Data, updated.Revision)
+	}
+	rev = updated.Revision
+	if _, err := reg.Invoke(context.Background(), IDGroupsDelete, m.Snapshot(), Input{
+		Actor: writer, ExpectedRevision: &rev, Request: DeleteGroupRequest{ID: "netops"},
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	cl, err := reg.Invoke(context.Background(), IDClientsList, m.Snapshot(), Input{Actor: writer})
 	if err != nil {
@@ -173,14 +202,39 @@ func TestGroupsAndClientsCRUD(t *testing.T) {
 	if !createdClient.Data.(Client).SharedSecretConfigured {
 		t.Fatalf("client=%+v", createdClient.Data)
 	}
+	if createdClient.Revision != m.Snapshot().Revision {
+		t.Fatalf("client create rev=%d snap=%d", createdClient.Revision, m.Snapshot().Revision)
+	}
+	crev := createdClient.Revision
+	cname := "Access"
+	cupd, err := reg.Invoke(context.Background(), IDClientsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &crev,
+		Request:          UpdateClientRequest{ID: "ap", DisplayName: &cname},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cupd.Revision != m.Snapshot().Revision {
+		t.Fatalf("client update rev=%d", cupd.Revision)
+	}
+	crev = cupd.Revision
+	if _, err := reg.Invoke(context.Background(), IDClientsDelete, m.Snapshot(), Input{
+		Actor: writer, ExpectedRevision: &crev, Request: DeleteClientRequest{ID: "ap"},
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestConfigEffectiveExportValidateReset(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, smallYAML)
 	src := smallYAML
+	ring := events.New(32, nil)
+	t.Cleanup(ring.Close)
 	reg, err := New(mustSpec(t), Deps{
-		State: m,
+		State:  m,
+		Events: ring,
 		LoadBaseline: func() (*config.Document, error) {
 			return config.Parse([]byte(src))
 		},
@@ -206,6 +260,19 @@ func TestConfigEffectiveExportValidateReset(t *testing.T) {
 	yamlOut := exp.Data.(ExportConfigResult).YAML
 	if !strings.Contains(yamlOut, "redacted: true") || strings.Contains(yamlOut, "alice-login") {
 		t.Fatalf("export leaked or missing placeholder:\n%s", yamlOut)
+	}
+	if !strings.Contains(yamlOut, "command_rules:") || !strings.Contains(yamlOut, "accounting:") {
+		t.Fatalf("export missing non-secret fields:\n%s", yamlOut)
+	}
+	foundExport := false
+	for _, ev := range ring.Read(events.Query{Limit: 20}).Items {
+		if ev.Type == "api.config.exported" && ev.Result == "ok" {
+			foundExport = true
+			break
+		}
+	}
+	if !foundExport {
+		t.Fatal("missing api.config.exported audit")
 	}
 
 	val, err := reg.Invoke(context.Background(), IDConfigValidate, m.Snapshot(), Input{
@@ -245,6 +312,104 @@ func TestConfigEffectiveExportValidateReset(t *testing.T) {
 	}
 	if len(m.Snapshot().Users()) != 1 {
 		t.Fatalf("reset leftover users=%d", len(m.Snapshot().Users()))
+	}
+}
+
+func TestConfigReloadAndOverlayOrder(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	src := smallYAML
+	var fail bool
+	reg, err := New(mustSpec(t), Deps{
+		State: m,
+		LoadBaseline: func() (*config.Document, error) {
+			if fail {
+				return nil, domain.NewError(domain.CodeConfigYAMLInvalid, "mounted source is invalid")
+			}
+			return config.Parse([]byte(src))
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write", "config:reload"}}
+	enabled := false
+	name := "aaa"
+	if _, err := reg.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), Input{
+		Actor: writer, Request: CreateUserRequest{ID: "aaa", DisplayName: &name, Enabled: &enabled},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before := m.Revision()
+	reloader := Actor{ID: "r", Scopes: []string{"config:reload"}}
+	reloaded, err := reg.Invoke(context.Background(), IDConfigReload, m.Snapshot(), Input{Actor: reloader})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Revision != m.Snapshot().Revision || reloaded.Revision <= before {
+		t.Fatalf("reload rev=%d before=%d snap=%d", reloaded.Revision, before, m.Snapshot().Revision)
+	}
+	if _, ok := m.Snapshot().User("aaa"); !ok {
+		t.Fatal("rebase dropped overlay user")
+	}
+
+	fail = true
+	keep := m.Snapshot().Revision
+	if _, err := reg.Invoke(context.Background(), IDConfigReload, m.Snapshot(), Input{Actor: reloader}); err == nil {
+		t.Fatal("invalid reload succeeded")
+	}
+	if m.Snapshot().Revision != keep {
+		t.Fatalf("failed reload published rev=%d want %d", m.Snapshot().Revision, keep)
+	}
+
+	rev := m.Revision()
+	if _, err := reg.Invoke(context.Background(), IDUsersDelete, m.Snapshot(), Input{
+		Actor: writer, ExpectedRevision: &rev, Request: DeleteUserRequest{ID: "alice", Tombstone: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ov, err := reg.Invoke(context.Background(), IDConfigEffectiveGet, m.Snapshot(), Input{
+		Actor: reader, Request: GetEffectiveConfigRequest{View: ConfigViewOverlay},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	users := ov.Data.(EffectiveConfig).Users
+	if len(users) < 2 {
+		t.Fatalf("overlay users=%+v", users)
+	}
+	for i := 1; i < len(users); i++ {
+		if users[i-1].ID > users[i].ID {
+			t.Fatalf("overlay users not sorted: %q then %q", users[i-1].ID, users[i].ID)
+		}
+	}
+	listed, err := reg.Invoke(context.Background(), IDUsersList, m.Snapshot(), Input{
+		Actor: reader, Request: ListUsersRequest{IncludeDeleted: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawDeleted bool
+	for _, u := range listed.Data.(UserList).Items {
+		if u.ID == "alice" && u.Deleted {
+			sawDeleted = true
+		}
+	}
+	if !sawDeleted {
+		t.Fatalf("tombstone missing from include_deleted: %+v", listed.Data)
+	}
+}
+
+func TestOptionalSecretRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+	var s OptionalSecret
+	err := json.Unmarshal([]byte(`{"file":"/run/secrets/x","value":"cleartext"}`), &s)
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("err=%v", err)
+	}
+	var req CreateUserRequest
+	if err := json.Unmarshal([]byte(`{"id":"x","login":{"file":"/run/secrets/x","value":"cleartext"}}`), &req); !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("nested err=%v", err)
 	}
 }
 

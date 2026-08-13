@@ -1727,9 +1727,6 @@
             "type": "string",
             "writeOnly": true
           },
-          "service": {
-            "type": "string"
-          },
           "user_id": {
             "type": "string"
           }
@@ -2083,9 +2080,6 @@
       "ValidateConfigRequest": {
         "additionalProperties": false,
         "properties": {
-          "source": {
-            "type": "boolean"
-          },
           "yaml": {
             "type": "string"
           }

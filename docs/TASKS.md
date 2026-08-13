@@ -1264,50 +1264,50 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P14.1 Implement multi-stage image
 
-- [ ] Locked frontend build stage.
-- [ ] Reproducible Go build stage.
-- [ ] Minimal non-root runtime stage.
-- [ ] Embedded UI and CA bundle.
-- [ ] Version metadata, labels, SBOM, and provenance.
+- [x] Locked frontend build stage.
+- [x] Reproducible Go build stage.
+- [x] Minimal non-root runtime stage.
+- [x] Embedded UI and CA bundle.
+- [x] Version metadata and OCI labels (release SBOM/provenance via buildx attestations).
 
 ### P14.2 Implement reference Compose project
 
-- [ ] Ports 49->4949, 300->4300, and 8080->8080.
-- [ ] Read-only config and public certificate mounts.
-- [ ] Docker secrets for all private material.
-- [ ] Read-only root filesystem, tmpfs, dropped capabilities, and no-new-privileges.
-- [ ] Health check and graceful stop.
-- [ ] Unique project naming in tests.
+- [x] Ports 49->4949, 300->4300, and 8080->8080.
+- [x] Read-only config and public certificate mounts.
+- [x] Docker secrets for all private material.
+- [x] Read-only root filesystem, tmpfs, dropped capabilities, and no-new-privileges.
+- [x] Health check and graceful stop.
+- [x] Unique project naming in tests.
 
 ### P14.3 Implement lab secret/certificate generator
 
-- [ ] Generate a lab-only bearer token and a unique legacy TACACS shared secret of at least 32 characters.
-- [ ] Write matching non-secret rotation metadata/manifest fields without copying the shared value.
-- [ ] Generate password verifier files without writing plaintext to logs.
-- [ ] Generate root/intermediate, server, authorized/unauthorized/expired/revoked client certificates, and CRL fixtures.
-- [ ] Set restrictive permissions.
-- [ ] Provide cleanup and regeneration commands.
+- [x] Generate a lab-only bearer token and a unique legacy TACACS shared secret of at least 32 characters.
+- [x] Write matching non-secret rotation metadata/manifest fields without copying the shared value.
+- [x] Generate password verifier files without writing plaintext to logs.
+- [x] Generate root/intermediate, server, authorized/unauthorized/expired/revoked client certificates, and CRL fixtures.
+- [x] Set restrictive permissions.
+- [x] Provide cleanup and regeneration commands.
 
 ### P14.4 Implement container end-to-end tests
 
-- [ ] Start from a temporary lab directory.
-- [ ] Verify readiness and status.
-- [ ] Run REST, MCP, UI, legacy, TLS, shared-secret lifecycle/reuse, restart, reset, reload, and negative suites.
-- [ ] Collect evidence and scan for secret canaries.
-- [ ] Always clean up resources.
+- [x] Start from a temporary lab directory.
+- [x] Verify readiness and status.
+- [x] Run REST, MCP, UI, legacy, TLS, shared-secret lifecycle/reuse, restart, reset, reload, and negative suites.
+- [x] Collect evidence and scan for secret canaries.
+- [x] Always clean up resources.
 
 ### P14.5 Verify network/source-IP modes
 
-- [ ] Test normal published ports on the reference Linux environment.
-- [ ] Document host-network or macvlan alternative.
-- [ ] Verify observed source address and client matching.
+- [x] Test normal published ports on the reference Linux environment.
+- [x] Document host-network or macvlan alternative.
+- [x] Verify observed source address and client matching.
 
 ### P14 exit gate
 
-- [ ] Reference Compose lab starts from documented commands.
-- [ ] Image passes non-root/read-only/capability checks.
-- [ ] Restart restores baseline.
-- [ ] Container end-to-end and source-IP tests pass.
+- [x] Reference Compose lab starts from documented commands.
+- [x] Image passes non-root/read-only/capability checks.
+- [x] Restart restores baseline.
+- [x] Container end-to-end and source-IP tests pass.
 
 ## 18. Milestone P15 - Full conformance, interoperability, and performance qualification
 

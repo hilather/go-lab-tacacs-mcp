@@ -176,7 +176,7 @@ Run keyboard-only smoke coverage and automated accessibility checks. Automated t
 
 ### 3.9 Container integration tests
 
-Build the production image and start the reference Compose topology. Verify:
+`make lab-test` builds `ghcr.io/hilather/go-lab-tacacs-mcp`, runs `tools/labgen` into a temporary directory, and starts `deployments/compose/compose.yaml` plus `compose.lab-test.yaml` under a unique project name. Verify:
 
 - non-root UID.
 - read-only root filesystem.
@@ -190,6 +190,8 @@ Build the production image and start the reference Compose topology. Verify:
 - graceful stop.
 - restart baseline reset.
 - no required persistence volume.
+- SSE / MCP listen subscriber survives longer than `listeners.http.write_timeout` (`LAB-SSE-001`; unit coverage in `internal/api/rest` and `internal/api/mcp`).
+- Source-IP disposition is recorded (`LAB-SOURCE-001`, LAB_DEPLOYMENT §4.3). File-watch reload remains off.
 
 ### 3.10 Interoperability tests
 

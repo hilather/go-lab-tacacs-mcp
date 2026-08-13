@@ -1,4 +1,5 @@
-# High-port smoke topology. Does not map privileged 49/300.
+# High-port smoke topology (no generated PKI). Does not map privileged 49/300.
+# The 1.0 lab image is the repo-root Dockerfile; this file stays for a cheap smoke.
 # Usage: docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-container-exit --exit-code-from smoke
 services:
   taclab:

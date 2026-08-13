@@ -1,0 +1,84 @@
+# Reference dual-listener lab. High container ports; host maps 49/300/8080.
+# Generate secrets/certs first: go run ./tools/labgen deployments/compose
+# TLS-only: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d
+# File-watch reload is off. Reload is SIGHUP or POST /api/v1/config/reload.
+name: taclab
+
+services:
+  taclab:
+    image: ${TACLAB_IMAGE:-ghcr.io/hilather/go-lab-tacacs-mcp:dev}
+    build:
+      context: ${TACLAB_CONTEXT:-../..}
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${TACLAB_VERSION:-dev}
+        COMMIT: ${TACLAB_COMMIT:-unknown}
+        BUILDTIME: ${TACLAB_BUILDTIME:-unknown}
+        UI_VERSION: ${TACLAB_UI_VERSION:-0.0.0}
+    container_name: ${TACLAB_CONTAINER:-taclab}
+    restart: unless-stopped
+    ports:
+      - target: 4949
+        published: ${TACLAB_LEGACY_PORT:-49}
+        protocol: tcp
+      - target: 4300
+        published: ${TACLAB_TLS_PORT:-300}
+        protocol: tcp
+      - target: 8080
+        published: ${TACLAB_HTTP_PORT:-8080}
+        protocol: tcp
+    command:
+      - serve
+      - --config=/etc/taclab/taclab.yaml
+    volumes:
+      - type: bind
+        source: ./config/taclab.yaml
+        target: /etc/taclab/taclab.yaml
+        read_only: true
+      - type: bind
+        source: ./certs-public
+        target: /etc/taclab/certs-public
+        read_only: true
+    secrets:
+      - api_admin_token
+      - tacacs_server_key
+      - lab_switches_tacacs_secret
+      - lab_admin_argon2id
+      - lab_admin_challenge_secret
+      - lab_admin_enable_argon2id
+      - lab_readonly_argon2id
+      - lab_disabled_argon2id
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /run/taclab:size=16m,mode=0700,uid=10001,gid=10001
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/taclabd", "healthcheck", "--url=http://127.0.0.1:8080/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+
+secrets:
+  api_admin_token:
+    file: ./secrets/api_admin_token
+  tacacs_server_key:
+    file: ./secrets/tacacs_server_key.pem
+  lab_switches_tacacs_secret:
+    file: ./secrets/lab_switches_tacacs_secret
+  lab_admin_argon2id:
+    file: ./secrets/lab_admin_argon2id
+  lab_admin_challenge_secret:
+    file: ./secrets/lab_admin_challenge_secret
+  lab_admin_enable_argon2id:
+    file: ./secrets/lab_admin_enable_argon2id
+  lab_readonly_argon2id:
+    file: ./secrets/lab_readonly_argon2id
+  lab_disabled_argon2id:
+    file: ./secrets/lab_disabled_argon2id

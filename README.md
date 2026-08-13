@@ -14,7 +14,26 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 
 This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`), and `internal/tacacs/testclient` `DialTLS` (DNS-ID/IP-ID/SRV-ID, UNENCRYPTED, no 0-RTT, no legacy fallback). REST serves health, OpenAPI, build, session+CSRF, token CRUD, users/groups/clients/config/runtime, SSE event bodies, and the embedded SPA (login, status, users, groups, clients, tokens, events, auth test, policy explain, config/reset). MCP 2026-07-28 (`POST /mcp`) has operation parity: every `PARITY_REQUIRED` tool, scope-filtered discovery, resources, and `subscriptions/listen` (URI notify; bodies via `events.list`). Lab static bearer is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md). `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement complete TACACS+ (hardware device interop is a documented skip). REST/MCP equivalence is enforced by the `internal/api/parity` harness (`events.subscribe` compared at domain-event level). Metrics and governors live under `internal/observability` (pprof off by default; no client_id on lifecycle series). Do not describe it as a complete TACACS+ server.
 
-High-port Compose smoke (no privileged 49/300):
+Reference Compose lab (host 49 / 300 / 8080, non-root, read-only rootfs):
+
+```bash
+go run ./tools/labgen deployments/compose
+docker compose -f deployments/compose/compose.yaml up -d --build
+```
+
+TLS-only profile (no legacy port 49):
+
+```bash
+docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d --build
+```
+
+Container acceptance (`LAB-*`, restart reset, SSE survives `write_timeout`):
+
+```bash
+make lab-test
+```
+
+High-port smoke without generated PKI (no privileged 49/300):
 
 ```bash
 docker compose -f deployments/compose/compose.smoke.yaml config
@@ -74,6 +93,7 @@ make check-registries
 make check-generated
 make build
 ./bin/taclabd -h
+make lab-test
 ```
 
 `make bench` runs hot-path benches under `internal/tacacs`, `internal/policy`, `internal/state`, and `internal/aaa` (including header/obfuscation benches). Argon2id KDF benches live under `internal/credentials` and are excluded from that target so KDF cost does not dominate the ordinary suite.

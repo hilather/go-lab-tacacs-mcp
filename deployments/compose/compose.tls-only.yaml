@@ -1,0 +1,20 @@
+# Overlay: TLS-only profile (no legacy listener, no host port 49).
+# docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d
+services:
+  taclab:
+    ports: !override
+      - target: 4300
+        published: ${TACLAB_TLS_PORT:-300}
+        protocol: tcp
+      - target: 8080
+        published: ${TACLAB_HTTP_PORT:-8080}
+        protocol: tcp
+    volumes: !override
+      - type: bind
+        source: ./config/taclab.tls-only.yaml
+        target: /etc/taclab/taclab.yaml
+        read_only: true
+      - type: bind
+        source: ./certs-public
+        target: /etc/taclab/certs-public
+        read_only: true

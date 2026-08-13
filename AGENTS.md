@@ -209,7 +209,10 @@ npm --prefix web run test:e2e
 
 docker build --check .
 docker compose -f deployments/compose/compose.yaml config
-docker compose -f deployments/compose/compose.yaml up --abort-on-container-exit --exit-code-from integration-tests
+make lab-test
+# equivalent one-shot after tools/labgen (high host ports via compose.lab-test.yaml):
+# docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.lab-test.yaml \
+#   up --abort-on-container-exit --exit-code-from integration-tests
 ```
 
 Long-running fuzzing, load tests, and full vendor interoperability may run in scheduled or release pipelines, but their seed corpora and smoke variants must run on every change.

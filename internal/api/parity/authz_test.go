@@ -8,51 +8,88 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
+	"github.com/hilather/go-lab-tacacs-mcp/tools/registry"
 )
 
 func TestAuthorizationEquivalence(t *testing.T) {
 	t.Parallel()
-	type authzCase struct {
-		id     string
-		req    any
-		scopes []string
+	reg := newWorld(t, "direct", allScopes, "").Registry
+	reqs := authzRequests()
+	var tools []operations.Operation
+	for _, op := range reg.List() {
+		if op.Parity != registry.ParityRequired || op.MCP.Kind != "tool" {
+			continue
+		}
+		if _, ok := reqs[op.ID]; !ok {
+			t.Errorf("PARITY_REQUIRED tool %s missing authz request", op.ID)
+			continue
+		}
+		tools = append(tools, op)
 	}
-	ops := []authzCase{
-		{operations.IDSystemStatusGet, operations.GetStatusRequest{}, []string{"state:read"}},
-		{operations.IDUsersCreate, operations.CreateUserRequest{ID: "scoped", Enabled: boolPtr(false)}, []string{"state:write"}},
-		{operations.IDPolicyEvaluate, operations.EvaluatePolicyRequest{UserID: "alice", Service: "shell"}, []string{"policy:test"}},
-		{operations.IDEventsList, operations.ListEventsRequest{Limit: 5}, []string{"events:read"}},
-		{operations.IDTokensList, operations.ListTokensRequest{}, []string{"tokens:manage"}},
-		{operations.IDConfigExport, operations.ExportConfigRequest{}, []string{"config:export"}},
-		{operations.IDConfigReload, operations.ReloadConfigRequest{}, []string{"config:reload"}},
-		{operations.IDRuntimeReset, operations.ResetRuntimeRequest{}, []string{"runtime:reset"}},
+	if len(tools) == 0 {
+		t.Fatal("no PARITY_REQUIRED tools")
 	}
-	for _, op := range ops {
-		op := op
-		t.Run(op.id, func(t *testing.T) {
-			t.Parallel()
-			t.Run("no_token", func(t *testing.T) {
+
+	t.Run("no_token", func(t *testing.T) {
+		t.Parallel()
+		assertAuthzAll(t, tools, reqs, allScopes, callOpts{OmitAuth: true}, string(domain.CodeUnauthenticated))
+	})
+	t.Run("invalid_token", func(t *testing.T) {
+		t.Parallel()
+		assertAuthzAll(t, tools, reqs, allScopes, callOpts{Token: "not-a-valid-bearer-token"}, string(domain.CodeUnauthenticated))
+	})
+	t.Run("expired_token", func(t *testing.T) {
+		t.Parallel()
+		_, restW, mcpW := isolatedTrio(t, allScopes)
+		past := parityClock.Now().Add(-time.Hour)
+		value, _, err := credentials.IssueBearer(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, w := range []*world{restW, mcpW} {
+			rev := w.Mgr.Revision()
+			if _, err := w.Mgr.CreateToken(state.CreateToken{
+				ID:        "expired",
+				Name:      "expired",
+				Scopes:    allScopes,
+				ExpiresAt: &past,
+				Material:  credentials.NewTokenMaterial([]byte(value)),
+			}, &rev); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, op := range tools {
+			r := invoke(t, restW, op.ID, reqs[op.ID], callOpts{Token: value})
+			m := invoke(t, mcpW, op.ID, reqs[op.ID], callOpts{Token: value})
+			if r.Code != string(domain.CodeUnauthenticated) || m.Code != string(domain.CodeUnauthenticated) {
+				t.Errorf("%s expired rest=%q mcp=%q", op.ID, r.Code, m.Code)
+			}
+		}
+	})
+	t.Run("missing_scope", func(t *testing.T) {
+		t.Parallel()
+		assertAuthzAll(t, tools, reqs, []string{"events:sensitive"}, callOpts{}, string(domain.CodePermissionDenied))
+	})
+	t.Run("exact_scope", func(t *testing.T) {
+		t.Parallel()
+		for _, op := range tools {
+			op := op
+			t.Run(op.ID, func(t *testing.T) {
 				t.Parallel()
-				assertAuthz(t, op.id, op.req, allScopes, callOpts{OmitAuth: true}, string(domain.CodeUnauthenticated))
+				assertAuthzAllowed(t, op.ID, reqs[op.ID], op.Scopes)
 			})
-			t.Run("invalid_token", func(t *testing.T) {
+		}
+	})
+	t.Run("extra_scopes", func(t *testing.T) {
+		t.Parallel()
+		for _, op := range tools {
+			op := op
+			t.Run(op.ID, func(t *testing.T) {
 				t.Parallel()
-				assertAuthz(t, op.id, op.req, allScopes, callOpts{Token: "not-a-valid-bearer-token"}, string(domain.CodeUnauthenticated))
+				assertAuthzAllowed(t, op.ID, reqs[op.ID], allScopes)
 			})
-			t.Run("missing_scope", func(t *testing.T) {
-				t.Parallel()
-				assertAuthz(t, op.id, op.req, []string{"events:sensitive"}, callOpts{}, string(domain.CodePermissionDenied))
-			})
-			t.Run("exact_scope", func(t *testing.T) {
-				t.Parallel()
-				assertAuthz(t, op.id, op.req, op.scopes, callOpts{}, "")
-			})
-			t.Run("extra_scopes", func(t *testing.T) {
-				t.Parallel()
-				assertAuthz(t, op.id, op.req, allScopes, callOpts{}, "")
-			})
-		})
-	}
+		}
+	})
 }
 
 func TestExpiredTokenDeniedEquivalently(t *testing.T) {
@@ -81,36 +118,71 @@ func TestExpiredTokenDeniedEquivalently(t *testing.T) {
 	}
 }
 
-func assertAuthz(t *testing.T, id string, req any, scopes []string, opts callOpts, wantCode string) {
+func assertAuthzAll(t *testing.T, tools []operations.Operation, reqs map[string]any, scopes []string, opts callOpts, want string) {
 	t.Helper()
 	_, restW, mcpW := isolatedTrio(t, scopes)
-	if wantCode == string(domain.CodePermissionDenied) {
-		op, _ := restW.Registry.Lookup(id)
-		if containsAll(scopes, op.Scopes) {
-			t.Skip("provided scopes already satisfy the operation")
+	for _, op := range tools {
+		r := invoke(t, restW, op.ID, reqs[op.ID], opts)
+		m := invoke(t, mcpW, op.ID, reqs[op.ID], opts)
+		if r.Code != want || m.Code != want {
+			t.Errorf("%s rest=%q mcp=%q want=%q restBody=%s mcpBody=%s", op.ID, r.Code, m.Code, want, r.Raw, m.Raw)
 		}
-	}
-	r := invoke(t, restW, id, req, opts)
-	m := invoke(t, mcpW, id, req, opts)
-	if r.Code != wantCode || m.Code != wantCode {
-		t.Fatalf("rest=%q mcp=%q want=%q restBody=%s mcpBody=%s", r.Code, m.Code, wantCode, r.Raw, m.Raw)
 	}
 }
 
-func contains(have []string, want string) bool {
-	for _, s := range have {
-		if s == want {
-			return true
-		}
+func assertAuthzAllowed(t *testing.T, id string, req any, scopes []string) {
+	t.Helper()
+	_, restW, mcpW := isolatedTrio(t, scopes)
+	r := invoke(t, restW, id, req, callOpts{})
+	m := invoke(t, mcpW, id, req, callOpts{})
+	if r.Code != m.Code {
+		t.Fatalf("%s rest=%q mcp=%q restBody=%s mcpBody=%s", id, r.Code, m.Code, r.Raw, m.Raw)
 	}
-	return false
+	if r.Code == string(domain.CodeUnauthenticated) || r.Code == string(domain.CodePermissionDenied) {
+		t.Fatalf("%s denied with required scopes: %s", id, r.Code)
+	}
 }
 
-func containsAll(have, need []string) bool {
-	for _, n := range need {
-		if !contains(have, n) {
-			return false
-		}
+func authzRequests() map[string]any {
+	return map[string]any{
+		operations.IDSystemStatusGet:    operations.GetStatusRequest{},
+		operations.IDSystemBuildGet:     operations.GetBuildRequest{},
+		operations.IDConfigEffectiveGet: operations.GetEffectiveConfigRequest{},
+		operations.IDConfigValidate:     operations.ValidateConfigRequest{YAML: "schema_version: 1\n"},
+		operations.IDConfigReload:       operations.ReloadConfigRequest{},
+		operations.IDConfigExport:       operations.ExportConfigRequest{},
+		operations.IDRuntimeReset:       operations.ResetRuntimeRequest{},
+		operations.IDUsersList:          operations.ListUsersRequest{},
+		operations.IDUsersGet:           operations.GetUserRequest{ID: "alice"},
+		operations.IDUsersCreate:        operations.CreateUserRequest{ID: "authz-user", Enabled: boolPtr(false)},
+		operations.IDUsersUpdate:        operations.UpdateUserRequest{ID: "alice", DisplayName: strPtr("Authz")},
+		operations.IDUsersDelete:        operations.DeleteUserRequest{ID: "nosuch-user"},
+		operations.IDGroupsList:         operations.ListGroupsRequest{},
+		operations.IDGroupsGet:          operations.GetGroupRequest{ID: "ops"},
+		operations.IDGroupsCreate:       operations.CreateGroupRequest{ID: "authz-group", Priority: intPtr(30)},
+		operations.IDGroupsUpdate:       operations.UpdateGroupRequest{ID: "ops", DisplayName: strPtr("Authz Ops")},
+		operations.IDGroupsDelete:       operations.DeleteGroupRequest{ID: "nosuch-group"},
+		operations.IDClientsList:        operations.ListClientsRequest{},
+		operations.IDClientsGet:         operations.GetClientRequest{ID: "sw"},
+		operations.IDClientsCreate: operations.CreateClientRequest{
+			ID: "authz-client",
+			Match: &operations.ClientMatchView{
+				SourceCIDRs: []string{"10.8.0.0/16"},
+				Transports:  []string{"legacy"},
+			},
+			SharedSecret: operations.OptionalSecret{Present: true, File: "/run/secrets/authz"},
+		},
+		operations.IDClientsUpdate: operations.UpdateClientRequest{ID: "sw", DisplayName: strPtr("Authz Sw")},
+		operations.IDClientsDelete: operations.DeleteClientRequest{ID: "nosuch-client"},
+		operations.IDTokensList:    operations.ListTokensRequest{},
+		operations.IDTokensCreate: operations.CreateTokenRequest{
+			ID: "authz-token", Name: "authz-token", Scopes: []string{"state:read"},
+		},
+		operations.IDTokensRevoke: operations.RevokeTokenRequest{ID: "nosuch-token"},
+		operations.IDPolicyEvaluate: operations.EvaluatePolicyRequest{
+			UserID: "alice", ClientID: "sw", Service: "shell", Cmd: "show",
+		},
+		operations.IDAuthenticationTest: operations.TestAuthenticationRequest{UserID: "alice", Method: "ascii"},
+		operations.IDEventsList:         operations.ListEventsRequest{Limit: 5},
 	}
-	return true
 }

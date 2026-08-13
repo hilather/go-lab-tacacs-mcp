@@ -32,6 +32,8 @@ const (
 schema_version: 1
 server:
   instance_id: lab-legacy
+api:
+  rate_limits: {enabled: false}
 listeners:
   secure_tacacs: {enabled: false}
 clients:
@@ -214,6 +216,8 @@ type callOpts struct {
 	OmitAuth         bool
 	ExpectedRevision *domain.Revision
 	IdempotencyKey   string
+	// Body, when set, is the REST/MCP payload without wireRequest stripping.
+	Body map[string]any
 }
 
 type callOut struct {
@@ -266,7 +270,10 @@ func invokeREST(t testing.TB, w *world, op operations.Operation, req any, opts c
 	if op.REST.Method == "" || op.REST.Path == "" {
 		t.Fatalf("%s missing REST binding", op.ID)
 	}
-	fields := asMap(req)
+	fields := wireRequest(req)
+	if opts.Body != nil {
+		fields = opts.Body
+	}
 	path := op.REST.Path
 	if id, ok := fields["id"].(string); ok && strings.Contains(path, "{id}") {
 		path = strings.ReplaceAll(path, "{id}", url.PathEscape(id))
@@ -287,7 +294,7 @@ func invokeREST(t testing.TB, w *world, op operations.Operation, req any, opts c
 		}
 	default:
 		var err error
-		body, err = json.Marshal(wireRequest(req))
+		body, err = json.Marshal(fields)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -353,6 +360,9 @@ func invokeMCP(t testing.TB, w *world, op operations.Operation, req any, opts ca
 		t.Fatalf("%s missing MCP tool binding", op.ID)
 	}
 	args := wireRequest(req)
+	if opts.Body != nil {
+		args = opts.Body
+	}
 	if args == nil {
 		args = map[string]any{}
 	}
@@ -658,16 +668,19 @@ func goJSONFields(typ reflect.Type) []string {
 	var names []string
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
-		if f.PkgPath != "" {
+		if f.PkgPath != "" && !f.Anonymous {
 			continue
 		}
 		tag := f.Tag.Get("json")
 		if tag == "-" {
 			continue
 		}
-		name := strings.Split(tag, ",")[0]
-		anon := f.Anonymous && (name == "" || name == f.Name)
-		if anon && f.Type.Kind() == reflect.Struct {
+		name, _, _ := strings.Cut(tag, ",")
+		ft := f.Type
+		if ft.Kind() == reflect.Pointer {
+			ft = ft.Elem()
+		}
+		if f.Anonymous && name == "" && ft.Kind() == reflect.Struct {
 			names = append(names, goJSONFields(f.Type)...)
 			continue
 		}
@@ -675,6 +688,43 @@ func goJSONFields(typ reflect.Type) []string {
 			name = f.Name
 		}
 		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func goWriteOnlyFields(typ reflect.Type) []string {
+	for typ != nil && typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	if typ == nil || typ.Kind() != reflect.Struct {
+		return nil
+	}
+	var names []string
+	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
+		if f.PkgPath != "" && !f.Anonymous {
+			continue
+		}
+		tag := f.Tag.Get("json")
+		if tag == "-" {
+			continue
+		}
+		name, _, _ := strings.Cut(tag, ",")
+		ft := f.Type
+		if ft.Kind() == reflect.Pointer {
+			ft = ft.Elem()
+		}
+		if f.Anonymous && name == "" && ft.Kind() == reflect.Struct {
+			names = append(names, goWriteOnlyFields(f.Type)...)
+			continue
+		}
+		if name == "" {
+			name = f.Name
+		}
+		if name == "password" || name == "data" || ft.Name() == "OptionalSecret" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	return names

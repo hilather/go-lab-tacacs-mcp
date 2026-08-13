@@ -98,16 +98,48 @@ func TestRegistryCompleteness(t *testing.T) {
 
 func TestMissingBindingFailsClosed(t *testing.T) {
 	t.Parallel()
-	spec, err := operations.LoadRepoSpec(".")
+	root, err := operations.FindRepoRoot(".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, op := range spec.Operations {
-		if op.Parity != registry.ParityRequired {
-			continue
+	tmp := t.TempDir()
+	for _, dir := range []string{"api", "docs", filepath.Join("testdata", "conformance")} {
+		if err := os.MkdirAll(filepath.Join(tmp, dir), 0o755); err != nil {
+			t.Fatal(err)
 		}
-		if op.REST.Method == "" || op.REST.Path == "" || op.MCP.Name == "" {
-			t.Fatalf("PARITY_REQUIRED %s missing a required binding", op.ID)
+	}
+	copyFile(t, filepath.Join(root, "tools/registry/testdata/invalid/operations-missing-rest.yaml"), filepath.Join(tmp, registry.OperationsPath))
+	copyFile(t, filepath.Join(root, registry.RFC8907Path), filepath.Join(tmp, registry.RFC8907Path))
+	copyFile(t, filepath.Join(root, registry.RFC9887Path), filepath.Join(tmp, registry.RFC9887Path))
+	copyFile(t, filepath.Join(root, registry.ParityDocPath), filepath.Join(tmp, registry.ParityDocPath))
+	copyFile(t, filepath.Join(root, registry.ConformanceDocPath), filepath.Join(tmp, registry.ConformanceDocPath))
+
+	rep, err := registry.ValidateRoot(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Valid() {
+		t.Fatal("expected ValidateRoot to fail on a PARITY_REQUIRED row with no REST binding")
+	}
+	found := false
+	for _, issue := range rep.Issues {
+		if strings.Contains(issue.Message, "missing REST binding") {
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Fatalf("expected missing REST binding issue, got %v", rep.Issues)
+	}
+}
+
+func copyFile(t *testing.T, src, dst string) {
+	t.Helper()
+	b, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dst, b, 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

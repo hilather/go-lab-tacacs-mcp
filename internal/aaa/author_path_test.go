@@ -81,6 +81,17 @@ func TestAuthorizePreservesRequestFieldsAndDictionary(t *testing.T) {
 		av("timezone", '=', "UTC"),
 		av("start_time", '=', "1755000000"),
 		av("stop_time", '=', "1755003600"),
+		av("task_id", '=', "t1"),
+		av("elapsed_time", '=', "10"),
+		av("event", '=', "stop"),
+		av("reason", '=', "done"),
+		av("bytes", '=', "1"),
+		av("bytes_in", '=', "1"),
+		av("bytes_out", '=', "1"),
+		av("paks", '=', "1"),
+		av("paks_in", '=', "1"),
+		av("paks_out", '=', "1"),
+		av("err_msg", '=', "none"),
 		av("vendor-x", '=', "keep=this*value"),
 	}
 	if got, want := len(args), len(policy.KnownArgs())+1; got != want {

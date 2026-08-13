@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Security
+
+- Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).
+
 ### Documentation
 
 - Operator-facing README with feature catalog, REST/MCP matrix, and a documentation map for every contract linked from the root page.

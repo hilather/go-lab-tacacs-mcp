@@ -2,7 +2,7 @@
 # Multi-stage 1.0 lab image. Final stage is non-root, no toolchain, no secrets.
 # Tag: ghcr.io/hilather/go-lab-tacacs-mcp:<version-or-digest>
 
-ARG GO_VERSION=1.25.12
+ARG GO_VERSION=1.25.13
 ARG NODE_VERSION=22.14.0
 
 FROM node:${NODE_VERSION}-bookworm AS frontend
@@ -44,7 +44,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILDTIME=unknown
 ARG UI_VERSION=0.0.0
-ARG GO_VERSION=1.25.12
+ARG GO_VERSION=1.25.13
 WORKDIR /taclab
 COPY --from=backend /out/taclabd /usr/local/bin/taclabd
 COPY --from=backend /src/go.mod /taclab/go.mod
@@ -78,7 +78,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILDTIME=unknown
 ARG UI_VERSION=0.0.0
-ARG GO_VERSION=1.25.12
+ARG GO_VERSION=1.25.13
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates tzdata \
     && useradd --uid 10001 --system --no-create-home --shell /usr/sbin/nologin taclab \
@@ -116,7 +116,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILDTIME=unknown
 ARG UI_VERSION=0.0.0
-ARG GO_VERSION=1.25.12
+ARG GO_VERSION=1.25.13
 RUN microdnf install -y ca-certificates tzdata shadow-utils \
     && useradd --uid 10001 --system --no-create-home --shell /sbin/nologin taclab \
     && microdnf clean all

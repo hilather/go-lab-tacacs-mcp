@@ -14,7 +14,7 @@
   <a href="https://github.com/hilather/go-lab-tacacs-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/hilather/go-lab-tacacs-mcp/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-c8893a?labelColor=1a1f24" /></a>
   <a href="https://github.com/hilather/go-lab-tacacs-mcp/releases"><img alt="Release" src="https://img.shields.io/github/v/release/hilather/go-lab-tacacs-mcp?color=2bb3a8&labelColor=1a1f24" /></a>
-  <img alt="Go 1.25.12" src="https://img.shields.io/badge/Go-1.25.12-00ADD8?labelColor=1a1f24" />
+  <img alt="Go 1.25.13" src="https://img.shields.io/badge/Go-1.25.13-00ADD8?labelColor=1a1f24" />
   <img alt="MCP 2026-07-28" src="https://img.shields.io/badge/MCP-2026--07--28-2bb3a8?labelColor=1a1f24" />
 </p>
 
@@ -39,7 +39,7 @@ The repository is `go-lab-tacacs-mcp`. The product is **TacLab**. This checkout 
 | Go module | `github.com/hilather/go-lab-tacacs-mcp` |
 | Images | `ghcr.io/hilather/go-lab-tacacs-mcp` — `:<tag>` distroless, `:<tag>-ubuntu`, `:<tag>-rocky` |
 | License | Apache-2.0 |
-| Toolchain | Go **1.25.12** (module `go 1.25.0`) · Node.js **22.14.0** |
+| Toolchain | Go **1.25.13** (module `go 1.25.0`) · Node.js **22.14.0** |
 | Protocol pins | RFC 8907 · RFC 9887 · MCP **2026-07-28** |
 | MCP SDK | `github.com/modelcontextprotocol/go-sdk` **v1.7.0** ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
 | Auth | Lab static bearer on REST and MCP ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)) — **no** OAuth PRM |
@@ -249,7 +249,7 @@ Coding agents working in this tree: read **[AGENTS.md](https://github.com/hilath
 ```bash
 git clone https://github.com/hilather/go-lab-tacacs-mcp.git
 cd go-lab-tacacs-mcp
-# Go 1.25.12 and Node 22.14.0 — see go.mod toolchain and .nvmrc
+# Go 1.25.13 and Node 22.14.0 — see go.mod toolchain and .nvmrc
 make test
 make check-registries
 make lab-gen
@@ -328,7 +328,7 @@ On conflict, the canonical design wins over copied packet documents.
 
 ## Prerequisites
 
-- Go **1.25.12** (`go.mod` `toolchain`)
+- Go **1.25.13** (`go.mod` `toolchain`)
 - Node.js **22.14.0** and npm **10.9.x** (`.nvmrc`, `web/package.json`)
 - `make`
 - Docker Compose v2 for the reference lab

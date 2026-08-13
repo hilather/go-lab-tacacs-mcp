@@ -17,7 +17,7 @@ notify channel) using the official Go SDK.
 `github.com/modelcontextprotocol/go-sdk v1.7.0` is the first release that
 implements protocol `2026-07-28`. Its module requires **Go 1.25.0**. PR-17
 shipped while this repo was pinned to Go 1.24.5, so 1.0 first used a thin
-in-tree JSON-RPC adapter. The Go pin is now 1.25.12 (`go 1.25.0` in
+in-tree JSON-RPC adapter. The Go pin is now 1.25.13 (`go 1.25.0` in
 `go.mod`), which is the revisit condition from the original decision.
 
 ## Decision

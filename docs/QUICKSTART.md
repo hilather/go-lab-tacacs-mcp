@@ -14,7 +14,7 @@ TacLab is a **single-replica lab**. Runtime changes vanish on restart.
 | Need | Version |
 |---|---|
 | Linux host (or Linux VM) | Docker Engine + Compose v2 |
-| Go (to run `labgen`) | **1.25.12** |
+| Go (to run `labgen`) | **1.25.13** |
 | Optional: Node | **22.14.0** if you rebuild the SPA |
 | Host ports | 49, 300, 8080 — or use the high-port smoke overlay |
 

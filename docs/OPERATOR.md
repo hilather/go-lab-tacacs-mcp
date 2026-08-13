@@ -44,11 +44,12 @@ Acceptance: `make lab-test` (high host ports, ephemeral PKI, LAB-* suite).
 
 ## 3. Configuration and secrets
 
+First-setup of users, groups, clients, tokens, and secret files: **[BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md)**. Schema: [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md).
+
 - Baseline: one YAML document, `schema_version: 1`, unknown fields rejected.
 - Secrets are **file references** (`{file: PATH}`). Environment refs require `security.allow_environment_secrets: true` (default false).
 - `tools/labgen` writes unique ≥32-character legacy secrets, Argon2id PHC verifiers, a bearer token, and lab PKI. It does not print secret values into the manifest.
 - `taclabd validate --config PATH` checks a candidate without publishing.
-- `taclabd print-effective --config PATH --redacted` shows the compiled view.
 
 ### 3.1 ASCII / PAP (T89-SEC-002)
 
@@ -93,6 +94,8 @@ Rotate by writing a new secret file and calling `config.reload` (or SIGHUP). Do 
 Ticket lifetime is `0` (disable resumption) or `168h` (Go’s cap). Other values are rejected.
 
 ## 6. Users, groups, and policy
+
+How to add durable accounts and devices: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
 - User `id` is the TACACS username (UsernameCasePreserved).
 - Groups are flat. `services[]` never authorize a non-empty `cmd`. `command_rules[]` never decide a session request. Default deny on each evaluator.

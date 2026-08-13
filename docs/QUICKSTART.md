@@ -3,7 +3,7 @@
 Status: operator onboarding  
 Last updated: 2026-08-13
 
-Get a lab appliance running, log into the UI, and make one REST call and one MCP call. Protocol and schema details stay in [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) and [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). MCP depth is in [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
+Get a lab appliance running, log into the UI, and make one REST call and one MCP call. Protocol and schema details stay in [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) and [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). Users, groups, clients, and secret files: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md). MCP depth is in [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
 
 TacLab is a **single-replica lab**. Runtime changes vanish on restart.
 
@@ -165,8 +165,28 @@ A container recreate also wipes the overlay. That is expected.
 
 ---
 
+## 9. Configure users, groups, and clients
+
+The lab you just started is defined by files, not a database. After `labgen`:
+
+| Path | Holds |
+|---|---|
+| `deployments/compose/config/taclab.yaml` | Users, groups, clients, tokens, listeners, policy |
+| `deployments/compose/secrets/` | PHC verifiers, challenge secrets, legacy shared secret, API bearer |
+| `deployments/compose/secrets/PASSWORDS.txt` | Human crib for `lab-admin` / `lab-readonly` (not read by `taclabd`) |
+
+Stock accounts: TACACS user `lab-admin` (priv-lvl 15) and `lab-readonly` (priv-lvl 1). User `id` is the login name.
+
+- **Keep it across restarts:** edit the YAML and secret files. `taclabd validate --config deployments/compose/config/taclab.yaml`. New Docker secrets need `docker compose up -d`. Then `POST /api/v1/config/reload`.
+- **Throwaway experiment:** create users/groups/clients in the UI or via MCP. They vanish on restart.
+
+How to add a user, a group, a device client, and wire Compose secrets: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md). Full schema: [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md).
+
+---
+
 ## Next
 
+- Baseline files: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md)
 - Operators: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md)
 - Agents: [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §1.1
 - Fancy site: https://hilather.github.io/go-lab-tacacs-mcp/

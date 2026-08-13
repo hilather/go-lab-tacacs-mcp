@@ -25,6 +25,7 @@
       <nav class="nav-links">
         <a href="index.html">Home</a>
         <a href="quickstart.html" aria-current="page">Quick start</a>
+        <a href="baseline.html">Users & groups</a>
         <a href="mcp.html">MCP local & remote</a>
         <a href="catalog.html">API catalog</a>
         <a href="https://github.com/hilather/go-lab-tacacs-mcp">GitHub</a>
@@ -80,6 +81,11 @@ curl -sS http://127.0.0.1:8080/mcp \
     <section class="section">
       <h2>Reset</h2>
       <p class="sub">Runtime overlay is memory-only. <code>POST /api/v1/runtime/reset</code> or a container recreate restores the YAML baseline. <code>make lab-test</code> is the acceptance suite.</p>
+    </section>
+
+    <section class="section">
+      <h2>Configure users and groups</h2>
+      <p class="sub">Durable AAA is files: <code>config/taclab.yaml</code> plus <code>secrets/</code>. User <code>id</code> is the TACACS login. Stock personas after labgen: <code>lab-admin</code> (priv-lvl 15) and <code>lab-readonly</code> (priv-lvl 1). Full recipe: <a href="baseline.html">Users & groups</a> · <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md">docs/BASELINE.md</a>.</p>
     </section>
   </main>
   <footer class="wrap footer">

@@ -92,7 +92,7 @@ The implementation must use vetted cryptographic packages and independent algori
 
 The implementation baseline is explicitly pinned to protocol version `2026-07-28`. Agents must not silently switch behavior to an unpinned `latest` page.
 
-Operator and agent **setup** (local Streamable HTTP clients and remote/hosted HTTPS) is documented in [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md). First boot is [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).
+Operator and agent **setup** (local Streamable HTTP clients and remote/hosted HTTPS) is documented in [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md). First boot is [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md). Initial users/groups/clients/secrets: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
 Use the MCP specification for:
 

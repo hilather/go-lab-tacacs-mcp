@@ -12,7 +12,7 @@ The implementation must remain a single deployable Go service with an embedded R
 
 ## 1.1 First-time environment setup
 
-Do this before the first code change. Operator onboarding is [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md). MCP local **and** remote (hosted) setup is [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
+Do this before the first code change. Operator onboarding is [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md). Initial users/groups/clients/secrets: [docs/BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md). MCP local **and** remote (hosted) setup is [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
 
 ### Toolchains
 
@@ -43,7 +43,7 @@ docker compose -f deployments/compose/compose.yaml up -d --build
 curl -sf http://127.0.0.1:8080/health/ready
 ```
 
-Bootstrap bearer: `deployments/compose/secrets/api_admin_token`. UI: `http://127.0.0.1:8080`.
+Bootstrap bearer: `deployments/compose/secrets/api_admin_token`. UI: `http://127.0.0.1:8080`. Edit users/groups/clients in `deployments/compose/config/taclab.yaml` — [docs/BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
 ### Connect MCP — local
 

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Users, groups, clients — TacLab baseline</title>
+  <meta name="description" content="Configure TacLab's initial YAML users, groups, clients, tokens, and secret files. Durable state is files; the overlay is memory-only." />
+  <meta name="theme-color" content="#07090c" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/site.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M2 13 L5 7 L8 11 L11 4 L16 12" stroke="#e8c27a" stroke-width="1.6"/><circle cx="11" cy="4" r="1.3" fill="#86efe4"/></svg>
+        </span>
+        TacLab
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Menu">≡</button>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="quickstart.html">Quick start</a>
+        <a href="baseline.html" aria-current="page">Users & groups</a>
+        <a href="mcp.html">MCP local & remote</a>
+        <a href="catalog.html">API catalog</a>
+        <a href="https://github.com/hilather/go-lab-tacacs-mcp">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <p class="kicker">schema_version: 1 · file-referenced secrets · memory overlay</p>
+      <h1>The lab is<br /><em>a YAML file.</em></h1>
+      <p class="lede">
+        There is no persisted AAA database. Users, groups, clients, tokens, and listeners live in
+        <code>config/taclab.yaml</code>. Passwords and shared secrets live in files under <code>secrets/</code>.
+        Canonical write-up: <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md">docs/BASELINE.md</a>.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>State files after labgen</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Path</th><th>Holds</th></tr></thead>
+          <tbody>
+            <tr><td><code>config/taclab.yaml</code></td><td>Users, groups, clients, bootstrap tokens, listeners, policy</td></tr>
+            <tr><td><code>secrets/api_admin_token</code></td><td>REST / MCP / UI bearer</td></tr>
+            <tr><td><code>secrets/lab_admin_argon2id</code></td><td>ASCII/PAP verifier for <code>lab-admin</code></td></tr>
+            <tr><td><code>secrets/lab_admin_enable_argon2id</code></td><td>ENABLE verifier</td></tr>
+            <tr><td><code>secrets/lab_admin_challenge_secret</code></td><td>CHAP / MS-CHAP (not hashed)</td></tr>
+            <tr><td><code>secrets/lab_readonly_argon2id</code></td><td>ASCII/PAP for <code>lab-readonly</code></td></tr>
+            <tr><td><code>secrets/lab_switches_tacacs_secret</code></td><td>Legacy device shared secret</td></tr>
+            <tr><td><code>secrets/PASSWORDS.txt</code></td><td>Human crib only — daemon never reads it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Unknown YAML fields fail closed. <code>taclabd</code> never rewrites the baseline. Runtime overlay is memory-only.</p>
+    </section>
+
+    <section class="section">
+      <h2>Stock personas</h2>
+      <div class="grid">
+        <article class="card">
+          <div class="tag">Users</div>
+          <h3>id is the TACACS username</h3>
+          <p><code>lab-admin</code> → group <code>administrators</code> (priv-lvl 15). <code>lab-readonly</code> → <code>readonly</code> (priv-lvl 1). <code>lab-disabled</code> is off. UsernameCasePreserved — not lowercased.</p>
+        </article>
+        <article class="card">
+          <div class="tag">Groups</div>
+          <h3>Flat. Default deny.</h3>
+          <p><code>services[]</code> never decide a <code>cmd</code>. <code>command_rules[]</code> never decide a session. YAML <code>permit</code> is an alias of <code>permit_add</code>.</p>
+        </article>
+        <article class="card">
+          <div class="tag">Clients</div>
+          <h3>Devices, not people</h3>
+          <p><code>lab-switches</code> on :49 with a per-client secret. <code>secure-routers</code> on :300 with mTLS. Match uses the TCP peer TacLab sees.</p>
+        </article>
+        <article class="card">
+          <div class="tag">Credentials</div>
+          <h3>Three different materials</h3>
+          <p>Argon2id login verifier for ASCII/PAP. Separate challenge secret for CHAP/MS-CHAP. Separate ENABLE verifier. Never mix them.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Add a durable user</h2>
+      <pre>users:
+  - id: netops
+    display_name: Network operations
+    enabled: true
+    group_ids: [readonly]
+    credentials:
+      login:
+        verifier:
+          file: /run/secrets/netops_argon2id
+    restrictions:
+      client_ids: []</pre>
+      <p class="sub">Then add <code>netops_argon2id</code> to <code>compose.yaml</code> (service list <em>and</em> top-level <code>secrets:</code>), put the PHC file in <code>secrets/</code>, <code>taclabd validate</code>, and <code>docker compose up -d</code>. Reload alone cannot mount a new Docker secret.</p>
+    </section>
+
+    <section class="section">
+      <h2>Two lifetimes</h2>
+      <div class="grid">
+        <article class="card">
+          <div class="tag">Durable</div>
+          <h3>Edit files, reload</h3>
+          <p>YAML + secret files survive restart. That is the lab you can check in (minus secrets) and rebuild.</p>
+        </article>
+        <article class="card">
+          <div class="tag">Ephemeral</div>
+          <h3>UI / REST / MCP</h3>
+          <p><code>taclab.users.create</code> accepts a password once and stores Argon2id. Gone on restart or <code>runtime.reset</code>.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+  <footer class="wrap footer">
+    <div>Schema: <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md">CONFIGURATION.md</a></div>
+    <div><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md">docs/BASELINE.md</a></div>
+  </footer>
+  <script src="js/site.js"></script>
+</body>
+</html>

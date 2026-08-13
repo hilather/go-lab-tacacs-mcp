@@ -23,6 +23,8 @@
   ·
   <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md"><strong>Quick start</strong></a>
   ·
+  <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md"><strong>Users & groups</strong></a>
+  ·
   <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md"><strong>MCP local & remote</strong></a>
   ·
   <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md"><strong>Agent setup</strong></a>
@@ -151,6 +153,25 @@ make build
 
 ---
 
+## Configure the baseline (users, groups, clients)
+
+Durable AAA state is **files**, not a database. Full walkthrough: [docs/BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
+
+| File | What you put there |
+|---|---|
+| `deployments/compose/config/taclab.yaml` | `users[]`, `groups[]`, `clients[]`, `api.bootstrap_tokens[]`, listeners, policy |
+| `deployments/compose/secrets/*` | Argon2id PHC verifiers, challenge secrets, legacy TACACS secrets, API bearer |
+| `deployments/compose/compose.yaml` | Bind-mounts the YAML and maps each secret to `/run/secrets/<name>` |
+
+`labgen` writes two groups (`administrators` priv-lvl 15, `readonly` priv-lvl 1), three users (`lab-admin`, `lab-readonly`, `lab-disabled`), two clients (`lab-switches` legacy, `secure-routers` TLS), and one bootstrap token. User `id` **is** the TACACS username.
+
+- **Durable:** edit YAML + secret files, `taclabd validate`, recreate Compose if you added a secret, then `config.reload`.
+- **Ephemeral:** UI / REST / MCP create users, groups, clients, tokens. Gone on restart or `runtime.reset`.
+
+Do not inline secret values in YAML. ASCII/PAP need a login verifier; CHAP/MS-CHAP need a separate challenge secret; ENABLE needs its own verifier.
+
+---
+
 ## MCP — local and remote
 
 **Full guide (headers, client JSON, reverse proxy, scopes, curl):** [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md)
@@ -268,6 +289,7 @@ Every contract linked from this page, with what it covers.
 | Document | What it is |
 |---|---|
 | [Quick start](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md) | Clone → generate → Compose → UI login → first REST and MCP calls |
+| [Baseline state](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md) | Configure users, groups, clients, tokens, secrets, listeners |
 | [MCP local & remote](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) | Streamable HTTP, client configs, hosted TLS, origins, curl |
 | [Operator guide (1.0)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) | Install, secrets, onboard clients, tokens, reload, troubleshooting |
 | [Lab deployment](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/LAB_DEPLOYMENT.md) | Image contract, Compose, PKI, LAB-* scenarios, source-IP fidelity |

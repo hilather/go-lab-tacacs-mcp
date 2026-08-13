@@ -41,10 +41,11 @@ Agents must read these files before modifying implementation code:
 16. [OPERATOR.md](OPERATOR.md) - 1.0 operator guide.
 17. [QUICKSTART.md](QUICKSTART.md) - clone, generate, Compose, first REST/MCP call.
 18. [MCP.md](MCP.md) - MCP Streamable HTTP: local client setup and remote/hosted setup.
-19. [DEVELOPER.md](DEVELOPER.md) - conformance, parity, and generate workflow.
-20. [INTEROP.md](INTEROP.md) - software peer and device-skip record.
-21. [MAINTENANCE.md](MAINTENANCE.md) - supported versions and rerun triggers.
-22. [decisions/0012-ascii-pap-enablement-warning.md](decisions/0012-ascii-pap-enablement-warning.md) - T89-SEC-002 disposition.
+19. [BASELINE.md](BASELINE.md) - configure users, groups, clients, tokens, and secret files.
+20. [DEVELOPER.md](DEVELOPER.md) - conformance, parity, and generate workflow.
+21. [INTEROP.md](INTEROP.md) - software peer and device-skip record.
+22. [MAINTENANCE.md](MAINTENANCE.md) - supported versions and rerun triggers.
+23. [decisions/0012-ascii-pap-enablement-warning.md](decisions/0012-ascii-pap-enablement-warning.md) - T89-SEC-002 disposition.
 
 ## Product-level release gates
 

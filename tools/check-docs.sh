@@ -18,6 +18,7 @@ required=(
   https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md
   https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md
   https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md
+  https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md
 )
 for url in "${required[@]}"; do
   if ! grep -Fq "$url" README.md; then

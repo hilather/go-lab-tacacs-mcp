@@ -4,7 +4,7 @@ Status: implementation contract
 Applies to: config loader, validators, state compiler, REST API, MCP server, UI, export, and deployment  
 Last updated: 2026-08-13
 
-Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md).
+Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First-time users/groups/clients/secrets: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
 ## 1. Purpose
 

@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+func TestOfficialSDKImported(t *testing.T) {
+	t.Parallel()
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, ".", nil, parser.ImportsOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, pkg := range pkgs {
+		for name, f := range pkg.Files {
+			if strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			for _, imp := range f.Imports {
+				if strings.Trim(imp.Path.Value, `"`) == "github.com/modelcontextprotocol/go-sdk/mcp" {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("official go-sdk/mcp must be imported now that Go is 1.25")
+	}
+}
+
 func TestNoForbiddenImports(t *testing.T) {
 	t.Parallel()
 	fset := token.NewFileSet()

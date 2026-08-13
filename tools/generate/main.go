@@ -10,8 +10,7 @@ import (
 )
 
 // toolchainMarkdown must stay bit-identical to docs/generated/toolchain.md.
-// The official MCP Go SDK is documented here and is not a compile-time
-// dependency of this skeleton.
+// The official MCP Go SDK is a compile-time dependency (ADR 0011 adopted).
 const toolchainMarkdown = `# Generated toolchain record
 
 Do not hand-edit this file. Run ` + "`make generate`" + `.
@@ -25,7 +24,7 @@ Do not hand-edit this file. Run ` + "`make generate`" + `.
 | Image | ` + "`ghcr.io/hilather/go-lab-tacacs-mcp`" + ` |
 | Image variants (every release) | distroless (` + "`:<tag>`" + `), Ubuntu 24.04 (` + "`:<tag>-ubuntu`" + `), Rocky Linux 9 (` + "`:<tag>-rocky`" + `) |
 | MCP specification | 2026-07-28 |
-| Official MCP Go SDK baseline | ` + "`github.com/modelcontextprotocol/go-sdk v1.7.0`" + ` (recorded; not imported; thin adapter remains, ADR 0011) |
+| Official MCP Go SDK | ` + "`github.com/modelcontextprotocol/go-sdk v1.7.0`" + ` (imported; Streamable HTTP 2026-07-28, ADR 0011) |
 `
 
 func main() {

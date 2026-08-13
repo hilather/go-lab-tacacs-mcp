@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -18,6 +19,8 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
+
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type harness struct {
@@ -226,15 +229,31 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 	if disc.StatusCode != http.StatusOK {
 		t.Fatalf("discover=%d %s", disc.StatusCode, disc.Raw)
 	}
-	if disc.Result["protocolVersion"] != protocolVersion || disc.Result["resultType"] != resultTypeComplete {
+	if disc.Result["resultType"] != resultTypeComplete {
 		t.Fatalf("discover=%v", disc.Result)
 	}
-	if disc.Result["ttlMs"] != float64(0) || disc.Result["cacheScope"] != cacheScopePrivate {
-		t.Fatalf("cacheable=%v", disc.Result)
+	vers, _ := disc.Result["supportedVersions"].([]any)
+	foundVer := false
+	for _, v := range vers {
+		if v == protocolVersion {
+			foundVer = true
+			break
+		}
+	}
+	if !foundVer {
+		t.Fatalf("discover missing %s in supportedVersions: %v", protocolVersion, disc.Result)
+	}
+	if len(vers) != 1 {
+		t.Fatalf("discover must advertise only %s, got %v", protocolVersion, vers)
+	}
+	caps, _ := disc.Result["capabilities"].(map[string]any)
+	if caps["tools"] == nil {
+		t.Fatalf("discover capabilities=%v", caps)
 	}
 
 	listed := mcpRPC(t, h.HTTP, h.Token, "tools/list", nil, nil)
-	if listed.Result["ttlMs"] != float64(0) || listed.Result["cacheScope"] != cacheScopePrivate || listed.Result["resultType"] != resultTypeComplete {
+	requireCacheablePrivate(t, listed.Result)
+	if listed.Result["resultType"] != resultTypeComplete {
 		t.Fatalf("tools/list meta=%v", listed.Result)
 	}
 	tools, _ := listed.Result["tools"].([]any)
@@ -354,7 +373,7 @@ func TestPromptsGetStillEnforcesName(t *testing.T) {
 		t.Fatalf("missing name status=%d err=%+v", missing.StatusCode, missing.Err)
 	}
 	got := mcpRPC(t, h.HTTP, h.Token, "prompts/get", map[string]any{"name": "x"}, nil)
-	if got.StatusCode != http.StatusNotFound || got.Err == nil || got.Err.Code != codeMethodNotFound {
+	if got.Err == nil || got.Err.Code != codeInvalidParams {
 		t.Fatalf("prompts/get status=%d err=%+v", got.StatusCode, got.Err)
 	}
 }
@@ -464,7 +483,19 @@ func TestMcpNameRequiredAndMismatch(t *testing.T) {
 	}
 }
 
-func TestMcpNameBase64(t *testing.T) {
+func TestMcpNameASCII(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	got := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name":      "taclab.system.status.get",
+		"arguments": map[string]any{},
+	}, map[string]string{headerName: "taclab.system.status.get"})
+	if got.StatusCode != http.StatusOK || got.Err != nil {
+		t.Fatalf("status=%d err=%+v body=%s", got.StatusCode, got.Err, got.Raw)
+	}
+}
+
+func TestMcpNameBase64NotDecoded(t *testing.T) {
 	t.Parallel()
 	h := mcpHarness(t)
 	enc := "=?base64?" + base64.StdEncoding.EncodeToString([]byte("taclab.system.status.get")) + "?="
@@ -472,8 +503,8 @@ func TestMcpNameBase64(t *testing.T) {
 		"name":      "taclab.system.status.get",
 		"arguments": map[string]any{},
 	}, map[string]string{headerName: enc})
-	if got.StatusCode != http.StatusOK || got.Err != nil {
-		t.Fatalf("status=%d err=%+v body=%s", got.StatusCode, got.Err, got.Raw)
+	if got.StatusCode != http.StatusBadRequest || got.Err == nil || got.Err.Code != codeHeaderMismatch {
+		t.Fatalf("base64 Mcp-Name status=%d err=%+v body=%s", got.StatusCode, got.Err, got.Raw)
 	}
 }
 
@@ -481,7 +512,8 @@ func TestResourcesListAndRead(t *testing.T) {
 	t.Parallel()
 	h := mcpHarness(t)
 	listed := mcpRPC(t, h.HTTP, h.Token, "resources/list", nil, nil)
-	if listed.Result["ttlMs"] != float64(0) || listed.Result["cacheScope"] != cacheScopePrivate {
+	requireCacheablePrivate(t, listed.Result)
+	if listed.Result["resultType"] != resultTypeComplete {
 		t.Fatalf("list=%v", listed.Result)
 	}
 	resources, _ := listed.Result["resources"].([]any)
@@ -507,9 +539,10 @@ func TestResourcesListAndRead(t *testing.T) {
 		}
 	}
 	read := mcpRPC(t, h.HTTP, h.Token, "resources/read", map[string]any{"uri": "taclab://status"}, nil)
-	if read.Err != nil || read.Result["resultType"] != resultTypeComplete || read.Result["cacheScope"] != cacheScopePrivate {
+	if read.Err != nil || read.Result["resultType"] != resultTypeComplete {
 		t.Fatalf("read=%v err=%+v", read.Result, read.Err)
 	}
+	requireCacheablePrivate(t, read.Result)
 	contents, _ := read.Result["contents"].([]any)
 	if len(contents) != 1 {
 		t.Fatalf("contents=%v", read.Result["contents"])
@@ -605,5 +638,78 @@ func TestSessionIdIgnored(t *testing.T) {
 	}
 	if strings.Contains(string(got.Raw), "should-ignore") {
 		t.Fatal("session id echoed")
+	}
+}
+
+func requireCacheablePrivate(t *testing.T, result map[string]any) {
+	t.Helper()
+	if result["ttlMs"] != float64(0) || result["cacheScope"] != cacheScopePrivate {
+		t.Fatalf("want ttlMs=0 cacheScope=%q, got %v", cacheScopePrivate, result)
+	}
+}
+
+type bearerRoundTripper struct {
+	token string
+}
+
+func (b bearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	clone.Header.Set("Authorization", "Bearer "+b.token)
+	return http.DefaultTransport.RoundTrip(clone)
+}
+
+func TestOfficialSDKClient(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	t.Cleanup(cancel)
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "taclab-sdk-test", Version: "test"}, nil)
+	sess, err := client.Connect(ctx, &sdkmcp.StreamableClientTransport{
+		Endpoint:             h.HTTP.URL + "/mcp",
+		HTTPClient:           &http.Client{Transport: bearerRoundTripper{token: h.Token}},
+		DisableStandaloneSSE: true,
+	}, nil)
+	if err != nil {
+		t.Fatalf("sdk connect: %v", err)
+	}
+	t.Cleanup(func() { _ = sess.Close() })
+	tools, err := sess.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	if len(tools.Tools) == 0 {
+		t.Fatal("expected tools from official SDK client")
+	}
+	if tools.CacheScope != cacheScopePrivate || tools.TTLMs != 0 {
+		t.Fatalf("list cacheable ttlMs=%d cacheScope=%q", tools.TTLMs, tools.CacheScope)
+	}
+	got, err := sess.CallTool(ctx, &sdkmcp.CallToolParams{
+		Name:      "taclab.system.status.get",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call status: %v", err)
+	}
+	if got.StructuredContent == nil {
+		t.Fatalf("status structuredContent=%+v", got)
+	}
+}
+
+func TestMissingScopeIsPermissionDenied(t *testing.T) {
+	t.Parallel()
+	h := mcpHarnessScopes(t, []string{"state:read"}, config.MCP{})
+	got := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name":      "taclab.users.create",
+		"arguments": map[string]any{"id": "blocked", "enabled": false},
+	}, nil)
+	if got.Err == nil {
+		t.Fatal("expected permission denied")
+	}
+	if got.Err.Code == codeMethodNotFound {
+		t.Fatalf("missing scope leaked as unknown method: %+v", got.Err)
+	}
+	data, _ := got.Err.Data.(map[string]any)
+	if data["code"] != "permission_denied" && !strings.Contains(got.Err.Message, "scope") && !strings.Contains(got.Err.Message, "permission") {
+		t.Fatalf("err=%+v", got.Err)
 	}
 }

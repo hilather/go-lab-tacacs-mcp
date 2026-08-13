@@ -250,6 +250,33 @@ func TestListenCompleteOnRingClose(t *testing.T) {
 	}
 }
 
+func TestListenRequiresMeta(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	got := mcpRPC(t, h.HTTP, h.Token, "subscriptions/listen", map[string]any{
+		"notifications": map[string]any{"toolsListChanged": true},
+		"_meta":         nil,
+	}, nil)
+	if got.StatusCode != http.StatusBadRequest || got.Err == nil || got.Err.Code != codeHeaderMismatch {
+		t.Fatalf("missing _meta status=%d err=%+v body=%s", got.StatusCode, got.Err, got.Raw)
+	}
+}
+
+func TestListenMetaVersionMismatch(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	got := mcpRPC(t, h.HTTP, h.Token, "subscriptions/listen", map[string]any{
+		"notifications": map[string]any{"toolsListChanged": true},
+		"_meta": map[string]any{
+			metaProtocolVersion:    "2025-11-25",
+			metaClientCapabilities: map[string]any{},
+		},
+	}, nil)
+	if got.StatusCode != http.StatusBadRequest || got.Err == nil || got.Err.Code != codeHeaderMismatch {
+		t.Fatalf("mismatch status=%d err=%+v body=%s", got.StatusCode, got.Err, got.Raw)
+	}
+}
+
 func startListen(t testing.TB, ctx context.Context, h *harness, notifications map[string]any) *http.Response {
 	t.Helper()
 	req := listenRequest(t, ctx, h.HTTP.URL+"/mcp", h.Token, notifications)

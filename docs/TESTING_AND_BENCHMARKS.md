@@ -121,7 +121,7 @@ Start the real HTTP adapter over an in-memory listener. Validate:
 
 ### 3.6 MCP contract tests
 
-Use the official SDK client when the Go pin allows it ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)); until then the in-tree Streamable HTTP tests are the contract. Validate:
+Use the official SDK client (`TestOfficialSDKClient`) plus in-tree Streamable HTTP contract tests ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Validate:
 
 - Streamable HTTP behavior for the pinned specification.
 - tool and resource discovery.

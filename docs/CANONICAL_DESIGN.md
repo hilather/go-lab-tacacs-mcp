@@ -243,7 +243,7 @@ enabled, labels, created_at, updated_at
 
 Source docs say “current MCP resource/subscription mechanism.” MCP 2026-07-28 removed protocol sessions, GET SSE, and `Last-Event-ID` resume. Long-lived notifications use `subscriptions/listen`.
 
-**Resolution:** Prefer the official Go SDK pinned to a 2026-07-28-capable release. `go-sdk v1.7.0` is recorded but not imported; 1.0 ships a thin in-tree JSON-RPC adapter that implements the same checklist ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Event parity is `PARITY_DIFFERENT_BINDING` with this **binding spec** — MCP `subscriptions/listen` is **not** a TacLab event firehose and MUST NOT invent a non-conformant notification type.
+**Resolution:** Use the official Go SDK (`github.com/modelcontextprotocol/go-sdk v1.7.0`) for Streamable HTTP framing, `server/discover`, tools, and resources ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Lab bearer, origin policy, and URI-only `subscriptions/listen` stay in `internal/api/mcp`. Event parity is `PARITY_DIFFERENT_BINDING` — MCP `subscriptions/listen` is **not** a TacLab event firehose and MUST NOT invent a non-conformant notification type.
 
 REST:
 
@@ -320,7 +320,7 @@ Packet files live at the packet root. README required-reading links assume `docs
 
 8. **REST and MCP share one operation registry.** Same Go request/response types, scopes, revision, idempotency, redaction, events, and error codes. MCP is not an HTTP client of REST. Parity tests are merge-blocking.
 
-9. **MCP 2026-07-28 Streamable HTTP as specified.** POST `/mcp` only. Required headers `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` when applicable (including `prompts/get`). Per-request `_meta`, `server/discover`, `resultType`, cacheable list/read, 404/`-32601`. Origin policy as specified under `internal/api/mcp`. Same bearer token + scopes as REST. Listen is a change-notification channel, **not** an event firehose. Official Go SDK when it builds on the Go pin; otherwise the thin adapter ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Lab static bearer is `EXEMPT_BY_ADR` vs the HTTP-authorization SHOULD.
+9. **MCP 2026-07-28 Streamable HTTP as specified.** POST `/mcp` only. Official Go SDK (`v1.7.0`, `Stateless = true`). Required headers `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` when applicable. Per-request `_meta`, `server/discover`, `resultType`. Origin policy as specified under `internal/api/mcp`. Same bearer token + scopes as REST. Listen is a change-notification channel, **not** an event firehose ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Lab static bearer is `EXEMPT_BY_ADR` vs the HTTP-authorization SHOULD.
 
 10. **Secrets are typed and write-only.** File references by default; env refs opt-in for local dev. Canary tests scan every output surface. Shared-secret reuse uses a process-local HMAC key that is never persisted or exported.
 
@@ -859,21 +859,21 @@ Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnl
 
 ### `internal/api/mcp`
 
-Official SDK when the Go pin allows it ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)); otherwise the thin JSON-RPC adapter. Mount POST `/mcp` on the same `http.Server`. Implementers MUST follow this 2026-07-28 checklist — naming an SDK does not replace it.
+Official Go SDK v1.7.0 (`Stateless = true`) for framing, `server/discover`, tools, and resources ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Lab bearer, origin policy, and URI-only `subscriptions/listen` stay in `internal/api/mcp`. Mount POST `/mcp` on the same `http.Server`. Implementers MUST follow this 2026-07-28 checklist — naming an SDK does not replace it.
 
 | Requirement | TacLab 1.0 |
 |---|---|
 | `server/discover` | **MUST** implement (no `initialize` handshake) |
 | Per-request `_meta` | Require `io.modelcontextprotocol/protocolVersion` and `clientCapabilities` (and `clientInfo` when the SDK exposes it) |
 | Header / `_meta` version | `MCP-Protocol-Version` MUST equal `_meta.io.modelcontextprotocol/protocolVersion`; mismatch → 400 `HeaderMismatch` |
-| Unsupported version | 400 + `UnsupportedProtocolVersionError` listing supported versions (`2026-07-28` only unless an ADR adds one) |
+| Unsupported version | 400 + `UnsupportedProtocolVersionError` listing supported versions (`2026-07-28` only unless an ADR adds one). Discover `supportedVersions` is filtered to the same exclusive list |
 | `Mcp-Method` | Required on every request |
-| `Mcp-Name` | Required for `tools/call`, `resources/read`, and `prompts/get`. TacLab 1.0 does not ship prompts; if a client calls `prompts/get`, still enforce the header rule and return method-not-found |
+| `Mcp-Name` | Required for `tools/call`, `resources/read`, and `prompts/get`. ASCII only — the SDK does not decode `=?base64?...?=`. TacLab 1.0 does not ship prompts; if a client calls `prompts/get` with a valid name header, the SDK returns `-32602` unknown prompt |
 | Header/body mismatch | 400 JSON-RPC `-32020` `HeaderMismatch` |
-| Unknown RPC method | HTTP **404** + JSON-RPC `-32601` |
+| Unknown RPC method | HTTP **404** + JSON-RPC `-32601`. Domain not-found on a registered tool uses `-32000` so the SDK does not rewrite it as "method not found" |
 | Client `Accept` | Must handle `application/json` and `text/event-stream`; tools normally return JSON; listen returns SSE |
 | `resultType` | Every result includes `resultType`. TacLab tools do not use MRTR/elicitation → always `complete`. Listen close → `complete` |
-| List/read `CacheableResult` | Every list/read result sets `ttlMs: 0` and `cacheScope: "private"`. `cacheScope` is the MCP enum `"public"` \| `"private"` only — **never** a token id, user id, or other principal identifier |
+| List/read `CacheableResult` | Every list/read result sets `ttlMs: 0` and `cacheScope: "private"` (receiving middleware overrides the SDK default `"public"`). `cacheScope` is the MCP enum `"public"` \| `"private"` only — **never** a token id, user id, or other principal identifier. `server/discover` keeps the SDK default `public` |
 | GET/DELETE `/mcp` | 405 |
 | `Mcp-Session-Id` / `Last-Event-ID` | Ignore; do not mint sessions |
 

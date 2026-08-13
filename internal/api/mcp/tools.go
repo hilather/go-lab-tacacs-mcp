@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -17,40 +16,6 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
-
-func listTools(reg *operations.Registry, p auth.Principal) []map[string]any {
-	if reg == nil {
-		return []map[string]any{}
-	}
-	var ops []operations.Operation
-	for _, op := range reg.List() {
-		if op.MCP.Kind != "tool" || op.MCP.Name == "" || !op.Implemented {
-			continue
-		}
-		if !hasScopes(p, op.Scopes) {
-			continue
-		}
-		ops = append(ops, op)
-	}
-	sort.Slice(ops, func(i, j int) bool { return ops[i].MCP.Name < ops[j].MCP.Name })
-	out := make([]map[string]any, 0, len(ops))
-	for _, op := range ops {
-		item := map[string]any{
-			"name":         op.MCP.Name,
-			"description":  op.Description,
-			"inputSchema":  schemaFor(op.Request, op.Mutating),
-			"outputSchema": schemaFor(op.Response, false),
-			"annotations": map[string]any{
-				"readOnlyHint":    !op.Mutating,
-				"destructiveHint": op.Mutating && isDestructive(op.ID),
-				"idempotentHint":  op.Idempotent == "true",
-				"openWorldHint":   false,
-			},
-		}
-		out = append(out, item)
-	}
-	return out
-}
 
 func isDestructive(id string) bool {
 	return strings.HasSuffix(id, ".delete") || strings.HasSuffix(id, ".revoke") || id == operations.IDRuntimeReset
@@ -120,41 +85,6 @@ func callTool(ctx context.Context, opts Options, p auth.Principal, snap *state.S
 		out["cacheScope"] = cacheScopePrivate
 	}
 	return out, nil
-}
-
-func listResources(reg *operations.Registry, p auth.Principal) []map[string]any {
-	if reg == nil {
-		return []map[string]any{}
-	}
-	seen := map[string]struct{}{}
-	var uris []string
-	byURI := map[string]operations.Operation{}
-	for _, op := range reg.List() {
-		if op.MCP.Resource == "" || !op.Implemented || op.MCP.Kind != "tool" {
-			continue
-		}
-		if !hasScopes(p, op.Scopes) {
-			continue
-		}
-		if _, dup := seen[op.MCP.Resource]; dup {
-			continue
-		}
-		seen[op.MCP.Resource] = struct{}{}
-		uris = append(uris, op.MCP.Resource)
-		byURI[op.MCP.Resource] = op
-	}
-	sort.Strings(uris)
-	out := make([]map[string]any, 0, len(uris))
-	for _, uri := range uris {
-		op := byURI[uri]
-		out = append(out, map[string]any{
-			"uri":         uri,
-			"name":        resourceName(uri),
-			"description": op.Description,
-			"mimeType":    "application/json",
-		})
-	}
-	return out
 }
 
 func resourceName(uri string) string {

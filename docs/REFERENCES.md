@@ -110,7 +110,7 @@ TacLab 1.0 uses lab static bearer tokens instead of OAuth protected-resource met
 - Package documentation: https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk
 - SDK feature documentation: https://github.com/modelcontextprotocol/go-sdk/tree/main/docs
 
-Record `github.com/modelcontextprotocol/go-sdk v1.7.0` as the 2026-07-28-capable baseline. TacLab is pinned to Go 1.25.0 and still implements the wire checklist with a thin adapter ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Do not add the SDK to `go.mod` until a dedicated adoption change. After an SDK import, re-run the MCP transport and parity suites.
+`github.com/modelcontextprotocol/go-sdk v1.7.0` is a compile-time dependency ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Streamable HTTP is served with `Stateless = true` so protocol `2026-07-28` is accepted. After SDK upgrades, re-run the MCP transport and parity suites.
 
 ## 4. Go implementation references
 

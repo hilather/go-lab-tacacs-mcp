@@ -1,6 +1,6 @@
 # Machine-readable RFC 9887 conformance registry.
-# Status starts NOT_STARTED with empty evidence.
-# Human-readable tables are generated under docs/generated/; edit this file.
+# Status and evidence are the 1.0 qualification record. Edit this file; generate docs.
+# T98-OPT-002/003/004 stay NOT_STARTED until a PSK implementation ADR.
 schema_version: 1
 rfc: "9887"
 title: RFC 9887 Secure TACACS+
@@ -11,328 +11,424 @@ rows:
     level: MUST
     requirement: Secure TACACS+ listens on a port distinct from legacy
     evidence_required: Config/startup tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:cmd/taclabd.TestServeTLSOnlyPlaintextRejected
+      - unit:internal/tacacs/tls.TestNoFallbackToLegacy
+      - docs:deployments/compose/compose.yaml
   - id: T98-TLS-002
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: PROJECT MUST
     requirement: Support the well-known secure TACACS+ TCP port 300 through the reference deployment mapping
     evidence_required: Compose test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - lab:make lab-test host 300 mapping
+      - docs:deployments/compose/compose.yaml
   - id: T98-TLS-003
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST
     requirement: Begin TLS handshake immediately; no plaintext preface or upgrade
     evidence_required: Raw socket negative test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestPlaintextOnTLSPortRejected
+      - lab:LAB-TLS-003
   - id: T98-TLS-004
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST
     requirement: Minimum TLS version 1.3; TLS 1.2 and earlier rejected
     evidence_required: TLS matrix test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestTLS12Rejected
+      - unit:internal/tacacs/testclient.TestDialTLSNoFallbackOnTLS12
   - id: T98-TLS-005
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST
     requirement: Encrypt all TACACS+ data as TLS application data
     evidence_required: Packet capture/integration assertion
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestMTLSRoundTrip
+      - unit:internal/tacacs/tls.TestNoObfuscationOverTLS
+      - lab:LAB-TLS-001
   - id: T98-TLS-006
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST
     requirement: Do not apply legacy TACACS+ obfuscation over TLS
     evidence_required: Known packet/body test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestNoObfuscationOverTLS
+      - unit:internal/tacacs/tls.TestObfuscationKeyNotUsedForTLS
   - id: T98-TLS-007
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST
     requirement: Non-single-connect TLS connection closes after session completion
     evidence_required: Integration
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestNonSingleConnectCloses
   - id: T98-TLS-008
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MAY
     requirement: Single-connect TLS sessions persist until idle/other closure
     evidence_required: Integration
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/server.TestSingleConnectNegotiated
+      - unit:internal/tacacs/tls.TestMTLSRoundTrip
   - id: T98-TLS-009
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: PROJECT MUST
     requirement: IPv4 and IPv6 supported equivalently
     evidence_required: Integration where available
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestIPv6Match
+      - unit:internal/config.TestClientIndexV4V6LongestPrefix
   - id: T98-TLS-010
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST NOT
     requirement: The secure TACACS+ listener never accepts a non-TLS TACACS connection
     evidence_required: Plaintext and protocol-sniffing negative tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestPlaintextOnTLSPortRejected
+      - unit:cmd/taclabd.TestServeTLSOnlyPlaintextRejected
+      - lab:LAB-TLS-003
   - id: T98-TLS-011
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: MUST
     requirement: TLS versions and algorithms follow BCP 195 and the TLS 1.3 mandatory implementation requirements
     evidence_required: TLS configuration review and handshake matrix
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestTLS12Rejected
+      - unit:internal/tacacs/tls.TestMandatoryCipherSuiteNegotiated
+      - adr:docs/decisions/0004-tls13-cipher-policy.md
   - id: T98-TLS-012
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: SHOULD
     requirement: Configuration can require TLS globally and per client without ambiguous automatic fallback
     evidence_required: Config compile and connection tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestNoFallbackToLegacy
+      - unit:internal/tacacs/legacy.TestTLSClientHelloNotRouted
+      - docs:deployments/compose/compose.tls-only.yaml
   - id: T98-TLS-013
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: NOT RECOMMENDED
     requirement: "Co-locating secure and legacy listeners on one host follows [ADR 0001](decisions/0001-all-in-one-dual-listener-lab.md) and presents a production warning"
     evidence_required: ADR and deployment docs
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - adr:docs/decisions/0001-all-in-one-dual-listener-lab.md
+      - unit:cmd/taclabd.TestEmitLifecycleWarningsSkipsTLSOnly
+      - docs:docs/OPERATOR.md
   - id: T98-TLS-014
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: SHOULD/PROJECT
     requirement: New deployment examples prefer TLS; legacy mode is clearly marked compatibility-only
     evidence_required: "Example config, UI, and operator docs"
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - docs:deployments/compose/compose.tls-only.yaml
+      - docs:docs/OPERATOR.md
+      - docs:web/src/pages/DashboardPage.tsx colocated warning
   - id: T98-TLS-015
     section: 15-1-connection-and-transport
     section_title: 15.1 Connection and transport
     level: PROJECT MUST
     requirement: "Default/reference port behavior is unambiguous: 49 legacy and 300 secure, with explicit override support"
     evidence_required: Config and Compose tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - docs:deployments/compose/compose.yaml 49/300
+      - lab:make lab-test
+      - docs:configs/lab.example.yaml advertised_port
   - id: T98-CERT-001
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Support certificate-based mutual authentication
     evidence_required: Positive mTLS test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestMTLSRoundTrip
+      - lab:LAB-TLS-001
   - id: T98-CERT-002
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Validate remote certificate path
     evidence_required: Unknown CA/expired/not-yet-valid tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestUnknownCARejected
+      - unit:internal/tacacs/tls.TestExpiredClientRejected
+      - unit:internal/tacacs/tls.TestFutureClientRejected
   - id: T98-CERT-003
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Support configured certificate chains/bundles
     evidence_required: Intermediate chain test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestIntermediateChainPresented
+      - unit:internal/tacacs/tls.TestCertificateFileRotation
   - id: T98-CERT-004
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST/Policy
     requirement: Invalid certificate is denied by default
     evidence_required: Negative matrix
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestMissingClientCertRejected
+      - unit:internal/tacacs/tls.TestUnauthorizedValidCertRejected
+      - lab:LAB-TLS-002
   - id: T98-CERT-005
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Server maps client certificate identity using supported network-address or SAN identity method
     evidence_required: DNS SAN and IP SAN cases
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestIPSANMatch
+      - unit:internal/tacacs/tls.TestMTLSRoundTrip
   - id: T98-CERT-006
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Support SNI
     evidence_required: Multiple certificate profile test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestSNISelectsProfile
+      - unit:internal/tacacs/tls.TestUnknownSNIRejected
+      - unit:internal/tacacs/tls.TestRequireSNIRejectsEmpty
   - id: T98-CERT-007
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Support TLS 1.3 mandatory cipher suites offered by the Go TLS stack
     evidence_required: Handshake matrix
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestMandatoryCipherSuiteNegotiated
+      - adr:docs/decisions/0004-tls13-cipher-policy.md
   - id: T98-CERT-008
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: SHOULD
     requirement: Cipher policy is configurable within safe supported options
     evidence_required: Config test
-    status: NOT_STARTED
-    evidence: []
+    status: DISPOSITIONED_SHOULD
+    evidence:
+      - adr:docs/decisions/0004-tls13-cipher-policy.md
+      - unit:internal/tacacs/tls.TestMandatoryCipherSuiteNegotiated
   - id: T98-CERT-009
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Revocation policy is implemented and documented
     evidence_required: Revoked-cert test or approved mechanism-specific evidence
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestRevokedClientRejected
+      - unit:internal/tacacs/tls.TestWrongIssuerCRLDoesNotAdmit
+      - docs:docs/OPERATOR.md revocation.mode configured_crl
   - id: T98-CERT-010
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: SHOULD
     requirement: TLS cached-information extension disposition documented
     evidence_required: Implementation or ADR
-    status: NOT_STARTED
-    evidence: []
+    status: DISPOSITIONED_SHOULD
+    evidence:
+      - adr:docs/decisions/0003-cached-information.md
   - id: T98-CERT-011
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Client certificate identification fields are configurable; dNSName and iPAddress SAN matching are supported
     evidence_required: Exact DNS/IP SAN and source-address tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestIPSANMatch
+      - unit:internal/config.TestValidateRejectsInvalidIPSAN
+      - unit:internal/state.TestSnapshotCertificateOnly
   - id: T98-CERT-012
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: OPERATOR MUST/SHOULD
     requirement: Wildcard server identities follow RFC 9525 restrictions and are limited to a TACACS-only subdomain when used
     evidence_required: Certificate validation warning and deployment evidence
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/config.TestValidateRejectsNonTACACSWildcard
+      - unit:internal/tacacs/tls.TestValidateWildcardServerName
+      - unit:internal/tacacs/tls.TestWildcardServerIdentity
   - id: T98-CERT-013
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: PROJECT
     requirement: The baseline profile cannot silently disable certificate validation or mutual authentication
     evidence_required: Config-negative and startup tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/config.TestValidateSecureTLSRequiresIdentity
+      - unit:internal/tacacs/tls.TestMissingClientCertRejected
   - id: T98-CERT-014
     section: 15-2-mutual-authentication-and-certificates
     section_title: 15.2 Mutual authentication and certificates
     level: MUST
     requirement: Revocation checking applies to the selected certificate path mechanism and fails according to documented policy
     evidence_required: CRL/OCSP or approved mechanism tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestRevokedClientRejected
+      - unit:internal/tacacs/tls.TestResumeRechecksRevocation
+      - unit:internal/config.TestValidateRejectsRevocationRecheckDisabled
   - id: T98-FLAG-001
     section: 15-3-flags-and-packet-behavior-over-tls
     section_title: 15.3 Flags and packet behavior over TLS
     level: MUST
     requirement: Every TACACS packet over TLS has TAC_PLUS_UNENCRYPTED_FLAG set to 1
     evidence_required: Golden/integration
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestMissingUnencryptedFlagErrors
+      - unit:internal/tacacs/testclient.TestTLSForcesUnencryptedAndRejectsClearFlag
   - id: T98-FLAG-002
     section: 15-3-flags-and-packet-behavior-over-tls
     section_title: 15.3 Flags and packet behavior over TLS
     level: MUST
     requirement: Packet received over TLS without flag set returns type-specific ERROR with flag set and terminates session
     evidence_required: Authen/author/acct raw fixtures
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestMissingUnencryptedFlagErrors
+      - unit:internal/tacacs/testclient.TestTLSForcesUnencryptedAndRejectsClearFlag
   - id: T98-FLAG-003
     section: 15-3-flags-and-packet-behavior-over-tls
     section_title: 15.3 Flags and packet behavior over TLS
     level: MUST
     requirement: Legacy shared-secret obfuscation keys are not used as TLS peer authentication
     evidence_required: Config/type tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestObfuscationKeyNotUsedForTLS
+      - unit:internal/credentials.TestSecretPurposes
   - id: T98-RES-001
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: SHOULD
     requirement: Client/server resumption behavior is supported or dispositioned
     evidence_required: Integration or ADR
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestSessionResumption
+      - bench:internal/tacacs/tls.BenchmarkResumedHandshake
+      - adr:docs/decisions/0005-ticket-lifetime.md
   - id: T98-RES-002
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: SHOULD
     requirement: "Ticket lifetime is configurable, including zero"
     evidence_required: Config/handshake test
-    status: NOT_STARTED
-    evidence: []
+    status: DISPOSITIONED_SHOULD
+    evidence:
+      - adr:docs/decisions/0005-ticket-lifetime.md
+      - unit:internal/config.TestValidateRejectsUnenforceableTicketLifetime
+      - unit:internal/tacacs/tls.TestTicketLifetimeZeroDisables
   - id: T98-RES-003
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: MUST NOT
     requirement: Accept or send 0-RTT TACACS+ data
     evidence_required: Early-data negative test or stack capability evidence
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestEarlyDataExtensionRejected
+      - unit:internal/config.TestValidateRejectsEarlyDataDisabled
   - id: T98-RES-004
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: MUST NOT
     requirement: Include the TLS early_data extension
     evidence_required: Handshake inspection
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestEarlyDataExtensionRejected
+      - unit:internal/tacacs/testclient.TestDialTLSClientHelloHasNoEarlyData
   - id: T98-RES-005
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: MUST/SHOULD
     requirement: Certificate revocation implications during resumption are handled and documented
     evidence_required: Security test/ADR
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestResumeRechecksRevocation
+      - unit:internal/config.TestValidateRejectsRevocationRecheckDisabled
+      - adr:docs/decisions/0005-ticket-lifetime.md
   - id: T98-RES-006
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: SHOULD
     requirement: "Server permits valid, unexpired, unused resumption tickets or records a stack limitation/ADR"
     evidence_required: Handshake integration or ADR
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestSessionResumption
+      - adr:docs/decisions/0005-ticket-lifetime.md
   - id: T98-RES-007
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: SHOULD
     requirement: Ticket reuse/linkability and TLS 1.3 client-tracking mitigations are reviewed and dispositioned
     evidence_required: Security test/ADR
-    status: NOT_STARTED
-    evidence: []
+    status: DISPOSITIONED_SHOULD
+    evidence:
+      - adr:docs/decisions/0005-ticket-lifetime.md
   - id: T98-RES-008
     section: 15-4-tls-resumption-and-early-data
     section_title: 15.4 TLS resumption and early data
     level: PROJECT
     requirement: Resumption can be disabled for strict lab scenarios without changing normal full-handshake behavior
     evidence_required: Config and handshake tests
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/tls.TestResumptionDisabled
+      - unit:internal/tacacs/tls.TestTicketLifetimeZeroDisables
   - id: T98-OPT-001
     section: 15-5-optional-tls-authentication-methods
     section_title: 15.5 Optional TLS authentication methods
     level: MAY
     requirement: External TLS 1.3 PSK
     evidence_required: Implement behind an isolated authentication adapter or record DEFERRED_MAY; do not advertise otherwise
-    status: NOT_STARTED
-    evidence: []
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0006-external-psk-rpk.md
   - id: T98-OPT-002
     section: 15-5-optional-tls-authentication-methods
     section_title: 15.5 Optional TLS authentication methods
@@ -363,53 +459,65 @@ rows:
     level: MAY/out of detailed scope
     requirement: Raw Public Keys
     evidence_required: Implement behind an isolated adapter or record DEFERRED_MAY
-    status: NOT_STARTED
-    evidence: []
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0006-external-psk-rpk.md
   - id: T98-ROLE-001
     section: 15-6-client-role-and-operational-requirements
     section_title: 15.6 Client-role and operational requirements
     level: CLIENT-ROLE MUST
     requirement: Test client begins TLS immediately and sends no TACACS data before handshake completion
     evidence_required: Independent client integration
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/testclient.TestDialTLSBeginsImmediately
+      - unit:internal/tacacs/testclient.TestDialTLSNoPacketBeforeHandshakeReturns
   - id: T98-ROLE-002
     section: 15-6-client-role-and-operational-requirements
     section_title: 15.6 Client-role and operational requirements
     level: CLIENT-ROLE MUST NOT
     requirement: Test client never falls back to legacy after a TLS failure
     evidence_required: Downgrade negative test
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/testclient.TestDialTLSNoFallbackOnPlaintextPeer
+      - unit:internal/tacacs/testclient.TestDialTLSNoFallbackOnTLS12
   - id: T98-ROLE-003
     section: 15-6-client-role-and-operational-requirements
     section_title: 15.6 Client-role and operational requirements
     level: CLIENT-ROLE MUST
     requirement: Test client validates server identity using RFC 9525-supported DNS-ID/IP-ID/SRV-ID behavior; URI-ID is not used for server identity
     evidence_required: Certificate-name matrix
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/testclient.TestServerIdentityMatrix
+      - unit:internal/tacacs/testclient.TestDialTLSIdentityKindsOverWire
   - id: T98-ROLE-004
     section: 15-6-client-role-and-operational-requirements
     section_title: 15.6 Client-role and operational requirements
     level: CLIENT-ROLE MUST
     requirement: Test client sends the unencrypted flag on every packet over TLS and terminates on a nonconforming server reply
     evidence_required: Raw peer fixtures
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/testclient.TestTLSForcesUnencryptedAndRejectsClearFlag
   - id: T98-ROLE-005
     section: 15-6-client-role-and-operational-requirements
     section_title: 15.6 Client-role and operational requirements
     level: CLIENT-ROLE MUST NOT
     requirement: Test client sends no 0-RTT and includes no early-data extension
     evidence_required: Handshake inspection
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/tacacs/testclient.TestDialTLSClientHelloHasNoEarlyData
   - id: T98-ROLE-006
     section: 15-6-client-role-and-operational-requirements
     section_title: 15.6 Client-role and operational requirements
     level: OPERATOR SHOULD
     requirement: Production-like security tests run TLS-only or use separate hosts/instances for legacy and secure services
     evidence_required: Lab topology evidence
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - docs:deployments/compose/compose.tls-only.yaml
+      - lab:tools/lab-test.sh TLS-only phase
+      - docs:docs/OPERATOR.md

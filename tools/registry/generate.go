@@ -63,7 +63,7 @@ func renderConformance(tables ...*ConformanceRegistry) string {
 	b.WriteString("# Generated TACACS+ conformance inventory\n\n")
 	b.WriteString("Do not hand-edit this file. Run `make generate`.\n\n")
 	b.WriteString("Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml`\n\n")
-	b.WriteString("Status columns start `NOT_STARTED` with empty evidence.\n\n")
+	b.WriteString(renderQualificationSummary(tables...))
 	for _, table := range tables {
 		if table == nil {
 			continue
@@ -75,7 +75,7 @@ func renderConformance(tables ...*ConformanceRegistry) string {
 			b.WriteString(table.Title)
 			b.WriteString("\n\n")
 		}
-		b.WriteString("| ID | Level | Status | Requirement | Required evidence |\n")
+		b.WriteString("| ID | Level | Status | Requirement | Evidence |\n")
 		b.WriteString("|---|---|---|---|---|\n")
 		for _, row := range table.Rows {
 			b.WriteString("| ")
@@ -87,10 +87,58 @@ func renderConformance(tables ...*ConformanceRegistry) string {
 			b.WriteString(" | ")
 			b.WriteString(escapeCell(row.Requirement))
 			b.WriteString(" | ")
-			b.WriteString(escapeCell(row.EvidenceRequired))
+			b.WriteString(escapeCell(strings.Join(row.Evidence, "; ")))
 			b.WriteString(" |\n")
 		}
 		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+func renderQualificationSummary(tables ...*ConformanceRegistry) string {
+	var mustTotal, mustPass, mustOpen int
+	openMust := []string{}
+	for _, table := range tables {
+		if table == nil {
+			continue
+		}
+		for _, row := range table.Rows {
+			if !row.Mandatory() {
+				continue
+			}
+			mustTotal++
+			switch row.Status {
+			case StatusPass, StatusNADeprecated:
+				mustPass++
+			default:
+				mustOpen++
+				openMust = append(openMust, row.ID+"="+row.Status)
+			}
+		}
+	}
+	var b strings.Builder
+	b.WriteString("## Qualification summary\n\n")
+	b.WriteString("| Gate | Result |\n|---|---|\n")
+	if mustOpen == 0 {
+		b.WriteString("| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (")
+		b.WriteString(strconv.Itoa(mustPass))
+		b.WriteString("/")
+		b.WriteString(strconv.Itoa(mustTotal))
+		b.WriteString(" `PASS` or `N/A_RFC_DEPRECATED`) |\n")
+	} else {
+		b.WriteString("| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **OPEN** (")
+		b.WriteString(strconv.Itoa(mustOpen))
+		b.WriteString(" unresolved: ")
+		b.WriteString(escapeCell(strings.Join(openMust, ", ")))
+		b.WriteString(") |\n")
+	}
+	b.WriteString("| Independent software peer | `internal/tacacs/testclient` (separate codec) |\n")
+	b.WriteString("| Cisco / second-NOS device interop | **SKIP** — no lab hardware; see `docs/INTEROP.md` |\n")
+	b.WriteString("| External TLS PSK / RPK | `DEFERRED_MAY` ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)); T98-OPT-002/003/004 stay `NOT_STARTED` |\n\n")
+	if mustOpen != 0 {
+		b.WriteString("Do **not** claim complete TACACS+ while a mandatory row is open.\n\n")
+	} else {
+		b.WriteString("Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Device-family interop is not claimed.\n\n")
 	}
 	return b.String()
 }

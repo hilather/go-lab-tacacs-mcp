@@ -447,7 +447,7 @@ An approved regression must include cause, measured impact, alternatives, and up
 
 ## 10. Release load profiles
 
-Absolute numbers must be calibrated and frozen in `benchmarks/budgets.yaml` after the first implementation baseline on documented reference hardware. The initial release suite must include these shapes:
+Absolute numbers are frozen in [`benchmarks/budgets.yaml`](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/benchmarks/budgets.yaml) (2026-08-13, Intel i7-8750H, Go 1.24.5). The 10-minute 250-connection soak is an **operator procedure** and was not executed in the 1.0 qualification environment; CI uses saturation, leak, and race tests. The initial release suite must include these shapes:
 
 ### 10.1 Authorization/accounting profile
 

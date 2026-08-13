@@ -2,7 +2,7 @@
 
 Status: release-blocking checklist  
 Normative baseline: RFC 8907 and RFC 9887  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. Purpose
 
@@ -45,7 +45,7 @@ Level labels are interpreted as follows:
 
 ### 2.1 Machine-readable registry
 
-Row IDs are encoded in `testdata/conformance/rfc8907.yaml` and `testdata/conformance/rfc9887.yaml`. Status starts at `NOT_STARTED` with empty evidence. `make generate` writes [docs/generated/conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md). `make check-registries` fails on duplicate IDs, empty tables, and contract rows that are missing from the YAML.
+Row IDs are encoded in `testdata/conformance/rfc8907.yaml` and `testdata/conformance/rfc9887.yaml`. 1.0 qualification fills status and evidence in the YAML; `make generate` rewrites this inventory. `make generate` writes [docs/generated/conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md). `make check-registries` fails on duplicate IDs, empty tables, and contract rows that are missing from the YAML.
 
 Do not mark a row `PASS` without linked evidence. Release status gates (`MUST` / `MUST NOT` / `PROJECT MUST` must be `PASS` or an RFC-allowed deprecation) are separate from the structural registry check.
 
@@ -75,14 +75,14 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 | T89-H-002 | PROJECT MUST | Support Authentication, Authorization, and Accounting packet types | Independent golden encode/decode fixtures for each request and reply body | [x] |
 | T89-H-003 | MUST | First packet sequence is 1; client packets are odd and server packets are even | State-machine positive and negative tests | [x] |
 | T89-H-004 | MUST | Sequence numbers never wrap | Boundary fixture at 255 and required session termination | [x] |
-| T89-H-005 | MUST | Unknown header options or unsupported defined options produce ERROR and terminate when packet type is known | Golden malformed cases for each packet type | [ ] |
+| T89-H-005 | MUST | Unknown header options or unsupported defined options produce ERROR and terminate when packet type is known | Golden malformed cases for each packet type | [x] |
 | T89-H-006 | MUST | When packet type cannot be determined, return identical clear header with sequence incremented and zero body length as required | Independent raw fixture | [x] |
 | T89-H-007 | MUST | Ignore unknown flag bits when reading and set them to zero when writing | Unit/golden tests | [x] |
 | T89-H-008 | MUST | Session ID remains stable for the session; generated server-side IDs use cryptographic randomness where applicable | Unit test with injectable randomness | [x] |
 | T89-H-009 | MUST | Maximum accepted body size is configurable; default/recommended budget is 65536 bytes | Limit tests before allocation and memory benchmark | [x] |
 | T89-H-010 | MUST | Sum of decoded body component lengths exactly matches header body length | Mismatch fixtures and fuzz assertion | [x] |
-| T89-H-011 | MUST | Bounded short-read handling for header and body | Fragmented reader tests and fuzz corpus | [ ] |
-| T89-H-012 | MUST | Username text follows the required UsernameCasePreserved profile | Normalization and invalid-input cases | [ ] |
+| T89-H-011 | MUST | Bounded short-read handling for header and body | Fragmented reader tests and fuzz corpus | [x] |
+| T89-H-012 | MUST | Username text follows the required UsernameCasePreserved profile | Normalization and invalid-input cases | [x] |
 | T89-H-013 | MUST | Other text fields reject non-printable control characters where RFC requires printable US-ASCII | Field-specific tests | [x] |
 | T89-H-014 | MUST | Arbitrary-byte `data` fields are not incorrectly treated as printable text | CHAP/MS-CHAP fixtures | [x] |
 | T89-H-015 | MUST | A variable-length field whose encoded length is zero is ignored and treated as absent | Zero-length fixtures for every packet family | [x] |
@@ -98,7 +98,7 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 | T89-L-004 | MUST NOT | Do not accept legacy packets with `TAC_PLUS_UNENCRYPTED_FLAG` set | Raw cleartext fixture is dropped/rejected | [x] |
 | T89-L-005 | MUST | Invalid shared secret or invalid decoded component lengths returns ERROR when possible | Wrong-secret fixtures for authen/author/acct | [x] |
 | T89-L-006 | MUST | After a connection-level secret error, accept no new sessions and close after existing valid sessions complete | Multiplexed integration test | [x] |
-| T89-L-007 | MUST | Shared-secret values are never logged or returned | Secret canary scanning tests | [ ] |
+| T89-L-007 | MUST | Shared-secret values are never logged or returned | Secret canary scanning tests | [x] |
 | T89-L-008 | PROJECT MUST | IPv4 and IPv6 configured client matching | Integration tests on both families where CI supports IPv6 | [x] |
 | T89-L-009 | PROJECT | Longest-prefix then priority selection is deterministic; unresolved ties reject config | State compiler table tests | [x] |
 
@@ -109,7 +109,7 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 | T89-SC-001 | MUST | Negotiate single-connect only through the first request/reply flag exchange | Positive and invalid late-flag tests | [x] |
 | T89-SC-002 | MUST | Client cannot send a second packet before negotiation is established | Connection-state negative test | [x] |
 | T89-SC-003 | MUST | If single-connect is not established, close after the first session | Integration test | [x] |
-| T89-SC-004 | MAY | Server may refuse single-connect per client configuration | Config and interop test | [ ] |
+| T89-SC-004 | MAY | Server may refuse single-connect per client configuration | Config and interop test | [x] |
 | T89-SC-005 | PROJECT MUST | Multiplex sessions by session ID on one connection | Concurrent authen/author/acct test | [x] |
 | T89-SC-006 | PROJECT MUST | Preserve packet order within one session while allowing concurrency across sessions | Race test and stress test | [x] |
 | T89-SC-007 | MUST | Idle timeout is configurable and closes inactive single-connect connections | Fake-clock or bounded integration test | [x] |
@@ -122,22 +122,22 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 
 | ID | Level | Value | Required behavior | Status |
 |---|---|---|---|---|
-| T89-ACT-001 | PROJECT MUST | `TAC_PLUS_AUTHEN_LOGIN` | Implement all defined login types | [ ] |
-| T89-ACT-002 | PROJECT MUST | `TAC_PLUS_AUTHEN_CHPASS` | Implement ASCII password change | [ ] |
-| T89-ACT-003 | SHOULD NOT | `TAC_PLUS_AUTHEN_SENDAUTH` | Disabled by default and explicitly rejected; never silently accepted | [ ] |
-| T89-ACT-004 | Removed | SENDPASS | Do not implement or advertise; explicit unknown/unsupported behavior tested | [ ] |
+| T89-ACT-001 | PROJECT MUST | `TAC_PLUS_AUTHEN_LOGIN` | Implement all defined login types | [x] |
+| T89-ACT-002 | PROJECT MUST | `TAC_PLUS_AUTHEN_CHPASS` | Implement ASCII password change | [x] |
+| T89-ACT-003 | SHOULD NOT | `TAC_PLUS_AUTHEN_SENDAUTH` | Disabled by default and explicitly rejected; never silently accepted | [x] |
+| T89-ACT-004 | Removed | SENDPASS | Do not implement or advertise; explicit unknown/unsupported behavior tested | [x] |
 
 ### 7.2 Authentication types
 
 | ID | Level | Type | Required behavior | Status |
 |---|---|---|---|---|
-| T89-TYPE-001 | PROJECT MUST | ASCII `0x01` | Multi-step username/password flow | [ ] |
-| T89-TYPE-002 | PROJECT MUST | PAP `0x02` | One START, one final REPLY | [ ] |
-| T89-TYPE-003 | PROJECT MUST | CHAP `0x03` | Verify PPP ID/challenge/16-byte response format and MD5 response | [ ] |
-| T89-TYPE-004 | PROJECT MUST | MS-CHAP v1 `0x05` | Verify exact packet lengths, 8-byte challenge, and algorithm vectors | [ ] |
-| T89-TYPE-005 | PROJECT MUST | MS-CHAP v2 `0x06` | Verify exact packet lengths, 16-byte challenge, and algorithm vectors | [ ] |
-| T89-TYPE-006 | PROJECT MUST | NOT_SET in authorization/accounting only | Accept only in allowed packet contexts | [ ] |
-| T89-TYPE-007 | PROJECT MUST | Unknown type | Return the required failure/error and terminate/restart correctly | [ ] |
+| T89-TYPE-001 | PROJECT MUST | ASCII `0x01` | Multi-step username/password flow | [x] |
+| T89-TYPE-002 | PROJECT MUST | PAP `0x02` | One START, one final REPLY | [x] |
+| T89-TYPE-003 | PROJECT MUST | CHAP `0x03` | Verify PPP ID/challenge/16-byte response format and MD5 response | [x] |
+| T89-TYPE-004 | PROJECT MUST | MS-CHAP v1 `0x05` | Verify exact packet lengths, 8-byte challenge, and algorithm vectors | [x] |
+| T89-TYPE-005 | PROJECT MUST | MS-CHAP v2 `0x06` | Verify exact packet lengths, 16-byte challenge, and algorithm vectors | [x] |
+| T89-TYPE-006 | PROJECT MUST | NOT_SET in authorization/accounting only | Accept only in allowed packet contexts | [x] |
+| T89-TYPE-007 | PROJECT MUST | Unknown type | Return the required failure/error and terminate/restart correctly | [x] |
 
 ### 7.3 Authentication services
 
@@ -145,51 +145,51 @@ The parser, policy model, event model, and configuration restrictions must recog
 
 | ID | Service | Required behavior | Status |
 |---|---|---|---|
-| T89-SVC-001 | NONE `0x00` | Valid in documented authorization context; reject invalid auth flow usage | [ ] |
-| T89-SVC-002 | LOGIN `0x01` | Normal device login | [ ] |
-| T89-SVC-003 | ENABLE `0x02` | Privilege elevation flow | [ ] |
-| T89-SVC-004 | PPP `0x03` | Parse, expose to policy, and support valid defined auth types | [ ] |
-| T89-SVC-005 | PT `0x05` | Parse, expose, and permit explicit policy | [ ] |
-| T89-SVC-006 | RCMD `0x06` | Parse, expose, and permit explicit policy | [ ] |
-| T89-SVC-007 | X25 `0x07` | Parse, expose, and permit explicit policy | [ ] |
-| T89-SVC-008 | NASI `0x08` | Parse, expose, and permit explicit policy | [ ] |
-| T89-SVC-009 | FWPROXY `0x09` | Parse, expose, and permit explicit policy | [ ] |
-| T89-SVC-010 | Unknown | Reject with correct status rather than ignoring | [ ] |
+| T89-SVC-001 | NONE `0x00` | Valid in documented authorization context; reject invalid auth flow usage | [x] |
+| T89-SVC-002 | LOGIN `0x01` | Normal device login | [x] |
+| T89-SVC-003 | ENABLE `0x02` | Privilege elevation flow | [x] |
+| T89-SVC-004 | PPP `0x03` | Parse, expose to policy, and support valid defined auth types | [x] |
+| T89-SVC-005 | PT `0x05` | Parse, expose, and permit explicit policy | [x] |
+| T89-SVC-006 | RCMD `0x06` | Parse, expose, and permit explicit policy | [x] |
+| T89-SVC-007 | X25 `0x07` | Parse, expose, and permit explicit policy | [x] |
+| T89-SVC-008 | NASI `0x08` | Parse, expose, and permit explicit policy | [x] |
+| T89-SVC-009 | FWPROXY `0x09` | Parse, expose, and permit explicit policy | [x] |
+| T89-SVC-010 | Unknown | Reject with correct status rather than ignoring | [x] |
 
 ### 7.4 Authentication reply/continue behavior
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T89-AS-001 | MUST | PASS terminates successfully | Flow tests | [ ] |
-| T89-AS-002 | MUST | FAIL terminates as authentication denial | Flow tests | [ ] |
-| T89-AS-003 | MUST | GETDATA continues and prompts for generic data | Multi-step fixture | [ ] |
-| T89-AS-004 | MUST | GETUSER continues and obtains username | Missing-username ASCII fixture | [ ] |
-| T89-AS-005 | MUST | GETPASS continues and uses NOECHO for secrets | UI/protocol fixture | [ ] |
-| T89-AS-006 | MUST | RESTART ends current session and allows client to start a new session ID/type | Integration fixture | [ ] |
-| T89-AS-007 | MUST | ERROR is distinct from FAIL and triggers unavailable-server handling semantics | Protocol integration | [ ] |
-| T89-AS-008 | Deprecated | FOLLOW is not emitted; received/legacy behavior is safely failed | Negative fixture | [ ] |
-| T89-AS-009 | MUST | Continue ABORT terminates the authentication session and safely records reason | Multi-step abort fixture | [ ] |
-| T89-AS-010 | MUST | Retry count is bounded; recommended default three | Config and boundary tests | [ ] |
-| T89-AS-011 | MUST | A defined authentication option not implemented by a selected profile returns `TAC_PLUS_AUTHEN_STATUS_FAIL` | Per-option disabled-profile fixtures | [ ] |
-| T89-AS-012 | SHOULD | GETDATA/GETUSER/GETPASS replies include usable prompt text | Golden prompt fixtures | [ ] |
-| T89-AS-013 | SHOULD/MUST | Sensitive prompts set NOECHO and never reflect submitted secret material | Protocol, UI, and secret-canary tests | [ ] |
+| T89-AS-001 | MUST | PASS terminates successfully | Flow tests | [x] |
+| T89-AS-002 | MUST | FAIL terminates as authentication denial | Flow tests | [x] |
+| T89-AS-003 | MUST | GETDATA continues and prompts for generic data | Multi-step fixture | [x] |
+| T89-AS-004 | MUST | GETUSER continues and obtains username | Missing-username ASCII fixture | [x] |
+| T89-AS-005 | MUST | GETPASS continues and uses NOECHO for secrets | UI/protocol fixture | [x] |
+| T89-AS-006 | MUST | RESTART ends current session and allows client to start a new session ID/type | Integration fixture | [x] |
+| T89-AS-007 | MUST | ERROR is distinct from FAIL and triggers unavailable-server handling semantics | Protocol integration | [x] |
+| T89-AS-008 | Deprecated | FOLLOW is not emitted; received/legacy behavior is safely failed | Negative fixture | [x] |
+| T89-AS-009 | MUST | Continue ABORT terminates the authentication session and safely records reason | Multi-step abort fixture | [x] |
+| T89-AS-010 | MUST | Retry count is bounded; recommended default three | Config and boundary tests | [x] |
+| T89-AS-011 | MUST | A defined authentication option not implemented by a selected profile returns `TAC_PLUS_AUTHEN_STATUS_FAIL` | Per-option disabled-profile fixtures | [x] |
+| T89-AS-012 | SHOULD | GETDATA/GETUSER/GETPASS replies include usable prompt text | Golden prompt fixtures | [x] |
+| T89-AS-013 | SHOULD/MUST | Sensitive prompts set NOECHO and never reflect submitted secret material | Protocol, UI, and secret-canary tests | [x] |
 
 ## 8. Authentication flow matrix
 
 | ID | Flow | Version | Positive evidence | Negative evidence | Status |
 |---|---|---:|---|---|---|
-| T89-FLOW-001 | ASCII LOGIN with username in START | 0 | PASS | wrong password, disabled user | [ ] |
-| T89-FLOW-002 | ASCII LOGIN with GETUSER then GETPASS | 0 | PASS | empty/retry exhaustion/abort | [ ] |
-| T89-FLOW-003 | PAP LOGIN | 1 | PASS | wrong version, missing user/data, wrong password | [ ] |
-| T89-FLOW-004 | CHAP LOGIN | 1 | independent response vector | malformed ID/challenge/response, wrong secret | [ ] |
-| T89-FLOW-005 | MS-CHAP v1 LOGIN | 1 | independent vector | challenge length, response length, wrong secret | [ ] |
-| T89-FLOW-006 | MS-CHAP v2 LOGIN | 1 | independent vector | 16-byte challenge enforcement, wrong secret | [ ] |
-| T89-FLOW-007 | ENABLE | 0 | target privilege granted | wrong credential, invalid service, disallowed target | [ ] |
-| T89-FLOW-008 | ASCII CHPASS | 0 | runtime verifier override | wrong old password, mismatch, immutable policy, abort | [ ] |
-| T89-FLOW-009 | Unsupported defined option | per RFC | clean fail/error | no panic, no state leak | [ ] |
-| T89-FLOW-010 | ASCII CHPASS old/new prompt semantics | 0 | old password uses GETDATA; new password uses GETPASS | reversed status, secret echo, interrupted update | [ ] |
-| T89-FLOW-011 | ASCII unused data fields | 0 | arbitrary data is ignored as specified | data cannot alter username/password decision | [ ] |
-| T89-FLOW-012 | CHAP challenge policy | 1 | configurable minimum with recommended default of 8 bytes | below-minimum challenge (no maximum; well-formed longer challenges are accepted) | [ ] |
+| T89-FLOW-001 | ASCII LOGIN with username in START | 0 | PASS | wrong password, disabled user | [x] |
+| T89-FLOW-002 | ASCII LOGIN with GETUSER then GETPASS | 0 | PASS | empty/retry exhaustion/abort | [x] |
+| T89-FLOW-003 | PAP LOGIN | 1 | PASS | wrong version, missing user/data, wrong password | [x] |
+| T89-FLOW-004 | CHAP LOGIN | 1 | independent response vector | malformed ID/challenge/response, wrong secret | [x] |
+| T89-FLOW-005 | MS-CHAP v1 LOGIN | 1 | independent vector | challenge length, response length, wrong secret | [x] |
+| T89-FLOW-006 | MS-CHAP v2 LOGIN | 1 | independent vector | 16-byte challenge enforcement, wrong secret | [x] |
+| T89-FLOW-007 | ENABLE | 0 | target privilege granted | wrong credential, invalid service, disallowed target | [x] |
+| T89-FLOW-008 | ASCII CHPASS | 0 | runtime verifier override | wrong old password, mismatch, immutable policy, abort | [x] |
+| T89-FLOW-009 | Unsupported defined option | per RFC | clean fail/error | no panic, no state leak | [x] |
+| T89-FLOW-010 | ASCII CHPASS old/new prompt semantics | 0 | old password uses GETDATA; new password uses GETPASS | reversed status, secret echo, interrupted update | [x] |
+| T89-FLOW-011 | ASCII unused data fields | 0 | arbitrary data is ignored as specified | data cannot alter username/password decision | [x] |
+| T89-FLOW-012 | CHAP challenge policy | 1 | configurable minimum with recommended default of 8 bytes | below-minimum challenge (no maximum; well-formed longer challenges are accepted) | [x] |
 
 Credential evidence must prove:
 
@@ -263,7 +263,7 @@ Value encodings to test:
 | T89-PRIV-001 | MUST | Accept and preserve levels 0 through 15 | [x] |
 | T89-PRIV-002 | MUST | Reject values outside the encoded field/rule range | [x] |
 | T89-PRIV-003 | SHOULD | Support session-based shell authorization returning `priv-lvl` | [x] |
-| T89-PRIV-004 | MUST | ENABLE flow can request a higher privilege without assuming prior auth by protocol | [ ] |
+| T89-PRIV-004 | MUST | ENABLE flow can request a higher privilege without assuming prior auth by protocol | [x] |
 | T89-PRIV-005 | PROJECT | Policy does not assume vendor command mappings for a privilege level | [x] |
 
 ## 12. Accounting matrix
@@ -310,22 +310,22 @@ Value encodings to test:
 
 | ID | Level | Requirement | Status |
 |---|---|---|---|
-| T89-SEC-001 | MUST | Administrator can restrict authentication to challenge-response types | [ ] |
-| T89-SEC-002 | SHOULD | Warn when ASCII/PAP are enabled and document that non-challenge methods should be enabled only when required | [ ] |
-| T89-SEC-003 | SHOULD NOT | Avoid reusing the same credential across challenge and non-challenge types | [ ] |
-| T89-SEC-004 | SHOULD NOT | SENDAUTH/SENDPASS are not implemented; any future implementation is disabled by default with a warning | [ ] |
-| T89-SEC-005 | MUST | Redirection/FOLLOW is deprecated, not advertised, and disabled | [ ] |
-| T89-SEC-006 | MUST | A dedicated legacy shared secret can be configured for each individual client | [ ] |
-| T89-SEC-007 | MUST/PROJECT MUST | Every enabled legacy client has a shared secret and cleartext legacy packet bodies are rejected | [ ] |
-| T89-SEC-008 | PROJECT | Operator UI clearly labels legacy transport as compatibility/insecure | [ ] |
-| T89-SEC-009 | MUST | Shared secrets are treated as sensitive and never leaked, logged, exported, traced, or returned | [ ] |
-| T89-SEC-010 | MUST | Shared keys of at least 32 characters are supported without truncation | [ ] |
-| T89-SEC-011 | MUST | Configuration supports an enforceable minimum-complexity policy for legacy shared keys | [ ] |
-| T89-SEC-012 | MUST | Management metadata can track shared-key lifetime and notify operators that rotation is due | [ ] |
-| T89-SEC-013 | SHOULD | Validation warns when process-local keyed HMAC comparison detects that multiple clients reuse the same shared secret; no comparison value is exposed or persisted | [ ] |
-| T89-SEC-014 | OPERATOR SHOULD | Generated/operator-provided legacy keys are at least 16 characters and rotated regularly | [ ] |
-| T89-SEC-015 | OPERATOR MUST | Legacy TACACS is documented for a protected, integrity-preserving management network; operators are warned not to rely on obfuscation | [ ] |
-| T89-SEC-016 | PROJECT | Configuration and deployment make secure TACACS+ the recommended mode for new lab topologies | [ ] |
+| T89-SEC-001 | MUST | Administrator can restrict authentication to challenge-response types | [x] |
+| T89-SEC-002 | SHOULD | Warn when ASCII/PAP are enabled and document that non-challenge methods should be enabled only when required | [x] ADR-0012 `DISPOSITIONED_SHOULD` |
+| T89-SEC-003 | SHOULD NOT | Avoid reusing the same credential across challenge and non-challenge types | [x] |
+| T89-SEC-004 | SHOULD NOT | SENDAUTH/SENDPASS are not implemented; any future implementation is disabled by default with a warning | [x] |
+| T89-SEC-005 | MUST | Redirection/FOLLOW is deprecated, not advertised, and disabled | [x] |
+| T89-SEC-006 | MUST | A dedicated legacy shared secret can be configured for each individual client | [x] |
+| T89-SEC-007 | MUST/PROJECT MUST | Every enabled legacy client has a shared secret and cleartext legacy packet bodies are rejected | [x] |
+| T89-SEC-008 | PROJECT | Operator UI clearly labels legacy transport as compatibility/insecure | [x] |
+| T89-SEC-009 | MUST | Shared secrets are treated as sensitive and never leaked, logged, exported, traced, or returned | [x] |
+| T89-SEC-010 | MUST | Shared keys of at least 32 characters are supported without truncation | [x] |
+| T89-SEC-011 | MUST | Configuration supports an enforceable minimum-complexity policy for legacy shared keys | [x] |
+| T89-SEC-012 | MUST | Management metadata can track shared-key lifetime and notify operators that rotation is due | [x] |
+| T89-SEC-013 | SHOULD | Validation warns when process-local keyed HMAC comparison detects that multiple clients reuse the same shared secret; no comparison value is exposed or persisted | [x] |
+| T89-SEC-014 | OPERATOR SHOULD | Generated/operator-provided legacy keys are at least 16 characters and rotated regularly | [x] |
+| T89-SEC-015 | OPERATOR MUST | Legacy TACACS is documented for a protected, integrity-preserving management network; operators are warned not to rely on obfuscation | [x] |
+| T89-SEC-016 | PROJECT | Configuration and deployment make secure TACACS+ the recommended mode for new lab topologies | [x] |
 
 ## 15. RFC 9887 secure TACACS+ matrix
 
@@ -333,71 +333,71 @@ Value encodings to test:
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T98-TLS-001 | MUST | Secure TACACS+ listens on a port distinct from legacy | Config/startup tests | [ ] |
-| T98-TLS-002 | PROJECT MUST | Support the well-known secure TACACS+ TCP port 300 through the reference deployment mapping | Compose test | [ ] |
-| T98-TLS-003 | MUST | Begin TLS handshake immediately; no plaintext preface or upgrade | Raw socket negative test | [ ] |
-| T98-TLS-004 | MUST | Minimum TLS version 1.3; TLS 1.2 and earlier rejected | TLS matrix test | [ ] |
-| T98-TLS-005 | MUST | Encrypt all TACACS+ data as TLS application data | Packet capture/integration assertion | [ ] |
-| T98-TLS-006 | MUST | Do not apply legacy TACACS+ obfuscation over TLS | Known packet/body test | [ ] |
-| T98-TLS-007 | MUST | Non-single-connect TLS connection closes after session completion | Integration | [ ] |
-| T98-TLS-008 | MAY | Single-connect TLS sessions persist until idle/other closure | Integration | [ ] |
-| T98-TLS-009 | PROJECT MUST | IPv4 and IPv6 supported equivalently | Integration where available | [ ] |
-| T98-TLS-010 | MUST NOT | The secure TACACS+ listener never accepts a non-TLS TACACS connection | Plaintext and protocol-sniffing negative tests | [ ] |
-| T98-TLS-011 | MUST | TLS versions and algorithms follow BCP 195 and the TLS 1.3 mandatory implementation requirements | TLS configuration review and handshake matrix | [ ] |
-| T98-TLS-012 | SHOULD | Configuration can require TLS globally and per client without ambiguous automatic fallback | Config compile and connection tests | [ ] |
-| T98-TLS-013 | NOT RECOMMENDED | Co-locating secure and legacy listeners on one host follows [ADR 0001](decisions/0001-all-in-one-dual-listener-lab.md) and presents a production warning | ADR and deployment docs | [ ] |
-| T98-TLS-014 | SHOULD/PROJECT | New deployment examples prefer TLS; legacy mode is clearly marked compatibility-only | Example config, UI, and operator docs | [ ] |
-| T98-TLS-015 | PROJECT MUST | Default/reference port behavior is unambiguous: 49 legacy and 300 secure, with explicit override support | Config and Compose tests | [ ] |
+| T98-TLS-001 | MUST | Secure TACACS+ listens on a port distinct from legacy | Config/startup tests | [x] |
+| T98-TLS-002 | PROJECT MUST | Support the well-known secure TACACS+ TCP port 300 through the reference deployment mapping | Compose test | [x] |
+| T98-TLS-003 | MUST | Begin TLS handshake immediately; no plaintext preface or upgrade | Raw socket negative test | [x] |
+| T98-TLS-004 | MUST | Minimum TLS version 1.3; TLS 1.2 and earlier rejected | TLS matrix test | [x] |
+| T98-TLS-005 | MUST | Encrypt all TACACS+ data as TLS application data | Packet capture/integration assertion | [x] |
+| T98-TLS-006 | MUST | Do not apply legacy TACACS+ obfuscation over TLS | Known packet/body test | [x] |
+| T98-TLS-007 | MUST | Non-single-connect TLS connection closes after session completion | Integration | [x] |
+| T98-TLS-008 | MAY | Single-connect TLS sessions persist until idle/other closure | Integration | [x] |
+| T98-TLS-009 | PROJECT MUST | IPv4 and IPv6 supported equivalently | Integration where available | [x] |
+| T98-TLS-010 | MUST NOT | The secure TACACS+ listener never accepts a non-TLS TACACS connection | Plaintext and protocol-sniffing negative tests | [x] |
+| T98-TLS-011 | MUST | TLS versions and algorithms follow BCP 195 and the TLS 1.3 mandatory implementation requirements | TLS configuration review and handshake matrix | [x] |
+| T98-TLS-012 | SHOULD | Configuration can require TLS globally and per client without ambiguous automatic fallback | Config compile and connection tests | [x] |
+| T98-TLS-013 | NOT RECOMMENDED | Co-locating secure and legacy listeners on one host follows [ADR 0001](decisions/0001-all-in-one-dual-listener-lab.md) and presents a production warning | ADR and deployment docs | [x] |
+| T98-TLS-014 | SHOULD/PROJECT | New deployment examples prefer TLS; legacy mode is clearly marked compatibility-only | Example config, UI, and operator docs | [x] |
+| T98-TLS-015 | PROJECT MUST | Default/reference port behavior is unambiguous: 49 legacy and 300 secure, with explicit override support | Config and Compose tests | [x] |
 
 ### 15.2 Mutual authentication and certificates
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T98-CERT-001 | MUST | Support certificate-based mutual authentication | Positive mTLS test | [ ] |
-| T98-CERT-002 | MUST | Validate remote certificate path | Unknown CA/expired/not-yet-valid tests | [ ] |
-| T98-CERT-003 | MUST | Support configured certificate chains/bundles | Intermediate chain test | [ ] |
-| T98-CERT-004 | MUST/Policy | Invalid certificate is denied by default | Negative matrix | [ ] |
-| T98-CERT-005 | MUST | Server maps client certificate identity using supported network-address or SAN identity method | DNS SAN and IP SAN cases | [ ] |
-| T98-CERT-006 | MUST | Support SNI | Multiple certificate profile test | [ ] |
-| T98-CERT-007 | MUST | Support TLS 1.3 mandatory cipher suites offered by the Go TLS stack | Handshake matrix | [ ] |
-| T98-CERT-008 | SHOULD | Cipher policy is configurable within safe supported options | Config test | [ ] |
-| T98-CERT-009 | MUST | Revocation policy is implemented and documented | Revoked-cert test or approved mechanism-specific evidence | [ ] |
-| T98-CERT-010 | SHOULD | TLS cached-information extension disposition documented | Implementation or ADR | [ ] |
-| T98-CERT-011 | MUST | Client certificate identification fields are configurable; dNSName and iPAddress SAN matching are supported | Exact DNS/IP SAN and source-address tests | [ ] |
-| T98-CERT-012 | OPERATOR MUST/SHOULD | Wildcard server identities follow RFC 9525 restrictions and are limited to a TACACS-only subdomain when used | Certificate validation warning and deployment evidence | [ ] |
-| T98-CERT-013 | PROJECT | The baseline profile cannot silently disable certificate validation or mutual authentication | Config-negative and startup tests | [ ] |
-| T98-CERT-014 | MUST | Revocation checking applies to the selected certificate path mechanism and fails according to documented policy | CRL/OCSP or approved mechanism tests | [ ] |
+| T98-CERT-001 | MUST | Support certificate-based mutual authentication | Positive mTLS test | [x] |
+| T98-CERT-002 | MUST | Validate remote certificate path | Unknown CA/expired/not-yet-valid tests | [x] |
+| T98-CERT-003 | MUST | Support configured certificate chains/bundles | Intermediate chain test | [x] |
+| T98-CERT-004 | MUST/Policy | Invalid certificate is denied by default | Negative matrix | [x] |
+| T98-CERT-005 | MUST | Server maps client certificate identity using supported network-address or SAN identity method | DNS SAN and IP SAN cases | [x] |
+| T98-CERT-006 | MUST | Support SNI | Multiple certificate profile test | [x] |
+| T98-CERT-007 | MUST | Support TLS 1.3 mandatory cipher suites offered by the Go TLS stack | Handshake matrix | [x] |
+| T98-CERT-008 | SHOULD | Cipher policy is configurable within safe supported options | Config test | [x] |
+| T98-CERT-009 | MUST | Revocation policy is implemented and documented | Revoked-cert test or approved mechanism-specific evidence | [x] |
+| T98-CERT-010 | SHOULD | TLS cached-information extension disposition documented | Implementation or ADR | [x] |
+| T98-CERT-011 | MUST | Client certificate identification fields are configurable; dNSName and iPAddress SAN matching are supported | Exact DNS/IP SAN and source-address tests | [x] |
+| T98-CERT-012 | OPERATOR MUST/SHOULD | Wildcard server identities follow RFC 9525 restrictions and are limited to a TACACS-only subdomain when used | Certificate validation warning and deployment evidence | [x] |
+| T98-CERT-013 | PROJECT | The baseline profile cannot silently disable certificate validation or mutual authentication | Config-negative and startup tests | [x] |
+| T98-CERT-014 | MUST | Revocation checking applies to the selected certificate path mechanism and fails according to documented policy | CRL/OCSP or approved mechanism tests | [x] |
 
 ### 15.3 Flags and packet behavior over TLS
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T98-FLAG-001 | MUST | Every TACACS packet over TLS has `TAC_PLUS_UNENCRYPTED_FLAG` set to 1 | Golden/integration | [ ] |
-| T98-FLAG-002 | MUST | Packet received over TLS without flag set returns type-specific ERROR with flag set and terminates session | Authen/author/acct raw fixtures | [ ] |
-| T98-FLAG-003 | MUST | Legacy shared-secret obfuscation keys are not used as TLS peer authentication | Config/type tests | [ ] |
+| T98-FLAG-001 | MUST | Every TACACS packet over TLS has `TAC_PLUS_UNENCRYPTED_FLAG` set to 1 | Golden/integration | [x] |
+| T98-FLAG-002 | MUST | Packet received over TLS without flag set returns type-specific ERROR with flag set and terminates session | Authen/author/acct raw fixtures | [x] |
+| T98-FLAG-003 | MUST | Legacy shared-secret obfuscation keys are not used as TLS peer authentication | Config/type tests | [x] |
 
 ### 15.4 TLS resumption and early data
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T98-RES-001 | SHOULD | Client/server resumption behavior is supported or dispositioned | Integration or ADR | [ ] |
-| T98-RES-002 | SHOULD | Ticket lifetime is configurable, including zero | Config/handshake test | [ ] |
-| T98-RES-003 | MUST NOT | Accept or send 0-RTT TACACS+ data | Early-data negative test or stack capability evidence | [ ] |
-| T98-RES-004 | MUST NOT | Include the TLS `early_data` extension | Handshake inspection | [ ] |
-| T98-RES-005 | MUST/SHOULD | Certificate revocation implications during resumption are handled and documented | Security test/ADR | [ ] |
-| T98-RES-006 | SHOULD | Server permits valid, unexpired, unused resumption tickets or records a stack limitation/ADR | Handshake integration or ADR | [ ] |
-| T98-RES-007 | SHOULD | Ticket reuse/linkability and TLS 1.3 client-tracking mitigations are reviewed and dispositioned | Security test/ADR | [ ] |
-| T98-RES-008 | PROJECT | Resumption can be disabled for strict lab scenarios without changing normal full-handshake behavior | Config and handshake tests | [ ] |
+| T98-RES-001 | SHOULD | Client/server resumption behavior is supported or dispositioned | Integration or ADR | [x] |
+| T98-RES-002 | SHOULD | Ticket lifetime is configurable, including zero | Config/handshake test | [x] |
+| T98-RES-003 | MUST NOT | Accept or send 0-RTT TACACS+ data | Early-data negative test or stack capability evidence | [x] |
+| T98-RES-004 | MUST NOT | Include the TLS `early_data` extension | Handshake inspection | [x] |
+| T98-RES-005 | MUST/SHOULD | Certificate revocation implications during resumption are handled and documented | Security test/ADR | [x] |
+| T98-RES-006 | SHOULD | Server permits valid, unexpired, unused resumption tickets or records a stack limitation/ADR | Handshake integration or ADR | [x] |
+| T98-RES-007 | SHOULD | Ticket reuse/linkability and TLS 1.3 client-tracking mitigations are reviewed and dispositioned | Security test/ADR | [x] |
+| T98-RES-008 | PROJECT | Resumption can be disabled for strict lab scenarios without changing normal full-handshake behavior | Config and handshake tests | [x] |
 
 ### 15.5 Optional TLS authentication methods
 
 | ID | RFC level | Feature | 1.0 disposition requirement | Status |
 |---|---|---|---|---|
-| T98-OPT-001 | MAY | External TLS 1.3 PSK | Implement behind an isolated authentication adapter or record `DEFERRED_MAY`; do not advertise otherwise | [ ] |
-| T98-OPT-002 | MUST if PSK implemented | Support PSKs of at least 16 octets and identities of at least 16 octets | Boundary and interoperability tests | [ ] |
-| T98-OPT-003 | MUST NOT if PSK implemented | Never reuse a legacy TACACS obfuscation shared secret as a TLS PSK | Typed-secret and canary tests | [ ] |
-| T98-OPT-004 | RECOMMENDED if PSK implemented | Follow RFC 9257 external-PSK guidance | Security review and ADR | [ ] |
-| T98-OPT-005 | MAY/out of detailed scope | Raw Public Keys | Implement behind an isolated adapter or record `DEFERRED_MAY` | [ ] |
+| T98-OPT-001 | MAY | External TLS 1.3 PSK | Implement behind an isolated authentication adapter or record `DEFERRED_MAY`; do not advertise otherwise | [x] |
+| T98-OPT-002 | MUST if PSK implemented | Support PSKs of at least 16 octets and identities of at least 16 octets | Boundary and interoperability tests | [x] |
+| T98-OPT-003 | MUST NOT if PSK implemented | Never reuse a legacy TACACS obfuscation shared secret as a TLS PSK | Typed-secret and canary tests | [x] |
+| T98-OPT-004 | RECOMMENDED if PSK implemented | Follow RFC 9257 external-PSK guidance | Security review and ADR | [x] |
+| T98-OPT-005 | MAY/out of detailed scope | Raw Public Keys | Implement behind an isolated adapter or record `DEFERRED_MAY` | [x] |
 
 Certificate-based mutual authentication remains mandatory regardless of optional method decisions.
 
@@ -407,12 +407,12 @@ PR-14b implements T98-ROLE-001–005 in `internal/tacacs/testclient` (`DialTLS`)
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|
-| T98-ROLE-001 | CLIENT-ROLE MUST | Test client begins TLS immediately and sends no TACACS data before handshake completion | Independent client integration | [ ] |
-| T98-ROLE-002 | CLIENT-ROLE MUST NOT | Test client never falls back to legacy after a TLS failure | Downgrade negative test | [ ] |
-| T98-ROLE-003 | CLIENT-ROLE MUST | Test client validates server identity using RFC 9525-supported DNS-ID/IP-ID/SRV-ID behavior; URI-ID is not used for server identity | Certificate-name matrix | [ ] |
-| T98-ROLE-004 | CLIENT-ROLE MUST | Test client sends the unencrypted flag on every packet over TLS and terminates on a nonconforming server reply | Raw peer fixtures | [ ] |
-| T98-ROLE-005 | CLIENT-ROLE MUST NOT | Test client sends no 0-RTT and includes no early-data extension | Handshake inspection | [ ] |
-| T98-ROLE-006 | OPERATOR SHOULD | Production-like security tests run TLS-only or use separate hosts/instances for legacy and secure services | Lab topology evidence | [ ] |
+| T98-ROLE-001 | CLIENT-ROLE MUST | Test client begins TLS immediately and sends no TACACS data before handshake completion | Independent client integration | [x] |
+| T98-ROLE-002 | CLIENT-ROLE MUST NOT | Test client never falls back to legacy after a TLS failure | Downgrade negative test | [x] |
+| T98-ROLE-003 | CLIENT-ROLE MUST | Test client validates server identity using RFC 9525-supported DNS-ID/IP-ID/SRV-ID behavior; URI-ID is not used for server identity | Certificate-name matrix | [x] |
+| T98-ROLE-004 | CLIENT-ROLE MUST | Test client sends the unencrypted flag on every packet over TLS and terminates on a nonconforming server reply | Raw peer fixtures | [x] |
+| T98-ROLE-005 | CLIENT-ROLE MUST NOT | Test client sends no 0-RTT and includes no early-data extension | Handshake inspection | [x] |
+| T98-ROLE-006 | OPERATOR SHOULD | Production-like security tests run TLS-only or use separate hosts/instances for legacy and secure services | Lab topology evidence | [x] |
 
 ## 16. Interoperability matrix
 
@@ -420,11 +420,11 @@ At least the following evidence is required before 1.0:
 
 | Case | Legacy | TLS | Authn | Authz | Acct | Single-connect | Status |
 |---|---:|---:|---|---|---|---:|---|
-| Independent Go test client with separate codec | Yes | Yes | all flows feasible | session/command | all flags | Yes | [ ] |
-| External open-source TACACS client/server implementation | Yes | where supported | ASCII/PAP and available challenge types | command | start/stop/watchdog | where supported | [ ] |
-| Cisco IOS/IOS-XE or equivalent lab device | Yes | where device supports | login/enable | exec/command | command | device behavior | [ ] |
-| One non-Cisco device family such as Junos or EOS | Yes | where supported | login | command/session | command | device behavior | [ ] |
-| Malformed/raw packet harness | Yes | Yes | negative | negative | negative | negative | [ ] |
+| Independent Go test client with separate codec | Yes | Yes | all flows feasible | session/command | all flags | Yes | [x] software peer |
+| External open-source TACACS client/server implementation | Yes | where supported | ASCII/PAP and available challenge types | command | start/stop/watchdog | where supported | skip — not run; testclient is the required software peer |
+| Cisco IOS/IOS-XE or equivalent lab device | Yes | where device supports | login/enable | exec/command | command | device behavior | skip — no lab hardware |
+| One non-Cisco device family such as Junos or EOS | Yes | where supported | login | command/session | command | device behavior | skip — no lab hardware |
+| Malformed/raw packet harness | Yes | Yes | negative | negative | negative | negative | [x] |
 
 Unavailable vendor features must be documented as lab-equipment limitations, not silently treated as server conformance evidence.
 

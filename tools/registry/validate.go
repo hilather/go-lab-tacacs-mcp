@@ -295,6 +295,9 @@ func validateConformance(rep *Report, file, wantRFC string, doc *ConformanceRegi
 		if row.Status == StatusNotStarted && len(row.Evidence) != 0 {
 			rep.add(file, row.ID, "NOT_STARTED rows must have empty evidence")
 		}
+		if statusRequiresEvidence(row.Status) && len(row.Evidence) == 0 {
+			rep.add(file, row.ID, "status %s requires at least one evidence ID", row.Status)
+		}
 	}
 }
 
@@ -351,8 +354,55 @@ func checkConformanceContractCoverage(rep *Report, contract []string, tables ...
 	}
 }
 
+func statusRequiresEvidence(status string) bool {
+	switch status {
+	case StatusPass, StatusNADeprecated, StatusDeferredMAY, StatusDispositionedSHOULD, StatusFail:
+		return true
+	default:
+		return false
+	}
+}
+
+// CheckSHOULDDispositions fails non-operator SHOULD rows that are neither PASS
+// nor DISPOSITIONED_SHOULD (and not an RFC-allowed deprecation).
+func CheckSHOULDDispositions(tables ...*ConformanceRegistry) []Issue {
+	var issues []Issue
+	for _, table := range tables {
+		if table == nil {
+			continue
+		}
+		file := RFC8907Path
+		if table.RFC == "9887" {
+			file = RFC9887Path
+		}
+		for _, row := range table.Rows {
+			if !strings.Contains(row.Level, "SHOULD") {
+				continue
+			}
+			if strings.Contains(row.Level, "OPERATOR") || strings.Contains(row.Level, "CLIENT-ROLE") {
+				continue
+			}
+			if row.Mandatory() {
+				continue
+			}
+			switch row.Status {
+			case StatusPass, StatusDispositionedSHOULD, StatusNADeprecated:
+				continue
+			default:
+				issues = append(issues, Issue{
+					File:    file,
+					ID:      row.ID,
+					Message: fmt.Sprintf("SHOULD disposition: %s row has status %s (need PASS or DISPOSITIONED_SHOULD)", row.Level, row.Status),
+				})
+			}
+		}
+	}
+	sort.Slice(issues, func(i, j int) bool { return issues[i].ID < issues[j].ID })
+	return issues
+}
+
 // CheckReleaseStatuses fails MUST / MUST NOT / PROJECT MUST rows that are not PASS
-// or an allowed deprecation disposition. Structural CI does not call this.
+// or an allowed deprecation disposition. `check-registries -release` calls this.
 func CheckReleaseStatuses(tables ...*ConformanceRegistry) []Issue {
 	var issues []Issue
 	for _, table := range tables {

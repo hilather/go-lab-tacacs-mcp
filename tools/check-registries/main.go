@@ -11,6 +11,7 @@ import (
 
 func main() {
 	writeDocs := flag.Bool("write-docs", false, "write docs/generated inventories after a successful validation")
+	release := flag.Bool("release", false, "fail when a mandatory MUST row is not PASS or N/A_RFC_DEPRECATED, or a SHOULD lacks a disposition")
 	flag.Parse()
 
 	root, err := registry.FindRoot(".")
@@ -34,6 +35,19 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "check-registries: %d issue(s)\n", len(rep.Issues))
 		os.Exit(1)
+	}
+
+	if *release {
+		for _, issue := range append(registry.CheckReleaseStatuses(rep.RFC8907, rep.RFC9887), registry.CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887)...) {
+			rep.Issues = append(rep.Issues, issue)
+		}
+		if !rep.Valid() {
+			for _, issue := range rep.Issues {
+				fmt.Fprintln(os.Stderr, issue)
+			}
+			fmt.Fprintf(os.Stderr, "check-registries: %d issue(s) (including -release)\n", len(rep.Issues))
+			os.Exit(1)
+		}
 	}
 
 	if *writeDocs {

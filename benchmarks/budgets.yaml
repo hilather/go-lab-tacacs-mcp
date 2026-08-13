@@ -1,0 +1,188 @@
+# TacLab 1.0 frozen microbenchmark budgets.
+# Compare with benchstat on the same runner class. Do not weaken Argon2id to pass these.
+schema_version: 1
+frozen: "2026-08-13"
+product: TacLab 1.0
+policy:
+  latency_regression_pct: 10
+  alloc_regression_pct: 15
+  header_decode_must_stay_alloc_free: true
+reference_hardware:
+  cpu: "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz"
+  goarch: amd64
+  goos: linux
+  go: go1.24.5
+  nproc: 12
+  note: >
+    First freeze. TLS handshake benches are noisy (post-handshake tickets, scheduler).
+    Use max_ns_per_op as the CI tripwire; use ns_per_op_median as the benchstat baseline.
+command: "go test -count=6 -bench=. -benchmem ./internal/tacacs/... ./internal/policy/... ./internal/state/... ./internal/aaa"
+excluded_from_make_bench:
+  - internal/credentials.BenchmarkArgon2idVerify
+  - internal/credentials.BenchmarkArgon2idVerifyParallel
+load_profiles:
+  authz_acct_250_conn_10min:
+    status: not_run_in_qualification
+    reason: "10-minute soak is an operator procedure; CI uses saturation + leak tests."
+    evidence:
+      - unit:internal/tacacs/server.TestEngineConnectionSaturation
+      - unit:internal/tacacs/server.TestServeConnNoGoroutineLeak
+      - race:internal/tacacs/server.TestConcurrentSingleConnectSessions
+  authentication_kdf:
+    status: separate_suite
+    evidence:
+      - bench:internal/credentials.BenchmarkArgon2idVerify
+  admin_events:
+    status: micro_only
+    evidence:
+      - bench:internal/events.BenchmarkEventAppend
+      - bench:internal/events.BenchmarkEventReadPage
+benches:
+  - name: BenchmarkHeaderDecode
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 10
+    max_ns_per_op: 15
+    allocs_per_op: 0
+    bytes_per_op: 0
+  - name: BenchmarkHeaderEncode
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 17
+    max_ns_per_op: 30
+    allocs_per_op: 1
+    bytes_per_op: 16
+  - name: BenchmarkLegacyObfuscate_64B
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 670
+    max_ns_per_op: 1200
+    allocs_per_op: 7
+  - name: BenchmarkLegacyObfuscate_1KiB
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 10200
+    max_ns_per_op: 18000
+    allocs_per_op: 67
+  - name: BenchmarkAuthenStartDecode
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 88
+    max_ns_per_op: 160
+    allocs_per_op: 3
+  - name: BenchmarkAuthorDecode_16Args
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 850
+    max_ns_per_op: 1600
+    allocs_per_op: 19
+  - name: BenchmarkAuthorDecode_255Args
+    pkg: internal/tacacs/codec
+    ns_per_op_median: 12500
+    max_ns_per_op: 22000
+    allocs_per_op: 258
+  - name: BenchmarkMatchIPv4
+    pkg: internal/tacacs/legacy
+    ns_per_op_median: 355
+    max_ns_per_op: 700
+    allocs_per_op: 5
+  - name: BenchmarkMatchIPv6
+    pkg: internal/tacacs/legacy
+    ns_per_op_median: 360
+    max_ns_per_op: 700
+    allocs_per_op: 5
+  - name: BenchmarkDispatchAuthorPerConnection
+    pkg: internal/tacacs/server
+    ns_per_op_median: 30000
+    max_ns_per_op: 80000
+    note: noisy pipe setup
+  - name: BenchmarkDispatchAuthorSingleConnect
+    pkg: internal/tacacs/server
+    ns_per_op_median: 46000
+    max_ns_per_op: 90000
+  - name: BenchmarkFullHandshake
+    pkg: internal/tacacs/tls
+    ns_per_op_median: 4450000
+    max_ns_per_op: 10000000
+    note: noisy; first-freeze tripwire only
+  - name: BenchmarkResumedHandshake
+    pkg: internal/tacacs/tls
+    ns_per_op_median: 5000000
+    max_ns_per_op: 12000000
+    note: noisy; first-freeze tripwire only
+  - name: BenchmarkPostHandshakeAuthor
+    pkg: internal/tacacs/tls
+    ns_per_op_median: 40000
+    max_ns_per_op: 80000
+  - name: BenchmarkPolicyCompile_Small
+    pkg: internal/policy
+    ns_per_op_median: 770000
+    max_ns_per_op: 1500000
+    allocs_per_op: 8352
+  - name: BenchmarkPolicyCompile_Medium
+    pkg: internal/policy
+    ns_per_op_median: 60500000
+    max_ns_per_op: 120000000
+  - name: BenchmarkAuthorize_ExactCommand
+    pkg: internal/policy
+    ns_per_op_median: 8700
+    max_ns_per_op: 16000
+    allocs_per_op: 18
+  - name: BenchmarkAuthorize_RegexWorstCase
+    pkg: internal/policy
+    ns_per_op_median: 175000
+    max_ns_per_op: 350000
+    allocs_per_op: 21
+  - name: BenchmarkAuthorize_ServiceSession
+    pkg: internal/policy
+    ns_per_op_median: 1180
+    max_ns_per_op: 2500
+    allocs_per_op: 12
+  - name: BenchmarkParseCompile_Small
+    pkg: internal/state
+    ns_per_op_median: 211000
+    max_ns_per_op: 400000
+    allocs_per_op: 1305
+  - name: BenchmarkParseCompile_Medium
+    pkg: internal/state
+    ns_per_op_median: 9000000
+    max_ns_per_op: 18000000
+  - name: BenchmarkSnapshotPublish_Medium
+    pkg: internal/state
+    ns_per_op_median: 1050000
+    max_ns_per_op: 2000000
+    allocs_per_op: 4999
+  - name: BenchmarkClientLookup_IPv4
+    pkg: internal/state
+    ns_per_op_median: 2160
+    max_ns_per_op: 4000
+    allocs_per_op: 6
+  - name: BenchmarkClientLookup_IPv6
+    pkg: internal/state
+    ns_per_op_median: 2300
+    max_ns_per_op: 4500
+    allocs_per_op: 6
+  - name: BenchmarkRecordAccounting
+    pkg: internal/aaa
+    ns_per_op_median: 1120
+    max_ns_per_op: 2500
+    allocs_per_op: 7
+  - name: BenchmarkCHAPLogin
+    pkg: internal/aaa
+    ns_per_op_median: 28900
+    max_ns_per_op: 50000
+    allocs_per_op: 34
+  - name: BenchmarkCHAPVerify
+    pkg: internal/credentials
+    ns_per_op_median: 155
+    max_ns_per_op: 400
+    in_make_bench: false
+  - name: BenchmarkMSCHAPv1Verify
+    pkg: internal/credentials
+    ns_per_op_median: 5220
+    max_ns_per_op: 10000
+    in_make_bench: false
+  - name: BenchmarkMSCHAPv2Verify
+    pkg: internal/credentials
+    ns_per_op_median: 5340
+    max_ns_per_op: 10000
+    in_make_bench: false
+  - name: BenchmarkTokenVerify
+    pkg: internal/credentials
+    ns_per_op_median: 318
+    max_ns_per_op: 700
+    in_make_bench: false

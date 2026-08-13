@@ -12,7 +12,12 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not imported — requires Go 1.25; see [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
 
-This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`), and `internal/tacacs/testclient` `DialTLS` (DNS-ID/IP-ID/SRV-ID, UNENCRYPTED, no 0-RTT, no legacy fallback). REST serves health, OpenAPI, build, session+CSRF, token CRUD, users/groups/clients/config/runtime, SSE event bodies, and the embedded SPA (login, status, users, groups, clients, tokens, events, auth test, policy explain, config/reset). MCP 2026-07-28 (`POST /mcp`) has operation parity: every `PARITY_REQUIRED` tool, scope-filtered discovery, resources, and `subscriptions/listen` (URI notify; bodies via `events.list`). Lab static bearer is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md). `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement complete TACACS+ (hardware device interop is a documented skip). REST/MCP equivalence is enforced by the `internal/api/parity` harness (`events.subscribe` compared at domain-event level). Metrics and governors live under `internal/observability` (pprof off by default; no client_id on lifecycle series). Do not describe it as a complete TACACS+ server.
+This checkout is the **1.0 lab appliance**. RFC 8907 and RFC 9887 **server `MUST` / `MUST NOT` / `PROJECT MUST`** rows are `PASS` or `N/A_RFC_DEPRECATED` with evidence IDs in [testdata/conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/testdata/conformance/rfc8907.yaml). `make check-registries` includes the `-release` gate.
+
+The required software peer is the in-tree `internal/tacacs/testclient` (separate codec). **Cisco and second-NOS interop are skipped** (no hardware) — see [interop notes](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md). Lab static bearer is ADR 0010. Device-family completeness is **not** claimed.
+
+ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS are implemented, plus service and command authorization, the RFC 8907 accounting flag table, a bounded event ring, dual TACACS listeners (legacy and TLS 1.3), REST/MCP parity, and the embedded SPA. REST/MCP equivalence is enforced by the `internal/api/parity` harness. Metrics and governors live under `internal/observability` (pprof off by default).
+
 
 Reference Compose lab (host 49 / 300 / 8080, non-root, read-only rootfs):
 
@@ -56,6 +61,13 @@ docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-c
 - [ADR 0007 — internal TACACS codec](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0007-codec-approach.md)
 - [ADR 0010 — lab static bearer vs MCP OAuth PRM](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)
 - [ADR 0011 — thin MCP adapter on Go 1.24.5](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)
+- [ADR 0012 — ASCII/PAP enablement warning](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md)
+- [Operator guide (1.0)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md)
+- [Developer workflow](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/DEVELOPER.md)
+- [Interop notes](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md)
+- [Maintenance policy](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md)
+- [Changelog](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md)
+- [Benchmark budgets](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/benchmarks/budgets.yaml)
 - [TACACS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md)
 - [REST/MCP API parity](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md)
 - [Configuration](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md)

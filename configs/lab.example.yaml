@@ -179,6 +179,8 @@ clients:
         last_rotated_at: 2026-08-01T00:00:00Z
         rotation_interval: 90d
     authentication:
+      # ASCII/PAP are lab compatibility methods (T89-SEC-002, ADR-0012).
+      # Prefer challenge-only (chap/mschapv1/mschapv2) on a protected network.
       allowed_methods:
         - ascii
         - pap

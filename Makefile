@@ -37,7 +37,7 @@ help:
 	@echo "  make web-build        production Vite build + copy into internal/ui/dist"
 	@echo "  make web-e2e          Playwright keyboard/session smoke"
 	@echo "  make generate         regenerate checked-in generated files"
-	@echo "  make check-registries validate conformance and operation registries"
+	@echo "  make check-registries validate conformance and operation registries (includes 1.0 -release gate)"
 	@echo "  make check-generated  fail on generated-file drift"
 	@echo "  make secrets          secret scan"
 	@echo "  make vuln             govulncheck"
@@ -128,11 +128,11 @@ web-e2e:
 .PHONY: generate
 generate:
 	$(GO) run ./tools/generate
-	$(GO) run ./tools/check-registries -write-docs
+	$(GO) run ./tools/check-registries -write-docs -release
 
 .PHONY: check-registries
 check-registries:
-	$(GO) run ./tools/check-registries
+	$(GO) run ./tools/check-registries -release
 
 .PHONY: check-generated
 check-generated:

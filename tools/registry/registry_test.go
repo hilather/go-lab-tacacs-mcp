@@ -74,11 +74,14 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 				t.Errorf("duplicate id %s", row.ID)
 			}
 			seen[row.ID] = struct{}{}
-			if row.Level == "" || row.Requirement == "" || row.Status != StatusNotStarted {
-				t.Errorf("%s: level/requirement/status not in the empty NOT_STARTED form", row.ID)
+			if row.Level == "" || row.Requirement == "" || row.Status == "" {
+				t.Errorf("%s: missing level/requirement/status", row.ID)
 			}
-			if len(row.Evidence) != 0 {
-				t.Errorf("%s: evidence must start empty", row.ID)
+			if row.Status == StatusNotStarted && len(row.Evidence) != 0 {
+				t.Errorf("%s: NOT_STARTED evidence must be empty", row.ID)
+			}
+			if statusRequiresEvidence(row.Status) && len(row.Evidence) == 0 {
+				t.Errorf("%s: status %s requires evidence", row.ID, row.Status)
 			}
 		}
 	}
@@ -278,12 +281,17 @@ func TestUnreferencedMandatoryRowFailsCoverage(t *testing.T) {
 
 func TestReleaseValidationRejectsNotStartedMUST(t *testing.T) {
 	t.Parallel()
-	root := testRoot(t)
-	rep, err := ValidateRoot(root)
-	if err != nil {
-		t.Fatal(err)
+	doc := &ConformanceRegistry{
+		SchemaVersion: 1,
+		RFC:           "8907",
+		Rows: []ConformanceRow{
+			{ID: "T89-H-003", Level: "MUST", Status: StatusNotStarted},
+			{ID: "T89-AU-017", Level: "SHOULD/PROJECT MUST", Status: StatusNotStarted},
+			{ID: "T98-CERT-004", Level: "MUST/Policy", Status: StatusNotStarted},
+			{ID: "T89-SEC-014", Level: "OPERATOR SHOULD", Status: StatusNotStarted},
+		},
 	}
-	issues := CheckReleaseStatuses(rep.RFC8907, rep.RFC9887)
+	issues := CheckReleaseStatuses(doc)
 	if len(issues) == 0 {
 		t.Fatal("expected release validation to fail while rows are NOT_STARTED")
 	}
@@ -296,6 +304,24 @@ func TestReleaseValidationRejectsNotStartedMUST(t *testing.T) {
 		if _, ok := have[id]; !ok {
 			t.Fatalf("expected %s in release issues (compound MUST rows must be gated)", id)
 		}
+	}
+	if _, ok := have["T89-SEC-014"]; ok {
+		t.Fatal("OPERATOR SHOULD must not be a release-blocking MUST")
+	}
+}
+
+func TestReleaseValidationPassesQualifiedRegistries(t *testing.T) {
+	t.Parallel()
+	root := testRoot(t)
+	rep, err := ValidateRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if issues := CheckReleaseStatuses(rep.RFC8907, rep.RFC9887); len(issues) != 0 {
+		t.Fatalf("qualified MUST rows still open: %v", issues)
+	}
+	if issues := CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887); len(issues) != 0 {
+		t.Fatalf("SHOULD rows missing disposition: %v", issues)
 	}
 }
 
@@ -355,9 +381,11 @@ func TestGenerateDocs(t *testing.T) {
 	for _, needle := range []string{
 		"T89-H-001",
 		"T98-TLS-001",
-		StatusNotStarted,
+		StatusPass,
 		"T89-AV-003",
-		"Empty for session authorization; non-empty for command authorization",
+		"cmd",
+		"unit:internal/tacacs/codec.TestDecodeEncodeRoundTrip",
+		"Qualification summary",
 	} {
 		if !strings.Contains(string(conf), needle) {
 			t.Errorf("conformance.md missing %q", needle)

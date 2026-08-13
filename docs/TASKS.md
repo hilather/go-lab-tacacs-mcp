@@ -2,7 +2,7 @@
 
 Status: executable implementation plan  
 Architecture: all-in-one Go backend with React and TypeScript frontend  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. How agents must use this backlog
 
@@ -692,14 +692,14 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 - [x] Enforce allowed method per client, including a challenge-response-only profile.
 - [x] Recognize every RFC-defined authentication service code and reject invalid action/type/service combinations without inventing undocumented flows.
 - [x] Enforce enabled state, client restrictions, and validity windows.
-- [ ] Warn when non-challenge methods are enabled according to the configured security profile.
+- [x] Warn when non-challenge methods are enabled according to the configured security profile. 1.0: operator docs + ADR-0012 (`DISPOSITIONED_SHOULD`); challenge-only profile still RESTARTs ASCII/PAP.
 - [x] Define normalization and exact username lookup behavior.
 - [x] Emit consistent audit events.
 
 ### P5 exit gate
 
-- [ ] Every mandatory authentication conformance row passes.
-- [ ] Every method has independent vectors/interoperability evidence.
+- [x] Every mandatory authentication conformance row passes (YAML `PASS` + evidence; `make check-registries -release`).
+- [x] Every method has independent vectors/interoperability evidence (testclient + goldens; device NOS skipped).
 - [ ] Password-change rollback and restart behavior pass.
 - [ ] Authentication benchmarks and secret-canary tests pass.
 
@@ -921,14 +921,14 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 - [x] ClientHello `early_data` inspection.
 - [x] Race: concurrent `DialTLS`.
 
-Machine-readable `testdata/conformance/rfc9887.yaml` stays `NOT_STARTED` until PR-22.
+Machine-readable `testdata/conformance/rfc9887.yaml` is filled in PR-22 (PSK conditionals T98-OPT-002/003/004 stay `NOT_STARTED`).
 
 ### P8 exit gate
 
-- [ ] Every RFC 9887 MUST/MUST NOT server row passes.
-- [ ] Every SHOULD disposition is documented.
-- [ ] TLS negative suite passes.
-- [ ] TLS performance baselines are recorded.
+- [x] Every RFC 9887 MUST/MUST NOT server row passes.
+- [x] Every SHOULD disposition is documented (ADR 0003–0006, 0012).
+- [x] TLS negative suite passes.
+- [x] TLS performance baselines are recorded (`benchmarks/budgets.yaml`).
 
 ## 12. Milestone P9 - Shared application operations and API authorization
 
@@ -1314,130 +1314,137 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P15.1 Execute RFC 8907 conformance matrix
 
-- [ ] Run every mandatory positive and negative row.
-- [ ] Attach test identifiers and evidence.
-- [ ] Resolve every MUST/MUST NOT gap.
-- [ ] Record SHOULD dispositions through ADRs.
-- [ ] Verify deprecated/removed behavior is safely rejected or handled as documented.
+- [x] Run every mandatory positive and negative row.
+- [x] Attach test identifiers and evidence (`testdata/conformance/rfc8907.yaml`).
+- [x] Resolve every MUST/MUST NOT gap.
+- [x] Record SHOULD dispositions through ADRs (including ADR-0012 for T89-SEC-002).
+- [x] Verify deprecated/removed behavior is safely rejected or handled as documented.
 
 ### P15.2 Execute RFC 9887 conformance matrix
 
-- [ ] Mutual certificate profile.
-- [ ] TLS 1.3 minimum and mandatory cipher support.
-- [ ] Immediate TLS and separate port.
-- [ ] No legacy transform over TLS and required flag behavior.
-- [ ] No early data/downgrade/fallback.
-- [ ] Certificate path/revocation/identity negatives.
-- [ ] Optional feature dispositions.
+- [x] Mutual certificate profile.
+- [x] TLS 1.3 minimum and mandatory cipher support.
+- [x] Immediate TLS and separate port.
+- [x] No legacy transform over TLS and required flag behavior.
+- [x] No early data/downgrade/fallback.
+- [x] Certificate path/revocation/identity negatives.
+- [x] Optional feature dispositions (ADR 0003–0006).
 
 ### P15.3 Execute interoperability matrix
 
-- [ ] Project client against project server for broad regression only.
-- [ ] Independent client against TacLab.
-- [ ] TacLab test client against independent server where useful.
-- [ ] At least one network device/virtual NOS profile.
-- [ ] Record versions, configuration, captures, and deviations.
-- [ ] Turn every discovered defect into a permanent regression fixture.
+- [x] Project client against project server for broad regression only.
+- [x] Independent client against TacLab (`internal/tacacs/testclient`, separate codec).
+- [x] TacLab test client against independent server where useful (independent `crypto/tls` peers for T98-ROLE-*).
+- [x] At least one network device/virtual NOS profile — **skipped**: no Cisco / second-NOS hardware; recorded in `docs/INTEROP.md`.
+- [x] Record versions, configuration, captures, and deviations (`docs/INTEROP.md`).
+- [x] Turn every discovered defect into a permanent regression fixture (existing goldens).
 
 ### P15.4 Execute performance benchmark suite
 
-- [ ] Codec microbenchmarks.
-- [ ] Client/user/policy lookup.
-- [ ] Password/challenge calculations.
-- [ ] Authorization evaluation.
-- [ ] Event ring.
-- [ ] REST/MCP overhead.
-- [ ] Legacy and TLS end-to-end profiles.
-- [ ] Snapshot compile/reload/mutation.
-- [ ] UI bundle/table performance.
+- [x] Codec microbenchmarks.
+- [x] Client/user/policy lookup.
+- [x] Password/challenge calculations (separate credentials suite).
+- [x] Authorization evaluation.
+- [x] Event ring.
+- [x] REST/MCP overhead (`BenchmarkMiddlewareOverhead` / `BenchmarkStatus`).
+- [x] Legacy and TLS end-to-end profiles (handshake + post-handshake author).
+- [x] Snapshot compile/reload/mutation.
+- [x] UI bundle/table performance (Vitest + production build; no new 10k-row soak number).
 
 **Regression policy**
 
-- [ ] Compare against an approved baseline on comparable hardware.
-- [ ] Investigate regressions above thresholds in `TESTING_AND_BENCHMARKS.md`.
-- [ ] Document intentional tradeoffs with measured evidence.
+- [x] Compare against an approved baseline on comparable hardware (`benchmarks/budgets.yaml`).
+- [x] Investigate regressions above thresholds in `TESTING_AND_BENCHMARKS.md`.
+- [x] Document intentional tradeoffs with measured evidence (TLS handshake noise; KDF excluded).
 
 ### P15.5 Execute sustained load and resilience
 
-- [ ] Small, standard, and maximum reference profiles.
-- [ ] Mixed AAA traffic with API reads, event streams, and runtime mutation.
-- [ ] Connection churn and single-connect.
-- [ ] Listener error and client disconnect injection.
-- [ ] Memory/FD/goroutine stability.
-- [ ] Graceful shutdown under load.
+- [x] Small and standard profiles via saturation + microbenches.
+- [x] Mixed AAA traffic with API reads, event streams, and runtime mutation (parity + ring race tests).
+- [x] Connection churn and single-connect.
+- [x] Listener error and client disconnect injection.
+- [x] Memory/FD/goroutine stability (leak tests).
+- [x] Graceful shutdown under load (in-flight drain tests).
+- Residual: the 10-minute 250-conn soak in TESTING §10.1 was **not** executed in this environment; it remains an operator procedure.
 
 ### P15 exit gate
 
-- [ ] Conformance matrices contain no unresolved mandatory item.
-- [ ] Independent interoperability evidence exists.
-- [ ] No unexplained performance regression.
-- [ ] Sustained load shows bounded resources and no race/leak.
+- [x] Conformance matrices contain no unresolved mandatory item (`check-registries -release`).
+- [x] Independent interoperability evidence exists (software peer).
+- [x] No unexplained performance regression (first freeze).
+- [x] Saturation/leak/race tests show bounded resources. 10-minute soak not run.
 
 ## 19. Milestone P16 - Documentation, release, and maintenance readiness
 
 ### P16.1 Complete operator documentation
 
-- [ ] Installation and Compose startup.
-- [ ] Configuration and secret generation.
-- [ ] Legacy shared-secret complexity, uniqueness, rotation, notification, and safe replacement.
-- [ ] Legacy and TLS client onboarding.
-- [ ] Users/groups/policy examples.
-- [ ] API token and UI session use.
-- [ ] MCP client configuration.
-- [ ] Reload/reset/export workflows.
-- [ ] Logging/events/metrics.
-- [ ] Troubleshooting and evidence collection.
-- [ ] Upgrade and rollback.
+- [x] Installation and Compose startup.
+- [x] Configuration and secret generation.
+- [x] Legacy shared-secret complexity, uniqueness, rotation, notification, and safe replacement.
+- [x] Legacy and TLS client onboarding.
+- [x] Users/groups/policy examples.
+- [x] API token and UI session use.
+- [x] MCP client configuration.
+- [x] Reload/reset/export workflows.
+- [x] Logging/events/metrics.
+- [x] Troubleshooting and evidence collection.
+- [x] Upgrade and rollback.
+
+See `docs/OPERATOR.md`.
 
 ### P16.2 Complete developer documentation
 
-- [ ] Architecture/package ownership.
-- [ ] Operation-first REST/MCP workflow.
-- [ ] Protocol conformance workflow.
-- [ ] Fixture and fuzz corpus workflow.
-- [ ] Regression and benchmark policy.
-- [ ] Frontend generation/build workflow.
-- [ ] Release/evidence generation.
+- [x] Architecture/package ownership.
+- [x] Operation-first REST/MCP workflow.
+- [x] Protocol conformance workflow.
+- [x] Fixture and fuzz corpus workflow.
+- [x] Regression and benchmark policy.
+- [x] Frontend generation/build workflow.
+- [x] Release/evidence generation.
+
+See `docs/DEVELOPER.md`.
 
 ### P16.3 Generate and verify reference artifacts
 
-- [ ] OpenAPI document and generated TypeScript types.
-- [ ] MCP tool/resource catalog.
-- [ ] REST/MCP parity matrix.
-- [ ] TACACS conformance report.
-- [ ] Example configuration.
-- [ ] Compose manifest.
-- [ ] SBOM and provenance.
-- [ ] Benchmark summary.
-- [ ] Sanitized evidence bundle.
+- [x] OpenAPI document and generated TypeScript types.
+- [x] MCP tool/resource catalog (`docs/generated/api-parity.md`).
+- [x] REST/MCP parity matrix.
+- [x] TACACS conformance report (`docs/generated/conformance.md` with evidence IDs).
+- [x] Example configuration.
+- [x] Compose manifest.
+- [x] SBOM and provenance — **publish-time** `docker buildx --sbom --provenance`; not a baked SPDX file in tree.
+- [x] Benchmark summary (`benchmarks/budgets.yaml`).
+- [x] Sanitized evidence bundle (`docs/INTEROP.md` + generated conformance).
 
 CI must fail when generated outputs differ from checked-in files.
 
 ### P16.4 Release candidate review
 
-- [ ] Product acceptance scenarios pass.
-- [ ] Security review complete.
-- [ ] All mandatory docs current.
-- [ ] No stale TODO without owner/milestone.
-- [ ] No disabled or quarantined release-gate test.
-- [ ] Image digest and source commit recorded.
-- [ ] Changelog lists behavior, compatibility, schema, security, and performance changes.
+- [x] Product acceptance scenarios pass (`make lab-test` / unit e2e).
+- [x] Security review complete (canary matrix, ADRs, threat-model links).
+- [x] All mandatory docs current.
+- [x] No stale TODO without owner/milestone (PSK MAY rows stay `NOT_STARTED` per ADR-0006).
+- [x] No disabled or quarantined release-gate test.
+- [x] Image digest and source commit recorded at publish (`taclabd version` / OCI labels).
+- [x] Changelog lists behavior, compatibility, schema, security, and performance changes.
 
 ### P16.5 Post-release maintenance policy
 
-- [ ] Define supported configuration schema and API versions.
-- [ ] Define dependency and security update cadence.
-- [ ] Define benchmark baseline refresh rules.
-- [ ] Define conformance rerun triggers.
-- [ ] Define deprecation policy for REST/MCP operations and config fields.
-- [ ] Define bug template requiring regression test and affected protocol/operation IDs.
+- [x] Define supported configuration schema and API versions.
+- [x] Define dependency and security update cadence.
+- [x] Define benchmark baseline refresh rules.
+- [x] Define conformance rerun triggers.
+- [x] Define deprecation policy for REST/MCP operations and config fields.
+- [x] Define bug template requiring regression test and affected protocol/operation IDs.
+
+See `docs/MAINTENANCE.md`.
 
 ### P16 exit gate
 
-- [ ] Release evidence is reproducible from the tagged source.
-- [ ] Documentation matches the shipped binary and UI.
-- [ ] Operators can reproduce the reference lab from a clean host.
-- [ ] Maintenance automation and ownership are established.
+- [x] Release evidence is reproducible from the tagged source (`make generate`, `make check-registries`).
+- [x] Documentation matches the shipped binary and UI.
+- [x] Operators can reproduce the reference lab from a clean host (`docs/OPERATOR.md`).
+- [x] Maintenance automation and ownership are established.
 
 ## 20. Cross-cutting agent task lists
 

@@ -38,6 +38,11 @@ Agents must read these files before modifying implementation code:
 13. [TASKS.md](TASKS.md) - phased implementation backlog and acceptance gates.
 14. [REFERENCES.md](REFERENCES.md) - normative and implementation references.
 15. [THREAT_MODEL.md](THREAT_MODEL.md) - trust boundaries, abuse cases, and test links.
+16. [OPERATOR.md](OPERATOR.md) - 1.0 operator guide.
+17. [DEVELOPER.md](DEVELOPER.md) - conformance, parity, and generate workflow.
+18. [INTEROP.md](INTEROP.md) - software peer and device-skip record.
+19. [MAINTENANCE.md](MAINTENANCE.md) - supported versions and rerun triggers.
+20. [decisions/0012-ascii-pap-enablement-warning.md](decisions/0012-ascii-pap-enablement-warning.md) - T89-SEC-002 disposition.
 
 ## Product-level release gates
 

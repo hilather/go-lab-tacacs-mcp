@@ -138,6 +138,7 @@ The implementation spike must check the pinned Go release rather than assuming g
 - TLS 1.3 cipher suites are selected by `crypto/tls` rather than `CipherSuites`. YAML cipher lists are rejected ([ADR 0004](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0004-tls13-cipher-policy.md)).
 - RFC 7924 Cached Information is not implemented; Go 1.24.5 has no hook ([ADR 0003](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0003-cached-information.md)).
 - External PSK and raw public keys are deferred ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)).
+- ASCII/PAP enablement is documented for operators rather than warned on every lab compile ([ADR 0012](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md)).
 
 Relevant public API/source:
 

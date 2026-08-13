@@ -6,7 +6,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage", "node_modules", "scripts", "src/generated"] },
+  { ignores: ["dist", "coverage", "node_modules", "scripts", "src/generated", "e2e", "playwright.config.ts", "playwright-report", "test-results"] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
@@ -23,7 +23,10 @@ export default tseslint.config(
     rules: {
       ...jsxA11y.flatConfigs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "error",
+        { allowConstantExport: true, allowExportNames: ["useAuth", "parseObjectSource"] },
+      ],
     },
   },
 );

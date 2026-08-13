@@ -152,6 +152,8 @@ Follow `API_PARITY.md`. Every parity-required operation is executed through both
 - event stream reducer/reconnect behavior.
 - accessible destructive confirmation.
 
+PR-19a ships a Playwright keyboard/session smoke (`npm --prefix web run test:e2e`) plus Vitest component tests for login, source badges, and the status dashboard. Remaining workflows below wait on PR-19b pages and the PR-21 lab topology.
+
 #### End-to-end
 
 Use a real TacLab service in a disposable environment. Required workflows:

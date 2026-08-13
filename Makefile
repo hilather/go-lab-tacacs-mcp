@@ -30,10 +30,11 @@ help:
 	@echo "  make fuzz-smoke       fuzz seed corpus as unit tests"
 	@echo "  make bench            header, body, and 64B/1KiB obfuscate benches under internal/tacacs (not credentials KDF)"
 	@echo "  make web-install      npm ci in web/"
-	@echo "  make web-test         npm test (placeholder suite)"
+	@echo "  make web-test         npm test (Vitest component suite)"
 	@echo "  make web-typecheck    tsc --noEmit"
 	@echo "  make web-lint         eslint"
-	@echo "  make web-build        production Vite build"
+	@echo "  make web-build        production Vite build + copy into internal/ui/dist"
+	@echo "  make web-e2e          Playwright keyboard/session smoke"
 	@echo "  make generate         regenerate checked-in generated files"
 	@echo "  make check-registries validate conformance and operation registries"
 	@echo "  make check-generated  fail on generated-file drift"
@@ -106,9 +107,18 @@ web-lint:
 .PHONY: web-build
 web-build:
 	npm --prefix web run build
+	$(MAKE) web-embed
+
+.PHONY: web-embed
+web-embed:
+	@mkdir -p internal/ui/dist
+	@rm -rf internal/ui/dist/assets
+	@if [ -d web/dist ]; then cp -a web/dist/. internal/ui/dist/; fi
+	@echo "copied web/dist -> internal/ui/dist"
 
 .PHONY: web-e2e
 web-e2e:
+	npx --prefix web playwright install chromium
 	npm --prefix web run test:e2e
 
 .PHONY: generate
@@ -145,7 +155,7 @@ check-hooks:
 	./tools/check-hooks.sh
 
 .PHONY: ci
-ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build secrets check-registries check-generated docs-check check-hooks build
+ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build web-e2e secrets check-registries check-generated docs-check check-hooks build
 
 .PHONY: build
 build:

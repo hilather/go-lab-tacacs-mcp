@@ -28,6 +28,10 @@ web/playwright-report/
 web/blob-report/
 web/playwright/.cache/
 
+# Production Vite copy into the embed tree (committed stub lives in internal/ui/stub)
+internal/ui/dist/**
+!internal/ui/dist/.keep
+
 # Local env and logs
 .env
 .env.*

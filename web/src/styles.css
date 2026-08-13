@@ -1,0 +1,288 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --fg: #1b1b1b;
+  --muted: #4a4a4a;
+  --card: #fffdf8;
+  --line: #cfc8b8;
+  --accent: #1f4b3a;
+  --accent-fg: #fff;
+  --warn-bg: #fff4d6;
+  --warn-fg: #5a3d00;
+  --err-bg: #fde8e8;
+  --err-fg: #7a1212;
+  --focus: #0b57d0;
+  --config: #1f4b3a;
+  --runtime: #6b3fa0;
+  --override: #8a4b08;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -3rem;
+  background: var(--card);
+  padding: 0.4rem 0.75rem;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.topbar a,
+.topbar .linkish {
+  color: var(--accent-fg);
+}
+
+.topbar nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.brand {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+button.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.page {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.page--narrow {
+  max-width: 32rem;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.hint,
+.field-error {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.field-error {
+  color: var(--err-fg);
+}
+
+input[type="password"],
+input[type="text"] {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+button[type="submit"] {
+  justify-self: start;
+  font: inherit;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button[type="submit"]:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.panel,
+.banner,
+.error-summary {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin: 1rem 0;
+}
+
+.banner--warn,
+.error-summary {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.error-summary {
+  background: var(--err-bg);
+  color: var(--err-fg);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.kv div {
+  margin: 0;
+}
+
+.kv dt {
+  font-weight: 600;
+}
+
+.kv dd {
+  margin: 0.15rem 0 0;
+}
+
+.data {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data th,
+.data td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.state {
+  font-weight: 600;
+}
+
+.state--on::before,
+.state--off::before {
+  content: "";
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.state--on::before {
+  background: var(--accent);
+}
+
+.state--off::before {
+  background: var(--muted);
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.source-key,
+.token-sources {
+  padding-left: 1.2rem;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem 0.05rem 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+.source-badge__mark {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+}
+
+.source-badge--config {
+  color: var(--config);
+}
+
+.source-badge--config .source-badge__mark {
+  background: var(--config);
+}
+
+.source-badge--runtime {
+  color: var(--runtime);
+}
+
+.source-badge--runtime .source-badge__mark {
+  background: var(--runtime);
+}
+
+.source-badge--override {
+  color: var(--override);
+}
+
+.source-badge--override .source-badge__mark {
+  background: var(--override);
+}

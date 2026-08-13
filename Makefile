@@ -52,6 +52,7 @@ help:
 	@echo "  make release-notes    CHANGELOG + git log -> dist/RELEASE_NOTES.md"
 	@echo "  make lab-gen          generate secrets/certs into deployments/compose"
 	@echo "  make lab-test         build image, generate ephemeral lab, run LAB-*"
+	@echo "  make cisco-lab        optional Containerlab+IOL lab (skip 0 if image/clab absent)"
 	@echo "  make clean            remove bin/ and dist/"
 
 .PHONY: test
@@ -222,6 +223,10 @@ lab-gen:
 lab-test:
 	@chmod +x tools/lab-test.sh
 	./tools/lab-test.sh
+
+.PHONY: cisco-lab
+cisco-lab:
+	$(GO) run ./tools/ciscolab
 
 .PHONY: build
 build:

@@ -1,0 +1,36 @@
+# TacLab + Cisco IOL (IOS-on-Linux) Containerlab topology.
+# Kind cisco_iol only. Not GNS3. Not dynamips. Not IOU.
+# Image name is operator-supplied (vrnetlab/cisco_iol:<tag> built from CML refplat).
+# Do not commit IOL binaries, refplat ISOs, or image tarballs.
+name: taclab-cisco-iol
+prefix: clab
+mgmt:
+  network: taclab-cisco-mgmt
+  ipv4-subnet: {{.MgmtSubnet}}
+topology:
+  kinds:
+    cisco_iol:
+      image: {{.IOLImage}}
+  nodes:
+    taclab:
+      kind: linux
+      image: {{.TacLabImage}}
+      mgmt-ipv4: {{.TacLabIPv4}}
+      cmd: serve --config /etc/taclab/taclab.yaml
+      ports:
+        - {{.HTTPHostPort}}:8080
+      binds:
+        - {{.LabDir}}/config/taclab.yaml:/etc/taclab/taclab.yaml:ro
+        - {{.LabDir}}/certs-public:/etc/taclab/certs-public:ro
+        - {{.LabDir}}/secrets/api_admin_token:/run/secrets/api_admin_token:ro
+        - {{.LabDir}}/secrets/tacacs_server_key.pem:/run/secrets/tacacs_server_key:ro
+        - {{.LabDir}}/secrets/lab_switches_tacacs_secret:/run/secrets/lab_switches_tacacs_secret:ro
+        - {{.LabDir}}/secrets/lab_admin_argon2id:/run/secrets/lab_admin_argon2id:ro
+        - {{.LabDir}}/secrets/lab_admin_challenge_secret:/run/secrets/lab_admin_challenge_secret:ro
+        - {{.LabDir}}/secrets/lab_admin_enable_argon2id:/run/secrets/lab_admin_enable_argon2id:ro
+        - {{.LabDir}}/secrets/lab_readonly_argon2id:/run/secrets/lab_readonly_argon2id:ro
+        - {{.LabDir}}/secrets/lab_disabled_argon2id:/run/secrets/lab_disabled_argon2id:ro
+    iol:
+      kind: cisco_iol
+      mgmt-ipv4: {{.IOLIPv4}}
+      startup-config: iol-aaa.cfg.partial

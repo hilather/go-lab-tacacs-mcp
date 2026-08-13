@@ -16,7 +16,7 @@ Shared-codec loopback (`internal/tacacs/codec` talking to itself) is **not** the
 |---|---:|---:|---|---|---|---:|---|
 | Independent Go test client (`internal/tacacs/testclient`, separate codec copy) | Yes | Yes | ASCII, PAP, CHAP, MS-CHAP v1/v2, ENABLE, CHPASS | session + command | START/STOP/WATCHDOG + invalid flags | Yes | **PASS** |
 | External open-source TACACS daemon/client (tac_plus, ntc, …) | — | — | — | — | — | — | **SKIP** — not run in this environment; in-tree testclient is the required software peer |
-| Cisco IOS / IOS-XE (or equivalent) | — | — | — | — | — | — | **SKIP** — no lab hardware |
+| Cisco IOS / IOS-XE via Containerlab IOL (`cisco_iol`, vrnetlab from CML refplat) | Yes (legacy TCP) | not in this lab | login + ENABLE when the image is present | if the image offers exec/command | if the image sends acct | device | **SKIP** when `containerlab` or `TACLAB_IOL_IMAGE` is absent (`make cisco-lab`). A skip is **not** Cisco PASS. |
 | Second NOS (Junos, EOS, …) | — | — | — | — | — | — | **SKIP** — no lab hardware |
 | Malformed / raw packet harness | Yes | Yes | negative | negative | negative | negative | **PASS** (`testdata/protocol/**`, fuzz seeds) |
 
@@ -38,9 +38,11 @@ Peer versions recorded for this freeze:
 | Testclient | in-tree, this repository |
 | Device NOS | n/a (skipped) |
 
-## Device skip procedure
+## Optional Containerlab + IOL lab
 
-When hardware appears:
+Operators who have a licensed CML-Free (or CML) refplat can build a local `vrnetlab/cisco_iol:<tag>` image and run `make cisco-lab`. Procedure: [deployments/containerlab/README.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/deployments/containerlab/README.md).
+
+When hardware or that image appears:
 
 1. Record platform, software release, transport, methods, author form, acct flags, single-connect behavior.
 2. Capture sanitized traces (no secrets).

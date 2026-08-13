@@ -422,7 +422,7 @@ At least the following evidence is required before 1.0:
 |---|---:|---:|---|---|---|---:|---|
 | Independent Go test client with separate codec | Yes | Yes | all flows feasible | session/command | all flags | Yes | [x] software peer |
 | External open-source TACACS client/server implementation | Yes | where supported | ASCII/PAP and available challenge types | command | start/stop/watchdog | where supported | skip — not run; testclient is the required software peer |
-| Cisco IOS/IOS-XE or equivalent lab device | Yes | where device supports | login/enable | exec/command | command | device behavior | skip — no lab hardware |
+| Cisco IOS/IOS-XE via Containerlab IOL (`make cisco-lab`) | Yes | not required (legacy first) | login/enable | exec/command if offered | command if offered | device behavior | skip when IOL image / containerlab absent — not Cisco PASS |
 | One non-Cisco device family such as Junos or EOS | Yes | where supported | login | command/session | command | device behavior | skip — no lab hardware |
 | Malformed/raw packet harness | Yes | Yes | negative | negative | negative | negative | [x] |
 

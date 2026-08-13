@@ -138,6 +138,12 @@ The 1.0 image is `ghcr.io/hilather/go-lab-tacacs-mcp`. Pin a version tag or dige
 
 A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test`.
 
+### 5.4 Optional Cisco IOL lab (Containerlab)
+
+`make cisco-lab` deploys [deployments/containerlab](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/deployments/containerlab/README.md): a `cisco_iol` node (operator-built vrnetlab image from CML refplat) plus TacLab on the Containerlab management network, legacy TACACS+ to port 4949.
+
+This path is **not** part of `make lab-test` / `ci-gate`. If Containerlab or `TACLAB_IOL_IMAGE` is missing, the same entry point prints an equipment-gap **SKIP** and exits 0. Do not treat that skip as Cisco PASS or device-family completeness. Do not commit IOL binaries or refplat ISOs.
+
 ## 6. Reference directory layout
 
 ```text

@@ -214,6 +214,7 @@ docker build --check --target runtime-ubuntu .
 docker build --check --target runtime-rocky .
 docker compose -f deployments/compose/compose.yaml config
 make lab-test
+make cisco-lab   # optional; SKIP exit 0 without TACLAB_IOL_IMAGE
 make check-release-notes
 # equivalent one-shot after tools/labgen (high host ports via compose.lab-test.yaml):
 # docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.lab-test.yaml \
@@ -268,6 +269,7 @@ Long-running fuzzing, load tests, and full vendor interoperability may run in sc
 - Do not bake example secrets into images.
 - Expose high container ports and map well-known host ports in Compose.
 - Maintain a single replica while runtime state is memory-only.
+- Cisco device interop uses Containerlab `cisco_iol` only (`make cisco-lab`). Do not add GNS3 or dynamips. Do not vendor IOL/refplat images. A skip when the operator image is absent is not Cisco PASS.
 
 ## 7. Prohibited shortcuts
 

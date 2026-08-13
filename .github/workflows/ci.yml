@@ -108,6 +108,11 @@ jobs:
       - name: Release-notes script
         run: make check-release-notes
 
+      - name: Cisco IOL lab skip (no operator image)
+        env:
+          TACLAB_IOL_IMAGE: ""
+        run: go run ./tools/ciscolab -evidence dist/cisco-lab-evidence.json
+
       - name: Build
         run: make build
 

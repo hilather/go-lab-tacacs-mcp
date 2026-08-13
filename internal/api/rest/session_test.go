@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -51,6 +52,24 @@ func TestSessionCookieAndCSRFRequired(t *testing.T) {
 	}
 	if sessionCookie == "" || csrfCookie == "" {
 		t.Fatal("missing set-cookie")
+	}
+
+	// Both cookies without X-CSRF-Token must not pass (browsers always send cookies).
+	reqCookieOnly, err := http.NewRequest(http.MethodPost, h.HTTP.URL+"/api/v1/tokens", strings.NewReader(`{"id":"x","scopes":["state:read"]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqCookieOnly.Header.Set("Content-Type", "application/json")
+	reqCookieOnly.AddCookie(&http.Cookie{Name: auth.CookieName, Value: sessionCookie})
+	reqCookieOnly.AddCookie(&http.Cookie{Name: auth.CSRFCookieName, Value: csrfCookie})
+	cookieOnly, err := http.DefaultClient.Do(reqCookieOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cookieOnly.Body.Close()
+	if cookieOnly.StatusCode != http.StatusForbidden {
+		b, _ := io.ReadAll(cookieOnly.Body)
+		t.Fatalf("csrf cookie without header status=%d %s", cookieOnly.StatusCode, b)
 	}
 
 	// Cookie mutation without CSRF is 403.
@@ -155,5 +174,37 @@ func TestCookieReadWithoutCSRF(t *testing.T) {
 	if got.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(got.Body)
 		t.Fatalf("read without csrf=%d %s", got.StatusCode, b)
+	}
+}
+
+func TestDecodeOptionalJSONEmptyUnknownLength(t *testing.T) {
+	t.Parallel()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = -1
+	var dest operations.CreateSessionRequest
+	if err := decodeOptionalJSON(req, &dest, 1024); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSessionCreateUnknownLengthEmptyBody(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	req, err := http.NewRequest(http.MethodPost, h.HTTP.URL+"/api/v1/session", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+h.Token)
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = -1
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d %s", resp.StatusCode, b)
 	}
 }

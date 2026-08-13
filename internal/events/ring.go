@@ -109,9 +109,24 @@ type Ring struct {
 	redactUser    bool
 	stdoutCh      chan Event
 	stdoutDropped atomic.Uint64
-	subs          []chan Event
+	subs          []subscriber
 	stop          chan struct{}
 	closed        bool
+}
+
+// subscriber is one fan-out slot. The event channel is never closed while
+// Accept may still send; slow consumers are detached and drop is closed.
+type subscriber struct {
+	ch   chan Event
+	drop chan struct{}
+	once *sync.Once
+}
+
+func (s subscriber) signalDrop() {
+	if s.once == nil {
+		return
+	}
+	s.once.Do(func() { close(s.drop) })
 }
 
 // New returns a ring with capacity entries. Capacity <= 0 uses 10_000.
@@ -184,7 +199,7 @@ func (r *Ring) Accept(e Event) Event {
 		r.n++
 	}
 	outCh := r.stdoutCh
-	subs := append([]chan Event(nil), r.subs...)
+	subs := append([]subscriber(nil), r.subs...)
 	r.mu.Unlock()
 	r.emitStdout(outCh, e)
 	r.fanout(subs, e)
@@ -305,31 +320,39 @@ func (r *Ring) Read(q Query) Page {
 	return page
 }
 
-// Subscribe receives new events on a bounded channel. A full queue disconnects
-// the subscriber; Accept never blocks on it.
-func (r *Ring) Subscribe(buf int) (<-chan Event, func()) {
+// Subscribe receives new events on a bounded channel. A full queue detaches
+// the subscriber and closes dropped; Accept never blocks on it. The event
+// channel is not closed on drop (another Accept may still hold a copy).
+func (r *Ring) Subscribe(buf int) (events <-chan Event, dropped <-chan struct{}, cancel func()) {
 	if r == nil {
 		ch := make(chan Event)
+		done := make(chan struct{})
 		close(ch)
-		return ch, func() {}
+		close(done)
+		return ch, done, func() {}
 	}
 	if buf <= 0 {
 		buf = defaultSubBuffer
 	}
-	ch := make(chan Event, buf)
+	sub := subscriber{
+		ch:   make(chan Event, buf),
+		drop: make(chan struct{}),
+		once: &sync.Once{},
+	}
 	r.mu.Lock()
 	if r.closed {
 		r.mu.Unlock()
-		close(ch)
-		return ch, func() {}
+		close(sub.ch)
+		sub.signalDrop()
+		return sub.ch, sub.drop, func() {}
 	}
-	r.subs = append(r.subs, ch)
+	r.subs = append(r.subs, sub)
 	r.mu.Unlock()
 	var once sync.Once
-	cancel := func() {
-		once.Do(func() { r.unsubscribe(ch) })
+	cancel = func() {
+		once.Do(func() { r.unsubscribe(sub.ch) })
 	}
-	return ch, cancel
+	return sub.ch, sub.drop, cancel
 }
 
 // Close stops the stdout loop and subscriber fan-out. Accept after Close is rejected.
@@ -344,8 +367,12 @@ func (r *Ring) Close() {
 	}
 	r.closed = true
 	close(r.stop)
+	subs := r.subs
 	r.subs = nil
 	r.mu.Unlock()
+	for _, s := range subs {
+		s.signalDrop()
+	}
 }
 
 func (r *Ring) emitStdout(ch chan Event, e Event) {
@@ -375,17 +402,18 @@ func (r *Ring) stdoutLoop() {
 	}
 }
 
-func (r *Ring) fanout(subs []chan Event, e Event) {
+func (r *Ring) fanout(subs []subscriber, e Event) {
 	if e.SuppressExport {
 		return
 	}
-	for _, ch := range subs {
+	for _, sub := range subs {
 		select {
-		case ch <- e:
+		case sub.ch <- e:
 		default:
-			// Drop the slow subscriber. Do not close the channel: another
-			// Accept may still hold a copy of this slice and send.
-			r.detach(ch)
+			// Drop the slow subscriber. Do not close the event channel:
+			// another Accept may still hold a copy of this slice and send.
+			r.detach(sub.ch)
+			sub.signalDrop()
 		}
 	}
 }
@@ -398,7 +426,7 @@ func (r *Ring) detach(ch chan Event) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, s := range r.subs {
-		if s == ch {
+		if s.ch == ch {
 			r.subs = append(r.subs[:i], r.subs[i+1:]...)
 			return
 		}

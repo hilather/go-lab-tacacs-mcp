@@ -38,12 +38,10 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		writeDomainID(w, err, rid)
 		return
 	}
-	if r.ContentLength > 0 {
-		var req operations.CreateSessionRequest
-		if err := decodeJSON(r, &req, s.maxBody()); err != nil {
-			writeDomainID(w, err, rid)
-			return
-		}
+	var req operations.CreateSessionRequest
+	if err := decodeOptionalJSON(r, &req, s.maxBody()); err != nil {
+		writeDomainID(w, err, rid)
+		return
 	}
 	res, err := s.Registry.Invoke(r.Context(), operations.IDSessionCreate, snap, operations.Input{
 		Actor:   p.Actor(),
@@ -84,11 +82,9 @@ func (s *Server) deleteSessionClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := operations.DeleteSessionRequest{}
-	if r.ContentLength > 0 {
-		if err := decodeJSON(r, &req, s.maxBody()); err != nil {
-			writeDomainID(w, err, rid)
-			return
-		}
+	if err := decodeOptionalJSON(r, &req, s.maxBody()); err != nil {
+		writeDomainID(w, err, rid)
+		return
 	}
 	res, err := s.Registry.Invoke(r.Context(), operations.IDSessionDelete, snap, operations.Input{
 		Actor:   actor,

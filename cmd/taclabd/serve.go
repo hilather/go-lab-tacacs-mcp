@@ -183,7 +183,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, legacyLn, secureLn, ring)
+		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, legacyLn, secureLn, ring, logger)
 		if err != nil {
 			if legacyLn != nil {
 				_ = legacyLn.Shutdown(context.Background())
@@ -244,7 +244,7 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring) (*http.Server, net.Listener, error) {
+func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring, logger *slog.Logger) (*http.Server, net.Listener, error) {
 	if err := auth.LoadBootstrap(mgr.Snapshot(), lookup); err != nil {
 		return nil, nil, err
 	}
@@ -281,6 +281,7 @@ func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLoo
 		MaxBody:      doc.Listeners.HTTP.MaxRequestBodyBytes,
 		WriteTimeout: doc.Listeners.HTTP.WriteTimeout,
 		IdleTimeout:  doc.Listeners.HTTP.IdleTimeout,
+		Logger:       logger,
 	}
 	mux := http.NewServeMux()
 	mcpH := mcpapi.Handler(mcpapi.Options{

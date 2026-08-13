@@ -13,7 +13,7 @@ func TestRaceAcceptReadSubscribe(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ch, cancel := r.Subscribe(4)
+			ch, _, cancel := r.Subscribe(4)
 			defer cancel()
 			for j := 0; j < 20; j++ {
 				r.Accept(Event{Category: CategoryAcct, Type: "start", Result: "success"})

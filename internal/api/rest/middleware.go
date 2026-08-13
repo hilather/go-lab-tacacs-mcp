@@ -93,7 +93,7 @@ func (s *Server) withAccessLog(next http.Handler) http.Handler {
 
 func (s *Server) withInFlight(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isProbe(r.URL.Path) {
+		if skipInFlight(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -109,6 +109,11 @@ func (s *Server) withInFlight(next http.Handler) http.Handler {
 
 func isProbe(path string) bool {
 	return path == "/health/live" || path == "/health/ready"
+}
+
+func skipInFlight(path string) bool {
+	// SSE (and later MCP listen) must not consume the short-request budget.
+	return isProbe(path) || path == "/api/v1/events/stream"
 }
 
 type statusWriter struct {

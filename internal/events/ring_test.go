@@ -167,7 +167,7 @@ func TestRejectDoesNotAssignID(t *testing.T) {
 func TestSubscribeDoesNotBlockAccept(t *testing.T) {
 	t.Parallel()
 	r := New(16, domain.SystemClock{})
-	ch, cancel := r.Subscribe(1)
+	ch, dropped, cancel := r.Subscribe(1)
 	defer cancel()
 	r.Accept(Event{Type: "one"})
 	select {
@@ -186,6 +186,34 @@ func TestSubscribeDoesNotBlockAccept(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("accept blocked on slow subscriber")
+	}
+	select {
+	case <-dropped:
+	case <-time.After(time.Second):
+		t.Fatal("slow subscriber was not signaled")
+	}
+}
+
+func TestSubscribeDropDoesNotCloseEventChannel(t *testing.T) {
+	t.Parallel()
+	r := New(8, domain.SystemClock{})
+	ch, dropped, cancel := r.Subscribe(1)
+	defer cancel()
+	r.Accept(Event{Type: "one"})
+	<-ch
+	r.Accept(Event{Type: "two"})
+	r.Accept(Event{Type: "three"})
+	select {
+	case <-dropped:
+	case <-time.After(time.Second):
+		t.Fatal("expected drop")
+	}
+	select {
+	case _, ok := <-ch:
+		if !ok {
+			t.Fatal("event channel must stay open after drop")
+		}
+	default:
 	}
 }
 

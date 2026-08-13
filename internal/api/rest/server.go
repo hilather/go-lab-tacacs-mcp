@@ -57,6 +57,7 @@ type Server struct {
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 	MaxInFlight  int
+	SSEBuffer    int
 	Logger       *slog.Logger
 
 	once     sync.Once
@@ -250,12 +251,9 @@ func (s *Server) authenticate(r *http.Request, mutating bool) (operations.Actor,
 	if c, err := r.Cookie(auth.CookieName); err == nil {
 		cookie = c.Value
 	}
+	// CSRF must come from the header (or a form field). Never treat the
+	// taclab_csrf cookie as the presented token: browsers send it automatically.
 	csrf := strings.TrimSpace(r.Header.Get(auth.CSRFHeader))
-	if csrf == "" {
-		if c, err := r.Cookie(auth.CSRFCookieName); err == nil {
-			csrf = c.Value
-		}
-	}
 	p, err := s.Auth.Authenticate(auth.Request{
 		Authorization: r.Header.Get("Authorization"),
 		Cookie:        cookie,
@@ -342,6 +340,34 @@ func decodeJSON(r *http.Request, dest any, max int64) error {
 	dec := json.NewDecoder(io.LimitReader(r.Body, max))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dest); err != nil {
+		return domain.NewError(domain.CodeInvalidArgument, "invalid request body")
+	}
+	var extra struct{}
+	if err := dec.Decode(&extra); err != io.EOF {
+		return domain.NewError(domain.CodeInvalidArgument, "invalid request body")
+	}
+	return nil
+}
+
+// decodeOptionalJSON decodes a JSON object when a body is present. Empty
+// bodies, including HTTP/2 ContentLength=-1 with immediate EOF, are success.
+func decodeOptionalJSON(r *http.Request, dest any, max int64) error {
+	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 {
+		return nil
+	}
+	ct := strings.TrimSpace(r.Header.Get("Content-Type"))
+	if ct == "" && r.ContentLength < 0 {
+		return nil
+	}
+	if err := requireJSON(r); err != nil {
+		return err
+	}
+	dec := json.NewDecoder(io.LimitReader(r.Body, max))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dest); err != nil {
+		if err == io.EOF {
+			return nil
+		}
 		return domain.NewError(domain.CodeInvalidArgument, "invalid request body")
 	}
 	var extra struct{}

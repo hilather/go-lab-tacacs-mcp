@@ -322,7 +322,7 @@ func streamPath() map[string]any {
 		"get": map[string]any{
 			"operationId": operations.IDEventsSubscribe,
 			"summary":     "SSE stream of redacted event bodies",
-			"description": "Clears the HTTP write deadline and emits comment keep-alives. Last-Event-ID resumes from the ring. Scopes: events:read.",
+			"description": "Clears the HTTP write deadline and emits comment keep-alives. Last-Event-ID resumes from the ring. Invalid Last-Event-ID is 400. A slow subscriber receives event: reset and the stream ends. Scopes: events:read. Does not consume the short-request in-flight cap.",
 			"security":    bearerSecurity(),
 			"parameters": []any{
 				map[string]any{"name": "Last-Event-ID", "in": "header", "schema": map[string]any{"type": "string"}},

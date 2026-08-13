@@ -97,7 +97,7 @@ Administrative responses should include or make available:
 }
 ```
 
-List responses include:
+List **operation payloads** (and MCP structured content) include:
 
 ```json
 {
@@ -107,7 +107,9 @@ List responses include:
 }
 ```
 
-MCP structured content exposes equivalent fields. REST may also use headers such as `ETag` and `X-Request-ID`; those headers do not replace the common structured revision where clients need it.
+REST wraps every administrative JSON body, including lists, in the common envelope. The list payload lives in `data` (`items`, `next_cursor`, and any extra fields such as `reset` / `overwritten`). MCP structured content is the operation result without the HTTP envelope. This is the same wrapper for status, evaluate, tokens, and events so adapters stay aligned.
+
+REST may also use headers such as `ETag` and `X-Request-ID`; those headers do not replace the common structured revision where clients need it.
 
 ## 6. Common error taxonomy
 

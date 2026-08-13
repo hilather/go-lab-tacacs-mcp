@@ -142,6 +142,68 @@ func TestEventsStreamBodiesAndLastEventID(t *testing.T) {
 	}
 }
 
+func TestEventsStreamInvalidLastEventID(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	resp := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", h.Token, nil, map[string]string{"Last-Event-ID": "not-a-cursor"})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d %s", resp.StatusCode, b)
+	}
+	var problem struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&problem); err != nil {
+		t.Fatal(err)
+	}
+	if problem.Code != "invalid_argument" {
+		t.Fatalf("code=%q", problem.Code)
+	}
+}
+
+func TestEventsStreamSlowSubscriberReset(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	h.Server.SSEBuffer = 1
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+h.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	tmp := make([]byte, 64)
+	n, err := resp.Body.Read(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(tmp[:n], []byte("keepalive")) {
+		t.Fatalf("need first frame: %q", tmp[:n])
+	}
+	for i := 0; i < 8; i++ {
+		if h.Ring.Accept(events.Event{Category: events.CategoryAcct, Type: "flood"}).ID == 0 {
+			t.Fatal("accept")
+		}
+	}
+	rest, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := append(tmp[:n], rest...)
+	if !bytes.Contains(all, []byte("event: reset")) {
+		t.Fatalf("expected reset, body=%q", all)
+	}
+}
+
 func TestEventsStreamRequiresEventsRead(t *testing.T) {
 	t.Parallel()
 	h := restHarnessScopes(t, []string{"state:read"})

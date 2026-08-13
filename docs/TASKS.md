@@ -1043,7 +1043,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 - [x] Liveness and readiness semantics match deployment contract.
 - [x] Status exposes versions and non-secret listener/config state.
-- [x] Serve OpenAPI document and development-only interactive docs according to exposure policy.
+- [x] Serve OpenAPI document (`GET /api/openapi.json`). Interactive Swagger UI is not in 16a.
 
 ### P10 exit gate
 

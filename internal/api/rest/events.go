@@ -66,6 +66,12 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 		writeDomainID(w, err, rid)
 		return
 	}
+	lastEventHdr := strings.TrimSpace(r.Header.Get("Last-Event-ID"))
+	after, err := decodeLastEventID(lastEventHdr)
+	if err != nil {
+		writeProblemID(w, http.StatusBadRequest, domain.NewError(domain.CodeInvalidArgument, "invalid Last-Event-ID"), rid)
+		return
+	}
 	if err := ClearWriteDeadline(w); err != nil && s.Logger != nil {
 		s.Logger.Info("rest sse deadline", "err", err, "request_id", rid)
 	}
@@ -82,16 +88,16 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 
 	want := categorySet(r.URL.Query()["category"])
 	sensitive := auth.Has(actor.Scopes, "events:sensitive")
-	lastEventHdr := strings.TrimSpace(r.Header.Get("Last-Event-ID"))
-	after, err := decodeLastEventID(lastEventHdr)
-	if err != nil {
-		after = 0
-	}
 
 	var sub <-chan events.Event
+	var dropped <-chan struct{}
 	var cancel func()
 	if s.Events != nil {
-		sub, cancel = s.Events.Subscribe(16)
+		buf := s.SSEBuffer
+		if buf <= 0 {
+			buf = 16
+		}
+		sub, dropped, cancel = s.Events.Subscribe(buf)
 		defer cancel()
 	}
 
@@ -125,6 +131,10 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 		case <-tick.C:
 			_, _ = io.WriteString(w, ": keepalive\n\n")
 			flush()
+		case <-dropOrNil(dropped):
+			writeSSE(w, "0", "reset", map[string]any{"reset": true, "reason": "slow_subscriber"})
+			flush()
+			return
 		case ev, ok := <-subOrNil(sub):
 			if !ok {
 				sub = nil
@@ -141,6 +151,13 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func subOrNil(ch <-chan events.Event) <-chan events.Event {
+	if ch == nil {
+		return nil
+	}
+	return ch
+}
+
+func dropOrNil(ch <-chan struct{}) <-chan struct{} {
 	if ch == nil {
 		return nil
 	}

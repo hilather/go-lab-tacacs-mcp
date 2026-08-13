@@ -304,7 +304,7 @@ Responsibilities:
 - fan out live events to REST SSE and MCP subscribers.
 - emit redacted structured logs and metrics.
 
-This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. MCP listen notifications remain a later adapter. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
+This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. A slow subscriber is detached without closing the event channel; the ring closes a separate dropped signal and REST writes `event: reset` then ends the stream. MCP listen notifications remain a later adapter. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
 
 ### 4.15 `web`
 

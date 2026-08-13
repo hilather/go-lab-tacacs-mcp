@@ -1096,7 +1096,7 @@
     },
     "/api/v1/events/stream": {
       "get": {
-        "description": "Clears the HTTP write deadline and emits comment keep-alives. Last-Event-ID resumes from the ring. Scopes: events:read.",
+        "description": "Clears the HTTP write deadline and emits comment keep-alives. Last-Event-ID resumes from the ring. Invalid Last-Event-ID is 400. A slow subscriber receives event: reset and the stream ends. Scopes: events:read. Does not consume the short-request in-flight cap.",
         "operationId": "events.subscribe",
         "parameters": [
           {

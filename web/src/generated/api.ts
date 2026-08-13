@@ -503,7 +503,6 @@ export interface TestAuthenticationRequest {
   client_id?: string;
   method: string;
   password?: string;
-  service?: string;
   data?: number[];
 }
 
@@ -599,7 +598,6 @@ export interface UserList {
 
 export interface ValidateConfigRequest {
   yaml?: string;
-  source?: boolean;
 }
 
 export interface ValidateConfigResult {

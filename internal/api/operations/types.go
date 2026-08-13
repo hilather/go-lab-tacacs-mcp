@@ -170,9 +170,9 @@ type PolicyTraceWinner struct {
 
 // PolicyTraceAV is a stable AV encoding.
 type PolicyTraceAV struct {
-	Name      string `json:"name"`
-	Separator string `json:"separator"`
-	Value     string `json:"value"`
+	Name      string `json:"name" yaml:"name"`
+	Separator string `json:"separator" yaml:"separator"`
+	Value     string `json:"value" yaml:"value"`
 }
 
 // ListEventsRequest is the events.list cursor page.

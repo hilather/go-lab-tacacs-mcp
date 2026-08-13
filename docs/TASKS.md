@@ -949,7 +949,8 @@ Machine-readable `testdata/conformance/rfc9887.yaml` stays `NOT_STARTED` until P
 
 - [x] Implement status, config validation/reload/export, runtime reset, user/group/client/token CRUD, authentication test, policy explain, and event queries.
 - [x] Return typed errors and stable codes.
-- [x] Apply expected-revision and idempotency semantics centrally.
+- [x] Apply expected-revision semantics centrally.
+- [ ] Bounded in-memory idempotency store for create/reset/reload (header is parsed; replay is not).
 - [x] Emit redacted audit events centrally.
 
 **Regression tests**
@@ -1031,7 +1032,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 **Parity tests**
 
-- [x] Each operation has a transport contract fixture used later against MCP.
+- [ ] Each operation has a transport contract fixture used later against MCP.
 
 ### P10.4 Implement event query/stream
 

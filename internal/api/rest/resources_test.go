@@ -37,8 +37,22 @@ func TestUsersGroupsClientsREST(t *testing.T) {
 		b, _ := io.ReadAll(created.Body)
 		t.Fatalf("create user=%d %s", created.StatusCode, b)
 	}
+	etag := created.Header.Get("ETag")
+	var createdEnv struct {
+		Revision uint64          `json:"revision"`
+		Data     operations.User `json:"data"`
+	}
+	if err := json.NewDecoder(created.Body).Decode(&createdEnv); err != nil {
+		t.Fatal(err)
+	}
+	if createdEnv.Revision == 0 || createdEnv.Revision != uint64(createdEnv.Data.EffectiveRevision) {
+		t.Fatalf("create envelope=%+v etag=%s", createdEnv, etag)
+	}
+	if !strings.Contains(etag, "revision-") {
+		t.Fatalf("etag=%q", etag)
+	}
 
-	patch := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/bob", h.Token, []byte(`{"display_name":"Bobby"}`), nil)
+	patch := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/bob", h.Token, []byte(`{"display_name":"Bobby"}`), map[string]string{"If-Match": etag})
 	defer patch.Body.Close()
 	if patch.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(patch.Body)
@@ -113,11 +127,38 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 		t.Fatal("password leaked from authentication.test")
 	}
 
+	reload := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/config/reload", h.Token, nil, nil)
+	defer reload.Body.Close()
+	if reload.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(reload.Body)
+		t.Fatalf("reload=%d %s", reload.StatusCode, b)
+	}
+
 	reset := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/runtime/reset", h.Token, nil, nil)
 	defer reset.Body.Close()
 	if reset.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(reset.Body)
 		t.Fatalf("reset=%d %s", reset.StatusCode, b)
+	}
+}
+
+func TestOptionalSecretUnknownFieldRejected(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	resp := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/users", h.Token, []byte(`{"id":"eve","enabled":false,"login":{"file":"/run/secrets/x","value":"cleartext"}}`), nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d %s", resp.StatusCode, b)
+	}
+	var problem struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&problem); err != nil {
+		t.Fatal(err)
+	}
+	if problem.Code != "invalid_argument" {
+		t.Fatalf("code=%q", problem.Code)
 	}
 }
 

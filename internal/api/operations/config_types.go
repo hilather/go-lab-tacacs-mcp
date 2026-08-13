@@ -36,10 +36,9 @@ type EffectiveConfig struct {
 func (e EffectiveConfig) envelopeRevision() domain.Revision { return e.Revision }
 
 // ValidateConfigRequest validates a candidate YAML document or the mounted source.
-// YAML empty (and Source true or omitted) validates the mounted baseline.
+// Empty YAML validates the mounted baseline when LoadBaseline is configured.
 type ValidateConfigRequest struct {
-	YAML   string `json:"yaml,omitempty"`
-	Source bool   `json:"source,omitempty"`
+	YAML string `json:"yaml,omitempty"`
 }
 
 // ValidateConfigResult is a preview. It never publishes state.
@@ -101,11 +100,12 @@ type TestAuthenticationRequest struct {
 	ClientID string `json:"client_id,omitempty"`
 	Method   string `json:"method"`
 	Password string `json:"password,omitempty"`
-	Service  string `json:"service,omitempty"`
 	Data     []byte `json:"data,omitempty"`
 }
 
 // AuthenticationTestResult is the redacted outcome. Status is pass, fail, error, or restart.
+// *_configured flags are admin capability metadata from the snapshot, not a
+// TACACS username-enumeration guarantee.
 type AuthenticationTestResult struct {
 	Status              string `json:"status"`
 	Method              string `json:"method"`

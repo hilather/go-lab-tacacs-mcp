@@ -78,7 +78,23 @@ func schemaOf(t reflect.Type, seen map[reflect.Type]bool) map[string]any {
 				continue
 			}
 			name, omit, skip := jsonField(f)
-			if skip || name == "" {
+			if skip {
+				continue
+			}
+			// encoding/json promotes anonymous structs with no json tag.
+			if f.Anonymous && (f.Tag.Get("json") == "") && f.Type.Kind() == reflect.Struct {
+				emb := schemaOf(f.Type, seen)
+				if ep, ok := emb["properties"].(map[string]any); ok {
+					for k, v := range ep {
+						props[k] = v
+					}
+				}
+				if req, ok := emb["required"].([]string); ok {
+					required = append(required, req...)
+				}
+				continue
+			}
+			if name == "" {
 				continue
 			}
 			props[name] = schemaOf(f.Type, seen)

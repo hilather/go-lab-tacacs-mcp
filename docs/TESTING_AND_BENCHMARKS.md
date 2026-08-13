@@ -36,6 +36,7 @@ Cover:
 - common error mapping.
 - operation registry completeness against `api/operations.yaml` (every ID registered; status/build/policy.evaluate against a real snapshot).
 - REST/MCP parity for `system.status.get` and `policy.evaluate` (same operation registry; adapters never call each other).
+- Full REST/MCP/direct equivalence in `internal/api/parity` for every `PARITY_REQUIRED` operation (P11.5).
 - ASCII LOGIN + PAP + CHAP + ENABLE (type ignored) + one service rule + one command rule + accounting START through the legacy listener (`cmd/taclabd` e2e).
 
 Unit tests must be deterministic and use injectable clocks/random sources.
@@ -138,7 +139,7 @@ Use MCP Inspector for exploratory debugging, not as the only automated evidence.
 
 ### 3.7 REST/MCP parity tests
 
-Follow `API_PARITY.md`. Every parity-required operation is executed through both adapters against isolated identical state. Compare domain result, state revision, events, errors, and redaction.
+Follow `API_PARITY.md`. `internal/api/parity` runs every `PARITY_REQUIRED` operation through the registry, REST, and MCP against isolated identical fixtures. Compare domain result, state revision, events, errors, and redaction. `events.subscribe` is compared at domain-event level (REST SSE bodies versus MCP URI notify plus `events.list`), not wire identity.
 
 ### 3.8 Frontend tests
 

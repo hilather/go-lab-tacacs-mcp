@@ -66,6 +66,7 @@ func TestReservedPathsNotCaptured(t *testing.T) {
 		"/mcp",
 		"/mcp/x",
 		"/metrics",
+		"/debug/pprof/",
 	} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))

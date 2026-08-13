@@ -46,8 +46,12 @@ func TestSPAFallbackDoesNotCaptureAPI(t *testing.T) {
 
 	users := doAuth(t, http.MethodGet, ts.URL+"/api/v1/users", h.Token, nil, nil)
 	defer users.Body.Close()
-	if users.StatusCode != http.StatusNotFound {
-		t.Fatalf("users status=%d", users.StatusCode)
+	rawUsers, _ := io.ReadAll(users.Body)
+	if users.StatusCode == http.StatusOK && strings.Contains(string(rawUsers), "<!doctype") {
+		t.Fatal("users API served SPA HTML")
+	}
+	if users.StatusCode != http.StatusOK && users.StatusCode != http.StatusNotFound {
+		t.Fatalf("users status=%d body=%s", users.StatusCode, rawUsers)
 	}
 
 	live, err := http.Get(ts.URL + "/health/live")

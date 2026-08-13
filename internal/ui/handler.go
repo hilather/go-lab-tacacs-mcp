@@ -15,8 +15,8 @@ const (
 )
 
 // NewHandler serves hashed assets with an immutable cache and falls back
-// to index.html for client routes. API, health, MCP, and metrics paths
-// are never claimed.
+// to index.html for client routes. API, health, MCP, metrics, and debug
+// (pprof) paths are never claimed.
 func NewHandler(fsys fs.FS) http.Handler {
 	if fsys == nil {
 		fsys = Files()
@@ -48,6 +48,8 @@ func reserved(p string) bool {
 	case p == "/mcp" || strings.HasPrefix(p, "/mcp/"):
 		return true
 	case p == "/metrics" || strings.HasPrefix(p, "/metrics/"):
+		return true
+	case p == "/debug" || strings.HasPrefix(p, "/debug/"):
 		return true
 	default:
 		return false

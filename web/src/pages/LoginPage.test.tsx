@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LoginPage } from "./LoginPage";
 import { renderApp } from "../test/render";
+import { futureExpiry } from "../test/time";
+import { SESSION_META_KEY } from "../auth/sessionMeta";
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -38,7 +40,7 @@ describe("LoginPage", () => {
           data: {
             token_id: "lab",
             scopes: ["state:read"],
-            expires_at: "2026-08-12T01:00:00Z",
+            expires_at: futureExpiry(),
             csrf_token: "csrf-1",
             cookie_name: "taclab_session",
             cookie_secure: false,
@@ -62,7 +64,8 @@ describe("LoginPage", () => {
       expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/api/v1/session"))).toBe(true);
     });
     expect(localStorage.length).toBe(0);
-    expect(sessionStorage.length).toBe(0);
+    expect(sessionStorage.getItem(SESSION_META_KEY)).toContain("lab");
+    expect(sessionStorage.getItem(SESSION_META_KEY)).not.toMatch(/bearer/i);
     expect((field as HTMLInputElement).value).toBe("");
   });
 
@@ -72,6 +75,10 @@ describe("LoginPage", () => {
     renderApp(<LoginPage />, { route: "/login" });
     await screen.findByLabelText(/API bearer token/i);
     await user.click(screen.getByRole("button", { name: /sign in/i }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/enter an api bearer token/i);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/enter an api bearer token/i);
+    await waitFor(() => {
+      expect(alert).toHaveFocus();
+    });
   });
 });

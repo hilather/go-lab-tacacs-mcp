@@ -5,11 +5,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { createSession, deleteSession, getStatus, readCsrfCookie } from "../api/client";
 import type { Session } from "../generated/api";
+import { clearSessionMeta, loadSessionMeta, saveSessionMeta } from "./sessionMeta";
 
 type AuthState =
   | { status: "loading" }
@@ -25,11 +27,12 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function sessionFromProbe(revision: number): Session {
+function sessionFromCookie(revision: number): Session {
+  const meta = loadSessionMeta();
   return {
-    token_id: "",
-    scopes: ["state:read"],
-    expires_at: "",
+    token_id: meta?.token_id ?? "",
+    scopes: meta && meta.scopes.length > 0 ? meta.scopes : ["state:read"],
+    expires_at: meta?.expires_at ?? "",
     csrf_token: readCsrfCookie(),
     cookie_name: "taclab_session",
     cookie_secure: false,
@@ -43,19 +46,28 @@ function sessionFromProbe(revision: number): Session {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({ status: "loading" });
+  const authGen = useRef(0);
 
   useEffect(() => {
+    const gen = authGen.current;
     let cancelled = false;
     void (async () => {
       try {
         const env = await getStatus();
-        if (!cancelled) {
-          setState({ status: "signed_in", session: sessionFromProbe(env.revision) });
+        if (cancelled || authGen.current !== gen) {
+          return;
         }
+        setState((prev) => {
+          if (prev.status !== "loading") {
+            return prev;
+          }
+          return { status: "signed_in", session: sessionFromCookie(env.revision) };
+        });
       } catch {
-        if (!cancelled) {
-          setState({ status: "anonymous" });
+        if (cancelled || authGen.current !== gen) {
+          return;
         }
+        setState((prev) => (prev.status === "loading" ? { status: "anonymous" } : prev));
       }
     })();
     return () => {
@@ -65,7 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (token: string) => {
+      authGen.current += 1;
       const env = await createSession(token);
+      saveSessionMeta({
+        token_id: env.data.token_id,
+        scopes: env.data.scopes,
+        expires_at: env.data.expires_at,
+      });
       setState({ status: "signed_in", session: env.data });
       await queryClient.invalidateQueries();
     },
@@ -73,9 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    authGen.current += 1;
     try {
       await deleteSession();
     } finally {
+      clearSessionMeta();
       queryClient.clear();
       setState({ status: "anonymous" });
     }

@@ -25,7 +25,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": [
         "error",
-        { allowConstantExport: true, allowExportNames: ["useAuth", "parseObjectSource"] },
+        { allowConstantExport: true, allowExportNames: ["useAuth", "parseObjectSource", "ErrorSummary"] },
       ],
     },
   },

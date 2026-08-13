@@ -84,9 +84,9 @@ type Server struct {
 	SSEBuffer    int
 	Logger       *slog.Logger
 	// Assets is the SPA tree. Nil uses the embedded UI (stub or production copy).
-	Assets       fs.FS
-	Metrics      *observability.Recorder
-	Tracer       *observability.Tracer
+	Assets  fs.FS
+	Metrics *observability.Recorder
+	Tracer  *observability.Tracer
 
 	once     sync.Once
 	limiter  *limiter

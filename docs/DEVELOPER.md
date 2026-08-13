@@ -57,7 +57,11 @@ Use the generated OpenAPI client only.
 ```bash
 make ci
 make check-registries   # includes -release
-make lab-test           # optional locally; CI compose-lab job
+make lab-test           # optional locally; CI compose-lab job on PRs and main
 ```
+
+GitHub Actions workflow: https://github.com/hilather/go-lab-tacacs-mcp/blob/main/.github/workflows/ci.yml
+
+Required jobs for merge: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, and the aggregating `ci-gate`.
 
 Publish notes go in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md). Image SBOM/provenance is `docker buildx --sbom --provenance` at publish, not a tree-checked SPDX file.

@@ -331,7 +331,7 @@ The browser login flow should exchange a valid bearer token for a short-lived Ht
 
 ### 10.3 MCP endpoint
 
-The MCP endpoint is `POST /mcp` on the same HTTP listener as REST. Clients send `Authorization: Bearer`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`, per-request `_meta`, and `Mcp-Name` for `tools/call` / `resources/read`. GET/DELETE `/mcp` return 405. There is no `.well-known/oauth-protected-resource` ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)). Origin: missing Origin is allowed with a valid bearer unless `api.mcp.require_origin` is true. `subscriptions/listen` notifies URIs only; pull bodies with `taclab.events.list`. The transport is a thin adapter on Go 1.24.5 ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
+The MCP endpoint is `POST /mcp` on the same HTTP listener as REST. Clients send `Authorization: Bearer`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`, per-request `_meta`, and `Mcp-Name` for `tools/call` / `resources/read`. GET/DELETE `/mcp` return 405. There is no `.well-known/oauth-protected-resource` ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)). Origin: missing Origin is allowed with a valid bearer unless `api.mcp.require_origin` is true. `subscriptions/listen` notifies URIs only; pull bodies with `taclab.events.list`. The transport is a thin adapter ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
 
 ## 11. Baseline lab personas
 

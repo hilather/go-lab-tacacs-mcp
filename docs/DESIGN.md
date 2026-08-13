@@ -701,7 +701,7 @@ Health endpoints expose no sensitive details.
 
 ### 16.1 Transport
 
-Use MCP 2026-07-28 Streamable HTTP (`POST /mcp` only). The official Go SDK (`v1.7.0`) requires Go 1.25; this repo is pinned to 1.24.5, so the transport is a thin in-tree JSON-RPC adapter approved by [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md). Do not proxy MCP to REST.
+Use MCP 2026-07-28 Streamable HTTP (`POST /mcp` only). The official Go SDK (`v1.7.0`) is recorded but not imported; the transport is a thin in-tree JSON-RPC adapter approved by [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md). Do not proxy MCP to REST.
 
 ### 16.2 Tools
 

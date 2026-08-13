@@ -34,7 +34,7 @@ Peer versions recorded for this freeze:
 | Component | Version |
 |---|---|
 | TacLab | 1.0 qualification (`git describe` at freeze) |
-| Go | 1.24.5 |
+| Go | 1.25.0 |
 | Testclient | in-tree, this repository |
 | Device NOS | n/a (skipped) |
 

@@ -2,6 +2,7 @@
 
 Status: Accepted  
 Date: 2026-08-12  
+Amended: 2026-08-13 — Go module pin raised to 1.25.0 so `golang.org/x/text` can take GO-2026-5970. The official MCP SDK is still **not** imported; the thin adapter remains until a dedicated SDK adoption change.  
 Decision owners: TacLab maintainers  
 Related tasks: P11, PR-17  
 Disposition: temporary compatibility layer

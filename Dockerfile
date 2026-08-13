@@ -2,7 +2,7 @@
 # Multi-stage 1.0 lab image. Final stage is non-root, no toolchain, no secrets.
 # Tag: ghcr.io/hilather/go-lab-tacacs-mcp:<version-or-digest>
 
-ARG GO_VERSION=1.24.5
+ARG GO_VERSION=1.25.0
 ARG NODE_VERSION=22.14.0
 
 FROM node:${NODE_VERSION}-bookworm AS frontend
@@ -44,7 +44,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILDTIME=unknown
 ARG UI_VERSION=0.0.0
-ARG GO_VERSION=1.24.5
+ARG GO_VERSION=1.25.0
 WORKDIR /taclab
 COPY --from=backend /out/taclabd /usr/local/bin/taclabd
 COPY --from=backend /src/go.mod /taclab/go.mod

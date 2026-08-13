@@ -386,6 +386,7 @@ func TestGenerateDocs(t *testing.T) {
 		"cmd",
 		"unit:internal/tacacs/codec.TestDecodeEncodeRoundTrip",
 		"Qualification summary",
+		"mandatory rows `PASS`",
 	} {
 		if !strings.Contains(string(conf), needle) {
 			t.Errorf("conformance.md missing %q", needle)
@@ -423,4 +424,57 @@ func issueHasID(rep *Report, id string) bool {
 		}
 	}
 	return false
+}
+
+func TestEvidenceTestSymbol(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		in, want string
+	}{
+		{"internal/aaa.TestInvalidServiceFails", "TestInvalidServiceFails"},
+		{"cmd/taclabd.TestVerticalSkeletonE2E", "TestVerticalSkeletonE2E"},
+		{"internal/tacacs/codec.FuzzSequence", "FuzzSequence"},
+		{"internal/tacacs/codec.BenchmarkHeaderDecode", "BenchmarkHeaderDecode"},
+		{"internal/tacacs/testclient/codec (independent encode/decode)", ""},
+		{"tools/labgen generates >=32-char unique secrets", ""},
+		{"testdata/protocol/bodies/", ""},
+		{"internal/tacacs/testclient + cmd/taclabd.TestRemainingAuthFlowsE2E", "TestRemainingAuthFlowsE2E"},
+	}
+	for _, tc := range cases {
+		if got := evidenceTestSymbol(tc.in); got != tc.want {
+			t.Errorf("evidenceTestSymbol(%q)=%q want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCheckEvidenceRejectsUnknownPrefixAndSymbol(t *testing.T) {
+	t.Parallel()
+	root := testRoot(t)
+	symbols, err := collectTestSymbols(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := symbols["TestInvalidServiceFails"]; !ok {
+		t.Fatal("expected to index TestInvalidServiceFails")
+	}
+	rep := &Report{}
+	checkOneEvidence(rep, root, RFC8907Path, "T89-AS-011", "note:not-a-prefix", symbols)
+	if !containsIssue(rep, "known prefix") {
+		t.Fatalf("prefix: %#v", rep.Issues)
+	}
+	rep = &Report{}
+	checkOneEvidence(rep, root, RFC8907Path, "T89-AS-011", "unit:internal/aaa.TestDoesNotExistAnywhere", symbols)
+	if !containsIssue(rep, "unknown test symbol") {
+		t.Fatalf("symbol: %#v", rep.Issues)
+	}
+	rep = &Report{}
+	checkOneEvidence(rep, root, RFC8907Path, "T89-AS-011", "unit:internal/aaa.TestInvalidServiceFails", symbols)
+	if !rep.Valid() {
+		t.Fatalf("valid unit: %#v", rep.Issues)
+	}
+	rep = &Report{}
+	checkOneEvidence(rep, root, RFC8907Path, "T98-CERT-010", "adr:docs/decisions/does-not-exist.md", symbols)
+	if !containsIssue(rep, "path") {
+		t.Fatalf("missing adr: %#v", rep.Issues)
+	}
 }

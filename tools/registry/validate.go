@@ -87,6 +87,7 @@ func ValidateRoot(root string) (*Report, error) {
 	}
 	checkOperationContractCoverage(rep, ExtractOperationIDs(parityDoc), ops)
 	checkConformanceContractCoverage(rep, ExtractConformanceIDs(confDoc), r89, r98)
+	checkEvidenceIDs(rep, root, r89, r98)
 	return rep, nil
 }
 

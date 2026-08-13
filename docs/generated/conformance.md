@@ -8,7 +8,7 @@ Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml
 
 | Gate | Result |
 |---|---|
-| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (172/172 `PASS` or `N/A_RFC_DEPRECATED`) |
+| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (172/172 mandatory rows `PASS`) |
 | Independent software peer | `internal/tacacs/testclient` (separate codec) |
 | Cisco / second-NOS device interop | **SKIP** — no lab hardware; see `docs/INTEROP.md` |
 | External TLS PSK / RPK | `DEFERRED_MAY` ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)); T98-OPT-002/003/004 stay `NOT_STARTED` |
@@ -86,7 +86,7 @@ RFC 8907 TACACS+
 | T89-AS-008 | Deprecated | N/A_RFC_DEPRECATED | FOLLOW is not emitted; received/legacy behavior is safely failed | unit:internal/tacacs/codec.TestAuthenReplyFollow; unit:internal/policy.TestFOLLOWNeverEmittedAndErrorVsDeny |
 | T89-AS-009 | MUST | PASS | Continue ABORT terminates the authentication session and safely records reason | unit:internal/aaa.TestAbortDropsSession; unit:internal/aaa.TestContinueAbortIsNotPass; unit:internal/aaa.TestCHPASSMismatchAndAbort |
 | T89-AS-010 | MUST | PASS | Retry count is bounded; recommended default three | unit:internal/aaa.TestASCIIUnknownUserUniformFail; unit:internal/tacacs/codec.TestSequenceContinueLimit |
-| T89-AS-011 | MUST | PASS | A defined authentication option not implemented by a selected profile returns TAC_PLUS_AUTHEN_STATUS_FAIL | unit:internal/aaa.TestASCIIDisallowedRestarts; unit:internal/aaa.TestChallengeOnlyRestartsNonChallenge; unit:internal/aaa.TestUnsupportedOptionsError |
+| T89-AS-011 | MUST | PASS | A defined authentication option not implemented by a selected profile returns TAC_PLUS_AUTHEN_STATUS_FAIL | unit:internal/aaa.TestInvalidServiceFails; unit:internal/aaa.TestCHPASSOnEnableServiceFails; unit:internal/tacacs/codec.TestClassifyAuthenStartMatrix; unit:internal/tacacs/codec.TestDispositionAuthenStatus |
 | T89-AS-012 | SHOULD | PASS | GETDATA/GETUSER/GETPASS replies include usable prompt text | unit:internal/aaa.TestASCIIMissingUserPrompts; unit:internal/aaa.TestCHPASSOldIsGetDataNewIsGetPass; docs:internal/aaa/auth.go promptUser/promptPass |
 | T89-AS-013 | SHOULD/MUST | PASS | Sensitive prompts set NOECHO and never reflect submitted secret material | unit:internal/aaa.TestASCIIMissingUserPrompts; unit:internal/aaa.TestCHPASSOldIsGetDataNewIsGetPass; unit:internal/observability.TestFullCanaryMatrix |
 | T89-FLOW-001 | PROJECT MUST | PASS | ASCII LOGIN with username in START | unit:internal/aaa.TestASCIILoginPassAndFail; cmd:cmd/taclabd.TestVerticalSkeletonE2E; lab:LAB-AUTH-001 |

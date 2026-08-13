@@ -699,12 +699,13 @@ rows:
     section_title: 7.4 Authentication reply/continue behavior
     level: MUST
     requirement: A defined authentication option not implemented by a selected profile returns TAC_PLUS_AUTHEN_STATUS_FAIL
-    evidence_required: Per-option disabled-profile fixtures
+    evidence_required: Wrong-minor / invalid service FAIL fixtures (RESTART is T89-AS-006; ERROR is T89-AS-007)
     status: PASS
     evidence:
-      - unit:internal/aaa.TestASCIIDisallowedRestarts
-      - unit:internal/aaa.TestChallengeOnlyRestartsNonChallenge
-      - unit:internal/aaa.TestUnsupportedOptionsError
+      - unit:internal/aaa.TestInvalidServiceFails
+      - unit:internal/aaa.TestCHPASSOnEnableServiceFails
+      - unit:internal/tacacs/codec.TestClassifyAuthenStartMatrix
+      - unit:internal/tacacs/codec.TestDispositionAuthenStatus
   - id: T89-AS-012
     section: 7-4-authentication-reply-continue-behavior
     section_title: 7.4 Authentication reply/continue behavior

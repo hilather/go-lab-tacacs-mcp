@@ -1060,7 +1060,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 **Depends on:** P9, selected pinned SDK
 
-- [x] Configure MCP 2026-07-28 Streamable HTTP (`POST /mcp`). Official SDK `v1.7.0` requires Go 1.25; thin adapter is [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md).
+- [x] Configure MCP 2026-07-28 Streamable HTTP (`POST /mcp`) with official SDK `v1.7.0` ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
 - [x] Mount MCP under the same HTTP server and authentication boundary.
 - [x] Propagate cancellation, request identity, actor, and scopes to operation context.
 - [x] Avoid an internal HTTP call from MCP to REST.

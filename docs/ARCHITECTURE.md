@@ -1,7 +1,7 @@
 # TacLab Architecture
 
 Status: implementation contract  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. Architectural summary
 
@@ -287,11 +287,11 @@ Responsibilities:
 - Implement `subscriptions/listen` as a URI-only notify channel (C8). Event bodies are pulled through `taclab.events.list`.
 - Enforce the same `auth.Service` bearer and scopes as REST (lab static bearer, [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
 - Require `MCP-Protocol-Version`, `Mcp-Method`, per-request `_meta`, and `Mcp-Name` when applicable.
-- Return `resultType: complete` and list/read `CacheableResult` `{ttlMs: 0, cacheScope: "private"}`.
+- Return `resultType: complete`. List/read results set `CacheableResult` `{ttlMs: 0, cacheScope: "private"}` in receiving middleware (the SDK default is `public`).
 
 MCP is not an internal RPC bus. It calls the operation registry directly.
 
-The official Go SDK (`v1.7.0`) supports 2026-07-28. The repo is pinned to Go 1.25.0; the adapter remains a thin in-tree JSON-RPC implementation until a dedicated SDK adoption change ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Origin policy: missing Origin is allowed when a valid bearer is present unless `api.mcp.require_origin` is true; a present Origin must match `api.mcp.allowed_origins` or the same-host UI origin.
+Framing, `server/discover`, tools, and resources go through `github.com/modelcontextprotocol/go-sdk` v1.7.0 (`StreamableHTTPOptions.Stateless = true`). Lab bearer, origin policy, and URI-only `subscriptions/listen` stay in this package ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Origin policy: missing Origin is allowed when a valid bearer is present unless `api.mcp.require_origin` is true; a present Origin must match `api.mcp.allowed_origins` or the same-host UI origin.
 
 ### 4.14 `internal/events`
 

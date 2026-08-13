@@ -10,7 +10,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | Go | 1.25.12 (module `go 1.25.0`) |
 | Node.js | 22.14.0 |
 | MCP specification | 2026-07-28 |
-| Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not imported — requires Go 1.25; see [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
+| Official MCP Go SDK | `github.com/modelcontextprotocol/go-sdk v1.7.0` (imported; see [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
 
 This checkout is the **1.0 lab appliance**. RFC 8907 and RFC 9887 **server `MUST` / `MUST NOT` / `PROJECT MUST`** rows are `PASS` or `N/A_RFC_DEPRECATED` with evidence IDs in [testdata/conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/testdata/conformance/rfc8907.yaml). `make check-registries` includes the `-release` gate.
 
@@ -66,7 +66,7 @@ docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-c
 - [ADR 0006 — external PSK / raw public keys](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)
 - [ADR 0007 — internal TACACS codec](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0007-codec-approach.md)
 - [ADR 0010 — lab static bearer vs MCP OAuth PRM](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)
-- [ADR 0011 — thin MCP adapter on Go 1.24.5](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)
+- [ADR 0011 — official MCP Go SDK](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)
 - [ADR 0012 — ASCII/PAP enablement warning](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md)
 - [Operator guide (1.0)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md)
 - [Developer workflow](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/DEVELOPER.md)

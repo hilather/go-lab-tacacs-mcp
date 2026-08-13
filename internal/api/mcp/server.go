@@ -3,7 +3,6 @@ package mcp
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -17,6 +16,8 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
+
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -96,11 +97,30 @@ type paramsMeta struct {
 	Meta map[string]any `json:"_meta"`
 }
 
+type principalCtxKey struct{}
+
 // Handler is POST /mcp. GET and DELETE return 405.
+// Framing, headers, server/discover, tools, and resources go through the
+// official Go SDK (v1.7.0). Lab bearer, origin policy, and
+// subscriptions/listen (URI-only) stay in this adapter.
 func Handler(opts Options) http.Handler {
 	if opts.Version == "" {
 		opts.Version = "dev"
 	}
+	max := opts.MaxBody
+	if max <= 0 {
+		max = defaultMaxBody
+	}
+	sdk := sdkmcp.NewStreamableHTTPHandler(func(r *http.Request) *sdkmcp.Server {
+		p, _ := r.Context().Value(principalCtxKey{}).(auth.Principal)
+		return newSDKServer(opts, p)
+	}, &sdkmcp.StreamableHTTPOptions{
+		Stateless:                    true,
+		JSONResponse:                 true,
+		DisableLocalhostProtection:   true,
+		PropagateRequestCancellation: true,
+		MaxRequestBodyBytes:          max,
+	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet, http.MethodDelete:
@@ -124,19 +144,6 @@ func Handler(opts Options) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		max := opts.MaxBody
-		if max <= 0 {
-			max = defaultMaxBody
-		}
-		body, err := io.ReadAll(io.LimitReader(r.Body, max+1))
-		if err != nil {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: &rpcError{Code: codeParseError, Message: "parse error"}})
-			return
-		}
-		if int64(len(body)) > max {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: &rpcError{Code: codeInvalidRequest, Message: "request body too large"}})
-			return
-		}
 
 		headerVer := strings.TrimSpace(r.Header.Get(headerProtocolVersion))
 		if headerVer == "" {
@@ -151,154 +158,43 @@ func Handler(opts Options) http.Handler {
 			return
 		}
 
-		var req rpcRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: &rpcError{Code: codeParseError, Message: "parse error"}})
-			return
-		}
-		if req.JSONRPC != "" && req.JSONRPC != jsonRPCVersion {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: &rpcError{Code: codeInvalidRequest, Message: "jsonrpc must be 2.0"}})
-			return
-		}
-		if isNotification(req.ID) {
-			w.WriteHeader(http.StatusAccepted)
-			return
+		// Official streamable transport requires both Accept types.
+		if r.Header.Get("Accept") == "" {
+			r.Header.Set("Accept", "application/json, text/event-stream")
 		}
 
-		headerMethod := strings.TrimSpace(r.Header.Get(headerMethod))
-		if headerMethod == "" {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("Mcp-Method is required")})
-			return
-		}
-		if req.Method == "" {
-			req.Method = headerMethod
-		} else if headerMethod != req.Method {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("Mcp-Method does not match body method")})
-			return
-		}
-
-		meta := extractMeta(req.Params)
-		if meta == nil {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("params._meta is required")})
-			return
-		}
-		metaVer, _ := meta[metaProtocolVersion].(string)
-		if metaVer == "" {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("params._meta protocolVersion is required")})
-			return
-		}
-		if metaVer != headerVer {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("MCP-Protocol-Version does not match _meta protocolVersion")})
-			return
-		}
-		if metaVer != protocolVersion {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: unsupportedVersion(metaVer)})
-			return
-		}
-		if _, ok := meta[metaClientCapabilities]; !ok {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: &rpcError{
-				Code:    codeInvalidParams,
-				Message: "params._meta clientCapabilities is required",
-			}})
-			return
-		}
-
-		if nameRequired(req.Method) {
-			want, err := nameFromParams(req.Method, req.Params)
+		method := strings.TrimSpace(r.Header.Get(headerMethod))
+		if method == "subscriptions/listen" {
+			body, err := io.ReadAll(io.LimitReader(r.Body, max+1))
 			if err != nil {
-				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch(err.Error())})
+				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: &rpcError{Code: codeParseError, Message: "parse error"}})
 				return
 			}
-			got, err := decodeHeaderValue(r.Header.Get(headerName))
-			if err != nil {
-				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("Mcp-Name is malformed")})
+			if int64(len(body)) > max {
+				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: &rpcError{Code: codeInvalidRequest, Message: "request body too large"}})
 				return
 			}
-			if got == "" {
-				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("Mcp-Name is required")})
+			var req rpcRequest
+			if err := json.Unmarshal(body, &req); err != nil {
+				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: &rpcError{Code: codeParseError, Message: "parse error"}})
 				return
 			}
-			if got != want {
-				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("Mcp-Name does not match body")})
+			if req.Method != "" && req.Method != method {
+				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: headerMismatch("Mcp-Method does not match body method")})
 				return
 			}
-		}
-
-		switch req.Method {
-		case "subscriptions/listen":
+			req.Method = method
+			if rpcErr := metaRPCError(headerVer, req.Params); rpcErr != nil {
+				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: rpcErr})
+				return
+			}
 			handleListen(w, r, opts, p, req)
 			return
-		case "prompts/get":
-			writeRPC(w, http.StatusNotFound, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: &rpcError{Code: codeMethodNotFound, Message: "method not found"}})
-			return
 		}
 
-		res, httpStatus := dispatch(r.Context(), opts, p, snap, req)
-		writeRPC(w, httpStatus, res)
+		r = r.WithContext(context.WithValue(r.Context(), principalCtxKey{}, p))
+		sdk.ServeHTTP(w, r)
 	})
-}
-
-func dispatch(ctx context.Context, opts Options, p auth.Principal, snap *state.Snapshot, req rpcRequest) (rpcResponse, int) {
-	out := rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID}
-	switch req.Method {
-	case "server/discover":
-		out.Result = discoverResult(opts)
-		return out, http.StatusOK
-	case "tools/list":
-		out.Result = map[string]any{
-			"tools":      listTools(opts.Registry, p),
-			"resultType": resultTypeComplete,
-			"ttlMs":      0,
-			"cacheScope": cacheScopePrivate,
-		}
-		return out, http.StatusOK
-	case "tools/call":
-		result, err := callTool(ctx, opts, p, snap, req.Params)
-		if err != nil {
-			out.Error = toolRPCError(err)
-			return out, http.StatusOK
-		}
-		out.Result = result
-		return out, http.StatusOK
-	case "resources/list":
-		out.Result = map[string]any{
-			"resources":  listResources(opts.Registry, p),
-			"resultType": resultTypeComplete,
-			"ttlMs":      0,
-			"cacheScope": cacheScopePrivate,
-		}
-		return out, http.StatusOK
-	case "resources/read":
-		result, err := readResource(ctx, opts, p, snap, req.Params)
-		if err != nil {
-			out.Error = toolRPCError(err)
-			return out, http.StatusOK
-		}
-		out.Result = result
-		return out, http.StatusOK
-	default:
-		out.Error = &rpcError{Code: codeMethodNotFound, Message: "method not found"}
-		return out, http.StatusNotFound
-	}
-}
-
-func discoverResult(opts Options) map[string]any {
-	return map[string]any{
-		"protocolVersion":           protocolVersion,
-		"supportedProtocolVersions": []string{protocolVersion},
-		"serverInfo": map[string]string{
-			"name":    "taclab",
-			"version": opts.Version,
-		},
-		"capabilities": map[string]any{
-			"tools":         map[string]any{"listChanged": true},
-			"resources":     map[string]any{"listChanged": true, "subscribe": true},
-			"subscriptions": map[string]any{},
-		},
-		"resultType": resultTypeComplete,
-		"ttlMs":      0,
-		"cacheScope": cacheScopePrivate,
-	}
 }
 
 func authenticate(r *http.Request, svc *auth.Service, snap *state.Snapshot) (auth.Principal, error) {
@@ -346,64 +242,25 @@ func extractMeta(params json.RawMessage) map[string]any {
 	return env.Meta
 }
 
-func nameRequired(method string) bool {
-	switch method {
-	case "tools/call", "resources/read", "prompts/get":
-		return true
-	default:
-		return false
+func metaRPCError(headerVer string, params json.RawMessage) *rpcError {
+	meta := extractMeta(params)
+	if meta == nil {
+		return headerMismatch("params._meta is required")
 	}
-}
-
-func nameFromParams(method string, params json.RawMessage) (string, error) {
-	var envelope struct {
-		Name string `json:"name"`
-		URI  string `json:"uri"`
+	metaVer, _ := meta[metaProtocolVersion].(string)
+	if metaVer == "" {
+		return headerMismatch("params._meta protocolVersion is required")
 	}
-	if len(params) > 0 {
-		if err := json.Unmarshal(params, &envelope); err != nil {
-			return "", err
-		}
+	if metaVer != headerVer {
+		return headerMismatch("MCP-Protocol-Version does not match _meta protocolVersion")
 	}
-	switch method {
-	case "resources/read":
-		if envelope.URI == "" {
-			return "", errString("params.uri is required")
-		}
-		return envelope.URI, nil
-	default:
-		if envelope.Name == "" {
-			return "", errString("params.name is required")
-		}
-		return envelope.Name, nil
+	if metaVer != protocolVersion {
+		return unsupportedVersion(metaVer)
 	}
-}
-
-type errString string
-
-func (e errString) Error() string { return string(e) }
-
-func decodeHeaderValue(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", nil
+	if _, ok := meta[metaClientCapabilities]; !ok {
+		return &rpcError{Code: codeInvalidParams, Message: "params._meta clientCapabilities is required"}
 	}
-	const prefix = "=?base64?"
-	const suffix = "?="
-	if strings.HasPrefix(raw, prefix) && strings.HasSuffix(raw, suffix) && len(raw) >= len(prefix)+len(suffix) {
-		enc := raw[len(prefix) : len(raw)-len(suffix)]
-		b, err := base64.StdEncoding.DecodeString(enc)
-		if err != nil {
-			return "", err
-		}
-		return string(b), nil
-	}
-	return raw, nil
-}
-
-func isNotification(id json.RawMessage) bool {
-	s := strings.TrimSpace(string(id))
-	return s == "" || s == "null"
+	return nil
 }
 
 func headerMismatch(msg string) *rpcError {
@@ -442,9 +299,10 @@ func rpcCode(code domain.Code) int {
 	switch code {
 	case domain.CodeInvalidArgument:
 		return codeInvalidParams
-	case domain.CodeNotFound:
-		return codeMethodNotFound
 	default:
+		// Do not use -32601 for domain not-found: the official SDK treats any
+		// WireError with that code as JSON-RPC "method not found" and rewrites
+		// the message, dropping application data.
 		return -32000
 	}
 }

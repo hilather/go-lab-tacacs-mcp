@@ -2,7 +2,7 @@
 
 Status: mandatory  
 MCP baseline: 2026-07-28  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. Objective
 
@@ -10,7 +10,7 @@ REST and MCP are two public adapters over one administrative operation layer. Ne
 
 The UI uses REST. Automation may use REST or MCP. A lab operator must not receive materially different server capabilities merely because a different adapter is used.
 
-REST and MCP both bind every `PARITY_REQUIRED` operation through the same registry. REST also serves health, OpenAPI, session, and SSE bodies (`REST_ONLY_PROTOCOL`). MCP adds `server/discover`, `tools/list`, `resources/list`, and `subscriptions/listen` (`MCP_ONLY_PROTOCOL` / `PARITY_DIFFERENT_BINDING`). The MCP transport is a thin 2026-07-28 JSON-RPC adapter ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)); the official SDK is recorded but not imported.
+REST and MCP both bind every `PARITY_REQUIRED` operation through the same registry. REST also serves health, OpenAPI, session, and SSE bodies (`REST_ONLY_PROTOCOL`). MCP adds `server/discover`, `tools/list`, `resources/list`, and `subscriptions/listen` (`MCP_ONLY_PROTOCOL` / `PARITY_DIFFERENT_BINDING`). The MCP transport uses `github.com/modelcontextprotocol/go-sdk` v1.7.0 ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Operations still go through the shared registry; the adapter never calls REST.
 
 ## 2. Source of truth
 
@@ -242,7 +242,7 @@ Sensitive event fields require `events:sensitive` in addition to `events:read`. 
 
 ## 10. MCP schema requirements
 
-- Tool input/output schemas are derived from the same Go request/response types used by REST. The official Go SDK is not a compile-time dependency ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
+- Tool input/output schemas are derived from the same Go request/response types used by REST. Framing uses `github.com/modelcontextprotocol/go-sdk` v1.7.0 ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
 - Every tool input and output has a valid JSON Schema.
 - Use JSON Schema 2020-12 unless compatibility requires an explicit supported draft.
 - Prefer `additionalProperties: false` for closed mutation inputs.

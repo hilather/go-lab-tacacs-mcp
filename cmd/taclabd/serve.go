@@ -183,7 +183,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(doc, mgr, lookup, legacyLn, secureLn, ring, logger)
+		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, legacyLn, secureLn, ring, logger)
 		if err != nil {
 			if legacyLn != nil {
 				_ = legacyLn.Shutdown(context.Background())
@@ -244,17 +244,33 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring, logger *slog.Logger) (*http.Server, net.Listener, error) {
+func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring, logger *slog.Logger) (*http.Server, net.Listener, error) {
 	if err := auth.LoadBootstrap(mgr.Snapshot(), lookup); err != nil {
 		return nil, nil, err
 	}
 	authSvc := auth.New(auth.Options{})
+	creds, err := credentials.NewService(credentials.NewMemory(), credentials.Options{})
+	if err != nil {
+		return nil, nil, err
+	}
 	reg, err := loadRegistry(operations.Deps{
 		Build:    operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime},
 		State:    mgr,
 		Sessions: authSvc,
 		Usage:    authSvc,
 		Events:   ring,
+		Secrets:  lookup,
+		Creds:    creds,
+		LoadBaseline: func() (*config.Document, error) {
+			next, err := config.Load(configPath)
+			if err != nil {
+				return nil, err
+			}
+			if err := config.Validate(next); err != nil {
+				return nil, err
+			}
+			return next, nil
+		},
 	})
 	if err != nil {
 		return nil, nil, err

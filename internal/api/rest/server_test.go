@@ -30,12 +30,15 @@ type harness struct {
 
 func restHarness(t testing.TB) *harness {
 	t.Helper()
-	return restHarnessScopes(t, []string{"state:read", "policy:test", "events:read", "tokens:manage", "events:sensitive"})
+	return restHarnessScopes(t, []string{
+		"state:read", "state:write", "policy:test", "events:read", "tokens:manage",
+		"events:sensitive", "config:reload", "config:export", "runtime:reset",
+	})
 }
 
 func restHarnessScopes(t testing.TB, scopes []string) *harness {
 	t.Helper()
-	doc, err := config.Parse([]byte(`
+	yamlSrc := `
 schema_version: 1
 listeners:
   secure_tacacs: {enabled: false}
@@ -58,7 +61,8 @@ users:
     group_ids: [ops]
     credentials:
       login: {verifier: {file: /run/secrets/alice}}
-`))
+`
+	doc, err := config.Parse([]byte(yamlSrc))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,12 +73,20 @@ users:
 	svc := auth.New(auth.Options{})
 	ring := events.New(32, nil)
 	t.Cleanup(ring.Close)
+	creds, err := credentials.NewService(credentials.NewMemory(), credentials.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg, err := operations.NewFromRepo(".", operations.Deps{
 		Build:    operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-12T00:00:00Z"},
 		State:    mgr,
 		Sessions: svc,
 		Usage:    svc,
 		Events:   ring,
+		Creds:    creds,
+		LoadBaseline: func() (*config.Document, error) {
+			return config.Parse([]byte(yamlSrc))
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -292,18 +304,13 @@ func TestEvaluateRejectsUnknownFields(t *testing.T) {
 	}
 }
 
-func TestFrozenRouteSetDoesNotBindUnimplemented(t *testing.T) {
+func TestMCPOnlyRoutesStayUnbound(t *testing.T) {
 	t.Parallel()
 	h := restHarness(t)
-	resp := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/users", h.Token, nil, nil)
+	resp := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/mcp/discover", h.Token, nil, nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("users should be unbound, status=%d", resp.StatusCode)
-	}
-	resp2 := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/config/effective", h.Token, nil, nil)
-	defer resp2.Body.Close()
-	if resp2.StatusCode != http.StatusNotFound {
-		t.Fatalf("config should be unbound, status=%d", resp2.StatusCode)
+		t.Fatalf("mcp-only path should be unbound, status=%d", resp.StatusCode)
 	}
 }
 

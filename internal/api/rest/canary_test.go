@@ -39,6 +39,13 @@ func TestRESTCanaries(t *testing.T) {
 		t.Fatal("one-time token leaked from list")
 	}
 
+	exp := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/config/export", h.Token, nil, nil)
+	defer exp.Body.Close()
+	exported, _ := io.ReadAll(exp.Body)
+	if strings.Contains(string(exported), env.Data.Token) || strings.Contains(string(exported), h.Token) {
+		t.Fatal("token leaked from export")
+	}
+
 	sess := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/session", h.Token, nil, nil)
 	defer sess.Body.Close()
 	sbody, _ := io.ReadAll(sess.Body)

@@ -4,9 +4,8 @@
 // validation, scopes, snapshot reads, or domain errors themselves.
 //
 // api/operations.yaml is the enumerated inventory. Every YAML operation is
-// registered here. Implemented handlers are system.status.get, system.build.get,
-// policy.evaluate, events.list, events.subscribe (scope gate; SSE framing stays
-// in REST), tokens.list/create/revoke, and session.create/delete. Remaining
-// handlers return unavailable until later work fills them. REST (PR-16a)
-// exposes only this implemented set.
+// registered here. Implemented handlers cover status, build, config, runtime
+// reset, user/group/client/token CRUD, policy.evaluate, authentication.test,
+// events.list, events.subscribe (scope gate; SSE framing stays in REST), and
+// session.create/delete. MCP-only protocol rows remain stubs.
 package operations

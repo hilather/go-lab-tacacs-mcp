@@ -51,17 +51,29 @@ func BuildOpenAPI(reg *operations.Registry) map[string]any {
 	}
 
 	paths := map[string]any{
-		"/health/live":            getPath("health.live", "Liveness probe", nil, refSchema("HealthStatus"), false),
-		"/health/ready":           getPath("health.ready", "Readiness probe", nil, refSchema("HealthStatus"), false),
-		"/api/openapi.json":       getPath("openapi.get", "OpenAPI document", nil, map[string]any{"type": "object"}, false),
-		"/api/v1/status":          getPath(operations.IDSystemStatusGet, "Listener and snapshot status", []string{"state:read"}, envelopeRef("Status"), true),
-		"/api/v1/build":           getPath(operations.IDSystemBuildGet, "Build and specification versions", []string{"state:read"}, envelopeRef("BuildInfo"), true),
-		"/api/v1/policy/evaluate": postPath(operations.IDPolicyEvaluate, "Explain an authorization decision", []string{"policy:test"}, refSchema("EvaluatePolicyRequest"), envelopeRef("PolicyTrace"), false),
-		"/api/v1/events":          listEventsPath(),
-		"/api/v1/events/stream":   streamPath(),
-		"/api/v1/tokens":          tokensCollectionPath(),
-		"/api/v1/tokens/{id}":     tokensItemPath(),
-		"/api/v1/session":         sessionPath(),
+		"/health/live":                getPath("health.live", "Liveness probe", nil, refSchema("HealthStatus"), false),
+		"/health/ready":               getPath("health.ready", "Readiness probe", nil, refSchema("HealthStatus"), false),
+		"/api/openapi.json":           getPath("openapi.get", "OpenAPI document", nil, map[string]any{"type": "object"}, false),
+		"/api/v1/status":              getPath(operations.IDSystemStatusGet, "Listener and snapshot status", []string{"state:read"}, envelopeRef("Status"), true),
+		"/api/v1/build":               getPath(operations.IDSystemBuildGet, "Build and specification versions", []string{"state:read"}, envelopeRef("BuildInfo"), true),
+		"/api/v1/config/effective":    effectiveConfigPath(),
+		"/api/v1/config/validate":     postPath(operations.IDConfigValidate, "Validate a candidate configuration without publishing", []string{"state:write"}, refSchema("ValidateConfigRequest"), envelopeRef("ValidateConfigResult"), false),
+		"/api/v1/config/reload":       mutatingPostPath(operations.IDConfigReload, "Reload the mounted baseline", []string{"config:reload"}, refSchema("ReloadConfigRequest"), envelopeRef("ReloadConfigResult")),
+		"/api/v1/config/export":       exportConfigPath(),
+		"/api/v1/runtime/reset":       mutatingPostPath(operations.IDRuntimeReset, "Drop the runtime overlay including tombstones", []string{"runtime:reset"}, refSchema("ResetRuntimeRequest"), envelopeRef("ResetRuntimeResult")),
+		"/api/v1/users":               collectionPath(operations.IDUsersList, operations.IDUsersCreate, "users", "state:read", "state:write", "UserList", "CreateUserRequest", "User"),
+		"/api/v1/users/{id}":          itemPath(operations.IDUsersGet, operations.IDUsersUpdate, operations.IDUsersDelete, "user", "state:read", "state:write", "User", "UpdateUserRequest"),
+		"/api/v1/groups":              collectionPath(operations.IDGroupsList, operations.IDGroupsCreate, "groups", "state:read", "state:write", "GroupList", "CreateGroupRequest", "Group"),
+		"/api/v1/groups/{id}":         itemPath(operations.IDGroupsGet, operations.IDGroupsUpdate, operations.IDGroupsDelete, "group", "state:read", "state:write", "Group", "UpdateGroupRequest"),
+		"/api/v1/clients":             collectionPath(operations.IDClientsList, operations.IDClientsCreate, "clients", "state:read", "state:write", "ClientList", "CreateClientRequest", "Client"),
+		"/api/v1/clients/{id}":        itemPath(operations.IDClientsGet, operations.IDClientsUpdate, operations.IDClientsDelete, "client", "state:read", "state:write", "Client", "UpdateClientRequest"),
+		"/api/v1/policy/evaluate":     postPath(operations.IDPolicyEvaluate, "Explain an authorization decision", []string{"policy:test"}, refSchema("EvaluatePolicyRequest"), envelopeRef("PolicyTrace"), false),
+		"/api/v1/authentication/test": postPath(operations.IDAuthenticationTest, "Run an authentication test against the current snapshot", []string{"policy:test"}, refSchema("TestAuthenticationRequest"), envelopeRef("AuthenticationTestResult"), false),
+		"/api/v1/events":              listEventsPath(),
+		"/api/v1/events/stream":       streamPath(),
+		"/api/v1/tokens":              tokensCollectionPath(),
+		"/api/v1/tokens/{id}":         tokensItemPath(),
+		"/api/v1/session":             sessionPath(),
 	}
 
 	_ = reg
@@ -71,7 +83,7 @@ func BuildOpenAPI(reg *operations.Registry) map[string]any {
 		"info": map[string]any{
 			"title":       openAPITitle,
 			"version":     "0.16.0",
-			"description": "Frozen PR-16a surface: implemented operations only (status, build, policy.evaluate, session, tokens, events). CSRF is required on cookie-authenticated mutations. cookie_secure follows listeners.http.tls.enabled.",
+			"description": "TacLab REST API. CSRF is required on cookie-authenticated mutations. cookie_secure follows listeners.http.tls.enabled.",
 		},
 		"paths": paths,
 		"components": map[string]any{
@@ -143,6 +155,52 @@ func frozenSchemaTypes() []any {
 		operations.CreateSessionRequest{},
 		operations.DeleteSessionRequest{},
 		operations.DeleteResult{},
+		operations.GetEffectiveConfigRequest{},
+		operations.EffectiveConfig{},
+		operations.ValidateConfigRequest{},
+		operations.ValidateConfigResult{},
+		operations.ValidationIssue{},
+		operations.ReloadConfigRequest{},
+		operations.ReloadConfigResult{},
+		operations.ExportConfigRequest{},
+		operations.ExportConfigResult{},
+		operations.ResetRuntimeRequest{},
+		operations.ResetRuntimeResult{},
+		operations.ListUsersRequest{},
+		operations.GetUserRequest{},
+		operations.CreateUserRequest{},
+		operations.UpdateUserRequest{},
+		operations.DeleteUserRequest{},
+		operations.User{},
+		operations.UserList{},
+		operations.ListGroupsRequest{},
+		operations.GetGroupRequest{},
+		operations.CreateGroupRequest{},
+		operations.UpdateGroupRequest{},
+		operations.DeleteGroupRequest{},
+		operations.Group{},
+		operations.GroupList{},
+		operations.ListClientsRequest{},
+		operations.GetClientRequest{},
+		operations.CreateClientRequest{},
+		operations.UpdateClientRequest{},
+		operations.DeleteClientRequest{},
+		operations.Client{},
+		operations.ClientList{},
+		operations.RuleSetView{},
+		operations.ServiceRuleView{},
+		operations.CommandRuleView{},
+		operations.MatchView{},
+		operations.RestrictionsView{},
+		operations.ClientMatchView{},
+		operations.CertMatchView{},
+		operations.ClientAuthView{},
+		operations.ClientAuthzView{},
+		operations.ClientAcctView{},
+		operations.LifecycleWrite{},
+		operations.OptionalSecret{},
+		operations.TestAuthenticationRequest{},
+		operations.AuthenticationTestResult{},
 	}
 }
 
@@ -381,6 +439,120 @@ func tokensItemPath() map[string]any {
 	}
 }
 
+func viewParam() map[string]any {
+	return map[string]any{"name": "view", "in": "query", "schema": map[string]any{"type": "string", "enum": []any{"effective", "baseline", "overlay"}}}
+}
+
+func listQueryParams() []any {
+	return []any{
+		map[string]any{"name": "cursor", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "limit", "in": "query", "schema": map[string]any{"type": "integer"}},
+		map[string]any{"name": "include_deleted", "in": "query", "schema": map[string]any{"type": "boolean"}},
+	}
+}
+
+func idParam() map[string]any {
+	return map[string]any{"name": "id", "in": "path", "required": true, "schema": map[string]any{"type": "string"}}
+}
+
+func effectiveConfigPath() map[string]any {
+	op := getPath(operations.IDConfigEffectiveGet, "Redacted effective configuration", []string{"state:read"}, envelopeRef("EffectiveConfig"), true)
+	get := op["get"].(map[string]any)
+	get["parameters"] = []any{viewParam()}
+	return op
+}
+
+func exportConfigPath() map[string]any {
+	op := getPath(operations.IDConfigExport, "Redacted configuration YAML", []string{"config:export"}, envelopeRef("ExportConfigResult"), true)
+	get := op["get"].(map[string]any)
+	get["parameters"] = []any{viewParam()}
+	return op
+}
+
+func mutatingPostPath(id, desc string, scopes []string, req, resp map[string]any) map[string]any {
+	op := postPath(id, desc, scopes, req, resp, true)
+	post := op["post"].(map[string]any)
+	post["parameters"] = []any{csrfParam(), ifMatchParam(), idempotencyParam()}
+	post["requestBody"] = map[string]any{
+		"required": false,
+		"content": map[string]any{
+			"application/json": map[string]any{"schema": req},
+		},
+	}
+	return op
+}
+
+func collectionPath(listID, createID, name, readScope, writeScope, listSchema, createReq, createResp string) map[string]any {
+	get := getPath(listID, "List "+name+" in deterministic id order", []string{readScope}, envelopeRef(listSchema), true)
+	getOp := get["get"].(map[string]any)
+	getOp["parameters"] = listQueryParams()
+	post := postPath(createID, "Create a runtime "+name, []string{writeScope}, refSchema(createReq), envelopeRef(createResp), true)
+	postOp := post["post"].(map[string]any)
+	postOp["parameters"] = []any{csrfParam(), ifMatchParam(), idempotencyParam()}
+	return map[string]any{"get": getOp, "post": postOp}
+}
+
+func itemPath(getID, updateID, deleteID, name, readScope, writeScope, getSchema, updateReq string) map[string]any {
+	return map[string]any{
+		"get": map[string]any{
+			"operationId": getID,
+			"summary":     "Get one " + name + " by id",
+			"description": "Scopes: " + readScope,
+			"security":    bearerSecurity(),
+			"parameters": []any{
+				idParam(),
+				map[string]any{"name": "include_deleted", "in": "query", "schema": map[string]any{"type": "boolean"}},
+			},
+			"responses": map[string]any{
+				"200": jsonResponse("OK", envelopeRef(getSchema)),
+				"401": problemResponse(),
+				"403": problemResponse(),
+				"404": problemResponse(),
+			},
+		},
+		"patch": map[string]any{
+			"operationId": updateID,
+			"summary":     "Apply a typed patch to a " + name,
+			"description": "Scopes: " + writeScope,
+			"security":    bearerSecurity(),
+			"parameters":  []any{idParam(), csrfParam(), ifMatchParam()},
+			"requestBody": map[string]any{
+				"required": true,
+				"content": map[string]any{
+					"application/json": map[string]any{"schema": refSchema(updateReq)},
+				},
+			},
+			"responses": map[string]any{
+				"200": jsonResponse("OK", envelopeRef(getSchema)),
+				"400": problemResponse(),
+				"401": problemResponse(),
+				"403": problemResponse(),
+				"404": problemResponse(),
+				"412": problemResponse(),
+			},
+		},
+		"delete": map[string]any{
+			"operationId": deleteID,
+			"summary":     "Delete a runtime " + name + " or tombstone a baseline " + name,
+			"description": "Scopes: " + writeScope,
+			"security":    bearerSecurity(),
+			"parameters": []any{
+				idParam(),
+				map[string]any{"name": "tombstone", "in": "query", "schema": map[string]any{"type": "boolean"}},
+				csrfParam(),
+				ifMatchParam(),
+			},
+			"responses": map[string]any{
+				"200": jsonResponse("OK", envelopeRef("DeleteResult")),
+				"401": problemResponse(),
+				"403": problemResponse(),
+				"404": problemResponse(),
+				"412": problemResponse(),
+			},
+		},
+	}
+}
+
 func sessionPath() map[string]any {
 	return map[string]any{
 		"post": map[string]any{
@@ -452,11 +624,19 @@ func structSchema(t reflect.Type, schemas map[string]any) map[string]any {
 		if !f.omitempty {
 			required = append(required, f.name)
 		}
+		if f.writeOnly {
+			if m, ok := props[f.name].(map[string]any); ok {
+				m["writeOnly"] = true
+			}
+		}
 	}
 	out := map[string]any{
 		"type":                 "object",
 		"properties":           props,
 		"additionalProperties": false,
+	}
+	if t.Name() == "OptionalSecret" {
+		out["writeOnly"] = true
 	}
 	if len(required) > 0 {
 		out["required"] = required
@@ -468,6 +648,7 @@ type jsonField struct {
 	name      string
 	typ       reflect.Type
 	omitempty bool
+	writeOnly bool
 }
 
 func walkJSONFields(t reflect.Type) []jsonField {
@@ -495,10 +676,12 @@ func walkJSONFields(t reflect.Type) []jsonField {
 		if name == "" {
 			name = f.Name
 		}
+		writeOnly := name == "password" || name == "data" || f.Type.Name() == "OptionalSecret"
 		out = append(out, jsonField{
 			name:      name,
 			typ:       f.Type,
 			omitempty: strings.Contains(opts, "omitempty"),
+			writeOnly: writeOnly,
 		})
 	}
 	return out
@@ -604,7 +787,7 @@ func generateTS() string {
 	var b strings.Builder
 	b.WriteString("/* eslint-disable */\n")
 	b.WriteString("// Code generated by tools/generate. DO NOT EDIT.\n")
-	b.WriteString("// Frozen PR-16a types: status, build, policy.evaluate, session, tokens, events.\n\n")
+	b.WriteString("// Generated REST types for the implemented /api/v1 surface.\n\n")
 	b.WriteString("export type Revision = number;\n\n")
 	b.WriteString("export interface Envelope<T> {\n")
 	b.WriteString("  revision: number;\n")

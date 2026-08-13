@@ -10,7 +10,7 @@ REST and MCP are two public adapters over one administrative operation layer. Ne
 
 The UI uses REST. Automation may use REST or MCP. A lab operator must not receive materially different server capabilities merely because a different adapter is used.
 
-The vertical skeleton implements `system.status.get` and `policy.evaluate` on both adapters through the same registry. PR-16a binds the frozen REST surface for every already-implemented handler (status, build, policy.evaluate, session, tokens, events) plus health and `/api/openapi.json`. Remaining REST routes wait for PR-16b. Health probes remain `REST_ONLY_PROTOCOL`. MCP `server/discover` is `MCP_ONLY_PROTOCOL`.
+The vertical skeleton implements `system.status.get` and `policy.evaluate` on both adapters through the same registry. PR-16b binds REST for every `PARITY_REQUIRED` operation plus health, OpenAPI, and session (`REST_ONLY_PROTOCOL`). MCP tools remain a later adapter; `server/discover` is `MCP_ONLY_PROTOCOL`.
 
 ## 2. Source of truth
 

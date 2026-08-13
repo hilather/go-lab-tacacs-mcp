@@ -70,6 +70,12 @@ func statusFor(code domain.Code) int {
 		return http.StatusTooManyRequests
 	case domain.CodeUnavailable:
 		return http.StatusServiceUnavailable
+	case domain.CodeAuthMethodCredentialMissing, domain.CodeClientMatchAmbiguous,
+		domain.CodeConfigYAMLInvalid, domain.CodeConfigUnknownField,
+		domain.CodeGroupNotFound, domain.CodeObjectLimitExceeded, domain.CodeRegexInvalid:
+		return http.StatusBadRequest
+	case domain.CodeRevisionConflict:
+		return http.StatusPreconditionFailed
 	default:
 		return http.StatusInternalServerError
 	}

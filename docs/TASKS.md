@@ -947,14 +947,15 @@ Machine-readable `testdata/conformance/rfc9887.yaml` stays `NOT_STARTED` until P
 
 ### P9.2 Implement typed application service handlers
 
-- [ ] Implement status, config validation/reload/export, runtime reset, user/group/client/token CRUD, authentication test, policy explain, and event queries.
-- [ ] Return typed errors and stable codes.
-- [ ] Apply expected-revision and idempotency semantics centrally.
-- [ ] Emit redacted audit events centrally.
+- [x] Implement status, config validation/reload/export, runtime reset, user/group/client/token CRUD, authentication test, policy explain, and event queries.
+- [x] Return typed errors and stable codes.
+- [x] Apply expected-revision and idempotency semantics centrally.
+- [x] Emit redacted audit events centrally.
 
 **Regression tests**
 
-- [ ] Direct operation tests for success, validation, authorization input, conflict, not-found, and limit errors.
+- [x] Direct operation tests for success, validation, authorization input, conflict, and not-found.
+- [ ] Direct operation tests for object-limit errors.
 
 **Benchmarks**
 
@@ -1000,7 +1001,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 **Depends on:** P9 operation types
 
-- [x] Define `/api/v1` paths for the frozen implemented REST surface (PR-16a). Remaining operations are PR-16b.
+- [x] Define `/api/v1` paths for the frozen implemented REST surface (PR-16a). Remaining operations are PR-16b (done).
 - [x] Define shared schemas, errors, scopes, revision headers, pagination, idempotency, and one-time-secret responses.
 - [x] Define SSE or selected event stream transport.
 - [x] Generate TypeScript client/types and optional Go transport glue.
@@ -1023,14 +1024,14 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P10.3 Bind all operation handlers
 
-- [ ] Implement thin adapters only.
-- [ ] Map typed errors to documented HTTP status and body.
-- [ ] Preserve one-time token response behavior.
-- [ ] Ensure no REST-only validation or mutation logic exists.
+- [x] Implement thin adapters only.
+- [x] Map typed errors to documented HTTP status and body.
+- [x] Preserve one-time token response behavior.
+- [x] Ensure no REST-only validation or mutation logic exists.
 
 **Parity tests**
 
-- [ ] Each operation has a transport contract fixture used later against MCP.
+- [x] Each operation has a transport contract fixture used later against MCP.
 
 ### P10.4 Implement event query/stream
 
@@ -1047,10 +1048,10 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P10 exit gate
 
-- [ ] OpenAPI validation and generated-client tests pass.
-- [ ] Every REST operation maps to a canonical handler.
-- [ ] Security-negative and body-limit tests pass.
-- [ ] REST benchmarks and API docs are current.
+- [x] OpenAPI validation and generated-client tests pass.
+- [x] Every REST operation maps to a canonical handler.
+- [x] Security-negative and body-limit tests pass.
+- [x] REST benchmarks and API docs are current.
 
 ## 14. Milestone P11 - MCP server
 

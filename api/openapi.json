@@ -1,6 +1,41 @@
 {
   "components": {
     "schemas": {
+      "AuthenticationTestResult": {
+        "additionalProperties": false,
+        "properties": {
+          "ascii_pap_configured": {
+            "type": "boolean"
+          },
+          "challenge_configured": {
+            "type": "boolean"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "enable_configured": {
+            "type": "boolean"
+          },
+          "method": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "method",
+          "user_id",
+          "ascii_pap_configured",
+          "challenge_configured",
+          "enable_configured"
+        ],
+        "type": "object"
+      },
       "BuildInfo": {
         "additionalProperties": false,
         "properties": {
@@ -41,6 +76,335 @@
         ],
         "type": "object"
       },
+      "CertMatchView": {
+        "additionalProperties": false,
+        "properties": {
+          "dns_sans": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ip_sans": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Client": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "authentication": {
+            "$ref": "#/components/schemas/ClientAuthView"
+          },
+          "authorization": {
+            "$ref": "#/components/schemas/ClientAuthzView"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "effective_revision": {
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ClientMatchView"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "revision_created": {
+            "type": "integer"
+          },
+          "revision_updated": {
+            "type": "integer"
+          },
+          "shadows_source": {
+            "type": "string"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          },
+          "shared_secret_lifecycle": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "enabled",
+          "priority",
+          "source",
+          "revision_created",
+          "revision_updated",
+          "effective_revision",
+          "match",
+          "shared_secret_configured",
+          "shared_secret_lifecycle",
+          "authentication",
+          "authorization",
+          "accounting",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ClientAcctView": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_start": {
+            "type": "boolean"
+          },
+          "accept_stop": {
+            "type": "boolean"
+          },
+          "accept_watchdog": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "accept_start",
+          "accept_stop",
+          "accept_watchdog"
+        ],
+        "type": "object"
+      },
+      "ClientAuthView": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_service": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ClientAuthzView": {
+        "additionalProperties": false,
+        "properties": {
+          "default_group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ClientList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Client"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "items",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "ClientMatchView": {
+        "additionalProperties": false,
+        "properties": {
+          "certificate": {
+            "$ref": "#/components/schemas/CertMatchView"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "source_cidrs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transports": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "certificate"
+        ],
+        "type": "object"
+      },
+      "CommandRuleView": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "arguments": {
+            "$ref": "#/components/schemas/MatchView"
+          },
+          "command": {
+            "$ref": "#/components/schemas/MatchView"
+          },
+          "id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "priority",
+          "action",
+          "command",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      "CreateClientRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "authentication": {
+            "$ref": "#/components/schemas/ClientAuthView"
+          },
+          "authorization": {
+            "$ref": "#/components/schemas/ClientAuthzView"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ClientMatchView"
+          },
+          "override": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "shared_secret": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "shared_secret_lifecycle": {
+            "$ref": "#/components/schemas/LifecycleWrite"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "CreateGroupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "command_rules": {
+            "items": {
+              "$ref": "#/components/schemas/CommandRuleView"
+            },
+            "type": "array"
+          },
+          "default_command_action": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "override": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceRuleView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "CreateSessionRequest": {
         "additionalProperties": false,
         "properties": {},
@@ -73,6 +437,57 @@
           "id",
           "name",
           "scopes"
+        ],
+        "type": "object"
+      },
+      "CreateUserRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "challenge": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enable": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "login": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "override": {
+            "type": "boolean"
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/RestrictionsView"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RuleSetView"
+          }
+        },
+        "required": [
+          "id"
         ],
         "type": "object"
       },
@@ -159,6 +574,36 @@
         ],
         "type": "object"
       },
+      "DeleteClientRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tombstone": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "DeleteGroupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tombstone": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "DeleteResult": {
         "additionalProperties": false,
         "properties": {
@@ -178,6 +623,88 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "DeleteUserRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tombstone": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "EffectiveConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_hash": {
+            "type": "string"
+          },
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/Client"
+            },
+            "type": "array"
+          },
+          "compiled_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/Group"
+            },
+            "type": "array"
+          },
+          "instance_id": {
+            "type": "string"
+          },
+          "overlay_hash": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/TokenView"
+            },
+            "type": "array"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/User"
+            },
+            "type": "array"
+          },
+          "view": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "view",
+          "baseline_hash",
+          "overlay_hash",
+          "compiled_at",
+          "instance_id",
+          "users",
+          "groups",
+          "clients",
+          "tokens"
+        ],
         "type": "object"
       },
       "Envelope": {
@@ -200,6 +727,21 @@
       "EvaluatePolicyRequest": {
         "additionalProperties": false,
         "properties": {
+          "arguments": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyTraceAV"
+            },
+            "type": "array"
+          },
+          "authen_method": {
+            "type": "string"
+          },
+          "authen_service": {
+            "type": "string"
+          },
+          "authen_type": {
+            "type": "string"
+          },
           "client_id": {
             "type": "string"
           },
@@ -212,7 +754,16 @@
             },
             "type": "array"
           },
+          "port": {
+            "type": "string"
+          },
+          "privilege": {
+            "type": "integer"
+          },
           "protocol": {
+            "type": "string"
+          },
+          "remote": {
             "type": "string"
           },
           "service": {
@@ -362,6 +913,192 @@
         ],
         "type": "object"
       },
+      "ExportConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "view": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ExportConfigResult": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "view": {
+            "type": "string"
+          },
+          "yaml": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "view",
+          "format",
+          "yaml"
+        ],
+        "type": "object"
+      },
+      "GetClientRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "include_deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "GetEffectiveConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "view": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GetGroupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "include_deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "GetUserRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "include_deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "Group": {
+        "additionalProperties": false,
+        "properties": {
+          "command_rules": {
+            "items": {
+              "$ref": "#/components/schemas/CommandRuleView"
+            },
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "default_command_action": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "effective_revision": {
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "revision_created": {
+            "type": "integer"
+          },
+          "revision_updated": {
+            "type": "integer"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceRuleView"
+            },
+            "type": "array"
+          },
+          "shadows_source": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "enabled",
+          "priority",
+          "source",
+          "revision_created",
+          "revision_updated",
+          "effective_revision",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "GroupList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Group"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "items",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
       "HealthStatus": {
         "additionalProperties": false,
         "properties": {
@@ -372,6 +1109,34 @@
         "required": [
           "status"
         ],
+        "type": "object"
+      },
+      "LifecycleWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "last_rotated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rotation_interval": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ListClientsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "include_deleted": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "ListEventsRequest": {
@@ -392,11 +1157,41 @@
         },
         "type": "object"
       },
+      "ListGroupsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "include_deleted": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "ListTokensRequest": {
         "additionalProperties": false,
         "properties": {
           "cursor": {
             "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ListUsersRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "include_deleted": {
+            "type": "boolean"
           },
           "limit": {
             "type": "integer"
@@ -431,6 +1226,31 @@
         ],
         "type": "object"
       },
+      "MatchView": {
+        "additionalProperties": false,
+        "properties": {
+          "exact": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OptionalSecret": {
+        "additionalProperties": false,
+        "properties": {
+          "environment": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "writeOnly": true
+      },
       "PolicyTrace": {
         "additionalProperties": false,
         "properties": {
@@ -441,6 +1261,12 @@
             "type": "array"
           },
           "authen_method": {
+            "type": "string"
+          },
+          "authen_service": {
+            "type": "string"
+          },
+          "authen_type": {
             "type": "string"
           },
           "client_id": {
@@ -476,10 +1302,16 @@
           "evaluator": {
             "type": "string"
           },
+          "port": {
+            "type": "string"
+          },
           "privilege": {
             "type": "integer"
           },
           "protocol": {
+            "type": "string"
+          },
+          "remote": {
             "type": "string"
           },
           "request_arguments": {
@@ -630,6 +1462,76 @@
         ],
         "type": "object"
       },
+      "ReloadConfigRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ReloadConfigResult": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_hash": {
+            "type": "string"
+          },
+          "overlay_hash": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "baseline_hash",
+          "overlay_hash"
+        ],
+        "type": "object"
+      },
+      "ResetRuntimeRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ResetRuntimeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_hash": {
+            "type": "string"
+          },
+          "overlay_hash": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "baseline_hash",
+          "overlay_hash"
+        ],
+        "type": "object"
+      },
+      "RestrictionsView": {
+        "additionalProperties": false,
+        "properties": {
+          "client_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "valid_after": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "valid_before": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "RevokeTokenRequest": {
         "additionalProperties": false,
         "properties": {
@@ -642,6 +1544,49 @@
         },
         "required": [
           "id"
+        ],
+        "type": "object"
+      },
+      "RuleSetView": {
+        "additionalProperties": false,
+        "properties": {
+          "command_rules": {
+            "items": {
+              "$ref": "#/components/schemas/CommandRuleView"
+            },
+            "type": "array"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceRuleView"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ServiceRuleView": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "reply_attributes": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyTraceAV"
+            },
+            "type": "array"
+          },
+          "service": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "action"
         ],
         "type": "object"
       },
@@ -762,6 +1707,39 @@
         ],
         "type": "object"
       },
+      "TestAuthenticationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "data": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "writeOnly": true
+          },
+          "method": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "service": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "method"
+        ],
+        "type": "object"
+      },
       "TokenList": {
         "additionalProperties": false,
         "properties": {
@@ -859,6 +1837,297 @@
           "updated_at"
         ],
         "type": "object"
+      },
+      "UpdateClientRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "authentication": {
+            "$ref": "#/components/schemas/ClientAuthView"
+          },
+          "authorization": {
+            "$ref": "#/components/schemas/ClientAuthzView"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ClientMatchView"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "shared_secret": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "shared_secret_lifecycle": {
+            "$ref": "#/components/schemas/LifecycleWrite"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "UpdateGroupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "command_rules": {
+            "items": {
+              "$ref": "#/components/schemas/CommandRuleView"
+            },
+            "type": "array"
+          },
+          "default_command_action": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceRuleView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "UpdateUserRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "challenge": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enable": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "login": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/RestrictionsView"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RuleSetView"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "User": {
+        "additionalProperties": false,
+        "properties": {
+          "ascii_pap_configured": {
+            "type": "boolean"
+          },
+          "challenge_configured": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "effective_revision": {
+            "type": "integer"
+          },
+          "enable_configured": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/RestrictionsView"
+          },
+          "revision_created": {
+            "type": "integer"
+          },
+          "revision_updated": {
+            "type": "integer"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RuleSetView"
+          },
+          "shadows_source": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "enabled",
+          "source",
+          "revision_created",
+          "revision_updated",
+          "effective_revision",
+          "rules",
+          "restrictions",
+          "ascii_pap_configured",
+          "challenge_configured",
+          "enable_configured",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "UserList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/User"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "items",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "ValidateConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "boolean"
+          },
+          "yaml": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ValidateConfigResult": {
+        "additionalProperties": false,
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": "array"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "type": "object"
+      },
+      "ValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -874,7 +2143,7 @@
     }
   },
   "info": {
-    "description": "Frozen PR-16a surface: implemented operations only (status, build, policy.evaluate, session, tokens, events). CSRF is required on cookie-authenticated mutations. cookie_secure follows listeners.http.tls.enabled.",
+    "description": "TacLab REST API. CSRF is required on cookie-authenticated mutations. cookie_secure follows listeners.http.tls.enabled.",
     "title": "TacLab REST API",
     "version": "0.16.0"
   },
@@ -926,6 +2195,105 @@
           }
         },
         "summary": "OpenAPI document"
+      }
+    },
+    "/api/v1/authentication/test": {
+      "post": {
+        "description": "Scopes: policy:test",
+        "operationId": "authentication.test",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestAuthenticationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AuthenticationTestResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Run an authentication test against the current snapshot"
       }
     },
     "/api/v1/build": {
@@ -995,6 +2363,938 @@
           }
         ],
         "summary": "Build and specification versions"
+      }
+    },
+    "/api/v1/clients": {
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "clients.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ClientList"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "List clients in deterministic id order"
+      },
+      "post": {
+        "description": "Scopes: state:write",
+        "operationId": "clients.create",
+        "parameters": [
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Client"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Create a runtime clients"
+      }
+    },
+    "/api/v1/clients/{id}": {
+      "delete": {
+        "description": "Scopes: state:write",
+        "operationId": "clients.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tombstone",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DeleteResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Delete a runtime client or tombstone a baseline client"
+      },
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "clients.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Client"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Get one client by id"
+      },
+      "patch": {
+        "description": "Scopes: state:write",
+        "operationId": "clients.update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClientRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Client"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Apply a typed patch to a client"
+      }
+    },
+    "/api/v1/config/effective": {
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "config.effective.get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "schema": {
+              "enum": [
+                "effective",
+                "baseline",
+                "overlay"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EffectiveConfig"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Redacted effective configuration"
+      }
+    },
+    "/api/v1/config/export": {
+      "get": {
+        "description": "Scopes: config:export",
+        "operationId": "config.export",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "schema": {
+              "enum": [
+                "effective",
+                "baseline",
+                "overlay"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ExportConfigResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Redacted configuration YAML"
+      }
+    },
+    "/api/v1/config/reload": {
+      "post": {
+        "description": "Scopes: config:reload",
+        "operationId": "config.reload",
+        "parameters": [
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReloadConfigRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ReloadConfigResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Reload the mounted baseline"
+      }
+    },
+    "/api/v1/config/validate": {
+      "post": {
+        "description": "Scopes: state:write",
+        "operationId": "config.validate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ValidateConfigResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Validate a candidate configuration without publishing"
       }
     },
     "/api/v1/events": {
@@ -1162,6 +3462,546 @@
         "summary": "SSE stream of redacted event bodies"
       }
     },
+    "/api/v1/groups": {
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "groups.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/GroupList"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "List groups in deterministic id order"
+      },
+      "post": {
+        "description": "Scopes: state:write",
+        "operationId": "groups.create",
+        "parameters": [
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Group"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Create a runtime groups"
+      }
+    },
+    "/api/v1/groups/{id}": {
+      "delete": {
+        "description": "Scopes: state:write",
+        "operationId": "groups.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tombstone",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DeleteResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Delete a runtime group or tombstone a baseline group"
+      },
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "groups.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Group"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Get one group by id"
+      },
+      "patch": {
+        "description": "Scopes: state:write",
+        "operationId": "groups.update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Group"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Apply a typed patch to a group"
+      }
+    },
     "/api/v1/policy/evaluate": {
       "post": {
         "description": "Scopes: policy:test",
@@ -1259,6 +4099,133 @@
           }
         ],
         "summary": "Explain an authorization decision"
+      }
+    },
+    "/api/v1/runtime/reset": {
+      "post": {
+        "description": "Scopes: runtime:reset",
+        "operationId": "runtime.reset",
+        "parameters": [
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetRuntimeRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ResetRuntimeResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Drop the runtime overlay including tombstones"
       }
     },
     "/api/v1/session": {
@@ -1763,6 +4730,546 @@
           }
         ],
         "summary": "Revoke an API token"
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "users.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UserList"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "List users in deterministic id order"
+      },
+      "post": {
+        "description": "Scopes: state:write",
+        "operationId": "users.create",
+        "parameters": [
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Create a runtime users"
+      }
+    },
+    "/api/v1/users/{id}": {
+      "delete": {
+        "description": "Scopes: state:write",
+        "operationId": "users.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tombstone",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DeleteResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Delete a runtime user or tombstone a baseline user"
+      },
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "users.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Get one user by id"
+      },
+      "patch": {
+        "description": "Scopes: state:write",
+        "operationId": "users.update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required on cookie-authenticated mutations.",
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optimistic concurrency. Format: \"revision-N\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Apply a typed patch to a user"
       }
     },
     "/health/live": {

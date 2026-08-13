@@ -61,9 +61,9 @@ Flaky security, conformance, parity, or race tests block release. Do not quarant
 
 Agents must follow [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9.
 
-1. Move `[Unreleased]` items in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md) into `## [X.Y.Z] — YYYY-MM-DD` (the changes since the previous tag). Leave `[Unreleased]` empty.
+1. Move **all** `[Unreleased]` high-level items in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md) into `## [X.Y.Z] — YYYY-MM-DD` (the full operator-facing delta since the previous tag: behavior, security, breaking limits, interop, images). Leave `[Unreleased]` empty. Do not ship “see git log” as the notes.
 2. `git tag -a vX.Y.Z -m "TacLab X.Y.Z"` and push the tag.
-3. **Watch CI** (`ci` on the tag, then `release`). Do not stop while those runs are in progress or red. On failure, fix, harden, and retag or patch-tag.
+3. **Watch CI until it passes** (`ci` on the tag, then `release`). Do not stop while those runs are in progress or red. On failure, investigate the logs, fix the product or the workflow, **harden CI** so the same class of failure cannot recur, then retag or patch-tag.
 4. The `release` workflow must publish:
    - GitHub Release notes from `make release-notes` (CHANGELOG section + `git log` since the previous tag).
    - `ghcr.io/hilather/go-lab-tacacs-mcp:vX.Y.Z` (distroless default)

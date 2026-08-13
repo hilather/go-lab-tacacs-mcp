@@ -4,28 +4,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
-### Security
-
-- Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970) and the Go toolchain to 1.25.12 for stdlib crypto/net fixes.
-- Gitleaks allowlists published RFC MS-CHAP test vectors in `internal/credentials/testdata/` only.
-
-### MCP
-
-- Adopt `github.com/modelcontextprotocol/go-sdk` v1.7.0 for Streamable HTTP framing, `server/discover`, tools, and resources. Lab bearer, origin checks, and URI-only `subscriptions/listen` stay in-tree ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
-
-### Lab
-
-- Optional Containerlab + Cisco IOL integration lab (`make cisco-lab`). Skips with an equipment-gap message when the operator image or Containerlab is absent; never vendors Cisco binaries. Live IOL drive uses the host `ssh` client (not `golang.org/x/crypto/ssh`).
-
-### CI
-
-- Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab on pull request, `main`, and tags.
-- Agents must watch CI after every push and after every release tag ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9).
-- Every tag publishes CHANGELOG-based release notes plus Ubuntu 24.04 and Rocky Linux 9 images.
-
 ## [1.0.0] — 2026-08-13
 
-First qualified lab-appliance release. Module `github.com/hilather/go-lab-tacacs-mcp`. Image `ghcr.io/hilather/go-lab-tacacs-mcp`.
+First tagged lab-appliance release. Module `github.com/hilather/go-lab-tacacs-mcp`. Image `ghcr.io/hilather/go-lab-tacacs-mcp`. This section is the full high-level delta from an empty repository.
 
 ### Protocol
 
@@ -50,12 +31,24 @@ First qualified lab-appliance release. Module `github.com/hilather/go-lab-tacacs
 - Typed secrets; canary matrix; reuse warning without exported fingerprints.
 - Lab static bearer vs MCP OAuth PRM ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
 - ASCII/PAP enablement is documented, not a compile warning ([ADR 0012](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md)).
+- Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970) and the Go toolchain to 1.25.12 for stdlib crypto/net fixes.
+- Gitleaks allowlists published RFC MS-CHAP test vectors in `internal/credentials/testdata/` only.
 
 ### Admin surfaces
 
 - REST `/api/v1` + OpenAPI 3.1 + embedded React UI.
-- MCP 2026-07-28 Streamable HTTP on `POST /mcp` (thin adapter on Go 1.24.5, [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
+- MCP 2026-07-28 Streamable HTTP on `POST /mcp` via `github.com/modelcontextprotocol/go-sdk` v1.7.0. Lab bearer, origin policy, and URI-only `subscriptions/listen` stay in-tree ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
 - REST/MCP parity harness for `PARITY_REQUIRED` operations.
+
+### Lab
+
+- Optional Containerlab + Cisco IOL integration lab (`make cisco-lab`). Skips with an equipment-gap message when the operator image or Containerlab is absent; never vendors Cisco binaries. Live IOL drive uses the host `ssh` client (not `golang.org/x/crypto/ssh`).
+
+### CI
+
+- Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab on pull request, `main`, and tags.
+- Agents must watch CI after every push and after every release tag ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9). A red tag is a release blocker: investigate, harden CI, then retag or patch-tag.
+- Every tag publishes CHANGELOG-based release notes (all high-level changes since the previous tag) plus Ubuntu 24.04 and Rocky Linux 9 images.
 
 ### Deployment
 
@@ -71,7 +64,7 @@ First qualified lab-appliance release. Module `github.com/hilather/go-lab-tacacs
 ### Interop
 
 - Required software peer: in-tree `internal/tacacs/testclient` (separate codec).
-- Cisco and second-NOS rows: **skipped** (no hardware). See [docs/INTEROP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md).
+- Cisco and second-NOS rows: **skipped** unless the operator supplies an IOL image (`make cisco-lab`). See [docs/INTEROP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md).
 
 ### Documentation
 

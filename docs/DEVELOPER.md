@@ -65,9 +65,9 @@ GitHub Actions workflow: https://github.com/hilather/go-lab-tacacs-mcp/blob/main
 
 Required jobs for merge: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, and the aggregating `ci-gate`.
 
-Publish notes go in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md). After tagging `vX.Y.Z`, watch the `ci` and `release` workflows to green ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9). Every release must include:
+Publish notes go in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md). The `## [X.Y.Z]` section must list **all high-level changes since the previous tag**. After tagging `vX.Y.Z`, watch the `ci` and `release` workflows until they pass ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9). If tag CI fails, investigate and harden the workflow or tests before the next tag. Every release must include:
 
-- `make release-notes` → `dist/RELEASE_NOTES.md` (CHANGELOG section + commits since the previous tag)
+- `make release-notes` → `dist/RELEASE_NOTES.md` (high-level CHANGELOG section + commits since the previous tag)
 - Ubuntu 24.04 and Rocky Linux 9 images (`make image-ubuntu`, `make image-rocky`) plus the distroless default
 
 Image SBOM/provenance is `docker buildx --sbom --provenance` at publish, not a tree-checked SPDX file.

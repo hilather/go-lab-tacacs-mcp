@@ -286,7 +286,8 @@ Do not:
 - expose a “complete” badge while conformance rows are unverified.
 - disable race, fuzz, security, or interoperability tests to make CI pass.
 - tag a release and walk away while tag CI is red or still running.
-- publish a GitHub Release without a CHANGELOG section for that version and without Ubuntu and Rocky image builds.
+- publish a GitHub Release without a CHANGELOG section that lists **all high-level changes since the previous tag**, or without Ubuntu and Rocky image builds.
+- treat `git log` alone as the release notes. Commits are a supplement; operators need the CHANGELOG delta.
 
 ## 8. Architecture decision records
 
@@ -317,17 +318,36 @@ These rules apply to every agent (main session and subagents) after a push, PR u
 5. On failure: read the failed job logs, fix the root cause, and **harden** so the same class of failure cannot recur (pin, allowlist, timeout, test, or workflow change). Push and watch again.
 6. After a release tag, a red run is a **release blocker**. Cut a fix commit and either move the tag after the new run is green or publish a patch tag. Do not leave a published tag pointing at a failing tree.
 
-### 9.2 Every release must include
+### 9.2 Every release must include all high-level changes between versions
+
+Move every `[Unreleased]` item into `## [<version>] — YYYY-MM-DD` before tagging. The CHANGELOG section is the **operator-facing delta since the previous tag** (or since the start of the repository for the first tag). It must cover, when they happened:
+
+- new or changed behavior (protocol, REST, MCP, UI, lab, CLI)
+- security and toolchain fixes
+- breaking changes and residual limits
+- interop / image / deploy changes
+- anything a client or operator would notice
+
+Do not tag with an empty section, “see git log”, or a partial list. `make release-notes` appends `git log` as a **supplement**; it does not replace the high-level section.
 
 A version is not released until all of the following exist for that tag:
 
 | Deliverable | How |
 |---|---|
-| Changes between this tag and the previous tag | A `## [<version>]` section in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md) **and** `make release-notes` (writes `dist/RELEASE_NOTES.md` from that section plus `git log`). The GitHub Release body is that file. |
+| High-level changes between this tag and the previous tag | A complete `## [<version>]` section in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md) **and** `make release-notes` (that section plus `git log`). The GitHub Release body is that file. |
 | Ubuntu 24.04 image | `make image-ubuntu` → `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>-ubuntu` |
 | Rocky Linux 9 image | `make image-rocky` → `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>-rocky` |
 | Default (distroless) image | `make image` → `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>` |
 
 Do not ship a tag that only has notes or only has one distro. Operators who run Rocky or Ubuntu hosts must be able to pull a matching variant from the same release.
+
+### 9.3 After a new release, CI must pass; failures harden CI
+
+Tagging is not the end of the job. After `git push origin vX.Y.Z`:
+
+1. Wait for **both** tag workflows: `ci` (`ci-gate` and its jobs) and `release` (notes + Ubuntu + Rocky + GitHub Release).
+2. Do not declare the release done while either run is queued, in progress, or red.
+3. If CI fails: read the failed job logs, find the root cause, fix the product **or** the workflow, and **harden** so the same class of failure cannot recur (pin, checksum, timeout, missing test, flaky gate, or docs check). Push the fix.
+4. A red tag is a **release blocker**. Move the tag onto a green commit or publish a patch tag. Do not leave a published `v*` pointing at a failing tree.
 
 Release procedure is in [docs/MAINTENANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md) §Release.

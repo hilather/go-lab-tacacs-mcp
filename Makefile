@@ -159,6 +159,11 @@ ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test w
 
 .PHONY: build
 build:
+	@if [ -f web/dist/index.html ]; then \
+		$(MAKE) web-embed; \
+	elif [ ! -f internal/ui/dist/index.html ]; then \
+		echo "WARNING: embedding UI stub (run make web-build for the production SPA)" >&2; \
+	fi
 	@mkdir -p $(BIN_DIR)
 	$(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) $(CMD_PKG)
 	@echo "built $(BIN_DIR)/$(BINARY) version=$(VERSION) commit=$(COMMIT) go=$(GOVER) built=$(BUILDTIME)"

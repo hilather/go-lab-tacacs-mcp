@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSession, hashPrefix } from "./client";
+import { apiFetch, createSession, hashPrefix } from "./client";
+import { futureExpiry } from "../test/time";
 
 describe("API client", () => {
   afterEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    for (const part of document.cookie.split(";")) {
+      const name = part.split("=")[0]?.trim();
+      if (name) {
+        document.cookie = `${name}=; Max-Age=0; path=/`;
+      }
+    }
     vi.unstubAllGlobals();
   });
 
@@ -17,7 +24,7 @@ describe("API client", () => {
           data: {
             token_id: "lab",
             scopes: ["state:read"],
-            expires_at: "2026-08-12T01:00:00Z",
+            expires_at: futureExpiry(),
             csrf_token: "csrf-1",
             cookie_name: "taclab_session",
             cookie_secure: false,
@@ -44,6 +51,20 @@ describe("API client", () => {
     expect(headers.get("Authorization")).toBe("Bearer lab-bootstrap-token-32-bytes!!!");
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
+  });
+
+  it("copies the CSRF cookie onto mutating requests", async () => {
+    document.cookie = "taclab_csrf=csrf-test";
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await apiFetch("/api/v1/session", { method: "DELETE" });
+    const init = fetchMock.mock.calls[0]?.[1];
+    if (!init) {
+      throw new Error("expected fetch init");
+    }
+    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("csrf-test");
   });
 
   it("shortens hashes for display", () => {

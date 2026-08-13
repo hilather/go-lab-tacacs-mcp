@@ -1,4 +1,4 @@
-import { FormEvent, useId, useRef, useState } from "react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { APIError } from "../api/client";
@@ -31,7 +31,6 @@ export function LoginPage() {
       const msg = parsed.error.issues[0]?.message ?? "Enter an API bearer token.";
       setFieldError(msg);
       setFormError("");
-      summaryRef.current?.focus();
       return;
     }
     setFieldError("");
@@ -50,13 +49,19 @@ export function LoginPage() {
           ? err.problem.detail || "Sign-in failed."
           : "Sign-in failed. Check the token and try again.";
       setFormError(detail);
-      summaryRef.current?.focus();
     } finally {
       setBusy(false);
     }
   }
 
   const messages = [fieldError, formError].filter((m) => m !== "");
+  const messageKey = messages.join("\n");
+
+  useEffect(() => {
+    if (messageKey !== "") {
+      summaryRef.current?.focus();
+    }
+  }, [messageKey]);
 
   return (
     <main className="page page--narrow">
@@ -65,9 +70,7 @@ export function LoginPage() {
         Exchange a scoped API token for an HttpOnly session cookie. The token is not written to
         localStorage or sessionStorage.
       </p>
-      <div ref={summaryRef}>
-        <ErrorSummary id={summaryId} title="Could not sign in" messages={messages} />
-      </div>
+      <ErrorSummary ref={summaryRef} id={summaryId} title="Could not sign in" messages={messages} />
       <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
         <div className="field">
           <label htmlFor={tokenId}>API bearer token</label>

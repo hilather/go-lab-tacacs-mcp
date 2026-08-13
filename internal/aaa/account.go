@@ -17,6 +17,7 @@ func (s *Service) RecordAccounting(ctx context.Context, rec AccountingRecord) (A
 		return AccountingResult{}, domain.NewError(domain.CodeInternal, "aaa service is not initialized")
 	}
 	if !ValidAcctFlags(rec.Flags) {
+		s.metrics.Acct(string(rec.Transport), "error")
 		return AccountingResult{}, domain.NewError(domain.CodeInvalidArgument, "invalid accounting flags").
 			WithDetail("flags", rec.Flags)
 	}
@@ -74,8 +75,10 @@ func (s *Service) RecordAccounting(ctx context.Context, rec AccountingRecord) (A
 	// SUCCESS only after the ring assigns an ID. User/command stay for events:sensitive.
 	accepted := s.events.Accept(ev)
 	if accepted.ID == 0 {
+		s.metrics.Acct(string(rec.Transport), "error")
 		return AccountingResult{}, domain.NewError(domain.CodeInternal, "accounting ring rejected the record")
 	}
+	s.metrics.Acct(string(rec.Transport), "success")
 	return AccountingResult{OK: true, EventID: accepted.ID}, nil
 }
 

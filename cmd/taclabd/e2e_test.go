@@ -61,6 +61,8 @@ listeners:
     enabled: true
     bind: 127.0.0.1:0
     write_timeout: 2s
+observability:
+  metrics: {enabled: false}
 api:
   bootstrap_tokens:
     - id: lab

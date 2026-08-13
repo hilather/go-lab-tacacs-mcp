@@ -14,6 +14,8 @@ Never commit TACACS shared secrets, challenge secrets, passwords, API bearer tok
 
 Secret-bearing types must not implement unconstrained string formatting. Secret-canary tests are required for every output surface once those surfaces exist.
 
+The 1.0 review lives in [docs/THREAT_MODEL.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/THREAT_MODEL.md). Secret-canary tests scan logs, events, metrics, traces, REST, MCP, export, panic recovery, and OpenAPI.
+
 ## Product posture (summary)
 
 - Fail closed on unknown clients, ambiguous client matches, and invalid reloads.

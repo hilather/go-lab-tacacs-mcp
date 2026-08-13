@@ -16,8 +16,10 @@ func (s *Service) Authorize(ctx context.Context, req AuthorizationRequest) (Auth
 	}
 	tr, res, err := s.evaluate(req)
 	if err != nil {
+		s.metrics.Author(string(req.Transport), "error")
 		return errorDecision(err.Error()), nil
 	}
+	s.metrics.Author(string(req.Transport), tr.Decision)
 	if includeAuthorization(s.snap()) {
 		s.record(events.Event{
 			Category:  events.CategoryAuthor,

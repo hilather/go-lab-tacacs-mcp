@@ -7,6 +7,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/policy"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
@@ -19,6 +20,7 @@ type Service struct {
 	events   *events.Ring
 	creds    *credentials.Service
 	clock    domain.Clock
+	metrics  *observability.Recorder
 
 	mu       sync.Mutex
 	sessions map[sessionKey]*authSession
@@ -62,6 +64,7 @@ type Options struct {
 	Events   *events.Ring
 	Clock    domain.Clock
 	Creds    credentials.Options
+	Metrics  *observability.Recorder
 }
 
 // New builds a Service. Snapshot or Manager is required.
@@ -90,6 +93,7 @@ func New(opts Options) (*Service, error) {
 		events:   opts.Events,
 		creds:    creds,
 		clock:    opts.Clock,
+		metrics:  opts.Metrics,
 		sessions: map[sessionKey]*authSession{},
 		engines:  map[domain.Revision]*policy.Engine{},
 	}, nil

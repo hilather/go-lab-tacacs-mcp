@@ -13,6 +13,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
 )
@@ -27,6 +28,7 @@ type Options struct {
 	Handler  server.Handler
 	Logger   *slog.Logger
 	Listen   func(network, address string) (net.Listener, error)
+	Metrics  *observability.Recorder
 }
 
 // Listener is the RFC 8907 TCP socket.
@@ -70,8 +72,10 @@ func Listen(opts Options) (*Listener, error) {
 	}
 	connCtx, connCancel := context.WithCancel(context.Background())
 	eng := &server.Engine{
-		Limits:  limitsFrom(opts.Settings, opts.Grace),
-		Handler: opts.Handler,
+		Limits:   limitsFrom(opts.Settings, opts.Grace),
+		Handler:  opts.Handler,
+		Metrics:  opts.Metrics,
+		Listener: observability.ListenerLegacy,
 	}
 	eng.Prepare()
 	return &Listener{
@@ -153,6 +157,7 @@ func (l *Listener) Serve(ctx context.Context) error {
 func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 	defer nc.Close()
 	if !l.engine.TryAcquire() {
+		l.opts.Metrics.ConnectionRejected(observability.ListenerLegacy, observability.TransportLegacy, "conn_limit")
 		return
 	}
 	held := true
@@ -168,12 +173,14 @@ func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 	if snap == nil {
 		release()
 		l.opts.Logger.Error("legacy reject: no snapshot")
+		l.opts.Metrics.ConnectionRejected(observability.ListenerLegacy, observability.TransportLegacy, "unavailable")
 		return
 	}
 	client, err := snap.MatchClient(domain.TransportLegacy, ip, nil)
 	if err != nil {
 		release()
 		l.opts.Logger.Info("legacy reject: unknown client")
+		l.opts.Metrics.ConnectionRejected(observability.ListenerLegacy, observability.TransportLegacy, "unknown_client")
 		return
 	}
 	raw, err := l.opts.Secrets(client.Client.Legacy.SharedSecret)
@@ -181,6 +188,7 @@ func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 		wipe(raw)
 		release()
 		l.opts.Logger.Error("legacy reject: shared secret unavailable", "client_id", client.Client.ID)
+		l.opts.Metrics.ConnectionRejected(observability.ListenerLegacy, observability.TransportLegacy, "secret_unavailable")
 		return
 	}
 	secret := credentials.NewSharedSecret(raw)

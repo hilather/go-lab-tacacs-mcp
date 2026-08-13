@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 )
 
 const (
@@ -92,6 +93,7 @@ type Options struct {
 	Stdout          io.Writer
 	RedactUserInput bool
 	StdoutBuffer    int
+	Metrics         *observability.Recorder
 }
 
 // Ring is a bounded, overwrite-oldest event sink. It is safe for concurrent use.
@@ -112,6 +114,7 @@ type Ring struct {
 	subs          []subscriber
 	stop          chan struct{}
 	closed        bool
+	metrics       *observability.Recorder
 }
 
 // subscriber is one fan-out slot. The event channel is never closed while
@@ -151,6 +154,7 @@ func NewWithOptions(opts Options) *Ring {
 		stdout:     opts.Stdout,
 		redactUser: opts.RedactUserInput,
 		stop:       make(chan struct{}),
+		metrics:    opts.Metrics,
 	}
 	if opts.Stdout != nil {
 		buf := opts.StdoutBuffer
@@ -194,6 +198,7 @@ func (r *Ring) Accept(e Event) Event {
 		r.buf[r.start] = e
 		r.start = (r.start + 1) % r.cap
 		r.overwritten++
+		r.metrics.EventOverwritten(1)
 	} else {
 		r.buf[(r.start+r.n)%r.cap] = e
 		r.n++
@@ -347,7 +352,9 @@ func (r *Ring) Subscribe(buf int) (events <-chan Event, dropped <-chan struct{},
 		return sub.ch, sub.drop, func() {}
 	}
 	r.subs = append(r.subs, sub)
+	n := len(r.subs)
 	r.mu.Unlock()
+	r.metrics.SetEventSubscribers(n)
 	var once sync.Once
 	cancel = func() {
 		once.Do(func() { r.unsubscribe(sub.ch) })
@@ -414,6 +421,7 @@ func (r *Ring) fanout(subs []subscriber, e Event) {
 			// another Accept may still hold a copy of this slice and send.
 			r.detach(sub.ch)
 			sub.signalDrop()
+			r.metrics.EventSubscriberReset()
 		}
 	}
 }
@@ -428,6 +436,10 @@ func (r *Ring) detach(ch chan Event) {
 	for i, s := range r.subs {
 		if s.ch == ch {
 			r.subs = append(r.subs[:i], r.subs[i+1:]...)
+			n := len(r.subs)
+			r.mu.Unlock()
+			r.metrics.SetEventSubscribers(n)
+			r.mu.Lock()
 			return
 		}
 	}

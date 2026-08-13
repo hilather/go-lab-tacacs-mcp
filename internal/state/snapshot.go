@@ -122,6 +122,35 @@ func (s *Snapshot) RuntimeSecret(id string) ([]byte, bool) {
 	return append([]byte(nil), b...), true
 }
 
+// LifecycleCounts is the number of live clients in each secret-lifecycle
+// status. Status is the only dimension — no client IDs.
+func (s *Snapshot) LifecycleCounts() map[domain.SecretLifecycle]int {
+	out := map[domain.SecretLifecycle]int{
+		domain.LifecycleCurrent: 0,
+		domain.LifecycleDueSoon: 0,
+		domain.LifecycleOverdue: 0,
+		domain.LifecycleUnknown: 0,
+	}
+	if s == nil {
+		return out
+	}
+	for _, st := range s.lifecycles {
+		if !st.Valid() {
+			st = domain.LifecycleUnknown
+		}
+		out[st]++
+	}
+	return out
+}
+
+// SecretWarningCount is the number of compiled secret warnings.
+func (s *Snapshot) SecretWarningCount() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.secretWarns)
+}
+
 // Settings returns the compiled non-overlay baseline settings. The returned
 // document must be treated as read-only.
 func (s *Snapshot) Settings() *config.Document { return s.settings }

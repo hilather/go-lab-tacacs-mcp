@@ -19,6 +19,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/ui"
 )
@@ -83,7 +84,9 @@ type Server struct {
 	SSEBuffer    int
 	Logger       *slog.Logger
 	// Assets is the SPA tree. Nil uses the embedded UI (stub or production copy).
-	Assets fs.FS
+	Assets       fs.FS
+	Metrics      *observability.Recorder
+	Tracer       *observability.Tracer
 
 	once     sync.Once
 	limiter  *limiter
@@ -258,41 +261,59 @@ func (s *Server) revokeToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) invoke(w http.ResponseWriter, r *http.Request, id string, req any, mutating bool) {
+	start := time.Now()
 	rid := requestIDFrom(r)
+	ctx, span := s.Tracer.Start(r.Context(), "rest."+id, observability.Attr{Key: "operation_id", Value: id}, observability.Attr{Key: "request_id", Value: rid})
+	defer span.End()
 	if s.Registry == nil {
+		s.observeAPI(id, domain.NewError(domain.CodeUnavailable, "operation registry is not initialized"), start)
 		writeProblemID(w, http.StatusServiceUnavailable, domain.NewError(domain.CodeUnavailable, "operation registry is not initialized"), rid)
 		return
 	}
 	actor, snap, err := s.authenticate(r, mutating)
 	if err != nil {
 		if lerr := s.limit(operations.Actor{}, snap); lerr != nil {
+			s.observeAPI(id, lerr, start)
 			writeDomainID(w, lerr, rid)
 			return
 		}
+		s.observeAPI(id, err, start)
 		writeDomainID(w, err, rid)
 		return
 	}
 	if err := s.limit(actor, snap); err != nil {
+		s.observeAPI(id, err, start)
 		writeDomainID(w, err, rid)
 		return
 	}
 	rev, err := parseIfMatch(r.Header.Get(headerIfMatch))
 	if err != nil {
+		s.observeAPI(id, err, start)
 		writeDomainID(w, err, rid)
 		return
 	}
-	res, err := s.Registry.Invoke(r.Context(), id, snap, operations.Input{
+	res, err := s.Registry.Invoke(ctx, id, snap, operations.Input{
 		Actor:            actor,
 		ExpectedRevision: rev,
 		IdempotencyKey:   strings.TrimSpace(r.Header.Get(headerIdempotency)),
 		Request:          req,
 	})
 	if err != nil {
+		s.observeAPI(id, err, start)
 		writeDomainID(w, err, rid)
 		return
 	}
+	s.observeAPI(id, nil, start)
 	w.Header().Set(headerETag, etag(res.Revision))
 	writeJSON(w, http.StatusOK, envelope{Revision: uint64(res.Revision), RequestID: rid, Data: res.Data})
+}
+
+func (s *Server) observeAPI(id string, err error, start time.Time) {
+	result, code := observability.ResultFromError(err)
+	s.Metrics.API(id, result, code, time.Since(start).Seconds())
+	if id == operations.IDConfigReload {
+		s.Metrics.Reload(err == nil)
+	}
 }
 
 func (s *Server) authenticate(r *http.Request, mutating bool) (operations.Actor, *state.Snapshot, error) {

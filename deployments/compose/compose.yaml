@@ -10,6 +10,7 @@ services:
     build:
       context: ${TACLAB_CONTEXT:-../..}
       dockerfile: Dockerfile
+      target: runtime
       args:
         VERSION: ${TACLAB_VERSION:-dev}
         COMMIT: ${TACLAB_COMMIT:-unknown}

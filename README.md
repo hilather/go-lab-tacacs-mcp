@@ -5,7 +5,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | Item | Value |
 |---|---|
 | Go module | `github.com/hilather/go-lab-tacacs-mcp` |
-| Image | `ghcr.io/hilather/go-lab-tacacs-mcp` |
+| Image | `ghcr.io/hilather/go-lab-tacacs-mcp` (`:<tag>`, `:<tag>-ubuntu`, `:<tag>-rocky`) |
 | License | Apache-2.0 |
 | Go | 1.25.12 (module `go 1.25.0`) |
 | Node.js | 22.14.0 |

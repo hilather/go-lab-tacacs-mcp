@@ -1,7 +1,7 @@
 # TacLab 1.0 maintenance policy
 
 Status: post-release contract  
-Last updated: 2026-08-13
+Last updated: 2026-08-13 (release watch + Ubuntu/Rocky variants)
 
 ## Supported versions
 
@@ -10,7 +10,7 @@ Last updated: 2026-08-13
 | Config schema | `schema_version: 1` |
 | REST | `/api/v1` |
 | MCP | `2026-07-28` only |
-| Image | `ghcr.io/hilather/go-lab-tacacs-mcp:<tag-or-digest>` |
+| Image | `ghcr.io/hilather/go-lab-tacacs-mcp:<tag-or-digest>` (also `:<tag>-ubuntu`, `:<tag>-rocky`) |
 | Go | 1.25.0 |
 | Node | 22.14.0 |
 
@@ -56,3 +56,18 @@ Issues must include:
 3. A regression test name that fails before the fix.
 
 Flaky security, conformance, parity, or race tests block release. Do not quarantine them without an owner and expiry.
+
+## Release
+
+Agents must follow [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9.
+
+1. Move `[Unreleased]` items in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md) into `## [X.Y.Z] — YYYY-MM-DD` (the changes since the previous tag). Leave `[Unreleased]` empty.
+2. `git tag -a vX.Y.Z -m "TacLab X.Y.Z"` and push the tag.
+3. **Watch CI** (`ci` on the tag, then `release`). Do not stop while those runs are in progress or red. On failure, fix, harden, and retag or patch-tag.
+4. The `release` workflow must publish:
+   - GitHub Release notes from `make release-notes` (CHANGELOG section + `git log` since the previous tag).
+   - `ghcr.io/hilather/go-lab-tacacs-mcp:vX.Y.Z` (distroless default)
+   - `ghcr.io/hilather/go-lab-tacacs-mcp:vX.Y.Z-ubuntu` (Ubuntu 24.04)
+   - `ghcr.io/hilather/go-lab-tacacs-mcp:vX.Y.Z-rocky` (Rocky Linux 9)
+
+A tag without notes or without both distro images is not a release.

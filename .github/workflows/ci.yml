@@ -3,6 +3,7 @@ name: ci
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -104,6 +105,9 @@ jobs:
       - name: Hook self-test
         run: make check-hooks
 
+      - name: Release-notes script
+        run: make check-release-notes
+
       - name: Build
         run: make build
 
@@ -113,7 +117,11 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Docker build check
-        run: docker buildx build --check .
+        run: |
+          set -euo pipefail
+          docker buildx build --check --target runtime .
+          docker buildx build --check --target runtime-ubuntu .
+          docker buildx build --check --target runtime-rocky .
 
       - name: Compose config
         run: |
@@ -143,7 +151,7 @@ jobs:
     name: compose-lab
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5

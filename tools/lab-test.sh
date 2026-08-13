@@ -48,13 +48,14 @@ trap cleanup EXIT
 if [[ "${TACLAB_SKIP_BUILD:-0}" != "1" ]]; then
   if docker buildx version >/dev/null 2>&1; then
     echo "lab-test: docker build --check"
-    docker buildx build --check "$root"
+    docker buildx build --check --target runtime "$root"
   else
     echo "lab-test: docker buildx not available; skipping --check"
   fi
 
   echo "lab-test: build $IMAGE"
   docker build \
+    --target runtime \
     --build-arg "VERSION=$VERSION" \
     --build-arg "COMMIT=$COMMIT" \
     --build-arg "BUILDTIME=$BUILDTIME" \

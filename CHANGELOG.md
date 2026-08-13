@@ -11,7 +11,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### CI
 
-- Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab only on pull request and `main`.
+- Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab on pull request, `main`, and tags.
+- Agents must watch CI after every push and after every release tag ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9).
+- Every tag publishes CHANGELOG-based release notes plus Ubuntu 24.04 and Rocky Linux 9 images.
 
 ## [1.0.0] — 2026-08-13
 

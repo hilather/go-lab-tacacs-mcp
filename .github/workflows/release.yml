@@ -1,0 +1,157 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (vX.Y.Z) when not running from a tag"
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GOTOOLCHAIN: auto
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/hilather/go-lab-tacacs-mcp
+
+jobs:
+  notes:
+    name: release-notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: ver
+        run: |
+          set -euo pipefail
+          raw="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${raw#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${raw#v}" >> "$GITHUB_OUTPUT"
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
+          chmod +x tools/release-notes.sh tools/release-notes_test.sh
+          ./tools/release-notes_test.sh
+          ./tools/release-notes.sh "${{ steps.ver.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: dist/RELEASE_NOTES.md
+
+  wait-ci:
+    name: wait-ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Wait for tag ci-gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sha="${{ github.sha }}"
+          repo="${{ github.repository }}"
+          echo "waiting for ci.yml on ${sha}"
+          run_id=""
+          for _ in $(seq 1 60); do
+            run_id="$(gh run list --repo "$repo" --workflow=ci.yml --commit "$sha" --json databaseId --jq '.[0].databaseId // empty')"
+            if [[ -n "$run_id" ]]; then
+              break
+            fi
+            sleep 10
+          done
+          if [[ -z "$run_id" ]]; then
+            echo "release: no ci.yml run found for ${sha}" >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --repo "$repo" --exit-status
+
+  images:
+    name: image-${{ matrix.variant }}
+    needs: [notes, wait-ci]
+    if: always() && needs.notes.result == 'success' && (needs.wait-ci.result == 'success' || needs.wait-ci.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: distroless
+            target: runtime
+            suffix: ""
+          - variant: ubuntu
+            target: runtime-ubuntu
+            suffix: "-ubuntu"
+          - variant: rocky
+            target: runtime-rocky
+            suffix: "-rocky"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build metadata
+        run: echo "BUILDTIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          tags: |
+            ${{ env.IMAGE }}:v${{ needs.notes.outputs.version }}${{ matrix.suffix }}
+          build-args: |
+            VERSION=v${{ needs.notes.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILDTIME=${{ env.BUILDTIME }}
+          provenance: true
+          sbom: true
+
+  publish:
+    name: github-release
+    needs: [notes, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: dist
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" \
+              --title "TacLab ${tag}" \
+              --notes-file dist/RELEASE_NOTES.md
+          else
+            gh release create "$tag" \
+              --title "TacLab ${tag}" \
+              --notes-file dist/RELEASE_NOTES.md
+          fi

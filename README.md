@@ -10,9 +10,9 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | Go | 1.24.5 |
 | Node.js | 22.14.0 |
 | MCP specification | 2026-07-28 |
-| Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
+| Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not imported — requires Go 1.25; see [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
 
-This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, `status` / `policy.evaluate` / `events.list` on REST and MCP, a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`), and `internal/tacacs/testclient` `DialTLS` (DNS-ID/IP-ID/SRV-ID, UNENCRYPTED, no 0-RTT, no legacy fallback). REST also serves health, OpenAPI, build, session+CSRF, token CRUD, SSE event bodies, and the embedded SPA (login + status dashboard). `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement remaining UI pages or complete TACACS+. Do not describe it as a complete TACACS+ server.
+This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`), and `internal/tacacs/testclient` `DialTLS` (DNS-ID/IP-ID/SRV-ID, UNENCRYPTED, no 0-RTT, no legacy fallback). REST serves health, OpenAPI, build, session+CSRF, token CRUD, SSE event bodies, and the embedded SPA (login + status dashboard). MCP 2026-07-28 (`POST /mcp`) has operation parity: every `PARITY_REQUIRED` tool, scope-filtered discovery, resources, and `subscriptions/listen` (URI notify; bodies via `events.list`). Lab static bearer is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md). `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement remaining UI pages or complete TACACS+. Do not describe it as a complete TACACS+ server.
 
 High-port Compose smoke (no privileged 49/300):
 
@@ -36,6 +36,7 @@ docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-c
 - [ADR 0006 — external PSK / raw public keys](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)
 - [ADR 0007 — internal TACACS codec](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0007-codec-approach.md)
 - [ADR 0010 — lab static bearer vs MCP OAuth PRM](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)
+- [ADR 0011 — thin MCP adapter on Go 1.24.5](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)
 - [TACACS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md)
 - [REST/MCP API parity](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md)
 - [Configuration](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md)

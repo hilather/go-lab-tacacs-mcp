@@ -531,6 +531,11 @@ func mcpEvaluate(t *testing.T, base, token string, req operations.EvaluatePolicy
 		"params": map[string]any{
 			"name":      "taclab.policy.evaluate",
 			"arguments": req,
+			"_meta": map[string]any{
+				"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+				"io.modelcontextprotocol/clientCapabilities": map[string]any{},
+				"io.modelcontextprotocol/clientInfo":         map[string]string{"name": "taclab-e2e", "version": "test"},
+			},
 		},
 	})
 	if err != nil {
@@ -542,6 +547,7 @@ func mcpEvaluate(t *testing.T, base, token string, req operations.EvaluatePolicy
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("MCP-Protocol-Version", "2026-07-28")
 	httpReq.Header.Set("Mcp-Method", "tools/call")
 	httpReq.Header.Set("Mcp-Name", "taclab.policy.evaluate")
 	resp, err := http.DefaultClient.Do(httpReq)

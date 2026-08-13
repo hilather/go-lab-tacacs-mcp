@@ -275,10 +275,6 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 	if err != nil {
 		return nil, nil, err
 	}
-	verifier, err := auth.Load(doc, lookup, nil)
-	if err != nil {
-		return nil, nil, err
-	}
 	ready := func() bool {
 		if mgr.Snapshot() == nil {
 			return false
@@ -301,11 +297,15 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 	}
 	mux := http.NewServeMux()
 	mcpH := mcpapi.Handler(mcpapi.Options{
-		Registry: reg,
-		Snapshot: mgr.Snapshot,
-		Auth:     verifier,
-		MCP:      doc.API.MCP,
-		Version:  version,
+		Registry:     reg,
+		Snapshot:     mgr.Snapshot,
+		Auth:         authSvc,
+		Events:       ring,
+		MCP:          doc.API.MCP,
+		Version:      version,
+		WriteTimeout: doc.Listeners.HTTP.WriteTimeout,
+		IdleTimeout:  doc.Listeners.HTTP.IdleTimeout,
+		MaxBody:      doc.Listeners.HTTP.MaxRequestBodyBytes,
 	})
 	mux.Handle("/mcp", mcpH)
 	mux.Handle("/mcp/", mcpH)

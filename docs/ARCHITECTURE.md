@@ -281,17 +281,17 @@ It contains no independent business rules.
 
 Responsibilities:
 
-- Use the official MCP Go SDK.
-- expose MCP Streamable HTTP on a dedicated path, normally `/mcp`.
-- register parity-required operations as typed tools.
-- expose read-oriented resources for status, effective configuration, clients, groups, and recent events when useful.
-- expose event subscriptions through the current MCP resource/subscription mechanism supported by the pinned SDK/specification.
-- enforce the same bearer authentication and scopes as REST.
-- return structured content conforming to declared output schemas.
+- Expose MCP 2026-07-28 Streamable HTTP on `POST /mcp` (GET/DELETE return 405).
+- Register every implemented `PARITY_REQUIRED` operation as a typed tool (`taclab.<id>`).
+- Expose read resources `taclab://status`, `taclab://build`, `taclab://config/effective`, `taclab://users`, `taclab://groups`, `taclab://clients`, and `taclab://events/recent`.
+- Implement `subscriptions/listen` as a URI-only notify channel (C8). Event bodies are pulled through `taclab.events.list`.
+- Enforce the same `auth.Service` bearer and scopes as REST (lab static bearer, [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
+- Require `MCP-Protocol-Version`, `Mcp-Method`, per-request `_meta`, and `Mcp-Name` when applicable.
+- Return `resultType: complete` and list/read `CacheableResult` `{ttlMs: 0, cacheScope: "private"}`.
 
 MCP is not an internal RPC bus. It calls the operation registry directly.
 
-This skeleton implements `server/discover` and tools `taclab.system.status.get` / `taclab.policy.evaluate` / `taclab.events.list` as a thin Streamable HTTP adapter. The official Go SDK (`v1.7.0`) requires Go 1.25; this repo is pinned to 1.24.5, so PR-17 replaces the adapter with the SDK. GET/DELETE `/mcp` return 405.
+The official Go SDK (`v1.7.0`) supports 2026-07-28 but requires Go 1.25. This repo is pinned to 1.24.5, so the adapter is a thin in-tree JSON-RPC implementation ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Origin policy: missing Origin is allowed when a valid bearer is present unless `api.mcp.require_origin` is true; a present Origin must match `api.mcp.allowed_origins` or the same-host UI origin.
 
 ### 4.14 `internal/events`
 

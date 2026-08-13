@@ -701,7 +701,7 @@ Health endpoints expose no sensitive details.
 
 ### 16.1 Transport
 
-Use the official MCP Go SDK and the Streamable HTTP behavior for the pinned MCP 2026-07-28 specification. Do not manually implement JSON-RPC framing unless contributing a required fix upstream or an ADR approves a temporary compatibility layer.
+Use MCP 2026-07-28 Streamable HTTP (`POST /mcp` only). The official Go SDK (`v1.7.0`) requires Go 1.25; this repo is pinned to 1.24.5, so the transport is a thin in-tree JSON-RPC adapter approved by [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md). Do not proxy MCP to REST.
 
 ### 16.2 Tools
 
@@ -743,7 +743,7 @@ Resources are convenience views over the same operations and permissions. They n
 
 ### 16.4 Event updates
 
-Use the current MCP subscription/listening mechanism supported by the pinned SDK for resource/list and event-change notifications. The event stream and REST SSE share the same event service, cursors, filtering, redaction, and authorization.
+Use `subscriptions/listen` (C8). Notifications carry URI + `subscriptionId` only. Clients pull redacted bodies through `taclab.events.list` / `taclab://events/recent`. REST SSE remains the body firehose. Both share the event ring, cursors, filtering, redaction, and authorization.
 
 ### 16.5 Authorization
 

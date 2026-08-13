@@ -1060,28 +1060,28 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 **Depends on:** P9, selected pinned SDK
 
-- [ ] Configure the selected MCP 2026-07-28-compatible transport behavior.
-- [ ] Mount MCP under the same HTTP server and authentication boundary.
-- [ ] Propagate cancellation, request identity, actor, and scopes to operation context.
-- [ ] Avoid an internal HTTP call from MCP to REST.
+- [x] Configure MCP 2026-07-28 Streamable HTTP (`POST /mcp`). Official SDK `v1.7.0` requires Go 1.25; thin adapter is [ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md).
+- [x] Mount MCP under the same HTTP server and authentication boundary.
+- [x] Propagate cancellation, request identity, actor, and scopes to operation context.
+- [x] Avoid an internal HTTP call from MCP to REST.
 
 ### P11.2 Bind management tools
 
-- [ ] Bind every parity-required mutation and action operation as a typed MCP tool.
-- [ ] Derive schemas from the same operation definitions or validate them against canonical types.
-- [ ] Return stable machine-readable error data.
-- [ ] Mark destructive tools clearly in descriptions but rely on scopes and typed validation, not prose safety alone.
+- [x] Bind every parity-required mutation and action operation as a typed MCP tool.
+- [x] Derive schemas from the same operation definitions or validate them against canonical types.
+- [x] Return stable machine-readable error data.
+- [x] Mark destructive tools clearly in descriptions but rely on scopes and typed validation, not prose safety alone.
 
 ### P11.3 Bind read resources/tools
 
-- [ ] Expose status, effective config, users, groups, clients, and recent events using the chosen tool/resource disposition.
-- [ ] Keep secret fields absent.
-- [ ] Implement pagination/cursors consistently with REST.
+- [x] Expose status, effective config, users, groups, clients, and recent events using the chosen tool/resource disposition.
+- [x] Keep secret fields absent.
+- [x] Implement pagination/cursors consistently with REST.
 
 ### P11.4 Implement MCP authorization behavior
 
-- [ ] Reuse bearer-token verification and operation scopes.
-- [ ] Return protocol-appropriate unauthorized/forbidden errors without leaking token detail.
+- [x] Reuse bearer-token verification and operation scopes.
+- [x] Return protocol-appropriate unauthorized/forbidden errors without leaking token detail.
 - [x] Document lab static-bearer mode and future standards-oriented OAuth mode separately ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
 
 ### P11.5 Implement parity test harness
@@ -1098,10 +1098,10 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P11 exit gate
 
-- [ ] Full generated parity matrix passes.
-- [ ] MCP uses no duplicate business logic or internal REST call.
-- [ ] Authentication, scope, error, revision, and event behavior match REST.
-- [ ] MCP docs and schemas are current.
+- [ ] Full generated parity matrix passes (PR-18 harness).
+- [x] MCP uses no duplicate business logic or internal REST call.
+- [x] Authentication, scope, error, revision, and event behavior match REST (adapter contract tests; table harness is P11.5).
+- [x] MCP docs and schemas are current.
 
 ## 15. Milestone P12 - React and TypeScript web UI
 

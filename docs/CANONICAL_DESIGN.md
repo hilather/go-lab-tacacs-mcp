@@ -243,7 +243,7 @@ enabled, labels, created_at, updated_at
 
 Source docs say “current MCP resource/subscription mechanism.” MCP 2026-07-28 removed protocol sessions, GET SSE, and `Last-Event-ID` resume. Long-lived notifications use `subscriptions/listen`.
 
-**Resolution:** Use the official Go SDK pinned to a 2026-07-28-capable release. Event parity is `PARITY_DIFFERENT_BINDING` with this **binding spec** — MCP `subscriptions/listen` is **not** a TacLab event firehose and MUST NOT invent a non-conformant notification type.
+**Resolution:** Prefer the official Go SDK pinned to a 2026-07-28-capable release. `go-sdk v1.7.0` requires Go 1.25; this repo is pinned to Go 1.24.5, so 1.0 ships a thin in-tree JSON-RPC adapter that implements the same checklist ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Event parity is `PARITY_DIFFERENT_BINDING` with this **binding spec** — MCP `subscriptions/listen` is **not** a TacLab event firehose and MUST NOT invent a non-conformant notification type.
 
 REST:
 
@@ -320,7 +320,7 @@ Packet files live at the packet root. README required-reading links assume `docs
 
 8. **REST and MCP share one operation registry.** Same Go request/response types, scopes, revision, idempotency, redaction, events, and error codes. MCP is not an HTTP client of REST. Parity tests are merge-blocking.
 
-9. **MCP 2026-07-28 Streamable HTTP as specified.** POST `/mcp` only. Required headers `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` when applicable (including `prompts/get`). Per-request `_meta`, `server/discover`, `resultType`, cacheable list/read, 404/`-32601`. Origin policy as specified under `internal/api/mcp`. Same bearer token + scopes as REST. Listen is a change-notification channel, **not** an event firehose. Official Go SDK only. Lab static bearer is `EXEMPT_BY_ADR` vs the HTTP-authorization SHOULD.
+9. **MCP 2026-07-28 Streamable HTTP as specified.** POST `/mcp` only. Required headers `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` when applicable (including `prompts/get`). Per-request `_meta`, `server/discover`, `resultType`, cacheable list/read, 404/`-32601`. Origin policy as specified under `internal/api/mcp`. Same bearer token + scopes as REST. Listen is a change-notification channel, **not** an event firehose. Official Go SDK when it builds on the Go pin; otherwise the thin adapter ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Lab static bearer is `EXEMPT_BY_ADR` vs the HTTP-authorization SHOULD.
 
 10. **Secrets are typed and write-only.** File references by default; env refs opt-in for local dev. Canary tests scan every output surface. Shared-secret reuse uses a process-local HMAC key that is never persisted or exported.
 
@@ -859,7 +859,7 @@ Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnl
 
 ### `internal/api/mcp`
 
-Official SDK; mount POST `/mcp` on the same `http.Server`. Implementers MUST follow this 2026-07-28 checklist — pinning the SDK does not replace it.
+Official SDK when the Go pin allows it ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)); otherwise the thin JSON-RPC adapter. Mount POST `/mcp` on the same `http.Server`. Implementers MUST follow this 2026-07-28 checklist — naming an SDK does not replace it.
 
 | Requirement | TacLab 1.0 |
 |---|---|

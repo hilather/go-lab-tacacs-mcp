@@ -1,7 +1,11 @@
 // Package mcp is the Streamable HTTP adapter for the operation registry.
 //
-// This skeleton is a thin JSON-RPC Streamable HTTP adapter (server/discover
-// plus taclab.system.status.get and taclab.policy.evaluate). It invokes
-// operations and never the REST adapter. The official Go SDK is not a
-// compile-time dependency (Go 1.24 pin); PR-17 replaces this adapter.
+// TacLab 1.0 implements MCP 2026-07-28 as a thin JSON-RPC adapter. The
+// official Go SDK (v1.7.0) supports this revision but requires Go 1.25; this
+// repo is pinned to 1.24.5. See ADR 0011. The adapter calls the operation
+// registry and never the REST package.
+//
+// POST /mcp only. GET/DELETE return 405. Lab static bearer is EXEMPT_BY_ADR
+// (ADR 0010). subscriptions/listen notifies URIs only; event bodies are
+// pulled through taclab.events.list.
 package mcp

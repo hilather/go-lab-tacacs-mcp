@@ -309,6 +309,11 @@ api:
         - tokens:manage
         - runtime:reset
       expires_at: null
+  mcp:
+    # Empty list. The HTTP adapter also allows the same-host UI origin.
+    allowed_origins: []
+    # When true, requests without Origin are rejected. Browsers always send Origin.
+    require_origin: false
   rate_limits:
     enabled: true
     per_token_requests_per_second: 50

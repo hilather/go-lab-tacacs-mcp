@@ -11,7 +11,7 @@ import { RevisionConflict } from "../components/RevisionConflict";
 import type { CreateTokenRequest, CreatedToken } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
 import { usePagedList } from "../hooks/usePagedList";
-import { compact, SCOPES } from "../ui/constants";
+import { compact, fromDatetimeLocal, SCOPES } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
 
 export function TokensPage() {
@@ -70,7 +70,7 @@ function TokensBody() {
           id: id.trim(),
           name: name.trim(),
           scopes,
-          expires_at: expires === "" ? undefined : new Date(expires).toISOString(),
+          expires_at: fromDatetimeLocal(expires),
         }),
         revision,
         newIdempotencyKey(),

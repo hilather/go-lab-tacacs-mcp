@@ -50,9 +50,9 @@ types. The runtime overlay is memory-only and vanishes on restart.
 |---|---|---|---|---|
 | TM-01 | Malformed TACACS / length bombs | High | Bounded header-then-body reads; 65536 cap; fuzz | `internal/tacacs/codec` Fuzz*; T89 body bounds |
 | TM-02 | Shared-secret mismatch / garbage decode | High | Length-sum check; ERROR; stop new sessions | codec + legacy listener tests |
-| TM-03 | Connection / session exhaustion | High | Per-listener semaphores, idle/lifetime, HTTP in-flight | `Governor`, `TestEngineConnectionSaturation`, REST inflight |
+| TM-03 | Connection / session exhaustion | High | Engine connection semaphores, REST in-flight, idle/lifetime; `Governor.CheckBytes`/`CheckCount` at AAA field bounds | `TestEngineConnectionSaturation`, REST inflight, `checkAuthorFields` / `checkArgBudget` |
 | TM-04 | Secret leakage via logs/API/UI/events/metrics/traces | Critical | Typed secrets; canary matrix; write-only OpenAPI | `TestFullCanaryMatrix`, per-adapter canaries |
-| TM-05 | Weak / reused / stale legacy secrets | High | Length/class/weak-list; process-local HMAC; lifecycle gauges without `client_id` | secret-policy tests; `TestLifecycleRejectsClientID` |
+| TM-05 | Weak / reused / stale legacy secrets | High | Length/class/weak-list; process-local HMAC; lifecycle gauges without `client_id`; TLS-only clients omitted | `TestEvaluateSecretsOmitsTLSOnly`, `TestLifecycleCountsSkipTLSOnly`, `TestLifecycleRejectsClientID` |
 | TM-06 | Command auth bypass via normalization | High | No shell parse; two evaluators; golden traces | `testdata/policies/goldens` |
 | TM-07 | Stale-write overlay clobber | Medium | `expected_revision` / `If-Match` | state + REST + parity tests |
 | TM-08 | REST vs MCP authz drift | High | One registry; parity harness | `internal/api/parity` |
@@ -65,7 +65,7 @@ types. The runtime overlay is memory-only and vanishes on restart.
 | TM-15 | Username enumeration | Medium | Uniform FAIL / prompts | aaa auth-flow tests |
 | TM-16 | DNS rebinding on `/mcp` | Medium | Origin validation | mcp origin tests |
 | TM-17 | Metric cardinality explosion | Medium | Closed label allowlists; no username/IP/command; no `client_id` on lifecycle | `TestForbiddenLabelsDropped` |
-| TM-18 | pprof / tracing exposure | Medium | Both off by default; pprof never on admin mux | `TestPprofOffByDefault`, `TestPprofNeverOnAdminHandler` |
+| TM-18 | pprof / tracing exposure | Medium | Both off by default; pprof never on admin mux | `TestPprofOffByDefault`, `TestComposedAdminMuxOmitsPprof` |
 | TM-19 | Parser hang / alloc blow-up | High | Fuzz time/size caps; body budget | fuzz-smoke in CI |
 | TM-20 | Timing side channel on credentials | Medium | Constant-time compare; uniform FAIL | credentials tests |
 

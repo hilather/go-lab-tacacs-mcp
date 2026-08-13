@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 )
@@ -167,6 +168,24 @@ func (s *liveSpan) RecordError(err error) {
 
 func (s *liveSpan) Name() string  { return s.name }
 func (s *liveSpan) Attrs() []Attr { return append([]Attr(nil), s.attrs...) }
+
+// SpanDump is a test helper that serializes finished spans without secrets.
+func (t *Tracer) SpanDump() string {
+	var b strings.Builder
+	for _, s := range t.FinishedSpans() {
+		b.WriteString(s.Name)
+		b.WriteByte(' ')
+		b.WriteString(s.Err)
+		for _, a := range s.Attrs {
+			b.WriteByte(' ')
+			b.WriteString(a.Key)
+			b.WriteByte('=')
+			b.WriteString(a.Value)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
 
 // FinishedSpans is a test helper. Production scrapes do not use this.
 func (t *Tracer) FinishedSpans() []recordedSpan {

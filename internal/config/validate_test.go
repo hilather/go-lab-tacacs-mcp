@@ -431,6 +431,59 @@ clients:
 	}
 }
 
+func TestEvaluateSecretsOmitsTLSOnly(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	rotated := now.Add(-10 * 24 * time.Hour)
+	doc, err := Parse([]byte(`
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+security:
+  legacy_shared_secrets:
+    minimum_character_classes: 0
+    reject_known_weak_values: false
+    minimum_length_characters: 8
+clients:
+  - id: legacy
+    match:
+      source_cidrs: ["10.0.0.0/8"]
+      transports: [legacy]
+    legacy:
+      shared_secret: {file: /run/secrets/legacy}
+      shared_secret_lifecycle:
+        last_rotated_at: 2026-08-02T00:00:00Z
+        rotation_interval: 90d
+  - id: tls-only
+    match:
+      source_cidrs: ["10.1.0.0/16"]
+      transports: [tls]
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Clients[0].Legacy.SharedSecretLifecycle.LastRotatedAt = &rotated
+	good := []byte("Str0ng-Shared-Secret!!")
+	lookup := func(SecretRef) ([]byte, error) {
+		cp := make([]byte, len(good))
+		copy(cp, good)
+		return cp, nil
+	}
+	life, warns, err := EvaluateSecrets(doc, lookup, now, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := life["tls-only"]; ok {
+		t.Fatalf("TLS-only client must be omitted from lifecycle map: %+v", life)
+	}
+	if life["legacy"] != domain.LifecycleCurrent {
+		t.Fatalf("legacy=%s", life["legacy"])
+	}
+	if len(warns) != 0 {
+		t.Fatalf("unexpected warnings: %+v", warns)
+	}
+}
+
 func TestSecretLifecycleDueSoonAndCurrent(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)

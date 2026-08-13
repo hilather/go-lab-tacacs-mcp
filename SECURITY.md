@@ -19,4 +19,5 @@ Secret-bearing types must not implement unconstrained string formatting. Secret-
 - Fail closed on unknown clients, ambiguous client matches, and invalid reloads.
 - Legacy TACACS+ and TLS TACACS+ use distinct sockets; no upgrade or fallback.
 - Admin CSRF is required whenever cookie authentication is enabled.
+- The React UI never stores bearer tokens in `localStorage` or `sessionStorage`; session cookies are HttpOnly.
 - File-watcher reload is off in every reference profile.

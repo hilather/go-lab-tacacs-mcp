@@ -1109,24 +1109,24 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 **Depends on:** P10 OpenAPI/types
 
-- [ ] Configure React, TypeScript strict mode, routing, query/cache, form validation, and test stack.
-- [ ] Use generated REST client/types as the API contract.
-- [ ] Define accessible component and error-message patterns.
-- [ ] Prevent arbitrary HTML injection and secret logging.
+- [x] Configure React, TypeScript strict mode, routing, query/cache, form validation, and test stack.
+- [x] Use generated REST client/types as the API contract.
+- [x] Define accessible component and error-message patterns.
+- [x] Prevent arbitrary HTML injection and secret logging.
 
 ### P12.2 Implement login/session shell
 
-- [ ] Token-to-session exchange form.
-- [ ] Session expiry and logout handling.
-- [ ] Route protection based on scopes returned by the server.
-- [ ] No raw bearer token in local/session storage.
-- [ ] CSP-compatible build without unsafe dynamic script requirements where practical.
+- [x] Token-to-session exchange form.
+- [x] Session expiry and logout handling.
+- [x] Route protection based on scopes returned by the server.
+- [x] No raw bearer token in local/session storage.
+- [x] CSP-compatible build without unsafe dynamic script requirements where practical.
 
 ### P12.3 Implement dashboard and status
 
-- [ ] Listener state, effective revision, baseline hash prefix, runtime object counts, event drops, and server versions.
-- [ ] Prominent lab/ephemeral-state indicators.
-- [ ] No secret paths beyond sanitized metadata intended for operators.
+- [x] Listener state, effective revision, baseline hash prefix, runtime object counts, event drops, and server versions.
+- [x] Prominent lab/ephemeral-state indicators.
+- [x] No secret paths beyond sanitized metadata intended for operators.
 
 ### P12.4 Implement users and credentials UI
 
@@ -1182,15 +1182,15 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P12.10 Embed production assets in Go server
 
-- [ ] Build hashed static assets.
-- [ ] Embed or copy into the server image without Node runtime.
-- [ ] Add SPA fallback without intercepting API/MCP paths.
-- [ ] Set cache headers: immutable for hashed assets, no-cache for entry HTML.
+- [x] Build hashed static assets.
+- [x] Embed or copy into the server image without Node runtime.
+- [x] Add SPA fallback without intercepting API/MCP paths.
+- [x] Set cache headers: immutable for hashed assets, no-cache for entry HTML.
 
 **Benchmarks/performance**
 
-- [ ] Record production bundle sizes.
-- [ ] Add a performance budget for initial JS, route chunks, and large table rendering.
+- [x] Record production bundle sizes.
+- [x] Add a performance budget for initial JS, route chunks, and large table rendering.
 - [ ] Run browser smoke/performance checks against standard data profile.
 
 ### P12 exit gate

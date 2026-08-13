@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"io/fs"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/ui"
 )
 
 const (
@@ -80,6 +82,8 @@ type Server struct {
 	MaxInFlight  int
 	SSEBuffer    int
 	Logger       *slog.Logger
+	// Assets is the SPA tree. Nil uses the embedded UI (stub or production copy).
+	Assets fs.FS
 
 	once     sync.Once
 	limiter  *limiter
@@ -134,9 +138,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/tokens/{id}", s.revokeToken)
 	mux.HandleFunc("POST /api/v1/session", s.createSession)
 	mux.HandleFunc("DELETE /api/v1/session", s.deleteSessionClear)
+	mux.Handle("/{$}", s.ui())
+	mux.Handle("/{path...}", s.ui())
 	return s.wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r)
 	}))
+}
+
+func (s *Server) ui() http.Handler {
+	fsys := s.Assets
+	if fsys == nil {
+		fsys = ui.Files()
+	}
+	return ui.NewHandler(fsys)
 }
 
 func (s *Server) init() {

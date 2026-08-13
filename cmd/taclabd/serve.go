@@ -254,7 +254,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		return nil, nil, err
 	}
 	reg, err := loadRegistry(operations.Deps{
-		Build:    operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime},
+		Build:    operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime, UIVersion: "0.0.0"},
 		State:    mgr,
 		Sessions: authSvc,
 		Usage:    authSvc,

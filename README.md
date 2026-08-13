@@ -12,7 +12,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 | MCP specification | 2026-07-28 |
 | Official MCP Go SDK baseline | `github.com/modelcontextprotocol/go-sdk v1.7.0` (recorded; not a compile-time dependency of this skeleton) |
 
-This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, `status` / `policy.evaluate` / `events.list` on REST and MCP, a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`), and `internal/tacacs/testclient` `DialTLS` (DNS-ID/IP-ID/SRV-ID, UNENCRYPTED, no 0-RTT, no legacy fallback). REST also serves health, OpenAPI, build, session+CSRF, token CRUD, and SSE event bodies for those implemented operations. `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement the admin UI or complete TACACS+. Do not describe it as a complete TACACS+ server.
+This checkout implements ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS, plus one service rule, one command rule, the full RFC 8907 accounting flag table, a bounded event ring with cursor reads and stdout JSON, `status` / `policy.evaluate` / `events.list` on REST and MCP, a distinct secure TACACS TLS 1.3 listener (`internal/tacacs/tls`), and `internal/tacacs/testclient` `DialTLS` (DNS-ID/IP-ID/SRV-ID, UNENCRYPTED, no 0-RTT, no legacy fallback). REST also serves health, OpenAPI, build, session+CSRF, token CRUD, SSE event bodies, and the embedded SPA (login + status dashboard). `taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener. TLS-only is supported. It does **not** implement remaining UI pages or complete TACACS+. Do not describe it as a complete TACACS+ server.
 
 High-port Compose smoke (no privileged 49/300):
 
@@ -65,6 +65,7 @@ On conflict, the canonical design wins over copied packet documents.
 make test
 make test-race
 make web-test
+make web-e2e
 make lint
 make secrets
 make check-registries

@@ -2,6 +2,8 @@ module github.com/hilather/go-lab-tacacs-mcp
 
 go 1.25.0
 
+toolchain go1.25.12
+
 require (
 	golang.org/x/crypto v0.31.0
 	golang.org/x/text v0.39.0

@@ -6,7 +6,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Security
 
-- Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970). The module Go pin is 1.25.0 so that release can be used.
+- Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970) and the Go toolchain to 1.25.12 for stdlib crypto/net fixes.
 - Gitleaks allowlists published RFC MS-CHAP test vectors in `internal/credentials/testdata/` only.
 
 ### CI

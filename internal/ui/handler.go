@@ -84,10 +84,7 @@ func hashedAsset(rel string) bool {
 	}
 	rest := base[dash+1:]
 	dot := strings.LastIndex(rest, ".")
-	if dot < 8 {
-		return false
-	}
-	return true
+	return dot >= 8
 }
 
 func serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, rel string) {

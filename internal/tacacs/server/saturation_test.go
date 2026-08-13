@@ -20,8 +20,11 @@ func TestEngineConnectionSaturation(t *testing.T) {
 		Listener: observability.ListenerLegacy,
 	}
 	e.Prepare()
-	if !e.TryAcquire() || !e.TryAcquire() {
-		t.Fatal("expected two slots")
+	if !e.TryAcquire() {
+		t.Fatal("expected first slot")
+	}
+	if !e.TryAcquire() {
+		t.Fatal("expected second slot")
 	}
 	if e.TryAcquire() {
 		t.Fatal("cap should reject")

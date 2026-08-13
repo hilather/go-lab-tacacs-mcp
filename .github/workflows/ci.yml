@@ -101,10 +101,13 @@ jobs:
 
       - name: Compose config
         run: |
-          # File references may be absent until labgen; still parse the compose documents.
-          docker compose -f deployments/compose/compose.yaml config >/dev/null || true
-          docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml config >/dev/null || true
-          docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.lab-test.yaml config >/dev/null || true
+          set -euo pipefail
+          labdir="$(mktemp -d)"
+          go run ./tools/labgen -force -instance-id ci-compose "$labdir"
+          docker compose -f deployments/compose/compose.yaml --project-directory "$labdir" config >/dev/null
+          docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml --project-directory "$labdir" config >/dev/null
+          docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.lab-test.yaml --project-directory "$labdir" config >/dev/null
+          rm -rf "$labdir"
 
       - name: Upload toolchain and reports
         if: always()

@@ -527,7 +527,7 @@ func (h *harness) labSubscriberSurvivesWriteTimeout() error {
 	if h.WriteTO <= 0 {
 		h.WriteTO = 2 * time.Second
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), h.WriteTO*3+2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), h.WriteTO*3+3*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.HTTP+"/api/v1/events/stream", nil)
 	if err != nil {
@@ -535,7 +535,6 @@ func (h *harness) labSubscriberSurvivesWriteTimeout() error {
 	}
 	req.Header.Set("Authorization", "Bearer "+h.Token)
 	req.Header.Set("Accept", "text/event-stream")
-	// Do not use the shared client timeout; the stream must outlive write_timeout.
 	cl := &http.Client{Timeout: 0}
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -546,49 +545,51 @@ func (h *harness) labSubscriberSurvivesWriteTimeout() error {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("sse=%d %s", resp.StatusCode, b)
 	}
-	deadline := time.Now().Add(h.WriteTO + h.WriteTO/2 + 500*time.Millisecond)
-	buf := make([]byte, 0, 512)
-	tmp := make([]byte, 128)
-	for time.Now().Before(deadline) {
-		n, err := resp.Body.Read(tmp)
-		if n > 0 {
-			buf = append(buf, tmp[:n]...)
-		}
-		if bytes.Count(buf, []byte("keepalive")) >= 2 {
-			return h.rejectCanary(buf)
-		}
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("sse read after write_timeout: %w body=%q", err, buf)
-		}
-		if err == io.EOF {
-			return fmt.Errorf("sse closed before write_timeout elapsed body=%q", buf)
-		}
-	}
-	if !bytes.Contains(buf, []byte("keepalive")) {
-		return fmt.Errorf("no keepalive before deadline body=%q", buf)
+	buf, err := consumeSSEPastTimeout(resp.Body, h.WriteTO)
+	if err != nil {
+		return err
 	}
 	return h.rejectCanary(buf)
 }
 
 func (h *harness) labSourceIP() error {
-	// Matching succeeded in LAB-AUTH-001, so the TCP peer was inside the
-	// generated 0.0.0.0/0 + ::/0 selectors. Record how this path was reached.
-	code, raw, err := h.restJSON(http.MethodGet, "/api/v1/events?limit=20", nil, nil)
+	code, raw, err := h.restJSON(http.MethodGet, "/api/v1/events?limit=50", nil, nil)
 	if err != nil {
 		return err
 	}
 	if err := statusOK(code, raw); err != nil {
 		return err
 	}
+	clientID, remote, err := parseObservedSource(raw)
+	if err != nil {
+		return err
+	}
 	h.sourceNote = "TACACS client match uses the TCP peer address (no PROXY, no X-Forwarded-For). " +
 		"This run used source_cidrs 0.0.0.0/0 and ::/0 so published-port NAT and compose-network " +
 		"addresses both match. For device-accurate IPs use host network or macvlan (LAB_DEPLOYMENT §4.3). " +
-		"Observed client_id=lab-switches on successful legacy/TLS sessions."
-	if bytes.Contains(raw, []byte("lab-switches")) {
-		return nil
-	}
-	// Events may be redacted; match success is still proven by LAB-AUTH-*.
+		"event client_id=" + clientID + " remote=" + remote +
+		" (packet rem_addr / event.remote; not a TCP-peer export)."
 	return nil
+}
+
+func (h *harness) labTLSOnlyProfile() error {
+	// Legacy listener is disabled: the TCP connect itself must fail.
+	c, err := net.DialTimeout("tcp", h.Legacy, time.Second)
+	if err == nil {
+		_ = c.Close()
+		return fmt.Errorf("legacy %s accepted on TLS-only profile", h.Legacy)
+	}
+	code, raw, err := h.restJSON(http.MethodGet, "/api/v1/status", nil, nil)
+	if err != nil {
+		return err
+	}
+	if err := statusOK(code, raw); err != nil {
+		return err
+	}
+	if bytes.Contains(raw, []byte(`"colocated_topology":true`)) || bytes.Contains(raw, []byte(`"colocated_topology": true`)) {
+		return fmt.Errorf("tls-only still reports colocated topology")
+	}
+	return h.labTLSSuccess()
 }
 
 func (h *harness) labUnauth() error {
@@ -701,6 +702,103 @@ func (h *harness) acct(c *tclient.Conn, sid uint32, flags byte) error {
 		return fmt.Errorf("acct flags=%#x status=%#x", flags, rep.Status)
 	}
 	return nil
+}
+
+// consumeSSEPastTimeout fails if the stream dies at or before writeTO, or if
+// no successful read happens strictly after writeTO.
+func consumeSSEPastTimeout(r io.Reader, writeTO time.Duration) ([]byte, error) {
+	if writeTO <= 0 {
+		writeTO = 2 * time.Second
+	}
+	started := time.Now()
+	survive := started.Add(writeTO)
+	limit := started.Add(writeTO*2 + 2*time.Second)
+	buf := make([]byte, 0, 512)
+	tmp := make([]byte, 128)
+	gotAfter := false
+	for {
+		if time.Now().After(limit) {
+			if !gotAfter {
+				return buf, fmt.Errorf("no successful read after write_timeout body=%q", buf)
+			}
+			return buf, nil
+		}
+		n, err := r.Read(tmp)
+		now := time.Now()
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			if now.After(survive) {
+				gotAfter = true
+				if hasSSEFrame(buf) {
+					return buf, nil
+				}
+			}
+		}
+		if err == io.EOF {
+			if !now.After(survive) {
+				return buf, fmt.Errorf("sse closed before write_timeout elapsed body=%q", buf)
+			}
+			if !gotAfter {
+				return buf, fmt.Errorf("sse closed without a frame after write_timeout body=%q", buf)
+			}
+			return buf, nil
+		}
+		if err != nil {
+			if !now.After(survive) {
+				return buf, fmt.Errorf("sse read before write_timeout: %w body=%q", err, buf)
+			}
+			return buf, fmt.Errorf("sse read after write_timeout: %w body=%q", err, buf)
+		}
+	}
+}
+
+func hasSSEFrame(buf []byte) bool {
+	return bytes.Contains(buf, []byte("keepalive")) || bytes.Contains(buf, []byte("data:")) || bytes.Contains(buf, []byte("event:"))
+}
+
+func parseObservedSource(raw []byte) (clientID, remote string, err error) {
+	var env struct {
+		Data struct {
+			Items []struct {
+				ClientID string `json:"client_id"`
+				Remote   string `json:"remote"`
+				Peer     string `json:"peer"`
+				RemoteIP string `json:"remote_addr"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return "", "", err
+	}
+	items := env.Data.Items
+	if len(items) == 0 {
+		// Envelope may be omitted; try the list at the top level.
+		var alt struct {
+			Items []struct {
+				ClientID string `json:"client_id"`
+				Remote   string `json:"remote"`
+				Peer     string `json:"peer"`
+				RemoteIP string `json:"remote_addr"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(raw, &alt); err != nil {
+			return "", "", fmt.Errorf("events json: %w", err)
+		}
+		items = alt.Items
+	}
+	for _, it := range items {
+		rem := it.Remote
+		if rem == "" {
+			rem = it.Peer
+		}
+		if rem == "" {
+			rem = it.RemoteIP
+		}
+		if it.ClientID == "lab-switches" && rem != "" {
+			return it.ClientID, rem, nil
+		}
+	}
+	return "", "", fmt.Errorf("no event with client_id=lab-switches and remote/peer")
 }
 
 func readAuthen(c *tclient.Conn) (byte, error) {

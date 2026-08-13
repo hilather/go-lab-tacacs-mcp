@@ -1,10 +1,12 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParsePasswordsAndCanary(t *testing.T) {
@@ -66,5 +68,46 @@ func TestStatusOK(t *testing.T) {
 	}
 	if err := statusOK(401, []byte("no")); err == nil || !strings.Contains(err.Error(), "401") {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestParseObservedSourceFailsClosed(t *testing.T) {
+	if _, _, err := parseObservedSource([]byte(`{"data":{"items":[]}}`)); err == nil {
+		t.Fatal("empty items")
+	}
+	if _, _, err := parseObservedSource([]byte(`{"data":{"items":[{"client_id":"lab-switches"}]}}`)); err == nil {
+		t.Fatal("missing remote")
+	}
+	id, rem, err := parseObservedSource([]byte(`{"data":{"items":[{"client_id":"lab-switches","remote":"172.18.0.3"}]}}`))
+	if err != nil || id != "lab-switches" || rem != "172.18.0.3" {
+		t.Fatalf("id=%s rem=%s err=%v", id, rem, err)
+	}
+}
+
+func TestConsumeSSEPastTimeoutRejectsEarlyClose(t *testing.T) {
+	pr, pw := io.Pipe()
+	go func() {
+		_, _ = pw.Write([]byte(": keepalive\n\n: keepalive\n\n"))
+		_ = pw.Close()
+	}()
+	if _, err := consumeSSEPastTimeout(pr, 80*time.Millisecond); err == nil {
+		t.Fatal("expected failure when stream ends before write_timeout")
+	}
+}
+
+func TestConsumeSSEPastTimeoutRequiresPostTimeoutFrame(t *testing.T) {
+	pr, pw := io.Pipe()
+	go func() {
+		_, _ = pw.Write([]byte(": keepalive\n\n"))
+		time.Sleep(60 * time.Millisecond)
+		_, _ = pw.Write([]byte(": keepalive\n\n"))
+		_ = pw.Close()
+	}()
+	buf, err := consumeSSEPastTimeout(pr, 40*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(buf), "keepalive") {
+		t.Fatalf("body=%q", buf)
 	}
 }

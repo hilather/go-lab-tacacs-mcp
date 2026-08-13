@@ -1292,7 +1292,8 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 - [x] Start from a temporary lab directory.
 - [x] Verify readiness and status.
-- [x] Run REST, MCP, UI, legacy, TLS, shared-secret lifecycle/reuse, restart, reset, reload, and negative suites.
+- [x] Run REST, MCP, UI, legacy, TLS, restart, reset, reload, and negative suites.
+- [ ] Shared-secret lifecycle/reuse rotate-file + atomic reload against the image (LAB-LEGACY-001 is client identity/redaction smoke).
 - [x] Collect evidence and scan for secret canaries.
 - [x] Always clean up resources.
 
@@ -1300,7 +1301,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 - [x] Test normal published ports on the reference Linux environment.
 - [x] Document host-network or macvlan alternative.
-- [x] Verify observed source address and client matching.
+- [ ] Verify TCP peer source address (PROXY/macvlan). LAB-SOURCE-001 fails closed if events omit client_id or remote (packet rem_addr).
 
 ### P14 exit gate
 

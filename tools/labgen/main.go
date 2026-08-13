@@ -227,9 +227,6 @@ func Generate(opts Options) (*Result, error) {
 		return nil, err
 	}
 	_ = os.Chmod(filepath.Join(secretsDir, "tacacs_server_key.pem"), secretMode)
-	if err := chmodReadable(pkiDir); err != nil {
-		return nil, err
-	}
 
 	pwPath := filepath.Join(secretsDir, "PASSWORDS.txt")
 	pwBody := strings.Join([]string{
@@ -241,10 +238,10 @@ func Generate(opts Options) (*Result, error) {
 		"lab-admin-challenge=" + chal,
 		"",
 	}, "\n")
-	if err := os.WriteFile(pwPath, []byte(pwBody), 0o644); err != nil {
+	if err := os.WriteFile(pwPath, []byte(pwBody), 0o600); err != nil {
 		return nil, err
 	}
-	_ = os.Chmod(pwPath, 0o644)
+	_ = os.Chmod(pwPath, 0o600)
 
 	publicCopies := []struct{ src, dest string }{
 		{pki.ServerChain, "server-chain.pem"},
@@ -307,19 +304,6 @@ func Generate(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("generated config is invalid: %w", err)
 	}
 	return &Result{Dir: dir, Manifest: man}, nil
-}
-
-func chmodReadable(dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return os.Chmod(path, 0o755)
-		}
-		mode := info.Mode().Perm() | 0o444
-		return os.Chmod(path, mode)
-	})
 }
 
 func prepareDir(dir string, force bool) error {

@@ -61,7 +61,7 @@ func TestGenerateWritesRestrictedSecretsAndValidYAML(t *testing.T) {
 		}
 		want := os.FileMode(0o444)
 		if name == "PASSWORDS.txt" {
-			want = 0o644
+			want = 0o600
 		}
 		if st.Mode().Perm() != want {
 			t.Fatalf("%s mode=%o want=%o", name, st.Mode().Perm(), want)
@@ -107,8 +107,12 @@ func TestGenerateWritesRestrictedSecretsAndValidYAML(t *testing.T) {
 			t.Fatalf("public cert %s: %v", name, err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, "pki", "client-ok.key")); err != nil {
+	keyInfo, err := os.Stat(filepath.Join(dir, "pki", "client-ok.key"))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if keyInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("pki key mode=%o", keyInfo.Mode().Perm())
 	}
 
 	dual, err := os.ReadFile(filepath.Join(dir, "config", "taclab.yaml"))

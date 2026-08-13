@@ -93,7 +93,7 @@ Client matching must never trust `X-Forwarded-For` or HTTP proxy headers for TAC
 
 On typical Linux published-port mappings the peer TacLab sees is a docker-proxy or bridge SNAT address, not the device. The generated lab YAML therefore uses `0.0.0.0/0` and `::/0` so the appliance still matches. `configs/lab.example.yaml` keeps the narrow `10.20.0.0/16` / `10.30.0.0/16` lab VLAN example — use that only with host network or macvlan.
 
-`make lab-test` records this disposition as `LAB-SOURCE-001`. It does **not** claim published-port NAT preserves device addresses.
+`make lab-test` records this disposition as `LAB-SOURCE-001` and **fails** if events omit `client_id` or `remote`. `remote` is the TACACS `rem_addr` field, not the TCP peer used for match. It does **not** claim published-port NAT preserves device addresses.
 
 ## 5. Image contract
 

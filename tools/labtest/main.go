@@ -85,6 +85,8 @@ func run(args []string) int {
 		scenarios = []scenario{{ID: "LAB-STATE-001", Fn: cfg.labStateRestart}}
 	case "mutate":
 		scenarios = []scenario{{ID: "LAB-STATE-001-SETUP", Fn: cfg.labAPICreate}}
+	case "tls-only":
+		scenarios = []scenario{{ID: "LAB-TLS-ONLY", Fn: cfg.labTLSOnlyProfile}}
 	default:
 		scenarios = defaultScenarios(&cfg)
 	}

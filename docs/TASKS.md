@@ -825,7 +825,7 @@ Evidence: `internal/credentials` (Argon2id PHC, CHAP/MS-CHAP, ENABLE, token dige
 - [x] Define cursor/revision/drop semantics.
 - [x] Add REST and MCP bindings with parity; where transport mechanics differ, normalize logical event content.
 
-`events.subscribe` REST SSE still emits keepalives only (body stream is later REST work). MCP listen remains a later adapter. `events.list` is the shared cursor API on both surfaces.
+`events.subscribe` REST SSE streams redacted bodies (PR-16a) with keepalives and write-deadline opt-out. MCP listen remains a later adapter. `events.list` is the shared cursor API on both surfaces.
 
 ### P7 exit gate
 
@@ -1000,26 +1000,26 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 **Depends on:** P9 operation types
 
-- [ ] Define `/api/v1` paths for every REST-exposed operation.
-- [ ] Define shared schemas, errors, scopes, revision headers, pagination, idempotency, and one-time-secret responses.
-- [ ] Define SSE or selected event stream transport.
-- [ ] Generate TypeScript client/types and optional Go transport glue.
-- [ ] Check generated artifacts into the repository according to policy.
+- [x] Define `/api/v1` paths for the frozen implemented REST surface (PR-16a). Remaining operations are PR-16b.
+- [x] Define shared schemas, errors, scopes, revision headers, pagination, idempotency, and one-time-secret responses.
+- [x] Define SSE or selected event stream transport.
+- [x] Generate TypeScript client/types and optional Go transport glue.
+- [x] Check generated artifacts into the repository according to policy.
 
 ### P10.2 Implement common middleware
 
-- [ ] Request ID and structured access log.
-- [ ] Authentication and scopes.
-- [ ] Body, header, timeout, rate, and concurrency limits.
-- [ ] Content type and JSON strictness.
-- [ ] Panic recovery with redacted error.
-- [ ] CORS and security headers.
-- [ ] Revision and idempotency parsing.
+- [x] Request ID and structured access log.
+- [x] Authentication and scopes.
+- [x] Body, header, timeout, rate, and concurrency limits.
+- [x] Content type and JSON strictness.
+- [x] Panic recovery with redacted error.
+- [x] CORS and security headers.
+- [x] Revision and idempotency parsing.
 
 **Tests and benchmarks**
 
-- [ ] Bypass, malformed, oversized, slow, unauthorized, and panic tests.
-- [ ] Middleware overhead benchmark.
+- [x] Bypass, malformed, oversized, slow, unauthorized, and panic tests.
+- [x] Middleware overhead benchmark.
 
 ### P10.3 Bind all operation handlers
 
@@ -1034,16 +1034,16 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P10.4 Implement event query/stream
 
-- [ ] Implement bounded paging and stream reconnect semantics.
-- [ ] Authorize before stream establishment.
-- [ ] Send heartbeat/control records without changing logical event parity.
-- [ ] Handle slow consumers and disconnect cleanup.
+- [x] Implement bounded paging and stream reconnect semantics.
+- [x] Authorize before stream establishment.
+- [x] Send heartbeat/control records without changing logical event parity.
+- [x] Handle slow consumers and disconnect cleanup.
 
 ### P10.5 Implement health, status, and docs endpoints
 
-- [ ] Liveness and readiness semantics match deployment contract.
-- [ ] Status exposes versions and non-secret listener/config state.
-- [ ] Serve OpenAPI document and development-only interactive docs according to exposure policy.
+- [x] Liveness and readiness semantics match deployment contract.
+- [x] Status exposes versions and non-secret listener/config state.
+- [x] Serve OpenAPI document and development-only interactive docs according to exposure policy.
 
 ### P10 exit gate
 

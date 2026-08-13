@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/rest"
 )
 
 // toolchainMarkdown must stay bit-identical to docs/generated/toolchain.md.
@@ -37,5 +39,8 @@ func generate(root string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(toolchainMarkdown), 0o644)
+	if err := os.WriteFile(path, []byte(toolchainMarkdown), 0o644); err != nil {
+		return err
+	}
+	return rest.WriteGenerated(root)
 }

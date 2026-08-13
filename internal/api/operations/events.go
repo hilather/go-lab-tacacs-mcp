@@ -41,6 +41,11 @@ func handleListEvents(ring *events.Ring) handleFunc {
 	}
 }
 
+// ViewEvent is the adapter-facing redaction of a ring event.
+func ViewEvent(e events.Event, sensitive bool) EventView {
+	return viewEvent(e, sensitive)
+}
+
 func viewEvent(e events.Event, sensitive bool) EventView {
 	v := EventView{
 		SchemaVersion: e.SchemaVersion,

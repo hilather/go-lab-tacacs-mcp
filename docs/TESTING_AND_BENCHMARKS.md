@@ -101,6 +101,8 @@ Use real TCP connections or `net.Pipe` where appropriate. Cover:
 
 Run representative tests with `-race` and repeated execution.
 
+REST middleware overhead is `BenchmarkMiddlewareOverhead` / `BenchmarkStatus` in `internal/api/rest`.
+
 ### 3.5 REST contract tests
 
 Start the real HTTP adapter over an in-memory listener. Validate:

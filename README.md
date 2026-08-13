@@ -14,7 +14,7 @@ TacLab is an all-in-one Go TACACS+ / MCP lab appliance. The repository name is `
 
 This checkout is the **1.0 lab appliance**. RFC 8907 and RFC 9887 **server `MUST` / `MUST NOT` / `PROJECT MUST`** rows are `PASS` or `N/A_RFC_DEPRECATED` with evidence IDs in [testdata/conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/testdata/conformance/rfc8907.yaml). `make check-registries` includes the `-release` gate.
 
-The required software peer is the in-tree `internal/tacacs/testclient` (separate codec). **Cisco and second-NOS interop are skipped** (no hardware) — see [interop notes](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md). Lab static bearer is ADR 0010. Device-family completeness is **not** claimed.
+The required software peer is the in-tree `internal/tacacs/testclient` (separate codec). **Cisco IOL interop is optional** (`make cisco-lab`, Containerlab + operator-built vrnetlab image) and **skips** without that image — see [interop notes](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md). Lab static bearer is ADR 0010. Device-family completeness is **not** claimed.
 
 ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, and ASCII CHPASS are implemented, plus service and command authorization, the RFC 8907 accounting flag table, a bounded event ring, dual TACACS listeners (legacy and TLS 1.3), REST/MCP parity, and the embedded SPA. REST/MCP equivalence is enforced by the `internal/api/parity` harness. Metrics and governors live under `internal/observability` (pprof off by default).
 
@@ -36,6 +36,12 @@ Container acceptance (`LAB-*`, restart reset, SSE survives `write_timeout`):
 
 ```bash
 make lab-test
+```
+
+Optional Cisco IOL device lab (Containerlab; skips with exit 0 if `TACLAB_IOL_IMAGE` is unset):
+
+```bash
+make cisco-lab
 ```
 
 High-port smoke without generated PKI (no privileged 49/300):

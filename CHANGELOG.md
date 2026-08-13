@@ -9,6 +9,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970) and the Go toolchain to 1.25.12 for stdlib crypto/net fixes.
 - Gitleaks allowlists published RFC MS-CHAP test vectors in `internal/credentials/testdata/` only.
 
+### Lab
+
+- Optional Containerlab + Cisco IOL integration lab (`make cisco-lab`). Skips with an equipment-gap message when the operator image or Containerlab is absent; never vendors Cisco binaries.
+
 ### CI
 
 - Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab on pull request, `main`, and tags.

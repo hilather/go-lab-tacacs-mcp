@@ -1,7 +1,7 @@
 # Normative and Implementation References
 
 Status: reference index  
-Checked: 2026-08-12  
+Checked: 2026-08-13  
 Codec evaluation: [ADR 0007](decisions/0007-codec-approach.md)  
 Specification baseline: RFC 8907, RFC 9887, and MCP 2026-07-28
 
@@ -200,6 +200,13 @@ Frontend dependencies must be selected and pinned during implementation. The UI 
 - OCI runtime specification: https://github.com/opencontainers/runtime-spec
 - SPDX specification: https://spdx.dev/specifications/
 - SLSA framework: https://slsa.dev/spec/
+
+Optional Cisco device interop (not required on default CI):
+
+- Containerlab Cisco IOL kind: https://containerlab.dev/manual/kinds/cisco_iol/
+- srl-labs vrnetlab (required to build `cisco_iol` images): https://github.com/srl-labs/vrnetlab
+- Containerlab / vrnetlab compatibility: https://containerlab.dev/manual/vrnetlab/
+- Cisco Modeling Labs (CML-Free / refplat; licensed Cisco software, not redistributed here): https://developer.cisco.com/modeling-labs/
 
 The reference runtime uses secret files, a multi-stage image, non-root execution, a read-only root filesystem, dropped capabilities, and distinct host port mappings. Deployment documentation must state where source-IP preservation has been verified.
 

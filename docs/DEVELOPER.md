@@ -58,6 +58,7 @@ Use the generated OpenAPI client only.
 make ci                 # includes make check-release-notes
 make check-registries   # includes -release
 make lab-test           # optional locally; CI compose-lab job on PRs, main, and tags
+make cisco-lab          # optional Containerlab+IOL; SKIP exit 0 without TACLAB_IOL_IMAGE
 ```
 
 GitHub Actions workflow: https://github.com/hilather/go-lab-tacacs-mcp/blob/main/.github/workflows/ci.yml

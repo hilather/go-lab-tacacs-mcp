@@ -1,0 +1,28 @@
+! Partial IOL startup config (.partial) appended by Containerlab.
+! Points AAA at TacLab over legacy TACACS+ (TCP {{.TacacsPort}}).
+! Shared secret is substituted at generate time; never commit a filled copy.
+aaa new-model
+!
+tacacs server TACLAB
+ address ipv4 {{.TacLabIPv4}}
+ key 0 {{.QuotedSecret}}
+ port {{.TacacsPort}}
+!
+aaa group server tacacs+ TACLAB-GROUP
+ server name TACLAB
+ ip vrf forwarding clab-mgmt
+ ip tacacs source-interface Ethernet0/0
+!
+aaa authentication login default group TACLAB-GROUP local
+aaa authentication enable default group TACLAB-GROUP enable
+aaa authorization exec default group TACLAB-GROUP local
+aaa authorization commands 1 default group TACLAB-GROUP local
+aaa authorization commands 15 default group TACLAB-GROUP local
+aaa accounting exec default start-stop group TACLAB-GROUP
+aaa accounting commands 1 default start-stop group TACLAB-GROUP
+aaa accounting commands 15 default start-stop group TACLAB-GROUP
+!
+line vty 0 4
+ transport input ssh
+ login authentication default
+!

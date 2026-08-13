@@ -278,6 +278,8 @@ A test enumerates every operation and asserts:
 - generated OpenAPI and MCP schemas exist.
 - documentation row exists or is generated.
 
+The executable harness lives in `internal/api/parity`. CI runs it with `go test ./internal/api/parity` (including `-race`).
+
 ### 12.2 Behavioral equivalence
 
 For each parity-required operation, table-driven tests execute REST and MCP against isolated instances with the same initial state, principal, request, clock, and random seed. Compare:

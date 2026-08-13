@@ -20,7 +20,7 @@ operations:
       kind: tool
       name: taclab.system.status.get
       resource: taclab://status
-    status: NOT_STARTED
+    status: PASS
 
   - id: system.build.get
     description: Read build and specification versions
@@ -37,7 +37,7 @@ operations:
       kind: tool
       name: taclab.system.build.get
       resource: taclab://build
-    status: NOT_STARTED
+    status: PASS
 
   - id: config.effective.get
     description: Read the redacted effective configuration
@@ -54,7 +54,7 @@ operations:
       kind: tool
       name: taclab.config.effective.get
       resource: taclab://config/effective
-    status: NOT_STARTED
+    status: PASS
 
   - id: config.validate
     description: Validate a candidate configuration without publishing state
@@ -71,7 +71,7 @@ operations:
       kind: tool
       name: taclab.config.validate
     audit_event: api.config.validated
-    status: NOT_STARTED
+    status: PASS
 
   - id: config.reload
     description: Reload the mounted baseline and rebase the overlay
@@ -88,7 +88,7 @@ operations:
       kind: tool
       name: taclab.config.reload
     audit_event: api.config.reloaded
-    status: NOT_STARTED
+    status: PASS
 
   - id: config.export
     description: Export a redacted effective configuration document
@@ -105,7 +105,7 @@ operations:
       kind: tool
       name: taclab.config.export
     audit_event: api.config.exported
-    status: NOT_STARTED
+    status: PASS
 
   - id: runtime.reset
     description: Drop the entire runtime overlay including tombstones
@@ -122,7 +122,7 @@ operations:
       kind: tool
       name: taclab.runtime.reset
     audit_event: api.runtime.reset
-    status: NOT_STARTED
+    status: PASS
 
   - id: users.list
     description: List users in deterministic id order
@@ -139,7 +139,7 @@ operations:
       kind: tool
       name: taclab.users.list
       resource: taclab://users
-    status: NOT_STARTED
+    status: PASS
 
   - id: users.get
     description: Get one user by id
@@ -155,7 +155,7 @@ operations:
     mcp:
       kind: tool
       name: taclab.users.get
-    status: NOT_STARTED
+    status: PASS
 
   - id: users.create
     description: Create a runtime user or override a baseline user
@@ -172,7 +172,7 @@ operations:
       kind: tool
       name: taclab.users.create
     audit_event: api.user.created
-    status: NOT_STARTED
+    status: PASS
 
   - id: users.update
     description: Apply a typed patch to a user
@@ -189,7 +189,7 @@ operations:
       kind: tool
       name: taclab.users.update
     audit_event: api.user.updated
-    status: NOT_STARTED
+    status: PASS
 
   - id: users.delete
     description: Delete a runtime user or tombstone a baseline user
@@ -206,7 +206,7 @@ operations:
       kind: tool
       name: taclab.users.delete
     audit_event: api.user.deleted
-    status: NOT_STARTED
+    status: PASS
 
   - id: groups.list
     description: List groups in deterministic id order
@@ -223,7 +223,7 @@ operations:
       kind: tool
       name: taclab.groups.list
       resource: taclab://groups
-    status: NOT_STARTED
+    status: PASS
 
   - id: groups.get
     description: Get one group by id
@@ -239,7 +239,7 @@ operations:
     mcp:
       kind: tool
       name: taclab.groups.get
-    status: NOT_STARTED
+    status: PASS
 
   - id: groups.create
     description: Create a runtime group or override a baseline group
@@ -256,7 +256,7 @@ operations:
       kind: tool
       name: taclab.groups.create
     audit_event: api.group.created
-    status: NOT_STARTED
+    status: PASS
 
   - id: groups.update
     description: Apply a typed patch to a group
@@ -273,7 +273,7 @@ operations:
       kind: tool
       name: taclab.groups.update
     audit_event: api.group.updated
-    status: NOT_STARTED
+    status: PASS
 
   - id: groups.delete
     description: Delete a runtime group or tombstone a baseline group
@@ -290,7 +290,7 @@ operations:
       kind: tool
       name: taclab.groups.delete
     audit_event: api.group.deleted
-    status: NOT_STARTED
+    status: PASS
 
   - id: clients.list
     description: List TACACS clients in deterministic id order
@@ -307,7 +307,7 @@ operations:
       kind: tool
       name: taclab.clients.list
       resource: taclab://clients
-    status: NOT_STARTED
+    status: PASS
 
   - id: clients.get
     description: Get one client by id
@@ -323,7 +323,7 @@ operations:
     mcp:
       kind: tool
       name: taclab.clients.get
-    status: NOT_STARTED
+    status: PASS
 
   - id: clients.create
     description: Create a runtime client or override a baseline client
@@ -340,7 +340,7 @@ operations:
       kind: tool
       name: taclab.clients.create
     audit_event: api.client.created
-    status: NOT_STARTED
+    status: PASS
 
   - id: clients.update
     description: Apply a typed patch to a client
@@ -357,7 +357,7 @@ operations:
       kind: tool
       name: taclab.clients.update
     audit_event: api.client.updated
-    status: NOT_STARTED
+    status: PASS
 
   - id: clients.delete
     description: Delete a runtime client or tombstone a baseline client
@@ -374,7 +374,7 @@ operations:
       kind: tool
       name: taclab.clients.delete
     audit_event: api.client.deleted
-    status: NOT_STARTED
+    status: PASS
 
   - id: tokens.list
     description: List API tokens without secret values
@@ -390,7 +390,7 @@ operations:
     mcp:
       kind: tool
       name: taclab.tokens.list
-    status: NOT_STARTED
+    status: PASS
 
   - id: tokens.create
     description: Create an API token and return its value once
@@ -407,7 +407,7 @@ operations:
       kind: tool
       name: taclab.tokens.create
     audit_event: api.token.created
-    status: NOT_STARTED
+    status: PASS
 
   - id: tokens.revoke
     description: Revoke an API token
@@ -424,7 +424,7 @@ operations:
       kind: tool
       name: taclab.tokens.revoke
     audit_event: api.token.revoked
-    status: NOT_STARTED
+    status: PASS
 
   - id: policy.evaluate
     description: Explain an authorization decision against the current snapshot
@@ -441,7 +441,7 @@ operations:
       kind: tool
       name: taclab.policy.evaluate
     audit_event: api.policy.evaluated
-    status: NOT_STARTED
+    status: PASS
 
   - id: authentication.test
     description: Run an authentication test against the current snapshot
@@ -458,7 +458,7 @@ operations:
       kind: tool
       name: taclab.authentication.test
     audit_event: api.authentication.tested
-    status: NOT_STARTED
+    status: PASS
 
   - id: events.list
     description: Read a cursor page of redacted events from the ring
@@ -475,7 +475,7 @@ operations:
       kind: tool
       name: taclab.events.list
       resource: taclab://events/recent
-    status: NOT_STARTED
+    status: PASS
 
   - id: events.subscribe
     description: Live event delivery. REST streams redacted bodies over SSE. MCP subscriptions/listen notifies taclab://events/recent with URI only; the client pulls bodies through events.list.
@@ -493,7 +493,7 @@ operations:
       name: subscriptions/listen
       resource: taclab://events/recent
       pull_operation: events.list
-    status: NOT_STARTED
+    status: PASS
 
   - id: health.live
     description: Process liveness probe

@@ -993,7 +993,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 - [ ] All business behavior is callable independently of REST/MCP.
 - [x] Scope and error behavior is centralized.
-- [ ] Operation registry and parity checks pass.
+- [x] Operation registry and parity checks pass.
 - [x] Token secrets never appear after one-time creation response.
 
 ## 13. Milestone P10 - REST API
@@ -1086,19 +1086,19 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P11.5 Implement parity test harness
 
-- [ ] For every operation, execute equivalent direct, REST, and MCP requests against the same fixture.
-- [ ] Normalize transport envelopes.
-- [ ] Compare logical result, state revision, emitted event type, scope result, validation code, and side effects.
-- [ ] Test one-time token handling without persisting the token in snapshots.
-- [ ] Fail CI on an operation missing either required binding.
+- [x] For every operation, execute equivalent direct, REST, and MCP requests against the same fixture.
+- [x] Normalize transport envelopes.
+- [x] Compare logical result, state revision, emitted event type, scope result, validation code, and side effects.
+- [x] Test one-time token handling without persisting the token in snapshots.
+- [x] Fail CI on an operation missing either required binding.
 
 **Benchmarks**
 
-- [ ] Compare direct handler, REST, and MCP overhead for representative reads and mutations.
+- [x] Compare direct handler, REST, and MCP overhead for representative reads and mutations.
 
 ### P11 exit gate
 
-- [ ] Full generated parity matrix passes (PR-18 harness).
+- [x] Full generated parity matrix passes (PR-18 harness).
 - [x] MCP uses no duplicate business logic or internal REST call.
 - [x] Authentication, scope, error, revision, and event behavior match REST (adapter contract tests; table harness is P11.5).
 - [x] MCP docs and schemas are current.

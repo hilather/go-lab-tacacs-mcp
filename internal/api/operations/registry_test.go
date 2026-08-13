@@ -70,18 +70,28 @@ func TestImplementedOperations(t *testing.T) {
 	reg := mustRegistry(t)
 	got := reg.ImplementedIDs()
 	want := []string{
+		IDAuthenticationTest,
+		IDClientsCreate, IDClientsDelete, IDClientsGet, IDClientsList, IDClientsUpdate,
+		IDConfigEffectiveGet, IDConfigExport, IDConfigReload, IDConfigValidate,
 		IDEventsList, IDEventsSubscribe,
-		IDPolicyEvaluate,
+		IDGroupsCreate, IDGroupsDelete, IDGroupsGet, IDGroupsList, IDGroupsUpdate,
+		IDPolicyEvaluate, IDRuntimeReset,
 		IDSessionCreate, IDSessionDelete,
 		IDSystemBuildGet, IDSystemStatusGet,
 		IDTokensCreate, IDTokensList, IDTokensRevoke,
+		IDUsersCreate, IDUsersDelete, IDUsersGet, IDUsersList, IDUsersUpdate,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("implemented=%v want=%v", got, want)
 	}
 	for _, op := range reg.List() {
 		switch op.ID {
-		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDEventsList, IDEventsSubscribe, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionDelete:
+		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDEventsList, IDEventsSubscribe, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionDelete,
+			IDConfigEffectiveGet, IDConfigValidate, IDConfigReload, IDConfigExport, IDRuntimeReset,
+			IDUsersList, IDUsersGet, IDUsersCreate, IDUsersUpdate, IDUsersDelete,
+			IDGroupsList, IDGroupsGet, IDGroupsCreate, IDGroupsUpdate, IDGroupsDelete,
+			IDClientsList, IDClientsGet, IDClientsCreate, IDClientsUpdate, IDClientsDelete,
+			IDAuthenticationTest:
 			if !op.Implemented {
 				t.Errorf("%s should be implemented", op.ID)
 			}
@@ -153,12 +163,12 @@ func TestInvokeUnauthenticatedAndMissingScope(t *testing.T) {
 func TestInvokeStubUnavailable(t *testing.T) {
 	t.Parallel()
 	reg := mustRegistry(t)
-	_, err := reg.Invoke(context.Background(), "users.list", mustSnap(t, smallYAML), Input{Actor: reader})
+	_, err := reg.Invoke(context.Background(), "mcp.discover", mustSnap(t, smallYAML), Input{Actor: reader})
 	if !isCode(err, domain.CodeUnavailable) {
 		t.Fatalf("err=%v", err)
 	}
 	de, ok := domain.AsError(err)
-	if !ok || de.Details["operation"] != "users.list" {
+	if !ok || de.Details["operation"] != "mcp.discover" {
 		t.Fatalf("detail=%v", err)
 	}
 }

@@ -32,8 +32,14 @@ func TestOpenAPIUnauthenticated(t *testing.T) {
 	if _, ok := paths["/api/v1/status"]; !ok {
 		t.Fatal("missing status")
 	}
-	if _, ok := paths["/api/v1/users"]; ok {
-		t.Fatal("users must not be in frozen OpenAPI")
+	if _, ok := paths["/api/v1/users"]; !ok {
+		t.Fatal("missing users")
+	}
+	if _, ok := paths["/api/v1/config/effective"]; !ok {
+		t.Fatal("missing config/effective")
+	}
+	if _, ok := paths["/api/v1/authentication/test"]; !ok {
+		t.Fatal("missing authentication.test")
 	}
 	if _, ok := paths["/api/v1/session"]; !ok {
 		t.Fatal("missing session")

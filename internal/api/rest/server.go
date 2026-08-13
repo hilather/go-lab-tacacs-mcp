@@ -31,12 +31,33 @@ const (
 	revisionPrefix    = "revision-"
 )
 
-// FrozenREST is the PR-16a route set: implemented operation handlers plus
-// REST_ONLY health and OpenAPI. Unimplemented registry ops are not bound.
+// FrozenREST is the implemented REST operation set plus REST_ONLY health
+// and OpenAPI. MCP-only registry rows are not bound.
 var FrozenREST = []string{
 	operations.IDSystemStatusGet,
 	operations.IDSystemBuildGet,
+	operations.IDConfigEffectiveGet,
+	operations.IDConfigValidate,
+	operations.IDConfigReload,
+	operations.IDConfigExport,
+	operations.IDRuntimeReset,
+	operations.IDUsersList,
+	operations.IDUsersGet,
+	operations.IDUsersCreate,
+	operations.IDUsersUpdate,
+	operations.IDUsersDelete,
+	operations.IDGroupsList,
+	operations.IDGroupsGet,
+	operations.IDGroupsCreate,
+	operations.IDGroupsUpdate,
+	operations.IDGroupsDelete,
+	operations.IDClientsList,
+	operations.IDClientsGet,
+	operations.IDClientsCreate,
+	operations.IDClientsUpdate,
+	operations.IDClientsDelete,
 	operations.IDPolicyEvaluate,
+	operations.IDAuthenticationTest,
 	operations.IDTokensList,
 	operations.IDTokensCreate,
 	operations.IDTokensRevoke,
@@ -75,7 +96,7 @@ type ctxKey int
 
 const requestIDKey ctxKey = 1
 
-// Handler returns the mux for health and the frozen /api/v1 routes.
+// Handler returns the mux for health and the /api/v1 routes.
 func (s *Server) Handler() http.Handler {
 	s.once.Do(s.init)
 	mux := http.NewServeMux()
@@ -84,7 +105,28 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/openapi.json", s.openapi)
 	mux.HandleFunc("GET /api/v1/status", s.status)
 	mux.HandleFunc("GET /api/v1/build", s.build)
+	mux.HandleFunc("GET /api/v1/config/effective", s.effectiveConfig)
+	mux.HandleFunc("POST /api/v1/config/validate", s.validateConfig)
+	mux.HandleFunc("POST /api/v1/config/reload", s.reloadConfig)
+	mux.HandleFunc("GET /api/v1/config/export", s.exportConfig)
+	mux.HandleFunc("POST /api/v1/runtime/reset", s.resetRuntime)
+	mux.HandleFunc("GET /api/v1/users", s.listUsers)
+	mux.HandleFunc("POST /api/v1/users", s.createUser)
+	mux.HandleFunc("GET /api/v1/users/{id}", s.getUser)
+	mux.HandleFunc("PATCH /api/v1/users/{id}", s.updateUser)
+	mux.HandleFunc("DELETE /api/v1/users/{id}", s.deleteUser)
+	mux.HandleFunc("GET /api/v1/groups", s.listGroups)
+	mux.HandleFunc("POST /api/v1/groups", s.createGroup)
+	mux.HandleFunc("GET /api/v1/groups/{id}", s.getGroup)
+	mux.HandleFunc("PATCH /api/v1/groups/{id}", s.updateGroup)
+	mux.HandleFunc("DELETE /api/v1/groups/{id}", s.deleteGroup)
+	mux.HandleFunc("GET /api/v1/clients", s.listClients)
+	mux.HandleFunc("POST /api/v1/clients", s.createClient)
+	mux.HandleFunc("GET /api/v1/clients/{id}", s.getClient)
+	mux.HandleFunc("PATCH /api/v1/clients/{id}", s.updateClient)
+	mux.HandleFunc("DELETE /api/v1/clients/{id}", s.deleteClient)
 	mux.HandleFunc("POST /api/v1/policy/evaluate", s.evaluate)
+	mux.HandleFunc("POST /api/v1/authentication/test", s.testAuthentication)
 	mux.HandleFunc("GET /api/v1/events", s.listEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.streamEvents)
 	mux.HandleFunc("GET /api/v1/tokens", s.listTokens)

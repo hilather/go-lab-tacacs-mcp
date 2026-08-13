@@ -9,16 +9,37 @@ import (
 
 // Stable IDs of the handlers implemented in this package.
 const (
-	IDSystemStatusGet = "system.status.get"
-	IDSystemBuildGet  = "system.build.get"
-	IDPolicyEvaluate  = "policy.evaluate"
-	IDTokensList      = "tokens.list"
-	IDTokensCreate    = "tokens.create"
-	IDTokensRevoke    = "tokens.revoke"
-	IDSessionCreate   = "session.create"
-	IDSessionDelete   = "session.delete"
-	IDEventsList      = "events.list"
-	IDEventsSubscribe = "events.subscribe"
+	IDSystemStatusGet    = "system.status.get"
+	IDSystemBuildGet     = "system.build.get"
+	IDConfigEffectiveGet = "config.effective.get"
+	IDConfigValidate     = "config.validate"
+	IDConfigReload       = "config.reload"
+	IDConfigExport       = "config.export"
+	IDRuntimeReset       = "runtime.reset"
+	IDUsersList          = "users.list"
+	IDUsersGet           = "users.get"
+	IDUsersCreate        = "users.create"
+	IDUsersUpdate        = "users.update"
+	IDUsersDelete        = "users.delete"
+	IDGroupsList         = "groups.list"
+	IDGroupsGet          = "groups.get"
+	IDGroupsCreate       = "groups.create"
+	IDGroupsUpdate       = "groups.update"
+	IDGroupsDelete       = "groups.delete"
+	IDClientsList        = "clients.list"
+	IDClientsGet         = "clients.get"
+	IDClientsCreate      = "clients.create"
+	IDClientsUpdate      = "clients.update"
+	IDClientsDelete      = "clients.delete"
+	IDTokensList         = "tokens.list"
+	IDTokensCreate       = "tokens.create"
+	IDTokensRevoke       = "tokens.revoke"
+	IDSessionCreate      = "session.create"
+	IDSessionDelete      = "session.delete"
+	IDPolicyEvaluate     = "policy.evaluate"
+	IDAuthenticationTest = "authentication.test"
+	IDEventsList         = "events.list"
+	IDEventsSubscribe    = "events.subscribe"
 )
 
 // Specification versions reported by system.build.get.
@@ -154,58 +175,6 @@ type PolicyTraceAV struct {
 	Value     string `json:"value"`
 }
 
-// Stub request and response types named to match api/operations.yaml.
-// Fields are added when those handlers are implemented.
-type (
-	GetEffectiveConfigRequest struct{}
-	EffectiveConfig           struct{}
-	ValidateConfigRequest     struct{}
-	ValidateConfigResult      struct{}
-	ReloadConfigRequest       struct{}
-	ReloadConfigResult        struct{}
-	ExportConfigRequest       struct{}
-	ExportConfigResult        struct{}
-	ResetRuntimeRequest       struct{}
-	ResetRuntimeResult        struct{}
-	ListUsersRequest          struct{}
-	GetUserRequest            struct{}
-	CreateUserRequest         struct{}
-	UpdateUserRequest         struct{}
-	DeleteUserRequest         struct{}
-	UserList                  struct{}
-	User                      struct{}
-	ListGroupsRequest         struct{}
-	GetGroupRequest           struct{}
-	CreateGroupRequest        struct{}
-	UpdateGroupRequest        struct{}
-	DeleteGroupRequest        struct{}
-	GroupList                 struct{}
-	Group                     struct{}
-	ListClientsRequest        struct{}
-	GetClientRequest          struct{}
-	CreateClientRequest       struct{}
-	UpdateClientRequest       struct{}
-	DeleteClientRequest       struct{}
-	ClientList                struct{}
-	Client                    struct{}
-	TestAuthenticationRequest struct{}
-	AuthenticationTestResult  struct{}
-	SubscribeEventsRequest    struct{}
-	EventStream               struct{}
-	HealthRequest             struct{}
-	HealthResult              struct{}
-	GetOpenAPIRequest         struct{}
-	OpenAPIDocument           struct{}
-	MCPDiscoverRequest        struct{}
-	MCPDiscoverResult         struct{}
-	MCPToolsListRequest       struct{}
-	MCPToolsListResult        struct{}
-	MCPResourcesListRequest   struct{}
-	MCPResourcesListResult    struct{}
-	MCPListChangedRequest     struct{}
-	MCPNotification           struct{}
-)
-
 // ListEventsRequest is the events.list cursor page.
 type ListEventsRequest struct {
 	Cursor     string   `json:"cursor,omitempty"`
@@ -253,6 +222,23 @@ type EventAV struct {
 	Separator string `json:"separator"`
 	Value     string `json:"value"`
 }
+
+type (
+	SubscribeEventsRequest  struct{}
+	EventStream             struct{}
+	HealthRequest           struct{}
+	HealthResult            struct{}
+	GetOpenAPIRequest       struct{}
+	OpenAPIDocument         struct{}
+	MCPDiscoverRequest      struct{}
+	MCPDiscoverResult       struct{}
+	MCPToolsListRequest     struct{}
+	MCPToolsListResult      struct{}
+	MCPResourcesListRequest struct{}
+	MCPResourcesListResult  struct{}
+	MCPListChangedRequest   struct{}
+	MCPNotification         struct{}
+)
 
 // DeleteResult is the response for delete/revoke operations.
 type DeleteResult struct {

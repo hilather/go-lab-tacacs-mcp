@@ -273,7 +273,7 @@ Responsibilities:
 - serve OpenAPI.
 - provide SSE event streams.
 
-PR-16a serves the frozen implemented surface only: `/health/live`, `/health/ready`, `/api/openapi.json`, `GET /api/v1/status`, `GET /api/v1/build`, `POST /api/v1/policy/evaluate`, token CRUD, `POST`/`DELETE /api/v1/session` (CSRF on cookie mutations; `cookie_secure` follows HTTP TLS), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). Unimplemented operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
+PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session (CSRF on cookie mutations; `cookie_secure` follows HTTP TLS), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
 
 It contains no independent business rules.
 

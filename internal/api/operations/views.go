@@ -1,0 +1,498 @@
+package operations
+
+import (
+	"sort"
+	"time"
+
+	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
+)
+
+func userView(u state.EffectiveUser, rev domain.Revision) User {
+	meta := u.Meta.WithSnapshotRevision(rev)
+	return User{
+		ID:                  u.User.ID,
+		DisplayName:         u.User.DisplayName,
+		Enabled:             u.User.Enabled,
+		Source:              meta.Source,
+		ShadowsSource:       meta.ShadowsSource,
+		Deleted:             meta.Deleted,
+		RevisionCreated:     meta.RevisionCreated,
+		RevisionUpdated:     meta.RevisionUpdated,
+		EffectiveRevision:   meta.EffectiveRevision,
+		Labels:              cloneLabels(u.User.Labels),
+		GroupIDs:            cloneStrings(u.User.GroupIDs),
+		Rules:               ruleSetView(u.User.Rules),
+		Restrictions:        restrictionsView(u.User.Restrictions),
+		ASCIIPapConfigured:  u.Capabilities.Login,
+		ChallengeConfigured: u.Capabilities.Challenge,
+		EnableConfigured:    u.Capabilities.Enable,
+		CreatedAt:           meta.CreatedAt,
+		UpdatedAt:           meta.UpdatedAt,
+	}
+}
+
+func groupView(g state.EffectiveGroup, rev domain.Revision) Group {
+	meta := g.Meta.WithSnapshotRevision(rev)
+	action := string(g.Group.DefaultCommandAction)
+	if action == string(domain.DecisionDeny) {
+		action = ""
+	}
+	return Group{
+		ID:                   g.Group.ID,
+		DisplayName:          g.Group.DisplayName,
+		Enabled:              g.Group.Enabled,
+		Priority:             g.Group.Priority,
+		Source:               meta.Source,
+		ShadowsSource:        meta.ShadowsSource,
+		Deleted:              meta.Deleted,
+		RevisionCreated:      meta.RevisionCreated,
+		RevisionUpdated:      meta.RevisionUpdated,
+		EffectiveRevision:    meta.EffectiveRevision,
+		Labels:               cloneLabels(g.Group.Labels),
+		Services:             serviceViews(g.Group.Services),
+		CommandRules:         commandViews(g.Group.CommandRules),
+		DefaultCommandAction: action,
+		CreatedAt:            meta.CreatedAt,
+		UpdatedAt:            meta.UpdatedAt,
+	}
+}
+
+func clientView(c state.EffectiveClient, rev domain.Revision) Client {
+	meta := c.Meta.WithSnapshotRevision(rev)
+	life := string(c.Lifecycle)
+	if life == "" {
+		life = string(domain.LifecycleUnknown)
+	}
+	return Client{
+		ID:                     c.Client.ID,
+		DisplayName:            c.Client.DisplayName,
+		Enabled:                c.Client.Enabled,
+		Priority:               c.Client.Priority,
+		Source:                 meta.Source,
+		ShadowsSource:          meta.ShadowsSource,
+		Deleted:                meta.Deleted,
+		RevisionCreated:        meta.RevisionCreated,
+		RevisionUpdated:        meta.RevisionUpdated,
+		EffectiveRevision:      meta.EffectiveRevision,
+		Labels:                 cloneLabels(c.Client.Labels),
+		Match:                  clientMatchView(c.Client.Match),
+		SharedSecretConfigured: c.Client.Legacy.SharedSecret.Set(),
+		SharedSecretLifecycle:  life,
+		Authentication:         clientAuthView(c.Client.Authentication),
+		Authorization:          clientAuthzView(c.Client.Authorization),
+		Accounting:             clientAcctView(c.Client.Accounting),
+		CreatedAt:              meta.CreatedAt,
+		UpdatedAt:              meta.UpdatedAt,
+	}
+}
+
+func deletedView(t domain.Tombstone, rev domain.Revision) (id string, meta domain.ObjectMeta) {
+	return string(t.ID), domain.ObjectMeta{
+		ID:                t.ID,
+		Kind:              t.Kind,
+		Source:            domain.SourceConfig,
+		Deleted:           true,
+		RevisionCreated:   t.AtRevision,
+		RevisionUpdated:   t.AtRevision,
+		EffectiveRevision: rev,
+		CreatedAt:         t.At,
+		UpdatedAt:         t.At,
+	}
+}
+
+func deletedUser(t domain.Tombstone, rev domain.Revision) User {
+	id, meta := deletedView(t, rev)
+	return User{ID: id, Source: meta.Source, Deleted: true, RevisionCreated: meta.RevisionCreated, RevisionUpdated: meta.RevisionUpdated, EffectiveRevision: rev, CreatedAt: meta.CreatedAt, UpdatedAt: meta.UpdatedAt}
+}
+
+func deletedGroup(t domain.Tombstone, rev domain.Revision) Group {
+	id, meta := deletedView(t, rev)
+	return Group{ID: id, Source: meta.Source, Deleted: true, RevisionCreated: meta.RevisionCreated, RevisionUpdated: meta.RevisionUpdated, EffectiveRevision: rev, CreatedAt: meta.CreatedAt, UpdatedAt: meta.UpdatedAt}
+}
+
+func deletedClient(t domain.Tombstone, rev domain.Revision) Client {
+	id, meta := deletedView(t, rev)
+	return Client{ID: id, Source: meta.Source, Deleted: true, SharedSecretLifecycle: string(domain.LifecycleUnknown), RevisionCreated: meta.RevisionCreated, RevisionUpdated: meta.RevisionUpdated, EffectiveRevision: rev, CreatedAt: meta.CreatedAt, UpdatedAt: meta.UpdatedAt}
+}
+
+func findTombstone(snap *state.Snapshot, kind domain.ObjectKind, id string) (domain.Tombstone, bool) {
+	if snap == nil {
+		return domain.Tombstone{}, false
+	}
+	for _, t := range snap.Tombstones() {
+		if t.Kind == kind && string(t.ID) == id {
+			return t, true
+		}
+	}
+	return domain.Tombstone{}, false
+}
+
+func tombstonesOf(snap *state.Snapshot, kind domain.ObjectKind) []domain.Tombstone {
+	if snap == nil {
+		return nil
+	}
+	var out []domain.Tombstone
+	for _, t := range snap.Tombstones() {
+		if t.Kind == kind {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return string(out[i].ID) < string(out[j].ID) })
+	return out
+}
+
+func ruleSetView(r config.RuleSet) RuleSetView {
+	return RuleSetView{Services: serviceViews(r.Services), CommandRules: commandViews(r.CommandRules)}
+}
+
+func serviceViews(in []config.ServiceRule) []ServiceRuleView {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]ServiceRuleView, 0, len(in))
+	for _, r := range in {
+		out = append(out, ServiceRuleView{
+			Service:         r.Service,
+			Protocol:        cloneStringPtr(r.Protocol),
+			Action:          string(r.Action),
+			ReplyAttributes: avViews(r.ReplyAttributes),
+		})
+	}
+	return out
+}
+
+func commandViews(in []config.CommandRule) []CommandRuleView {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]CommandRuleView, 0, len(in))
+	for _, r := range in {
+		out = append(out, CommandRuleView{
+			ID:        r.ID,
+			Priority:  r.Priority,
+			Action:    string(r.Action),
+			Command:   MatchView{Exact: r.Command.Exact, Pattern: r.Command.Pattern},
+			Arguments: MatchView{Exact: r.Arguments.Exact, Pattern: r.Arguments.Pattern},
+			Reason:    r.Reason,
+		})
+	}
+	return out
+}
+
+func avViews(in domain.AVPairs) []PolicyTraceAV {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]PolicyTraceAV, 0, len(in))
+	for _, a := range in {
+		sep := string(a.Separator)
+		if sep == "" {
+			sep = "="
+		}
+		out = append(out, PolicyTraceAV{Name: a.Name, Separator: sep, Value: a.Value})
+	}
+	return out
+}
+
+func restrictionsView(r config.UserRestrictions) RestrictionsView {
+	return RestrictionsView{
+		ClientIDs:   cloneStrings(r.ClientIDs),
+		ValidAfter:  cloneTimePtr(r.ValidAfter),
+		ValidBefore: cloneTimePtr(r.ValidBefore),
+	}
+}
+
+func clientMatchView(m config.ClientMatch) ClientMatchView {
+	ts := make([]string, 0, len(m.Transports))
+	for _, t := range m.Transports {
+		ts = append(ts, string(t))
+	}
+	return ClientMatchView{
+		SourceCIDRs: cloneStrings(m.SourceCIDRs),
+		Transports:  ts,
+		Mode:        string(m.Mode),
+		Certificate: CertMatchView{DNSSANs: cloneStrings(m.Certificate.DNSSANs), IPSANs: cloneStrings(m.Certificate.IPSANs)},
+	}
+}
+
+func clientAuthView(a config.ClientAuth) ClientAuthView {
+	methods := make([]string, 0, len(a.AllowedMethods))
+	for _, m := range a.AllowedMethods {
+		methods = append(methods, string(m))
+	}
+	svc := ""
+	if a.DefaultService != 0 {
+		svc = a.DefaultService.String()
+	}
+	return ClientAuthView{AllowedMethods: methods, DefaultService: svc}
+}
+
+func clientAuthzView(a config.ClientAuthz) ClientAuthzView {
+	return ClientAuthzView{DefaultGroupIDs: cloneStrings(a.DefaultGroupIDs)}
+}
+
+func clientAcctView(a config.ClientAcct) ClientAcctView {
+	return ClientAcctView{Enabled: a.Enabled, AcceptStart: a.AcceptStart, AcceptStop: a.AcceptStop, AcceptWatchdog: a.AcceptWatchdog}
+}
+
+func (s OptionalSecret) patch() *state.SecretPatch {
+	if !s.Present {
+		return nil
+	}
+	if s.Clear {
+		return &state.SecretPatch{Clear: true}
+	}
+	return &state.SecretPatch{Ref: config.SecretRef{File: s.File, Environment: s.Environment}}
+}
+
+func ruleSetFromView(v *RuleSetView) (*config.RuleSet, error) {
+	if v == nil {
+		return nil, nil
+	}
+	svcs, err := serviceRulesFromView(v.Services)
+	if err != nil {
+		return nil, err
+	}
+	cmds, err := commandRulesFromView(v.CommandRules)
+	if err != nil {
+		return nil, err
+	}
+	return &config.RuleSet{Services: svcs, CommandRules: cmds}, nil
+}
+
+func serviceRulesFromView(in []ServiceRuleView) ([]config.ServiceRule, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]config.ServiceRule, 0, len(in))
+	for i, r := range in {
+		action, err := parseWireAction(r.Action, "services")
+		if err != nil {
+			return nil, err.(domain.Error).WithDetail("index", i)
+		}
+		out = append(out, config.ServiceRule{
+			Service:         r.Service,
+			Protocol:        cloneStringPtr(r.Protocol),
+			Action:          action,
+			ReplyAttributes: avsFromTrace(r.ReplyAttributes),
+		})
+	}
+	return out, nil
+}
+
+func commandRulesFromView(in []CommandRuleView) ([]config.CommandRule, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]config.CommandRule, 0, len(in))
+	for i, r := range in {
+		action, err := parseWireAction(r.Action, "command_rules")
+		if err != nil {
+			return nil, err.(domain.Error).WithDetail("index", i)
+		}
+		out = append(out, config.CommandRule{
+			ID:        r.ID,
+			Priority:  r.Priority,
+			Action:    action,
+			Command:   config.StringMatch{Exact: r.Command.Exact, Pattern: r.Command.Pattern},
+			Arguments: config.StringMatch{Exact: r.Arguments.Exact, Pattern: r.Arguments.Pattern},
+			Reason:    r.Reason,
+		})
+	}
+	return out, nil
+}
+
+func parseWireAction(s, path string) (domain.AuthorDecision, error) {
+	d, err := domain.ParseAuthorDecision(s)
+	if err != nil {
+		return "", domain.NewError(domain.CodeInvalidArgument, "action must be permit_add, permit_replace, or deny").WithPath(path)
+	}
+	return d, nil
+}
+
+func restrictionsFromView(v *RestrictionsView) *config.UserRestrictions {
+	if v == nil {
+		return nil
+	}
+	return &config.UserRestrictions{
+		ClientIDs:   cloneStrings(v.ClientIDs),
+		ValidAfter:  cloneTimePtr(v.ValidAfter),
+		ValidBefore: cloneTimePtr(v.ValidBefore),
+	}
+}
+
+func clientMatchFromView(v *ClientMatchView) (*config.ClientMatch, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var ts []domain.Transport
+	for i, raw := range v.Transports {
+		t, err := domain.ParseTransport(raw)
+		if err != nil {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "unknown transport").WithPath("match.transports").WithDetail("index", i)
+		}
+		ts = append(ts, t)
+	}
+	mode := domain.MatchMode(v.Mode)
+	if v.Mode != "" && !mode.Valid() {
+		return nil, domain.NewError(domain.CodeInvalidArgument, "unknown match mode").WithPath("match.mode")
+	}
+	return &config.ClientMatch{
+		SourceCIDRs: cloneStrings(v.SourceCIDRs),
+		Transports:  ts,
+		Mode:        mode,
+		Certificate: config.CertMatch{DNSSANs: cloneStrings(v.Certificate.DNSSANs), IPSANs: cloneStrings(v.Certificate.IPSANs)},
+	}, nil
+}
+
+func clientAuthFromView(v *ClientAuthView) (*config.ClientAuth, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var methods []config.AuthMethod
+	for i, raw := range v.AllowedMethods {
+		m := config.AuthMethod(raw)
+		switch m {
+		case config.AuthMethodASCII, config.AuthMethodPAP, config.AuthMethodCHAP, config.AuthMethodMSCHAPv1, config.AuthMethodMSCHAPv2, config.AuthMethodEnable, config.AuthMethodASCIIChpass:
+			methods = append(methods, m)
+		default:
+			return nil, domain.NewError(domain.CodeInvalidArgument, "unknown authentication method").WithPath("authentication.allowed_methods").WithDetail("index", i)
+		}
+	}
+	var svc domain.AuthenService
+	if v.DefaultService != "" {
+		parsed, err := domain.ParseAuthenService(v.DefaultService)
+		if err != nil {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "unknown default service").WithPath("authentication.default_service")
+		}
+		svc = parsed
+	}
+	return &config.ClientAuth{AllowedMethods: methods, DefaultService: svc}, nil
+}
+
+func clientAuthzFromView(v *ClientAuthzView) *config.ClientAuthz {
+	if v == nil {
+		return nil
+	}
+	return &config.ClientAuthz{DefaultGroupIDs: cloneStrings(v.DefaultGroupIDs)}
+}
+
+func clientAcctFromView(v *ClientAcctView) *config.ClientAcct {
+	if v == nil {
+		return nil
+	}
+	return &config.ClientAcct{Enabled: v.Enabled, AcceptStart: v.AcceptStart, AcceptStop: v.AcceptStop, AcceptWatchdog: v.AcceptWatchdog}
+}
+
+func lifecycleFromView(v *LifecycleWrite) (*config.SecretLifecycleMeta, error) {
+	if v == nil {
+		return nil, nil
+	}
+	meta := &config.SecretLifecycleMeta{LastRotatedAt: cloneTimePtr(v.LastRotatedAt)}
+	if v.RotationInterval != "" {
+		d, err := time.ParseDuration(v.RotationInterval)
+		if err != nil {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "invalid rotation_interval").WithPath("shared_secret_lifecycle.rotation_interval")
+		}
+		meta.RotationInterval = d
+	}
+	return meta, nil
+}
+
+func defaultCommandAction(s *string) (*domain.AuthorDecision, error) {
+	if s == nil {
+		return nil, nil
+	}
+	if *s == "" {
+		d := domain.DecisionDeny
+		return &d, nil
+	}
+	d, err := domain.ParseAuthorDecision(*s)
+	if err != nil || d != domain.DecisionDeny {
+		return nil, domain.NewError(domain.CodeInvalidArgument, "default_command_action must be deny").WithPath("default_command_action")
+	}
+	return &d, nil
+}
+
+func normalizePage(limit int) int {
+	if limit <= 0 {
+		return defaultObjectPage
+	}
+	if limit > maxObjectPage {
+		return maxObjectPage
+	}
+	return limit
+}
+
+func pageAfter(ids []string, cursor string, limit int) (start, end int, next *string) {
+	start = 0
+	if cursor != "" {
+		start = len(ids)
+		for i, id := range ids {
+			if id > cursor {
+				start = i
+				break
+			}
+		}
+	}
+	end = start + limit
+	if end > len(ids) {
+		end = len(ids)
+	}
+	if end < len(ids) && end > start {
+		c := ids[end-1]
+		next = &c
+	}
+	return start, end, next
+}
+
+func cloneLabels(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneTimePtr(in *time.Time) *time.Time {
+	if in == nil {
+		return nil
+	}
+	t := in.UTC()
+	return &t
+}
+
+func cloneStringPtr(in *string) *string {
+	if in == nil {
+		return nil
+	}
+	s := *in
+	return &s
+}
+
+func requireID(id string) error {
+	if id == "" {
+		return domain.NewError(domain.CodeInvalidArgument, "id is required").WithPath("id")
+	}
+	return nil
+}
+
+func requireState(deps Deps) error {
+	if deps.State == nil {
+		return domain.NewError(domain.CodeUnavailable, "state manager is not configured")
+	}
+	return nil
+}
+
+func audit(deps Deps, typ, result string, rev domain.Revision) {
+	if deps.Events == nil {
+		return
+	}
+	deps.Events.Accept(events.Event{Category: events.CategoryAPI, Type: typ, Result: result, Revision: rev})
+}

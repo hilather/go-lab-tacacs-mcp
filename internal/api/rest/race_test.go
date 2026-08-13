@@ -36,6 +36,15 @@ func TestRaceStatusEvaluateEvents(t *testing.T) {
 				errc <- errStatus(resp.StatusCode)
 			}
 		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/users", h.Token, nil, nil)
+			_ = resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				errc <- errStatus(resp.StatusCode)
+			}
+		}()
 	}
 	wg.Wait()
 	close(errc)

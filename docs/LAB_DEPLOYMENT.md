@@ -3,7 +3,7 @@
 Status: implementation and release contract  
 Deployment: single OCI image, single process, single replica  
 Primary orchestration: Docker Compose on a Linux host  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. Purpose
 
@@ -128,7 +128,15 @@ The release image must:
 
 No Linux capability should be required when high container ports are mapped from the host. The reference deployment must drop all capabilities and set `no-new-privileges`.
 
-The 1.0 image is `ghcr.io/hilather/go-lab-tacacs-mcp`. Pin a version tag or digest in reproducible labs; do not use `latest`. A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test`.
+The 1.0 image is `ghcr.io/hilather/go-lab-tacacs-mcp`. Pin a version tag or digest in reproducible labs; do not use `latest`. Every release publishes three runtimes of the same static `taclabd` binary:
+
+| Tag | Runtime |
+|---|---|
+| `:<tag>` | distroless (Compose default) |
+| `:<tag>-ubuntu` | Ubuntu 24.04 |
+| `:<tag>-rocky` | Rocky Linux 9 |
+
+A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test`.
 
 ## 6. Reference directory layout
 

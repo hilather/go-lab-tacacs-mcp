@@ -43,9 +43,13 @@ help:
 	@echo "  make vuln             govulncheck"
 	@echo "  make docs-check       README link policy"
 	@echo "  make check-hooks      prove format/type/drift/secret hooks fail closed"
-	@echo "  make ci               lint + tests + web (incl. production build) + secrets + registries + drift + hook self-test"
+	@echo "  make ci               lint + tests + web + secrets + registries + drift + hooks + release-notes self-test + build"
 	@echo "  make build            build $(BIN_DIR)/$(BINARY)"
-	@echo "  make image            docker build ghcr.io/hilather/go-lab-tacacs-mcp:\$(VERSION)"
+	@echo "  make image            docker build default (distroless) ghcr.io/hilather/go-lab-tacacs-mcp:\$(VERSION)"
+	@echo "  make image-ubuntu     Ubuntu 24.04 runtime tag :\$(VERSION)-ubuntu"
+	@echo "  make image-rocky      Rocky Linux 9 runtime tag :\$(VERSION)-rocky"
+	@echo "  make image-variants   distroless + ubuntu + rocky"
+	@echo "  make release-notes    CHANGELOG + git log -> dist/RELEASE_NOTES.md"
 	@echo "  make lab-gen          generate secrets/certs into deployments/compose"
 	@echo "  make lab-test         build image, generate ephemeral lab, run LAB-*"
 	@echo "  make clean            remove bin/ and dist/"
@@ -159,18 +163,56 @@ check-hooks:
 	./tools/check-hooks.sh
 
 .PHONY: ci
-ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build web-e2e secrets check-registries check-generated docs-check check-hooks build
+ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build web-e2e secrets check-registries check-generated docs-check check-hooks check-release-notes build
+
+IMAGE_NAME ?= ghcr.io/hilather/go-lab-tacacs-mcp
 
 .PHONY: image
 image:
 	docker build \
+		--target runtime \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg COMMIT=$(COMMIT) \
 		--build-arg BUILDTIME=$(BUILDTIME) \
 		--build-arg UI_VERSION=$(UI_VERSION) \
-		-t ghcr.io/hilather/go-lab-tacacs-mcp:$(VERSION) \
-		-t ghcr.io/hilather/go-lab-tacacs-mcp:dev \
+		-t $(IMAGE_NAME):$(VERSION) \
+		-t $(IMAGE_NAME):dev \
 		.
+
+.PHONY: image-ubuntu
+image-ubuntu:
+	docker build \
+		--target runtime-ubuntu \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILDTIME=$(BUILDTIME) \
+		--build-arg UI_VERSION=$(UI_VERSION) \
+		-t $(IMAGE_NAME):$(VERSION)-ubuntu \
+		.
+
+.PHONY: image-rocky
+image-rocky:
+	docker build \
+		--target runtime-rocky \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILDTIME=$(BUILDTIME) \
+		--build-arg UI_VERSION=$(UI_VERSION) \
+		-t $(IMAGE_NAME):$(VERSION)-rocky \
+		.
+
+.PHONY: image-variants
+image-variants: image image-ubuntu image-rocky
+
+.PHONY: release-notes
+release-notes:
+	@chmod +x tools/release-notes.sh
+	./tools/release-notes.sh
+
+.PHONY: check-release-notes
+check-release-notes:
+	@chmod +x tools/release-notes.sh tools/release-notes_test.sh
+	./tools/release-notes_test.sh
 
 .PHONY: lab-gen
 lab-gen:

@@ -2,7 +2,7 @@
 
 Status: mandatory  
 Applies to: every code, configuration, test, schema, UI, deployment, and documentation change  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. Mission
 
@@ -169,6 +169,7 @@ Given the same effective configuration, runtime overlay, request, and clock-inde
 8. Update operator and design documentation.
 9. Run all required local checks.
 10. Record acceptance evidence and mark only proven checklist items complete.
+11. After every push, PR update, merge, or tag, monitor GitHub Actions until green (§9). On failure, fix and harden; do not walk away.
 
 ## 4. Definition of done
 
@@ -185,6 +186,7 @@ A task is done only when:
 - Secret-redaction tests pass.
 - Configuration and documentation are current.
 - No TODO remains without a linked task ID, owner, and disposition.
+- CI for the change’s ref is green (`ci-gate` on pull requests and `main`; on tags, `ci` and `release`).
 
 ## 5. Testing commands expected in CI
 
@@ -207,9 +209,12 @@ npm --prefix web test
 npm --prefix web run build
 npm --prefix web run test:e2e
 
-docker build --check .
+docker build --check --target runtime .
+docker build --check --target runtime-ubuntu .
+docker build --check --target runtime-rocky .
 docker compose -f deployments/compose/compose.yaml config
 make lab-test
+make check-release-notes
 # equivalent one-shot after tools/labgen (high host ports via compose.lab-test.yaml):
 # docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.lab-test.yaml \
 #   up --abort-on-container-exit --exit-code-from integration-tests
@@ -278,6 +283,8 @@ Do not:
 - add persistent storage without an architecture decision and explicit opt-in configuration.
 - expose a “complete” badge while conformance rows are unverified.
 - disable race, fuzz, security, or interoperability tests to make CI pass.
+- tag a release and walk away while tag CI is red or still running.
+- publish a GitHub Release without a CHANGELOG section for that version and without Ubuntu and Rocky image builds.
 
 ## 8. Architecture decision records
 
@@ -294,3 +301,31 @@ Create an ADR for decisions that alter:
 - performance budgets.
 
 An ADR must include context, decision, alternatives, consequences, compatibility impact, migration, test impact, and documentation impact.
+
+## 9. CI watch and releases
+
+These rules apply to every agent (main session and subagents) after a push, PR update, merge, or git tag.
+
+### 9.1 Always monitor CI
+
+1. Identify the GitHub Actions run for the ref you just changed (`gh run list --branch <ref>` or the tag). Official `gh` only (`cli/cli`).
+2. Wait for completion. Do not declare the change done while that run is queued, in progress, or red.
+3. Required green jobs on `main` and on pull requests: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, `ci-gate`.
+4. On tags (`v*`), also wait for the `release` workflow: release notes, Ubuntu image, Rocky image, GitHub Release.
+5. On failure: read the failed job logs, fix the root cause, and **harden** so the same class of failure cannot recur (pin, allowlist, timeout, test, or workflow change). Push and watch again.
+6. After a release tag, a red run is a **release blocker**. Cut a fix commit and either move the tag after the new run is green or publish a patch tag. Do not leave a published tag pointing at a failing tree.
+
+### 9.2 Every release must include
+
+A version is not released until all of the following exist for that tag:
+
+| Deliverable | How |
+|---|---|
+| Changes between this tag and the previous tag | A `## [<version>]` section in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md) **and** `make release-notes` (writes `dist/RELEASE_NOTES.md` from that section plus `git log`). The GitHub Release body is that file. |
+| Ubuntu 24.04 image | `make image-ubuntu` → `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>-ubuntu` |
+| Rocky Linux 9 image | `make image-rocky` → `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>-rocky` |
+| Default (distroless) image | `make image` → `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>` |
+
+Do not ship a tag that only has notes or only has one distro. Operators who run Rocky or Ubuntu hosts must be able to pull a matching variant from the same release.
+
+Release procedure is in [docs/MAINTENANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md) §Release.

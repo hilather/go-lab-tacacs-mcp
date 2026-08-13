@@ -55,13 +55,18 @@ Use the generated OpenAPI client only.
 ## Release evidence
 
 ```bash
-make ci
+make ci                 # includes make check-release-notes
 make check-registries   # includes -release
-make lab-test           # optional locally; CI compose-lab job on PRs and main
+make lab-test           # optional locally; CI compose-lab job on PRs, main, and tags
 ```
 
 GitHub Actions workflow: https://github.com/hilather/go-lab-tacacs-mcp/blob/main/.github/workflows/ci.yml
 
 Required jobs for merge: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, and the aggregating `ci-gate`.
 
-Publish notes go in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md). Image SBOM/provenance is `docker buildx --sbom --provenance` at publish, not a tree-checked SPDX file.
+Publish notes go in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md). After tagging `vX.Y.Z`, watch the `ci` and `release` workflows to green ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9). Every release must include:
+
+- `make release-notes` → `dist/RELEASE_NOTES.md` (CHANGELOG section + commits since the previous tag)
+- Ubuntu 24.04 and Rocky Linux 9 images (`make image-ubuntu`, `make image-rocky`) plus the distroless default
+
+Image SBOM/provenance is `docker buildx --sbom --provenance` at publish, not a tree-checked SPDX file.

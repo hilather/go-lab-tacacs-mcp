@@ -183,10 +183,28 @@ function queryString(params: Record<string, string | number | boolean | undefine
   return encoded === "" ? "" : `?${encoded}`;
 }
 
-async function sendJSON<T>(path: string, method: string, body: unknown, revision?: number): Promise<Envelope<T>> {
+export function newIdempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
+export async function latestRevision(): Promise<number> {
+  const env = await getStatus();
+  return env.revision;
+}
+
+async function sendJSON<T>(
+  path: string,
+  method: string,
+  body: unknown,
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<T>> {
   const headers = new Headers({ "Content-Type": "application/json" });
   if (revision !== undefined) {
     headers.set("If-Match", revisionETag(revision));
+  }
+  if (idempotencyKey !== undefined && idempotencyKey !== "") {
+    headers.set("Idempotency-Key", idempotencyKey);
   }
   const init: RequestInit = { method, headers };
   if (body !== undefined) {
@@ -208,8 +226,12 @@ export async function listTokens(opts: { limit?: number; cursor?: string } = {})
   return readEnvelope<TokenList>(await apiFetch(`/api/v1/tokens${queryString(opts)}`));
 }
 
-export async function createToken(body: CreateTokenRequest, revision?: number): Promise<Envelope<CreatedToken>> {
-  return sendJSON<CreatedToken>("/api/v1/tokens", "POST", body, revision);
+export async function createToken(
+  body: CreateTokenRequest,
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<CreatedToken>> {
+  return sendJSON<CreatedToken>("/api/v1/tokens", "POST", body, revision, idempotencyKey);
 }
 
 export async function revokeToken(id: string, revision: number, tombstone = false): Promise<Envelope<DeleteResult>> {
@@ -226,8 +248,12 @@ export async function getUser(id: string, includeDeleted = false): Promise<Envel
   );
 }
 
-export async function createUser(body: CreateUserRequest, revision?: number): Promise<Envelope<User>> {
-  return sendJSON<User>("/api/v1/users", "POST", body, revision);
+export async function createUser(
+  body: CreateUserRequest,
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<User>> {
+  return sendJSON<User>("/api/v1/users", "POST", body, revision, idempotencyKey);
 }
 
 export async function updateUser(id: string, body: UpdateUserRequest, revision: number): Promise<Envelope<User>> {
@@ -248,8 +274,12 @@ export async function getGroup(id: string, includeDeleted = false): Promise<Enve
   );
 }
 
-export async function createGroup(body: CreateGroupRequest, revision?: number): Promise<Envelope<Group>> {
-  return sendJSON<Group>("/api/v1/groups", "POST", body, revision);
+export async function createGroup(
+  body: CreateGroupRequest,
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<Group>> {
+  return sendJSON<Group>("/api/v1/groups", "POST", body, revision, idempotencyKey);
 }
 
 export async function updateGroup(id: string, body: UpdateGroupRequest, revision: number): Promise<Envelope<Group>> {
@@ -270,8 +300,12 @@ export async function getClient(id: string, includeDeleted = false): Promise<Env
   );
 }
 
-export async function createClient(body: CreateClientRequest, revision?: number): Promise<Envelope<Client>> {
-  return sendJSON<Client>("/api/v1/clients", "POST", body, revision);
+export async function createClient(
+  body: CreateClientRequest,
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<Client>> {
+  return sendJSON<Client>("/api/v1/clients", "POST", body, revision, idempotencyKey);
 }
 
 export async function updateClient(id: string, body: UpdateClientRequest, revision: number): Promise<Envelope<Client>> {
@@ -302,12 +336,18 @@ export async function validateConfig(body: ValidateConfigRequest): Promise<Envel
   return sendJSON<ValidateConfigResult>("/api/v1/config/validate", "POST", body);
 }
 
-export async function reloadConfig(revision?: number): Promise<Envelope<ReloadConfigResult>> {
-  return sendJSON<ReloadConfigResult>("/api/v1/config/reload", "POST", {}, revision);
+export async function reloadConfig(
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<ReloadConfigResult>> {
+  return sendJSON<ReloadConfigResult>("/api/v1/config/reload", "POST", {}, revision, idempotencyKey);
 }
 
-export async function resetRuntime(revision?: number): Promise<Envelope<ResetRuntimeResult>> {
-  return sendJSON<ResetRuntimeResult>("/api/v1/runtime/reset", "POST", {}, revision);
+export async function resetRuntime(
+  revision?: number,
+  idempotencyKey?: string,
+): Promise<Envelope<ResetRuntimeResult>> {
+  return sendJSON<ResetRuntimeResult>("/api/v1/runtime/reset", "POST", {}, revision, idempotencyKey);
 }
 
 export function hashPrefix(value: string, n = 12): string {

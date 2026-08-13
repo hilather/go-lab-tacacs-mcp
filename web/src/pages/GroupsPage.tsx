@@ -1,6 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import { APIError, createGroup, deleteGroup, getGroup, isRevisionMismatch, listGroups, updateGroup } from "../api/client";
+import {
+  APIError,
+  createGroup,
+  deleteGroup,
+  getGroup,
+  isRevisionMismatch,
+  latestRevision,
+  listGroups,
+  newIdempotencyKey,
+  updateGroup,
+} from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ErrorSummary } from "../components/ErrorSummary";
@@ -10,6 +20,7 @@ import { RevisionConflict } from "../components/RevisionConflict";
 import { emptyRules, RulesEditor } from "../components/RulesEditor";
 import type { CommandRuleView, CreateGroupRequest, Group, RuleSetView, ServiceRuleView, UpdateGroupRequest } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
+import { usePagedList } from "../hooks/usePagedList";
 import { compact } from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
 
@@ -30,11 +41,10 @@ function GroupsBody() {
   const [filter, setFilter] = useState("");
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [editor, setEditor] = useState<EditorMode | null>(null);
-  const list = useQuery({
-    queryKey: ["groups", includeDeleted],
-    queryFn: () => listGroups({ include_deleted: includeDeleted, limit: 200 }),
-  });
-  const items = (list.data?.data.items ?? []).filter((g) => matchesFilter(filter, [g.id, g.display_name, g.source]));
+  const list = usePagedList(["groups", includeDeleted], (cursor) =>
+    listGroups({ include_deleted: includeDeleted, limit: 200, ...(cursor ? { cursor } : {}) }),
+  );
+  const items = list.items.filter((g) => matchesFilter(filter, [g.id, g.display_name, g.source]));
   const filterId = useId();
 
   return (
@@ -107,10 +117,15 @@ function GroupsBody() {
           ))}
         </tbody>
       </table>
+      {list.hasMore ? (
+        <button type="button" onClick={() => void list.loadMore()}>
+          Load more
+        </button>
+      ) : null}
       {editor ? (
         <GroupEditor
           mode={editor}
-          revision={list.data?.revision ?? 0}
+          revision={list.revision}
           canWrite={canWrite}
           onClose={() => setEditor(null)}
         />
@@ -171,14 +186,14 @@ function GroupEditor({
   }
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (revision: number) => {
       const services = (rules.services ?? []) as ServiceRuleView[];
       const command_rules = (rules.command_rules ?? []) as CommandRuleView[];
       const prio = Number(priority);
       if (creating) {
         const req = compact<CreateGroupRequest>({
           id: id.trim(),
-          display_name: displayName.trim() || undefined,
+          display_name: displayName.trim(),
           enabled,
           priority: Number.isFinite(prio) ? prio : 100,
           services,
@@ -186,18 +201,18 @@ function GroupEditor({
           default_command_action: "deny",
           override,
         });
-        return createGroup(req, loadedRevision);
+        return createGroup(req, revision, newIdempotencyKey());
       }
       const req = compact<UpdateGroupRequest>({
         id: existing?.id ?? id,
-        display_name: displayName.trim() || undefined,
+        display_name: displayName.trim(),
         enabled,
         priority: Number.isFinite(prio) ? prio : 100,
         services,
         command_rules,
         default_command_action: "deny",
       });
-      return updateGroup(existing?.id ?? id, req, loadedRevision);
+      return updateGroup(existing?.id ?? id, req, revision);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["groups"] });
@@ -213,7 +228,7 @@ function GroupEditor({
   });
 
   const remove = useMutation({
-    mutationFn: async (tombstone: boolean) => {
+    mutationFn: async (args: { tombstone: boolean; revision: number }) => {
       if (!existing) {
         throw new APIError({
           type: "about:blank",
@@ -223,7 +238,7 @@ function GroupEditor({
           code: "invalid_argument",
         });
       }
-      return deleteGroup(existing.id, loadedRevision, tombstone);
+      return deleteGroup(existing.id, args.revision, args.tombstone);
     },
     onSuccess: async () => {
       setPendingDelete(null);
@@ -251,7 +266,7 @@ function GroupEditor({
       return;
     }
     setMessages([]);
-    save.mutate();
+    save.mutate(loadedRevision);
   }
 
   async function reloadLatest() {
@@ -272,10 +287,10 @@ function GroupEditor({
   }
 
   async function retryWithCurrent() {
-    const env = await listGroups({ limit: 1 });
-    setLoadedRevision(env.revision);
+    const revision = await latestRevision();
+    setLoadedRevision(revision);
     setConflict(null);
-    save.mutate();
+    save.mutate(revision);
   }
 
   return (
@@ -368,7 +383,7 @@ function GroupEditor({
           confirmLabel={pendingDelete === "tombstone" ? "Tombstone group" : "Delete group"}
           busy={remove.isPending}
           onCancel={() => setPendingDelete(null)}
-          onConfirm={() => remove.mutate(pendingDelete === "tombstone")}
+          onConfirm={() => remove.mutate({ tombstone: pendingDelete === "tombstone", revision: loadedRevision })}
         >
           <p>
             {pendingDelete === "tombstone"

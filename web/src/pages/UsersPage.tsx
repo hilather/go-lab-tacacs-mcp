@@ -1,6 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import { APIError, createUser, deleteUser, getUser, isRevisionMismatch, listUsers, updateUser } from "../api/client";
+import {
+  APIError,
+  createUser,
+  deleteUser,
+  getUser,
+  isRevisionMismatch,
+  latestRevision,
+  listUsers,
+  newIdempotencyKey,
+  updateUser,
+} from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ErrorSummary } from "../components/ErrorSummary";
@@ -11,8 +21,9 @@ import { emptyRules, RulesEditor } from "../components/RulesEditor";
 import { emptySecret, SecretRefFields, secretPayload, type SecretDraft } from "../components/SecretRefFields";
 import type { CreateUserRequest, RuleSetView, UpdateUserRequest, User } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
+import { usePagedList } from "../hooks/usePagedList";
 import { errorDetail, matchesFilter } from "../ui/errors";
-import { compact, joinList, splitList } from "../ui/constants";
+import { compact, fromDatetimeLocal, joinList, splitList, toDatetimeLocal } from "../ui/constants";
 
 type EditorMode = { kind: "create" } | { kind: "edit"; user: User };
 
@@ -31,11 +42,10 @@ function UsersBody() {
   const [filter, setFilter] = useState("");
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [editor, setEditor] = useState<EditorMode | null>(null);
-  const list = useQuery({
-    queryKey: ["users", includeDeleted],
-    queryFn: () => listUsers({ include_deleted: includeDeleted, limit: 200 }),
-  });
-  const items = (list.data?.data.items ?? []).filter((u) =>
+  const list = usePagedList(["users", includeDeleted], (cursor) =>
+    listUsers({ include_deleted: includeDeleted, limit: 200, ...(cursor ? { cursor } : {}) }),
+  );
+  const items = list.items.filter((u) =>
     matchesFilter(filter, [u.id, u.display_name, u.source, ...(u.group_ids ?? [])]),
   );
   const filterId = useId();
@@ -129,10 +139,15 @@ function UsersBody() {
         </tbody>
       </table>
       {items.length === 0 && !list.isPending ? <p>No users match the filter.</p> : null}
+      {list.hasMore ? (
+        <button type="button" onClick={() => void list.loadMore()}>
+          Load more
+        </button>
+      ) : null}
       {editor ? (
         <UserEditor
           mode={editor}
-          revision={list.data?.revision ?? 0}
+          revision={list.revision}
           canWrite={canWrite}
           onClose={() => setEditor(null)}
         />
@@ -161,6 +176,8 @@ function UserEditor({
   const [override, setOverride] = useState(false);
   const [groupIds, setGroupIds] = useState(joinList(existing?.group_ids));
   const [clientIds, setClientIds] = useState(joinList(existing?.restrictions.client_ids));
+  const [validAfter, setValidAfter] = useState(toDatetimeLocal(existing?.restrictions.valid_after));
+  const [validBefore, setValidBefore] = useState(toDatetimeLocal(existing?.restrictions.valid_before));
   const [rules, setRules] = useState<RuleSetView>(existing?.rules ?? emptyRules());
   const [login, setLogin] = useState<SecretDraft>(emptySecret());
   const [challenge, setChallenge] = useState<SecretDraft>(emptySecret());
@@ -181,23 +198,27 @@ function UserEditor({
   }, [messages, conflict]);
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (revision: number) => {
       const bodyBase = {
-        display_name: displayName.trim() === "" ? undefined : displayName.trim(),
+        display_name: displayName.trim(),
         enabled,
         group_ids: splitList(groupIds),
         rules,
         login: secretPayload(login),
         challenge: secretPayload(challenge),
         enable: secretPayload(enable),
-        restrictions: { client_ids: splitList(clientIds) },
+        restrictions: compact({
+          client_ids: splitList(clientIds),
+          valid_after: fromDatetimeLocal(validAfter),
+          valid_before: fromDatetimeLocal(validBefore),
+        }),
       };
       if (creating) {
         const req = compact<CreateUserRequest>({ id: id.trim(), ...bodyBase, override });
-        return createUser(req, loadedRevision);
+        return createUser(req, revision, newIdempotencyKey());
       }
       const req = compact<UpdateUserRequest>({ id: existing?.id ?? id, ...bodyBase });
-      return updateUser(existing?.id ?? id, req, loadedRevision);
+      return updateUser(existing?.id ?? id, req, revision);
     },
     onSuccess: async () => {
       setLogin(emptySecret());
@@ -219,7 +240,7 @@ function UserEditor({
   });
 
   const remove = useMutation({
-    mutationFn: async (tombstone: boolean) => {
+    mutationFn: async (args: { tombstone: boolean; revision: number }) => {
       if (!existing) {
         throw new APIError({
           type: "about:blank",
@@ -229,7 +250,7 @@ function UserEditor({
           code: "invalid_argument",
         });
       }
-      return deleteUser(existing.id, loadedRevision, tombstone);
+      return deleteUser(existing.id, args.revision, args.tombstone);
     },
     onSuccess: async () => {
       setPendingDelete(null);
@@ -262,6 +283,8 @@ function UserEditor({
     setEnabled(server.enabled);
     setGroupIds(joinList(server.group_ids));
     setClientIds(joinList(server.restrictions.client_ids));
+    setValidAfter(toDatetimeLocal(server.restrictions.valid_after));
+    setValidBefore(toDatetimeLocal(server.restrictions.valid_before));
     setRules(server.rules ?? emptyRules());
     setLoadedRevision(env.revision);
     setConflict(null);
@@ -269,10 +292,10 @@ function UserEditor({
   }
 
   async function retryWithCurrent() {
-    const env = await listUsers({ limit: 1 });
-    setLoadedRevision(env.revision);
+    const revision = await latestRevision();
+    setLoadedRevision(revision);
     setConflict(null);
-    save.mutate();
+    save.mutate(revision);
   }
 
   function onSubmit(ev: FormEvent) {
@@ -286,7 +309,7 @@ function UserEditor({
       return;
     }
     setMessages([]);
-    save.mutate();
+    save.mutate(loadedRevision);
   }
 
   return (
@@ -324,7 +347,16 @@ function UserEditor({
         ) : null}
         <div className="field">
           <label htmlFor="user-display">Display name</label>
-          <input id="user-display" type="text" value={displayName} onChange={(ev) => setDisplayName(ev.target.value)} />
+          <input
+            id="user-display"
+            type="text"
+            value={displayName}
+            aria-describedby="user-display-hint"
+            onChange={(ev) => setDisplayName(ev.target.value)}
+          />
+          <p id="user-display-hint" className="hint">
+            Saved as written. An empty value clears the previous display name.
+          </p>
         </div>
         <label className="check">
           <input type="checkbox" checked={enabled} onChange={(ev) => setEnabled(ev.target.checked)} />
@@ -352,6 +384,24 @@ function UserEditor({
         <div className="field">
           <label htmlFor="user-clients">Restricted client IDs</label>
           <input id="user-clients" type="text" value={clientIds} onChange={(ev) => setClientIds(ev.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="user-valid-after">Valid after</label>
+          <input
+            id="user-valid-after"
+            type="datetime-local"
+            value={validAfter}
+            onChange={(ev) => setValidAfter(ev.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="user-valid-before">Valid before</label>
+          <input
+            id="user-valid-before"
+            type="datetime-local"
+            value={validBefore}
+            onChange={(ev) => setValidBefore(ev.target.value)}
+          />
         </div>
         {existing ? (
           <p>
@@ -418,7 +468,7 @@ function UserEditor({
           confirmLabel={pendingDelete === "tombstone" ? "Tombstone user" : "Delete user"}
           busy={remove.isPending}
           onCancel={() => setPendingDelete(null)}
-          onConfirm={() => remove.mutate(pendingDelete === "tombstone")}
+          onConfirm={() => remove.mutate({ tombstone: pendingDelete === "tombstone", revision: loadedRevision })}
         >
           <p>
             {pendingDelete === "tombstone"

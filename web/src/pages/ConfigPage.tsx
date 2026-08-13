@@ -4,9 +4,11 @@ import {
   exportConfig,
   getEffectiveConfig,
   isRevisionMismatch,
+  latestRevision,
   listClients,
   listGroups,
   listUsers,
+  newIdempotencyKey,
   reloadConfig,
   resetRuntime,
   validateConfig,
@@ -18,8 +20,25 @@ import { ObjectMeta } from "../components/ObjectMeta";
 import { RequireScope } from "../components/RequireScope";
 import { RevisionConflict } from "../components/RevisionConflict";
 import { useEventStream } from "../hooks/useEventStream";
+import type { Envelope } from "../generated/api";
 import { CONFIG_VIEWS } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
+
+async function drainObjects<T>(
+  fetchPage: (cursor?: string) => Promise<Envelope<{ items: T[]; next_cursor?: string }>>,
+): Promise<T[]> {
+  const all: T[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < 64; i += 1) {
+    const env = await fetchPage(cursor);
+    all.push(...env.data.items);
+    if (!env.data.next_cursor) {
+      break;
+    }
+    cursor = env.data.next_cursor;
+  }
+  return all;
+}
 
 export function ConfigPage() {
   return (
@@ -43,6 +62,7 @@ function ConfigBody() {
   const [conflict, setConflict] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const [confirm, setConfirm] = useState<"reload" | "reset" | null>(null);
+  const [failedAction, setFailedAction] = useState<"reload" | "reset" | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const viewId = useId();
   const yamlId = useId();
@@ -60,15 +80,14 @@ function ConfigBody() {
     queryKey: ["config", "tombstones"],
     queryFn: async () => {
       const [users, groups, clients] = await Promise.all([
-        listUsers({ include_deleted: true, limit: 200 }),
-        listGroups({ include_deleted: true, limit: 200 }),
-        listClients({ include_deleted: true, limit: 200 }),
+        drainObjects((cursor) => listUsers({ include_deleted: true, limit: 200, ...(cursor ? { cursor } : {}) })),
+        drainObjects((cursor) => listGroups({ include_deleted: true, limit: 200, ...(cursor ? { cursor } : {}) })),
+        drainObjects((cursor) => listClients({ include_deleted: true, limit: 200, ...(cursor ? { cursor } : {}) })),
       ]);
       return {
-        revision: users.revision,
-        users: users.data.items.filter((u) => u.deleted || u.source === "override" || u.source === "runtime"),
-        groups: groups.data.items.filter((g) => g.deleted || g.source === "override" || g.source === "runtime"),
-        clients: clients.data.items.filter((c) => c.deleted || c.source === "override" || c.source === "runtime"),
+        users: users.filter((u) => u.deleted || u.source === "override" || u.source === "runtime"),
+        groups: groups.filter((g) => g.deleted || g.source === "override" || g.source === "runtime"),
+        clients: clients.filter((c) => c.deleted || c.source === "override" || c.source === "runtime"),
       };
     },
   });
@@ -95,9 +114,10 @@ function ConfigBody() {
   });
 
   const reload = useMutation({
-    mutationFn: () => reloadConfig(effective.data?.revision),
+    mutationFn: (revision: number) => reloadConfig(revision, newIdempotencyKey()),
     onSuccess: async (env) => {
       setConfirm(null);
+      setFailedAction(null);
       setConflict(null);
       setAnnounce(`Reloaded baseline. Revision ${String(env.data.revision)}.`);
       await queryClient.invalidateQueries();
@@ -105,6 +125,7 @@ function ConfigBody() {
     onError: (err) => {
       setConfirm(null);
       if (isRevisionMismatch(err)) {
+        setFailedAction("reload");
         setConflict(errorDetail(err, "expected revision does not match published snapshot"));
         return;
       }
@@ -113,9 +134,10 @@ function ConfigBody() {
   });
 
   const reset = useMutation({
-    mutationFn: () => resetRuntime(effective.data?.revision),
+    mutationFn: (revision: number) => resetRuntime(revision, newIdempotencyKey()),
     onSuccess: async (env) => {
       setConfirm(null);
+      setFailedAction(null);
       setConflict(null);
       setAnnounce(`Runtime overlay reset. Revision ${String(env.data.revision)}.`);
       await queryClient.invalidateQueries();
@@ -123,6 +145,7 @@ function ConfigBody() {
     onError: (err) => {
       setConfirm(null);
       if (isRevisionMismatch(err)) {
+        setFailedAction("reset");
         setConflict(errorDetail(err, "expected revision does not match published snapshot"));
         return;
       }
@@ -155,11 +178,14 @@ function ConfigBody() {
             setConflict(null);
           }}
           onRetry={() => {
-            if (confirm === "reset") {
-              reset.mutate();
-            } else {
-              reload.mutate();
-            }
+            void (async () => {
+              const revision = await latestRevision();
+              if (failedAction === "reset") {
+                reset.mutate(revision);
+                return;
+              }
+              reload.mutate(revision);
+            })();
           }}
         />
       ) : null}
@@ -258,7 +284,7 @@ function ConfigBody() {
           confirmLabel="Reload baseline"
           busy={reload.isPending}
           onCancel={() => setConfirm(null)}
-          onConfirm={() => reload.mutate()}
+          onConfirm={() => reload.mutate(effective.data?.revision ?? 0)}
         >
           <p>
             Reload remounts the baseline YAML and rebases the current overlay. An invalid candidate keeps revision{" "}
@@ -272,7 +298,7 @@ function ConfigBody() {
           confirmLabel="Reset overlay"
           busy={reset.isPending}
           onCancel={() => setConfirm(null)}
-          onConfirm={() => reset.mutate()}
+          onConfirm={() => reset.mutate(effective.data?.revision ?? 0)}
         >
           <p>
             This drops every runtime object, override, and tombstone. Baseline identities return. The change cannot be

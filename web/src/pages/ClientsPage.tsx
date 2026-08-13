@@ -7,7 +7,9 @@ import {
   getClient,
   getStatus,
   isRevisionMismatch,
+  latestRevision,
   listClients,
+  newIdempotencyKey,
   updateClient,
 } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
@@ -19,6 +21,7 @@ import { RevisionConflict } from "../components/RevisionConflict";
 import { emptySecret, SecretRefFields, secretPayload, type SecretDraft } from "../components/SecretRefFields";
 import type { Client, CreateClientRequest, UpdateClientRequest } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
+import { usePagedList } from "../hooks/usePagedList";
 import { AUTH_METHODS, compact, joinList, lifecycleLabel, MATCH_MODES, splitList, TRANSPORTS } from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
 
@@ -39,13 +42,12 @@ function ClientsBody() {
   const [filter, setFilter] = useState("");
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [editor, setEditor] = useState<EditorMode | null>(null);
-  const list = useQuery({
-    queryKey: ["clients", includeDeleted],
-    queryFn: () => listClients({ include_deleted: includeDeleted, limit: 200 }),
-  });
+  const list = usePagedList(["clients", includeDeleted], (cursor) =>
+    listClients({ include_deleted: includeDeleted, limit: 200, ...(cursor ? { cursor } : {}) }),
+  );
   const status = useQuery({ queryKey: ["status"], queryFn: getStatus });
   const warnings = status.data?.data.warnings ?? [];
-  const items = (list.data?.data.items ?? []).filter((c) =>
+  const items = list.items.filter((c) =>
     matchesFilter(filter, [c.id, c.display_name, c.source, c.shared_secret_lifecycle, ...(c.match.source_cidrs ?? [])]),
   );
   const filterId = useId();
@@ -134,10 +136,15 @@ function ClientsBody() {
           ))}
         </tbody>
       </table>
+      {list.hasMore ? (
+        <button type="button" onClick={() => void list.loadMore()}>
+          Load more
+        </button>
+      ) : null}
       {editor ? (
         <ClientEditor
           mode={editor}
-          revision={list.data?.revision ?? 0}
+          revision={list.revision}
           canWrite={canWrite}
           onClose={() => setEditor(null)}
         />
@@ -171,7 +178,9 @@ function ClientEditor({
   const [dnsSans, setDnsSans] = useState(joinList(existing?.match.certificate.dns_sans));
   const [ipSans, setIpSans] = useState(joinList(existing?.match.certificate.ip_sans));
   const [methods, setMethods] = useState<string[]>(existing?.authentication.allowed_methods ?? []);
+  const [defaultService, setDefaultService] = useState(existing?.authentication.default_service ?? "");
   const [defaultGroups, setDefaultGroups] = useState(joinList(existing?.authorization.default_group_ids));
+  const [compare, setCompare] = useState<{ field: string; yours: string; server: string }[] | undefined>();
   const [secret, setSecret] = useState<SecretDraft>(emptySecret());
   const [rotatedAt, setRotatedAt] = useState("");
   const [interval, setInterval] = useState("");
@@ -189,14 +198,17 @@ function ClientEditor({
   }, [messages, conflict]);
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (revision: number) => {
       const match = {
         source_cidrs: splitList(cidrs),
         transports,
         mode: modeMatch,
         certificate: { dns_sans: splitList(dnsSans), ip_sans: splitList(ipSans) },
       };
-      const authentication = { allowed_methods: methods };
+      const authentication = compact({
+        allowed_methods: methods,
+        default_service: defaultService.trim() !== "" ? defaultService.trim() : undefined,
+      });
       const authorization = { default_group_ids: splitList(defaultGroups) };
       const shared_secret = secretPayload(secret);
       const lifecycle =
@@ -210,7 +222,7 @@ function ClientEditor({
       if (creating) {
         const req = compact<CreateClientRequest>({
           id: id.trim(),
-          display_name: displayName.trim() || undefined,
+          display_name: displayName.trim(),
           enabled,
           priority: Number.isFinite(prio) ? prio : 100,
           match,
@@ -220,11 +232,11 @@ function ClientEditor({
           authorization,
           override,
         });
-        return createClient(req, loadedRevision);
+        return createClient(req, revision, newIdempotencyKey());
       }
       const req = compact<UpdateClientRequest>({
         id: existing?.id ?? id,
-        display_name: displayName.trim() || undefined,
+        display_name: displayName.trim(),
         enabled,
         priority: Number.isFinite(prio) ? prio : 100,
         match,
@@ -233,7 +245,7 @@ function ClientEditor({
         authentication,
         authorization,
       });
-      return updateClient(existing?.id ?? id, req, loadedRevision);
+      return updateClient(existing?.id ?? id, req, revision);
     },
     onSuccess: async () => {
       setSecret(emptySecret());
@@ -250,7 +262,7 @@ function ClientEditor({
   });
 
   const remove = useMutation({
-    mutationFn: async (tombstone: boolean) => {
+    mutationFn: async (args: { tombstone: boolean; revision: number }) => {
       if (!existing) {
         throw new APIError({
           type: "about:blank",
@@ -260,7 +272,7 @@ function ClientEditor({
           code: "invalid_argument",
         });
       }
-      return deleteClient(existing.id, loadedRevision, tombstone);
+      return deleteClient(existing.id, args.revision, args.tombstone);
     },
     onSuccess: async () => {
       setPendingDelete(null);
@@ -288,7 +300,7 @@ function ClientEditor({
       return;
     }
     setMessages([]);
-    save.mutate();
+    save.mutate(loadedRevision);
   }
 
   async function reloadLatest() {
@@ -296,15 +308,32 @@ function ClientEditor({
       return;
     }
     const env = await getClient(existing.id, true);
+    const server = env.data;
+    setCompare([
+      { field: "display_name", yours: displayName, server: server.display_name ?? "" },
+      { field: "priority", yours: priority, server: String(server.priority) },
+      { field: "default_service", yours: defaultService, server: server.authentication.default_service ?? "" },
+    ]);
+    setDisplayName(server.display_name ?? "");
+    setEnabled(server.enabled);
+    setPriority(String(server.priority));
+    setCidrs(joinList(server.match.source_cidrs));
+    setTransports(server.match.transports ?? ["legacy"]);
+    setModeMatch(server.match.mode ?? "address_and_certificate");
+    setDnsSans(joinList(server.match.certificate.dns_sans));
+    setIpSans(joinList(server.match.certificate.ip_sans));
+    setMethods(server.authentication.allowed_methods ?? []);
+    setDefaultService(server.authentication.default_service ?? "");
+    setDefaultGroups(joinList(server.authorization.default_group_ids));
     setLoadedRevision(env.revision);
     setConflict(null);
   }
 
   async function retryWithCurrent() {
-    const env = await listClients({ limit: 1 });
-    setLoadedRevision(env.revision);
+    const revision = await latestRevision();
+    setLoadedRevision(revision);
     setConflict(null);
-    save.mutate();
+    save.mutate(revision);
   }
 
   return (
@@ -314,6 +343,7 @@ function ClientEditor({
       {conflict ? (
         <RevisionConflict
           detail={conflict}
+          compare={compare}
           onReload={() => {
             void reloadLatest();
           }}
@@ -409,6 +439,19 @@ function ClientEditor({
           ))}
         </fieldset>
         <div className="field">
+          <label htmlFor="client-default-service">Default service</label>
+          <input
+            id="client-default-service"
+            type="text"
+            value={defaultService}
+            onChange={(ev) => setDefaultService(ev.target.value)}
+            aria-describedby="client-default-service-hint"
+          />
+          <p id="client-default-service-hint" className="hint">
+            Preserved on save when left as loaded. Clearing this field removes the baseline default service.
+          </p>
+        </div>
+        <div className="field">
           <label htmlFor="client-groups">Default group IDs</label>
           <input
             id="client-groups"
@@ -484,7 +527,7 @@ function ClientEditor({
           confirmLabel={pendingDelete === "tombstone" ? "Tombstone client" : "Delete client"}
           busy={remove.isPending}
           onCancel={() => setPendingDelete(null)}
-          onConfirm={() => remove.mutate(pendingDelete === "tombstone")}
+          onConfirm={() => remove.mutate({ tombstone: pendingDelete === "tombstone", revision: loadedRevision })}
         >
           <p>
             {pendingDelete === "tombstone"

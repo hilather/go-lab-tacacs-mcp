@@ -79,12 +79,32 @@ describe("EventsPage", () => {
     const user = userEvent.setup();
     renderApp(<EventsPage />, { route: "/events" });
     expect(await screen.findByText("alice")).toBeInTheDocument();
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("10");
     await user.type(screen.getByLabelText("User"), "bob");
     expect(screen.queryByText("alice")).not.toBeInTheDocument();
     expect(screen.getByText("bob")).toBeInTheDocument();
     expect(screen.getByText(/overwritten count/i)).toBeInTheDocument();
 
+    await user.clear(screen.getByLabelText("User"));
     const es = FakeEventSource.instances[0];
+    es?.emit(
+      "message",
+      JSON.stringify({
+        schema_version: 1,
+        id: 11,
+        time: "2026-08-12T00:00:01Z",
+        category: "authen",
+        type: "ascii.login",
+        result: "pass",
+        transport: "legacy",
+        privilege: 1,
+        user_id: "carol",
+      }),
+    );
+    expect(await screen.findByText("carol")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("11");
+
     es?.emit("error");
     expect(await screen.findByText(/Reconnecting/)).toBeInTheDocument();
     es?.emit("open");

@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import { createToken, isRevisionMismatch, listTokens, revokeToken } from "../api/client";
+import { createToken, isRevisionMismatch, latestRevision, listTokens, newIdempotencyKey, revokeToken } from "../api/client";
 import { assertNoTokenStorage } from "../api/storage";
 import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -10,6 +10,7 @@ import { RequireScope } from "../components/RequireScope";
 import { RevisionConflict } from "../components/RevisionConflict";
 import type { CreateTokenRequest, CreatedToken } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
+import { usePagedList } from "../hooks/usePagedList";
 import { compact, SCOPES } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
 
@@ -26,7 +27,7 @@ function TokensBody() {
   const { hasScope } = useAuth();
   const queryClient = useQueryClient();
   const canManage = hasScope("tokens:manage");
-  const list = useQuery({ queryKey: ["tokens"], queryFn: () => listTokens({ limit: 200 }) });
+  const list = usePagedList(["tokens"], (cursor) => listTokens({ limit: 200, ...(cursor ? { cursor } : {}) }));
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<string[]>(["state:read"]);
@@ -56,12 +57,13 @@ function TokensBody() {
   function clearOnce() {
     setOnce(null);
     setAcked(true);
+    create.reset();
     setAnnounce("One-time token cleared from this page.");
     assertNoTokenStorage();
   }
 
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (revision: number) => {
       assertNoTokenStorage();
       return createToken(
         compact<CreateTokenRequest>({
@@ -70,7 +72,8 @@ function TokensBody() {
           scopes,
           expires_at: expires === "" ? undefined : new Date(expires).toISOString(),
         }),
-        list.data?.revision,
+        revision,
+        newIdempotencyKey(),
       );
     },
     onSuccess: async (env) => {
@@ -83,6 +86,9 @@ function TokensBody() {
       setOnce(env.data);
       setAnnounce("Token created. Copy the value now; it will not be shown again.");
       assertNoTokenStorage();
+      queueMicrotask(() => {
+        create.reset();
+      });
       await queryClient.invalidateQueries({ queryKey: ["tokens"] });
     },
     onError: (err) => {
@@ -95,7 +101,7 @@ function TokensBody() {
   });
 
   const revoke = useMutation({
-    mutationFn: async (target: string) => revokeToken(target, list.data?.revision ?? 0, false),
+    mutationFn: async (args: { id: string; revision: number }) => revokeToken(args.id, args.revision, false),
     onSuccess: async () => {
       setRevokeId(null);
       setAnnounce("Token revoked.");
@@ -124,7 +130,7 @@ function TokensBody() {
       setMessages(errs);
       return;
     }
-    create.mutate();
+    create.mutate(list.revision);
   }
 
   async function copyToken() {
@@ -157,11 +163,12 @@ function TokensBody() {
         <RevisionConflict
           detail={conflict}
           onReload={() => {
-            void list.refetch();
             setConflict(null);
           }}
           onRetry={() => {
-            void list.refetch().then(() => create.mutate());
+            void latestRevision().then((revision) => {
+              create.mutate(revision);
+            });
           }}
         />
       ) : null}
@@ -237,7 +244,7 @@ function TokensBody() {
           </tr>
         </thead>
         <tbody>
-          {(list.data?.data.items ?? []).map((tok) => (
+          {list.items.map((tok) => (
             <tr key={tok.id}>
               <th scope="row">
                 <code>{tok.id}</code>
@@ -259,6 +266,11 @@ function TokensBody() {
           ))}
         </tbody>
       </table>
+      {list.hasMore ? (
+        <button type="button" onClick={() => void list.loadMore()}>
+          Load more
+        </button>
+      ) : null}
 
       {revokeId ? (
         <ConfirmDialog
@@ -266,7 +278,7 @@ function TokensBody() {
           confirmLabel="Revoke token"
           busy={revoke.isPending}
           onCancel={() => setRevokeId(null)}
-          onConfirm={() => revoke.mutate(revokeId)}
+          onConfirm={() => revoke.mutate({ id: revokeId, revision: list.revision })}
         >
           <p>
             Revoking <code>{revokeId}</code> immediately rejects that bearer. Sessions already issued from it stay until

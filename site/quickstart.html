@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quick start — TacLab</title>
+  <meta name="description" content="Bring TacLab up in four commands: generate secrets, start Compose, open the UI, hit REST and MCP." />
+  <meta name="theme-color" content="#07090c" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/site.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M2 13 L5 7 L8 11 L11 4 L16 12" stroke="#e8c27a" stroke-width="1.6"/><circle cx="11" cy="4" r="1.3" fill="#86efe4"/></svg>
+        </span>
+        TacLab
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Menu">≡</button>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="quickstart.html" aria-current="page">Quick start</a>
+        <a href="mcp.html">MCP local & remote</a>
+        <a href="catalog.html">API catalog</a>
+        <a href="https://github.com/hilather/go-lab-tacacs-mcp">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <p class="kicker">Onboarding</p>
+      <h1>Lab up in<br /><em>four commands.</em></h1>
+      <p class="lede">Generate secrets, start Compose, open the UI, then hit REST and MCP with the same bearer. Canonical write-up: <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md">docs/QUICKSTART.md</a>.</p>
+    </section>
+
+    <div class="steps">
+      <section class="section step">
+        <h2>Clone and generate</h2>
+        <pre>git clone https://github.com/hilather/go-lab-tacacs-mcp.git
+cd go-lab-tacacs-mcp
+go run ./tools/labgen deployments/compose</pre>
+        <p class="sub">Writes <code>config/taclab.yaml</code>, lab PKI, and <code>secrets/api_admin_token</code>. Nothing secret is committed. Force regenerate with <code>-force</code>.</p>
+      </section>
+
+      <section class="section step">
+        <h2>Start the appliance</h2>
+        <pre>docker compose -f deployments/compose/compose.yaml up -d --build
+curl -sf http://127.0.0.1:8080/health/ready && echo ready</pre>
+        <p class="note">Need TLS-only TACACS? Add <code>-f deployments/compose/compose.tls-only.yaml</code>. No privileged ports? Use <code>compose.smoke.yaml</code>.</p>
+      </section>
+
+      <section class="section step">
+        <h2>Open the UI</h2>
+        <p class="sub">Browse to <code>http://127.0.0.1:8080</code> and paste the contents of <code>deployments/compose/secrets/api_admin_token</code>. The SPA exchanges it for an HttpOnly cookie. It never parks the raw token in localStorage.</p>
+      </section>
+
+      <section class="section step">
+        <h2>REST and MCP</h2>
+        <pre>TOKEN=$(tr -d '\n' < deployments/compose/secrets/api_admin_token)
+
+curl -sS http://127.0.0.1:8080/api/v1/status \
+  -H "Authorization: Bearer ${TOKEN}"
+
+curl -sS http://127.0.0.1:8080/mcp \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "MCP-Protocol-Version: 2026-07-28" \
+  -H "Mcp-Method: tools/list" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}'</pre>
+        <p class="sub">Wire Claude, Cursor, or VS Code: <a href="mcp.html">MCP local & remote</a>. There is no OAuth discovery document.</p>
+      </section>
+    </div>
+
+    <section class="section">
+      <h2>Reset</h2>
+      <p class="sub">Runtime overlay is memory-only. <code>POST /api/v1/runtime/reset</code> or a container recreate restores the YAML baseline. <code>make lab-test</code> is the acceptance suite.</p>
+    </section>
+  </main>
+  <footer class="wrap footer">
+    <div>Need hosted MCP? <a href="mcp.html">Local and remote setup</a></div>
+    <div><a href="https://github.com/hilather/go-lab-tacacs-mcp">Source</a></div>
+  </footer>
+  <script src="js/site.js"></script>
+</body>
+</html>

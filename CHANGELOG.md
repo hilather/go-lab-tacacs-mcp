@@ -4,6 +4,14 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Documentation
+
+- Operator-facing README with feature catalog, REST/MCP matrix, and a documentation map for every contract linked from the root page.
+- [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md) — clone, `labgen`, Compose, UI, first REST and MCP calls.
+- [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) — Streamable HTTP contract plus **local** and **remote/hosted** client setup (Claude/Cursor/VS Code JSON, curl, Caddy/nginx, origin policy).
+- [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §1.1 — first-time toolchain, lab bring-up, and MCP local/remote instructions for coding agents.
+- GitHub Pages site at `https://hilather.github.io/go-lab-tacacs-mcp/` (`site/`).
+
 ## [1.0.0] — 2026-08-13
 
 First tagged lab-appliance release. Module `github.com/hilather/go-lab-tacacs-mcp`. Image `ghcr.io/hilather/go-lab-tacacs-mcp`. This section is the full high-level delta from an empty repository.

@@ -4,7 +4,7 @@ Status: implementation baseline
 Architecture: all-in-one Go backend with a React and TypeScript web application  
 Deployment target: reproducible lab environments using an OCI/Docker image  
 Specification baseline: RFC 8907, RFC 9887, and MCP 2026-07-28  
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## Purpose
 
@@ -39,10 +39,12 @@ Agents must read these files before modifying implementation code:
 14. [REFERENCES.md](REFERENCES.md) - normative and implementation references.
 15. [THREAT_MODEL.md](THREAT_MODEL.md) - trust boundaries, abuse cases, and test links.
 16. [OPERATOR.md](OPERATOR.md) - 1.0 operator guide.
-17. [DEVELOPER.md](DEVELOPER.md) - conformance, parity, and generate workflow.
-18. [INTEROP.md](INTEROP.md) - software peer and device-skip record.
-19. [MAINTENANCE.md](MAINTENANCE.md) - supported versions and rerun triggers.
-20. [decisions/0012-ascii-pap-enablement-warning.md](decisions/0012-ascii-pap-enablement-warning.md) - T89-SEC-002 disposition.
+17. [QUICKSTART.md](QUICKSTART.md) - clone, generate, Compose, first REST/MCP call.
+18. [MCP.md](MCP.md) - MCP Streamable HTTP: local client setup and remote/hosted setup.
+19. [DEVELOPER.md](DEVELOPER.md) - conformance, parity, and generate workflow.
+20. [INTEROP.md](INTEROP.md) - software peer and device-skip record.
+21. [MAINTENANCE.md](MAINTENANCE.md) - supported versions and rerun triggers.
+22. [decisions/0012-ascii-pap-enablement-warning.md](decisions/0012-ascii-pap-enablement-warning.md) - T89-SEC-002 disposition.
 
 ## Product-level release gates
 

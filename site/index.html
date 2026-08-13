@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TacLab — TACACS+ lab appliance that agents can drive</title>
+  <meta name="description" content="TacLab (taclabd) is an all-in-one Go TACACS+ lab appliance: RFC 8907, RFC 9887 TLS 1.3, REST/MCP 2026-07-28 parity, and an embedded operator UI." />
+  <meta property="og:title" content="TacLab — drive TACACS+ from an agent" />
+  <meta property="og:description" content="One Go process. Dual TACACS+ listeners. REST, MCP, and an embedded UI sharing one operation registry." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://hilather.github.io/go-lab-tacacs-mcp/" />
+  <meta name="theme-color" content="#07090c" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/site.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M2 13 L5 7 L8 11 L11 4 L16 12" stroke="#e8c27a" stroke-width="1.6"/><circle cx="11" cy="4" r="1.3" fill="#86efe4"/></svg>
+        </span>
+        TacLab
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Menu">≡</button>
+      <nav class="nav-links">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="quickstart.html">Quick start</a>
+        <a href="mcp.html">MCP local & remote</a>
+        <a href="catalog.html">API catalog</a>
+        <a href="https://github.com/hilather/go-lab-tacacs-mcp">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <p class="kicker">go-lab-tacacs-mcp · taclabd · 1.0 lab appliance</p>
+          <h1>Drive TACACS+<br /><em>from an agent.</em></h1>
+          <p class="lede">
+            One Go process speaks legacy TACACS+ and TLS&nbsp;1.3 TACACS+, then exposes the
+            <em>same</em> administrative operations through REST, MCP Streamable HTTP, and an embedded UI.
+            Lab-grade. Protocol-correct. Memory overlay that forgets on restart.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="quickstart.html">Quick start</a>
+            <a class="btn btn-ghost" href="mcp.html">Connect MCP</a>
+            <a class="btn btn-ghost" href="https://github.com/hilather/go-lab-tacacs-mcp">Source</a>
+          </div>
+        </div>
+        <div class="scope" aria-hidden="true">
+          <div class="scope-hud"><span>CH-A TACACS</span><span>CH-B MCP</span><span>2026-07-28</span></div>
+          <canvas id="scope"></canvas>
+        </div>
+      </div>
+      <div class="ports">
+        <div class="port"><b>:49</b><span>Legacy TACACS+ · RFC 8907</span></div>
+        <div class="port"><b>:300</b><span>Secure TACACS+ · RFC 9887 TLS 1.3</span></div>
+        <div class="port"><b>:8080</b><span>UI · REST /api/v1 · POST /mcp</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>What ships in 1.0</h2>
+      <p class="sub">Claims match the conformance gate. Device-family completeness is not claimed. This is not a production AAA cluster. ASCII/PAP are lab compatibility, not a recommended production method.</p>
+      <div class="grid">
+        <article class="card">
+          <div class="tag">AAA</div>
+          <h3>Full lab authentication set</h3>
+          <p>ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE, ASCII CHPASS. Service and command authorization with default deny. RFC 8907 accounting flag table. Bounded event ring.</p>
+        </article>
+        <article class="card">
+          <div class="tag">Transport</div>
+          <h3>Dual listeners, no fallback</h3>
+          <p>Legacy obfuscation and TLS 1.3 mTLS on distinct ports. No upgrade path. CRL + resume re-check. Ticket lifetime 0 or 168h. Co-located topology is a documented lab convenience.</p>
+        </article>
+        <article class="card">
+          <div class="tag">Parity</div>
+          <h3>One registry, two adapters</h3>
+          <p>REST and MCP call the same operations. Same scopes, revisions, redaction, and errors. CI fails if a PARITY_REQUIRED binding is missing.</p>
+        </article>
+        <article class="card">
+          <div class="tag">MCP 2026-07-28</div>
+          <h3>Official Go SDK</h3>
+          <p>Streamable HTTP on POST /mcp. Lab static bearer — no OAuth PRM. URI-only subscriptions/listen. Works locally and behind a hosted reverse proxy.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Signal path</h2>
+      <p class="sub">Devices hit TACACS. Operators and agents hit HTTP. Everything converges on one overlay and one policy engine.</p>
+      <div class="arch">
+        <svg viewBox="0 0 980 280" role="img" aria-label="Architecture: devices to listeners, operators to HTTP, shared AAA">
+          <defs>
+            <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#c8893a"/><stop offset="1" stop-color="#86efe4"/></linearGradient>
+          </defs>
+          <rect x="20" y="40" width="150" height="70" fill="#131a21" stroke="#c8893a55"/>
+          <text x="95" y="70" fill="#e8c27a" font-size="12" text-anchor="middle" font-family="IBM Plex Mono,monospace">LEGACY NAS</text>
+          <text x="95" y="90" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">RFC 8907 :49</text>
+          <rect x="20" y="150" width="150" height="70" fill="#131a21" stroke="#2bb3a855"/>
+          <text x="95" y="180" fill="#86efe4" font-size="12" text-anchor="middle" font-family="IBM Plex Mono,monospace">TLS NAS</text>
+          <text x="95" y="200" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">RFC 9887 :300</text>
+
+          <rect x="250" y="30" width="200" height="210" fill="#0e1318" stroke="#c8893a44"/>
+          <text x="350" y="54" fill="#edf1ec" font-size="13" text-anchor="middle" font-family="Syne,sans-serif">taclabd</text>
+          <rect x="270" y="72" width="160" height="36" fill="#131a21" stroke="#c8893a66"/>
+          <text x="350" y="94" fill="#e8c27a" font-size="11" text-anchor="middle" font-family="IBM Plex Mono,monospace">legacy listener</text>
+          <rect x="270" y="118" width="160" height="36" fill="#131a21" stroke="#2bb3a866"/>
+          <text x="350" y="140" fill="#86efe4" font-size="11" text-anchor="middle" font-family="IBM Plex Mono,monospace">TLS 1.3 listener</text>
+          <rect x="270" y="164" width="160" height="54" fill="#131a21" stroke="#86efe466"/>
+          <text x="350" y="186" fill="#edf1ec" font-size="11" text-anchor="middle" font-family="IBM Plex Mono,monospace">:8080 HTTP</text>
+          <text x="350" y="204" fill="#8d9891" font-size="10" text-anchor="middle" font-family="Outfit,sans-serif">UI · REST · MCP</text>
+
+          <rect x="530" y="70" width="180" height="130" fill="#0e1318" stroke="#c8893a44"/>
+          <text x="620" y="100" fill="#edf1ec" font-size="12" text-anchor="middle" font-family="Syne,sans-serif">operations</text>
+          <text x="620" y="124" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">one registry</text>
+          <text x="620" y="146" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">exact scopes</text>
+          <text x="620" y="168" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">memory overlay</text>
+
+          <rect x="790" y="40" width="170" height="190" fill="#0e1318" stroke="#2bb3a844"/>
+          <text x="875" y="78" fill="#edf1ec" font-size="12" text-anchor="middle" font-family="Syne,sans-serif">AAA + policy</text>
+          <text x="875" y="108" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">authz / acct</text>
+          <text x="875" y="130" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">event ring</text>
+          <text x="875" y="152" fill="#8d9891" font-size="11" text-anchor="middle" font-family="Outfit,sans-serif">YAML baseline</text>
+
+          <path d="M170 75 H250" stroke="url(#g1)" stroke-width="1.4"/>
+          <path d="M170 185 H250" stroke="#86efe4" stroke-width="1.4"/>
+          <path d="M450 175 H530" stroke="#86efe4" stroke-width="1.4"/>
+          <path d="M710 135 H790" stroke="#c8893a" stroke-width="1.4"/>
+        </svg>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Two ways to attach an agent</h2>
+      <div class="grid">
+        <article class="card">
+          <div class="tag">Local</div>
+          <h3>Same host as taclabd</h3>
+          <p><code>http://127.0.0.1:8080/mcp</code> plus a file-referenced bearer. Claude, Cursor, VS Code, or curl. <a href="mcp.html">Local setup →</a></p>
+        </article>
+        <article class="card">
+          <div class="tag">Remote</div>
+          <h3>Hosted lab, HTTPS in front</h3>
+          <p><code>https://host/mcp</code>. Terminate TLS, keep MCP headers, raise proxy timeouts for listen. Ports 49/300 stay on the lab VLAN. <a href="mcp.html">Remote setup →</a></p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Documentation</h2>
+      <p class="sub">Every contract also lives in the repository README. These are the doors most people use.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Page</th><th>Use it for</th></tr></thead>
+          <tbody>
+            <tr><td><a href="quickstart.html">Quick start (this site)</a></td><td>Four commands to a live appliance</td></tr>
+            <tr><td><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md">docs/QUICKSTART.md</a></td><td>Canonical clone → labgen → Compose write-up</td></tr>
+            <tr><td><a href="mcp.html">MCP local & remote (this site)</a></td><td>Client JSON, hosted TLS, wire contract</td></tr>
+            <tr><td><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md">docs/MCP.md</a></td><td>Full MCP contract, curl, Caddy/nginx, agent card</td></tr>
+            <tr><td><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md">AGENTS.md</a></td><td>Mandatory agent rules and §1.1 setup</td></tr>
+            <tr><td><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md">Canonical design</a></td><td>Execution source of truth</td></tr>
+            <tr><td><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md">Operator guide</a></td><td>Secrets, onboard devices, reload</td></tr>
+            <tr><td><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md">API parity</a></td><td>REST/MCP contract</td></tr>
+            <tr><td><a href="catalog.html">API catalog</a></td><td>Tools, resources, and exact scopes</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap footer">
+    <div>TacLab · Apache-2.0 · lab appliance, not production AAA</div>
+    <div><a href="https://github.com/hilather/go-lab-tacacs-mcp">hilather/go-lab-tacacs-mcp</a></div>
+  </footer>
+  <script src="js/site.js"></script>
+</body>
+</html>

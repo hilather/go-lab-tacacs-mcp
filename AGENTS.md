@@ -10,6 +10,83 @@ Build TacLab as a protocol-correct, deterministic, observable, and reproducible 
 
 The implementation must remain a single deployable Go service with an embedded React/TypeScript UI. Runtime-created objects are ephemeral by default. The configured baseline is immutable at runtime and is restored after restart.
 
+## 1.1 First-time environment setup
+
+Do this before the first code change. Operator onboarding is [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md). MCP local **and** remote (hosted) setup is [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
+
+### Toolchains
+
+| Tool | Pin |
+|---|---|
+| Go | **1.25.12** (`go.mod` `toolchain`, module `go 1.25.0`) |
+| Node.js | **22.14.0** (`.nvmrc`) |
+| npm | **10.9.x** (`web/package.json` `packageManager`) |
+| Docker Compose | v2, for the reference lab |
+
+### Clone and prove the tree
+
+```bash
+git clone https://github.com/hilather/go-lab-tacacs-mcp.git
+cd go-lab-tacacs-mcp
+make test
+make check-registries
+make docs-check
+```
+
+`make ci` is the full merge-gate equivalent. Do not skip `check-registries` (`-release`) or claim complete TACACS+ if it fails.
+
+### Bring the lab up (local)
+
+```bash
+make lab-gen
+docker compose -f deployments/compose/compose.yaml up -d --build
+curl -sf http://127.0.0.1:8080/health/ready
+```
+
+Bootstrap bearer: `deployments/compose/secrets/api_admin_token`. UI: `http://127.0.0.1:8080`.
+
+### Connect MCP — local
+
+Point a **2026-07-28 Streamable HTTP** client at `http://127.0.0.1:8080/mcp` with:
+
+- `Authorization: Bearer <token>`
+- `MCP-Protocol-Version: 2026-07-28`
+
+There is **no** `.well-known/oauth-protected-resource` ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)). Clients that require OAuth PRM cannot discover this server. `POST` only.
+
+Copy-paste client JSON and a `tools/list` curl: [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) §3.
+
+### Connect MCP — remote / hosted
+
+1. Deploy the same Compose (or a pinned `ghcr.io/hilather/go-lab-tacacs-mcp:<tag>`) on the lab host.
+2. Terminate HTTPS in front of `:8080`. Do not strip `Authorization`, `MCP-Protocol-Version`, `Mcp-Method`, or `Mcp-Name`.
+3. Disable proxy buffering and raise read timeout for `subscriptions/listen`.
+4. Point the client at `https://<host>/mcp` with the same headers.
+5. Keep ports 49 and 300 off the public internet.
+
+Caddy/nginx snippets and the remote checklist: [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) §4.
+
+### How you must drive MCP
+
+```text
+- Use taclab.* tools from tools/list. Missing tool ⇒ missing scope, not a
+  missing feature. Do not invent REST wrappers around MCP or the reverse.
+- Mutating calls send expected_revision from the last read.
+- Token values appear only on taclab.tokens.create. Never log secrets.
+- subscriptions/listen notifies URI only; pull bodies with taclab.events.list.
+- Overlay is memory-only. runtime.reset / restart restores the YAML baseline.
+```
+
+### Required reading before implementation
+
+1. This file (all of it).
+2. [docs/CANONICAL_DESIGN.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md) — wins on conflict.
+3. [docs/ARCHITECTURE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md)
+4. [docs/API_PARITY.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md) for any REST/MCP change.
+5. [docs/TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) for any protocol change.
+
+After every push, watch GitHub Actions until green (§9).
+
 ## 2. Non-negotiable engineering rules
 
 ### 2.1 Read the contracts first

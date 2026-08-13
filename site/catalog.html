@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API & MCP catalog — TacLab</title>
+  <meta name="description" content="TacLab REST and MCP share one operation registry. Same scopes, revisions, and redaction on both adapters." />
+  <meta name="theme-color" content="#07090c" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/site.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M2 13 L5 7 L8 11 L11 4 L16 12" stroke="#e8c27a" stroke-width="1.6"/><circle cx="11" cy="4" r="1.3" fill="#86efe4"/></svg>
+        </span>
+        TacLab
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Menu">≡</button>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="quickstart.html">Quick start</a>
+        <a href="mcp.html">MCP local & remote</a>
+        <a href="catalog.html" aria-current="page">API catalog</a>
+        <a href="https://github.com/hilather/go-lab-tacacs-mcp">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <p class="kicker">api/operations.yaml · PARITY_REQUIRED</p>
+      <h1>One handler.<br /><em>Two encodings.</em></h1>
+      <p class="lede">Live generated inventory: <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/api-parity.md">docs/generated/api-parity.md</a>. Policy: <a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md">API_PARITY.md</a>.</p>
+    </section>
+
+    <section class="section">
+      <h2>Operations</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Scope</th><th>REST</th><th>MCP</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>system.status.get</td><td>state:read</td><td>GET /api/v1/status</td><td>taclab.system.status.get · taclab://status</td></tr>
+            <tr><td>system.build.get</td><td>state:read</td><td>GET /api/v1/build</td><td>taclab.system.build.get · taclab://build</td></tr>
+            <tr><td>config.effective.get</td><td>state:read</td><td>GET /api/v1/config/effective</td><td>taclab.config.effective.get</td></tr>
+            <tr><td>config.validate</td><td>state:write</td><td>POST /api/v1/config/validate</td><td>taclab.config.validate</td></tr>
+            <tr><td>config.reload</td><td>config:reload</td><td>POST /api/v1/config/reload</td><td>taclab.config.reload</td></tr>
+            <tr><td>config.export</td><td>config:export</td><td>GET /api/v1/config/export</td><td>taclab.config.export</td></tr>
+            <tr><td>runtime.reset</td><td>runtime:reset</td><td>POST /api/v1/runtime/reset</td><td>taclab.runtime.reset</td></tr>
+            <tr><td>users.*</td><td>state:read / write</td><td>/api/v1/users</td><td>taclab.users.* · taclab://users</td></tr>
+            <tr><td>groups.*</td><td>state:read / write</td><td>/api/v1/groups</td><td>taclab.groups.* · taclab://groups</td></tr>
+            <tr><td>clients.*</td><td>state:read / write</td><td>/api/v1/clients</td><td>taclab.clients.* · taclab://clients</td></tr>
+            <tr><td>tokens.*</td><td>tokens:manage</td><td>/api/v1/tokens</td><td>taclab.tokens.*</td></tr>
+            <tr><td>policy.evaluate</td><td>policy:test</td><td>POST /api/v1/policy/evaluate</td><td>taclab.policy.evaluate</td></tr>
+            <tr><td>authentication.test</td><td>policy:test</td><td>POST /api/v1/authentication/test</td><td>taclab.authentication.test</td></tr>
+            <tr><td>events.list</td><td>events:read</td><td>GET /api/v1/events</td><td>taclab.events.list · taclab://events/recent</td></tr>
+            <tr><td>events.subscribe</td><td>events:read</td><td>GET /api/v1/events/stream SSE</td><td>subscriptions/listen (URI only)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Scopes (exact match)</h2>
+      <p class="sub"><code>state:write</code> does not imply <code>tokens:manage</code>, <code>config:reload</code>, or <code>runtime:reset</code>.</p>
+      <p><code>state:read</code> · <code>state:write</code> · <code>config:reload</code> · <code>config:export</code> · <code>policy:test</code> · <code>events:read</code> · <code>events:sensitive</code> · <code>tokens:manage</code> · <code>runtime:reset</code></p>
+    </section>
+
+    <section class="section">
+      <h2>REST-only / MCP-only</h2>
+      <div class="table-wrap">
+        <table>
+          <tbody>
+            <tr><td>GET /health/live · /health/ready</td><td>REST_ONLY_PROTOCOL</td></tr>
+            <tr><td>GET /api/openapi.json</td><td>REST_ONLY_PROTOCOL</td></tr>
+            <tr><td>POST/DELETE /api/v1/session</td><td>REST_ONLY_PROTOCOL (cookie + CSRF)</td></tr>
+            <tr><td>server/discover · tools/list · resources/list</td><td>MCP_ONLY_PROTOCOL</td></tr>
+            <tr><td>notifications/list_changed</td><td>MCP_ONLY_PROTOCOL</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <footer class="wrap footer">
+    <div>OpenAPI lives at <code>/api/openapi.json</code> on a running appliance.</div>
+    <div><a href="https://github.com/hilather/go-lab-tacacs-mcp/blob/main/api/operations.yaml">api/operations.yaml</a></div>
+  </footer>
+  <script src="js/site.js"></script>
+</body>
+</html>

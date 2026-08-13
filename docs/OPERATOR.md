@@ -111,6 +111,8 @@ Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=confi
 
 ## 8. MCP clients (2026-07-28)
 
+Local desktop clients and hosted/remote agents: **[MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md)** (both setups, client JSON, reverse proxy, curl). First boot: [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).
+
 - `POST /mcp` only. GET/DELETE → 405.
 - Required headers: `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`, and `Mcp-Name` when applicable.
 - Same bearer + scopes as REST. Lab static bearer is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md): **no** `.well-known/oauth-protected-resource`. Clients that require OAuth PRM will not complete discovery.

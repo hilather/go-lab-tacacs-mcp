@@ -1,6 +1,6 @@
 # Contributing to TacLab
 
-Read [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) before changing code. That file is mandatory.
+Read [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) before changing code. That file is mandatory. First-time setup is §1.1. Operator onboarding: [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md). MCP local and remote: [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
 
 ## Toolchains
 

@@ -23,7 +23,7 @@ See [ARCHITECTURE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/do
 2. Add independent fixtures under `testdata/protocol` (testclient codec, not a shared-codec loopback as sole evidence).
 3. Attach evidence IDs in `testdata/conformance/*.yaml`.
 4. `make generate` rewrites `docs/generated/conformance.md`.
-5. `make check-registries` runs `-release`: mandatory MUST rows must be `PASS` or `N/A_RFC_DEPRECATED`; SHOULD rows must be `PASS` or `DISPOSITIONED_SHOULD`.
+5. `make check-registries` runs `-release`: mandatory MUST rows must be `PASS` or `N/A_RFC_DEPRECATED`; SHOULD rows must be `PASS` or `DISPOSITIONED_SHOULD`. Evidence IDs need a known prefix (`unit:`, `golden:`, `fuzz:`, `race:`, `bench:`, `lab:`, `adr:`, `docs:`, `interop:`, `cmd:`) and named `Test*`/`Fuzz*`/`Benchmark*` symbols must exist. Structural-only: `go run ./tools/check-registries` (no `-release`).
 
 Do not claim complete TACACS+ if `-release` fails.
 

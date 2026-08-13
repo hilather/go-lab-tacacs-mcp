@@ -124,7 +124,7 @@ func renderQualificationSummary(tables ...*ConformanceRegistry) string {
 		b.WriteString(strconv.Itoa(mustPass))
 		b.WriteString("/")
 		b.WriteString(strconv.Itoa(mustTotal))
-		b.WriteString(" `PASS` or `N/A_RFC_DEPRECATED`) |\n")
+		b.WriteString(" mandatory rows `PASS`) |\n")
 	} else {
 		b.WriteString("| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **OPEN** (")
 		b.WriteString(strconv.Itoa(mustOpen))

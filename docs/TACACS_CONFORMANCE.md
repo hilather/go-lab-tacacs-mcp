@@ -47,7 +47,7 @@ Level labels are interpreted as follows:
 
 Row IDs are encoded in `testdata/conformance/rfc8907.yaml` and `testdata/conformance/rfc9887.yaml`. 1.0 qualification fills status and evidence in the YAML; `make generate` rewrites this inventory. `make generate` writes [docs/generated/conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md). `make check-registries` fails on duplicate IDs, empty tables, and contract rows that are missing from the YAML.
 
-Do not mark a row `PASS` without linked evidence. Release status gates (`MUST` / `MUST NOT` / `PROJECT MUST` must be `PASS` or an RFC-allowed deprecation) are separate from the structural registry check.
+Do not mark a row `PASS` without linked evidence. `make check-registries` includes the 1.0 MUST/SHOULD `-release` gate (mandatory rows `PASS` or `N/A_RFC_DEPRECATED`; SHOULD rows `PASS` or `DISPOSITIONED_SHOULD`; evidence prefixes and resolvable `Test*`/`Fuzz*`/`Benchmark*` symbols). Structural-only validation is `go run ./tools/check-registries` without `-release`.
 
 ## 3. Test evidence conventions
 
@@ -170,7 +170,7 @@ The parser, policy model, event model, and configuration restrictions must recog
 | T89-AS-008 | Deprecated | FOLLOW is not emitted; received/legacy behavior is safely failed | Negative fixture | [x] |
 | T89-AS-009 | MUST | Continue ABORT terminates the authentication session and safely records reason | Multi-step abort fixture | [x] |
 | T89-AS-010 | MUST | Retry count is bounded; recommended default three | Config and boundary tests | [x] |
-| T89-AS-011 | MUST | A defined authentication option not implemented by a selected profile returns `TAC_PLUS_AUTHEN_STATUS_FAIL` | Per-option disabled-profile fixtures | [x] |
+| T89-AS-011 | MUST | A defined authentication option not implemented by a selected profile returns `TAC_PLUS_AUTHEN_STATUS_FAIL` | Wrong-minor / invalid service **FAIL** fixtures (`TestInvalidServiceFails`, `TestCHPASSOnEnableServiceFails`, `TestClassifyAuthenStartMatrix`). Policy-disallowed types are **RESTART** (T89-AS-006); SENDAUTH/unknown type are **ERROR** (T89-AS-007). | [x] |
 | T89-AS-012 | SHOULD | GETDATA/GETUSER/GETPASS replies include usable prompt text | Golden prompt fixtures | [x] |
 | T89-AS-013 | SHOULD/MUST | Sensitive prompts set NOECHO and never reflect submitted secret material | Protocol, UI, and secret-canary tests | [x] |
 
@@ -393,17 +393,17 @@ Value encodings to test:
 
 | ID | RFC level | Feature | 1.0 disposition requirement | Status |
 |---|---|---|---|---|
-| T98-OPT-001 | MAY | External TLS 1.3 PSK | Implement behind an isolated authentication adapter or record `DEFERRED_MAY`; do not advertise otherwise | [x] |
-| T98-OPT-002 | MUST if PSK implemented | Support PSKs of at least 16 octets and identities of at least 16 octets | Boundary and interoperability tests | [x] |
-| T98-OPT-003 | MUST NOT if PSK implemented | Never reuse a legacy TACACS obfuscation shared secret as a TLS PSK | Typed-secret and canary tests | [x] |
-| T98-OPT-004 | RECOMMENDED if PSK implemented | Follow RFC 9257 external-PSK guidance | Security review and ADR | [x] |
-| T98-OPT-005 | MAY/out of detailed scope | Raw Public Keys | Implement behind an isolated adapter or record `DEFERRED_MAY` | [x] |
+| T98-OPT-001 | MAY | External TLS 1.3 PSK | Implement behind an isolated authentication adapter or record `DEFERRED_MAY`; do not advertise otherwise | DEFERRED_MAY (ADR-0006) |
+| T98-OPT-002 | MUST if PSK implemented | Support PSKs of at least 16 octets and identities of at least 16 octets | Boundary and interoperability tests | NOT_STARTED — n/a (PSK not implemented) |
+| T98-OPT-003 | MUST NOT if PSK implemented | Never reuse a legacy TACACS obfuscation shared secret as a TLS PSK | Typed-secret and canary tests | NOT_STARTED — n/a (PSK not implemented) |
+| T98-OPT-004 | RECOMMENDED if PSK implemented | Follow RFC 9257 external-PSK guidance | Security review and ADR | NOT_STARTED — n/a (PSK not implemented) |
+| T98-OPT-005 | MAY/out of detailed scope | Raw Public Keys | Implement behind an isolated adapter or record `DEFERRED_MAY` | DEFERRED_MAY (ADR-0006) |
 
 Certificate-based mutual authentication remains mandatory regardless of optional method decisions.
 
 ### 15.6 Client-role and operational requirements
 
-PR-14b implements T98-ROLE-001–005 in `internal/tacacs/testclient` (`DialTLS`) with independent `crypto/tls` peers and raw header fixtures. Shared-codec loopback is not evidence. Machine-readable registry rows stay `NOT_STARTED` until PR-22.
+PR-14b implements T98-ROLE-001–005 in `internal/tacacs/testclient` (`DialTLS`) with independent `crypto/tls` peers and raw header fixtures. Shared-codec loopback is not evidence. PR-22 filled T98-ROLE-* as `PASS`; shared-codec loopback is still not evidence.
 
 | ID | Level | Requirement | Evidence | Status |
 |---|---|---|---|---|

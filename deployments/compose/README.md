@@ -18,7 +18,7 @@ go run ./tools/labgen deployments/compose
 # or: make lab-gen
 ```
 
-That writes `config/taclab.yaml`, `config/taclab.tls-only.yaml`, `certs-public/`, `secrets/`, and `pki/`. `secrets/PASSWORDS.txt` is mode 0600 and is the only place plaintext lab passwords are stored.
+That writes `config/taclab.yaml`, `config/taclab.tls-only.yaml`, `certs-public/`, `secrets/`, and `pki/`. Docker secret files used by UID 10001 are mode `0444` (not world-writable). `secrets/PASSWORDS.txt` and PKI private keys stay mode `0600`.
 
 Regenerate: `go run ./tools/labgen -force deployments/compose`.
 
@@ -41,7 +41,7 @@ The generated lab YAML uses `0.0.0.0/0` and `::/0` so compose published-port NAT
 2. Confirm the address TacLab selected is the device address, not the docker-proxy.
 3. If it is not, switch to host networking or macvlan/ipvlan.
 
-`make lab-test` records this note in the LAB-SOURCE-001 report row.
+`make lab-test` records the observed `client_id` and event `remote` on LAB-SOURCE-001 and fails if either is missing. That field is the TACACS `rem_addr`, not the TCP peer used for match.
 
 ## Tests
 

@@ -31,6 +31,12 @@ cleanup() {
     -f "$root/deployments/compose/compose.lab-test.yaml" \
     --project-directory "${WORKDIR:-$root}" \
     down -v --remove-orphans >/dev/null 2>&1 || true
+  docker compose -p "$PROJECT" \
+    -f "$root/deployments/compose/compose.yaml" \
+    -f "$root/deployments/compose/compose.tls-only.yaml" \
+    -f "$root/deployments/compose/compose.lab-test.yaml" \
+    --project-directory "${WORKDIR:-$root}" \
+    down -v --remove-orphans >/dev/null 2>&1 || true
   if [[ "$KEEP" != "1" && -n "${WORKDIR:-}" && -d "$WORKDIR" ]]; then
     # Evidence is copied out before this when we fail.
     rm -rf "$WORKDIR"
@@ -92,6 +98,17 @@ docker compose -p "$PROJECT" \
   --project-directory "$WORKDIR" \
   config >/dev/null
 
+echo "lab-test: tls-only compose config (no host 49)"
+tls_cfg="$(docker compose -p "${PROJECT}-tls-cfg" \
+  -f "$root/deployments/compose/compose.yaml" \
+  -f "$root/deployments/compose/compose.tls-only.yaml" \
+  --project-directory "$WORKDIR" \
+  config)"
+if printf '%s\n' "$tls_cfg" | grep -E 'published:[[:space:]]*"?49"?[[:space:]]*$'; then
+  echo "lab-test: tls-only overlay still publishes host port 49" >&2
+  exit 1
+fi
+
 compose=(
   docker compose -p "$PROJECT"
   -f "$root/deployments/compose/compose.yaml"
@@ -141,7 +158,10 @@ docker inspect --format \
 inspect="$(cat "$WORKDIR/evidence/inspect.txt")"
 echo "$inspect" | grep -q 'ReadonlyRootfs=true' || { echo "lab-test: rootfs is not read-only" >&2; exit 1; }
 echo "$inspect" | grep -q 'User=10001:10001' || { echo "lab-test: user is not 10001:10001" >&2; exit 1; }
-echo "$inspect" | grep -q 'ALL' || { echo "lab-test: capabilities not dropped" >&2; exit 1; }
+capdrop="$(docker inspect --format '{{json .HostConfig.CapDrop}}' "$cid")"
+echo "$capdrop" | grep -q '"ALL"' || { echo "lab-test: CapDrop missing ALL: $capdrop" >&2; exit 1; }
+secopt="$(docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$cid")"
+echo "$secopt" | grep -q 'no-new-privileges' || { echo "lab-test: SecurityOpt missing no-new-privileges: $secopt" >&2; exit 1; }
 
 echo "lab-test: mutate overlay then restart"
 "${compose[@]}" run --rm --no-deps integration-tests \
@@ -183,7 +203,41 @@ done
   -report=/lab/evidence/lab-test-restart.json \
   -phase=after-restart
 
-"${compose[@]}" logs --no-color taclab >"$WORKDIR/evidence/taclab.log" || true
+echo "lab-test: TLS-only profile"
+"${compose[@]}" down --remove-orphans >/dev/null 2>&1 || true
+tlscompose=(
+  docker compose -p "$PROJECT"
+  -f "$root/deployments/compose/compose.yaml"
+  -f "$root/deployments/compose/compose.tls-only.yaml"
+  -f "$root/deployments/compose/compose.lab-test.yaml"
+  --project-directory "$WORKDIR"
+)
+"${tlscompose[@]}" up -d taclab
+for i in $(seq 1 30); do
+  status="$("${tlscompose[@]}" ps --format '{{.Health}}' taclab 2>/dev/null || true)"
+  if [[ "$status" == "healthy" ]]; then
+    break
+  fi
+  if [[ "$i" -eq 30 ]]; then
+    "${tlscompose[@]}" logs taclab | tee -a "$WORKDIR/evidence/taclab.log" || true
+    echo "lab-test: tls-only taclab not healthy" >&2
+    exit 1
+  fi
+  sleep 1
+done
+"${tlscompose[@]}" run --rm --no-deps integration-tests \
+  -http=http://taclab:8080 \
+  -legacy=taclab:4949 \
+  -tls=taclab:4300 \
+  -token-file=/run/secrets/api_admin_token \
+  -secret-file=/run/secrets/lab_switches_tacacs_secret \
+  -pki=/pki \
+  -passwords=/lab/secrets/PASSWORDS.txt \
+  -write-timeout="$WRITE_TIMEOUT" \
+  -report=/lab/evidence/lab-test-tls-only.json \
+  -phase=tls-only
+
+"${tlscompose[@]}" logs --no-color taclab >"$WORKDIR/evidence/taclab.log" || true
 
 echo "lab-test: secret canary scan of evidence"
 canaries=()

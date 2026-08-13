@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"golang.org/x/crypto/ssh"
 )
 
 // RunOptions control the shipped cisco-lab entry point.
@@ -392,54 +390,71 @@ func dialSSH(opts RunOptions, ctx context.Context, addr, user, password string) 
 	if opts.DialSSH != nil {
 		return opts.DialSSH(ctx, addr, user, password)
 	}
-	cfg := &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
-				ans := make([]string, len(questions))
-				for i, q := range questions {
-					if strings.Contains(strings.ToLower(q), "password") {
-						ans[i] = password
-					}
-				}
-				return ans, nil
-			}),
-			ssh.Password(password),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // lab-only IOL
-		Timeout:         20 * time.Second,
+	if _, err := exec.LookPath("ssh"); err != nil {
+		return nil, fmt.Errorf("ssh client not on PATH")
 	}
-	d := net.Dialer{}
-	conn, err := d.DialContext(ctx, "tcp", addr)
+	return &cliSSH{ctx: ctx, addr: addr, user: user, password: password}, nil
+}
+
+// cliSSH uses the host OpenSSH client (avoids GO-2026-5020 in x/crypto).
+type cliSSH struct {
+	ctx      context.Context
+	addr     string
+	user     string
+	password string
+}
+
+func (c *cliSSH) CombinedOutput(remote string) ([]byte, error) {
+	host, port, err := net.SplitHostPort(c.addr)
 	if err != nil {
 		return nil, err
 	}
-	c, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
-	if err != nil {
-		_ = conn.Close()
-		return nil, err
-	}
-	return &realSSH{client: ssh.NewClient(c, chans, reqs)}, nil
-}
-
-type realSSH struct {
-	client *ssh.Client
-}
-
-func (r *realSSH) CombinedOutput(cmd string) ([]byte, error) {
-	sess, err := r.client.NewSession()
+	ask, err := writeAskPass()
 	if err != nil {
 		return nil, err
 	}
-	defer sess.Close()
-	_ = sess.RequestPty("vt100", 80, 24, ssh.TerminalModes{
-		ssh.ECHO:          0,
-		ssh.TTY_OP_ISPEED: 14400,
-		ssh.TTY_OP_OSPEED: 14400,
-	})
-	return sess.CombinedOutput(cmd)
+	defer os.Remove(ask)
+	args := []string{
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "PreferredAuthentications=keyboard-interactive,password",
+		"-o", "NumberOfPasswordPrompts=1",
+		"-o", "ConnectTimeout=15",
+		"-p", port,
+		c.user + "@" + host,
+		remote,
+	}
+	cmd := exec.CommandContext(c.ctx, "ssh", args...)
+	cmd.Env = append(os.Environ(),
+		"DISPLAY=:",
+		"SSH_ASKPASS="+ask,
+		"SSH_ASKPASS_REQUIRE=force",
+		"TACLAB_SSH_PASS="+c.password,
+	)
+	return cmd.CombinedOutput()
 }
 
-func (r *realSSH) Close() error {
-	return r.client.Close()
+func (c *cliSSH) Close() error { return nil }
+
+func writeAskPass() (string, error) {
+	f, err := os.CreateTemp("", "taclab-askpass-*.sh")
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	body := "#!/bin/sh\nprintf '%s\\n' \"$TACLAB_SSH_PASS\"\n"
+	if _, err := f.WriteString(body); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	if err := os.Chmod(path, 0o700); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
 }

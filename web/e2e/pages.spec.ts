@@ -37,6 +37,19 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await page.getByRole("link", { name: "Clients" }).click();
   await expect(page.getByText("Overdue", { exact: true })).toBeVisible();
 
+  await page.getByRole("link", { name: "Groups" }).click();
+  await expect(page.getByRole("heading", { name: "Groups" })).toBeVisible();
+  await expect(page.getByText(/default-deny/i)).toBeVisible();
+
+  await page.getByRole("link", { name: "Auth test" }).click();
+  await expect(page.getByRole("heading", { name: "Authentication test" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Explain" }).click();
+  await expect(page.getByRole("heading", { name: "Policy explain" })).toBeVisible();
+
+  await page.getByRole("link", { name: "About" }).click();
+  await expect(page.getByRole("heading", { name: "About" })).toBeVisible();
+
   await page.getByRole("link", { name: "Config" }).click();
   await page.getByRole("button", { name: "Reset runtime overlay" }).click();
   await expect(page.getByRole("dialog", { name: /reset the runtime overlay/i })).toBeVisible();

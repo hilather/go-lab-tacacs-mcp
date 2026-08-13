@@ -43,6 +43,24 @@ export function joinList(items: readonly string[] | undefined): string {
   return items && items.length > 0 ? items.join(", ") : "";
 }
 
+export function toDatetimeLocal(iso: string | undefined): string {
+  if (!iso) {
+    return "";
+  }
+  return iso.length >= 16 ? iso.slice(0, 16) : iso;
+}
+
+export function fromDatetimeLocal(value: string): string | undefined {
+  if (value.trim() === "") {
+    return undefined;
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    return undefined;
+  }
+  return d.toISOString();
+}
+
 export function compact<T extends object>(obj: { [K in keyof T]?: T[K] | undefined }): T {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {

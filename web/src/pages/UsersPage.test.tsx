@@ -89,20 +89,42 @@ describe("UsersPage", () => {
   it("renders a revision conflict with reload and retry", async () => {
     seedSession();
     const user = userEvent.setup();
+    let statusRev = 3;
+    let patches = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
       if (url.includes("/api/v1/status")) {
-        return statusOK();
+        return json(
+          200,
+          envelope({
+            instance_id: "lab",
+            revision: statusRev,
+            baseline_hash: "abc",
+            overlay_hash: "def",
+            compiled_at: "2026-08-12T00:00:00Z",
+            listeners: [],
+            colocated_topology: false,
+            users: 1,
+            groups: 1,
+            clients: 1,
+            tokens: 1,
+          }, statusRev),
+        );
       }
       if (url.includes("/api/v1/users") && method === "PATCH") {
-        return json(412, {
-          type: "about:blank",
-          title: "revision_mismatch",
-          status: 412,
-          detail: "expected revision does not match published snapshot",
-          code: "revision_mismatch",
-        });
+        patches += 1;
+        if (patches === 1) {
+          statusRev = 7;
+          return json(412, {
+            type: "about:blank",
+            title: "revision_mismatch",
+            status: 412,
+            detail: "expected revision does not match published snapshot",
+            code: "revision_mismatch",
+          });
+        }
+        return json(200, envelope({ ...sampleUser, display_name: "Alice Junior" }, 8));
       }
       if (url.includes("/api/v1/users/alice")) {
         return json(200, envelope(sampleUser, 5));
@@ -120,5 +142,41 @@ describe("UsersPage", () => {
     expect(await screen.findByRole("heading", { name: "Revision conflict" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload latest" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry with current revision" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry with current revision" }));
+    await waitFor(() => {
+      const patches = fetchMock.mock.calls.filter((c) => String(c[1]?.method ?? "GET").toUpperCase() === "PATCH");
+      expect(patches.length).toBe(2);
+      expect(new Headers(patches[1]?.[1]?.headers).get("If-Match")).toBe('"revision-7"');
+    });
+  });
+
+  it("keeps valid_after and valid_before on a display-name save", async () => {
+    seedSession();
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url.includes("/api/v1/status")) {
+        return statusOK();
+      }
+      if (url.includes("/api/v1/users") && method === "PATCH") {
+        return json(200, envelope({ ...sampleUser, display_name: "Alicia" }, 4));
+      }
+      if (url.includes("/api/v1/users")) {
+        return json(200, envelope({ revision: 3, items: [sampleUser] }));
+      }
+      return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderApp(<UsersPage />, { route: "/users" });
+    await user.click(await screen.findByRole("button", { name: "Edit alice" }));
+    await user.click(screen.getByRole("button", { name: "Save user" }));
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find((c) => String(c[1]?.method ?? "GET").toUpperCase() === "PATCH");
+      expect(patch).toBeTruthy();
+      const body = JSON.parse(String(patch?.[1]?.body)) as { restrictions?: { valid_after?: string; valid_before?: string } };
+      expect(body.restrictions?.valid_after).toBeTruthy();
+      expect(body.restrictions?.valid_before).toBeTruthy();
+    });
   });
 });

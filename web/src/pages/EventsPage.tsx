@@ -1,11 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { listEvents } from "../api/client";
 import { RequireScope } from "../components/RequireScope";
 import type { EventView } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
 import { EVENT_CATEGORIES } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
+
+const PAGE = 100;
 
 export function EventsPage() {
   return (
@@ -23,30 +24,63 @@ function EventsBody() {
   const [client, setClient] = useState("");
   const [user, setUser] = useState("");
   const [type, setType] = useState("");
-  const [code, setCode] = useState("");
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [buffer, setBuffer] = useState<EventView[]>([]);
+  const [visible, setVisible] = useState(PAGE);
+  const [overwritten, setOverwritten] = useState(0);
+  const [reset, setReset] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pending, setPending] = useState(true);
   const catId = useId();
-  const query = useQuery({
-    queryKey: ["events", category, cursor],
-    queryFn: () =>
-      listEvents({
-        limit: 100,
-        ...(cursor !== undefined ? { cursor } : {}),
-        ...(category === "" ? {} : { categories: [category] }),
-      }),
-  });
-  const items = useMemo(() => {
-    const raw = query.data?.data.items ?? [];
-    return raw.filter((ev) => matchEvent(ev, { transport, result, client, user, type, code }));
-  }, [query.data, transport, result, client, user, type, code]);
 
-  const overwritten = query.data?.data.overwritten ?? 0;
-  const reset = query.data?.data.reset || stream.reset;
+  useEffect(() => {
+    let cancelled = false;
+    setPending(true);
+    void drainRecent(category === "" ? undefined : [category])
+      .then((page) => {
+        if (cancelled) {
+          return;
+        }
+        setBuffer(sortNewestFirst(page.items));
+        setOverwritten(page.overwritten);
+        setReset(page.reset);
+        setVisible(PAGE);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(errorDetail(err, "Unable to load events."));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPending(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [category, stream.reset]);
+
+  useEffect(() => {
+    const incoming = stream.lastEvent;
+    if (!incoming) {
+      return;
+    }
+    setBuffer((prev) => mergeEvent(prev, incoming));
+  }, [stream.lastEvent]);
+
+  const items = useMemo(() => {
+    return buffer
+      .filter((ev) => matchEvent(ev, { transport, result, client, user, type }))
+      .slice(0, visible);
+  }, [buffer, transport, result, client, user, type, visible]);
+
+  const filteredCount = buffer.filter((ev) => matchEvent(ev, { transport, result, client, user, type })).length;
 
   return (
     <main className="page page--wide">
       <h1>Events</h1>
-      <p>Recent ring records plus the live SSE stream. Device and user strings are rendered as text only.</p>
+      <p>Newest ring records first, plus live SSE bodies. Device and user strings are rendered as text only.</p>
       <p role="status">
         Stream:{" "}
         <span className={stream.connected ? "state state--on" : "state state--off"}>
@@ -54,7 +88,7 @@ function EventsBody() {
         </span>
         {stream.reconnecting ? " — waiting for the event stream to return." : ""}
       </p>
-      {reset ? (
+      {reset || stream.reset ? (
         <section className="banner banner--warn" role="status">
           <h2>Event cursor reset</h2>
           <p>The ring evicted the previous cursor or a slow subscriber was dropped. Showing the latest page.</p>
@@ -65,10 +99,10 @@ function EventsBody() {
           Ring overwritten count: <strong>{String(overwritten)}</strong>
         </p>
       ) : null}
-      {query.isError ? (
+      {loadError ? (
         <div className="error-summary" role="alert">
           <h2>Could not load events</h2>
-          <p>{errorDetail(query.error, "Unable to load events.")}</p>
+          <p>{loadError}</p>
         </div>
       ) : null}
 
@@ -80,7 +114,6 @@ function EventsBody() {
             value={category}
             onChange={(ev) => {
               setCategory(ev.target.value);
-              setCursor(undefined);
             }}
           >
             <option value="">All</option>
@@ -96,12 +129,11 @@ function EventsBody() {
         <FilterField id="ev-client" label="Client" value={client} onChange={setClient} />
         <FilterField id="ev-user" label="User" value={user} onChange={setUser} />
         <FilterField id="ev-type" label="Type" value={type} onChange={setType} />
-        <FilterField id="ev-code" label="Error / result code" value={code} onChange={setCode} />
       </form>
 
-      {query.isPending ? <p role="status">Loading events…</p> : null}
+      {pending ? <p role="status">Loading events…</p> : null}
       <table className="data">
-        <caption>Redacted event bodies</caption>
+        <caption>Redacted event bodies, newest first</caption>
         <thead>
           <tr>
             <th scope="col">ID</th>
@@ -131,9 +163,9 @@ function EventsBody() {
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !query.isPending ? <p>No events match the filters.</p> : null}
-      {query.data?.data.next_cursor ? (
-        <button type="button" onClick={() => setCursor(query.data?.data.next_cursor)}>
+      {items.length === 0 && !pending ? <p>No events match the filters.</p> : null}
+      {visible < filteredCount ? (
+        <button type="button" onClick={() => setVisible((n) => n + PAGE)}>
           Load older
         </button>
       ) : null}
@@ -162,7 +194,7 @@ function FilterField({
 
 function matchEvent(
   ev: EventView,
-  f: { transport: string; result: string; client: string; user: string; type: string; code: string },
+  f: { transport: string; result: string; client: string; user: string; type: string },
 ): boolean {
   const checks: Array<[string, string | undefined]> = [
     [f.transport, ev.transport],
@@ -170,7 +202,36 @@ function matchEvent(
     [f.client, ev.client_id],
     [f.user, ev.user_id],
     [f.type, ev.type],
-    [f.code, ev.result],
   ];
   return checks.every(([want, got]) => want.trim() === "" || (got ?? "").toLowerCase().includes(want.trim().toLowerCase()));
+}
+
+function sortNewestFirst(items: EventView[]): EventView[] {
+  return [...items].sort((a, b) => b.id - a.id);
+}
+
+function mergeEvent(prev: EventView[], incoming: EventView): EventView[] {
+  return sortNewestFirst([incoming, ...prev.filter((ev) => ev.id !== incoming.id)]);
+}
+
+async function drainRecent(categories?: string[]): Promise<{ items: EventView[]; overwritten: number; reset: boolean }> {
+  const items: EventView[] = [];
+  let cursor: string | undefined;
+  let overwritten = 0;
+  let reset = false;
+  for (let i = 0; i < 64; i += 1) {
+    const env = await listEvents({
+      limit: 200,
+      ...(cursor ? { cursor } : {}),
+      ...(categories ? { categories } : {}),
+    });
+    overwritten = env.data.overwritten;
+    reset = reset || env.data.reset;
+    items.push(...env.data.items);
+    if (!env.data.next_cursor) {
+      break;
+    }
+    cursor = env.data.next_cursor;
+  }
+  return { items, overwritten, reset };
 }

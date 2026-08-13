@@ -77,7 +77,7 @@ export function useEventStream(): StreamState {
         if (isEventView(payload)) {
           setStream((prev) => ({ ...prev, lastEvent: payload, reset: false }));
         }
-        if (payload.type === REVISION_CHANGED || typeof payload.revision === "number" || isEventView(payload)) {
+        if (payload.type === REVISION_CHANGED) {
           invalidateResources(queryClient);
         }
       } catch {

@@ -11,10 +11,6 @@ import (
 
 const testToken = "lab-bootstrap-token-32-bytes!!!"
 
-type fixedClock struct{ t time.Time }
-
-func (c fixedClock) Now() time.Time { return c.t }
-
 func TestAuthenticateBootstrapToken(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 12, 16, 0, 0, 0, time.UTC)
@@ -36,7 +32,7 @@ func TestAuthenticateBootstrapToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.ID != "lab-admin-token" || len(p.Scopes) != 2 {
+	if p.TokenID != "lab-admin-token" || len(p.Scopes) != 2 {
 		t.Fatalf("principal=%+v", p)
 	}
 	if _, err := v.Authenticate("wrong-token-value-not-the-lab-one!"); err == nil {

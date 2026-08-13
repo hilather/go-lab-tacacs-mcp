@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
@@ -14,14 +15,25 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeDomain(w http.ResponseWriter, err error) {
+	writeDomainID(w, err, "")
+}
+
+func writeDomainID(w http.ResponseWriter, err error, requestID string) {
 	de, ok := domain.AsError(err)
 	if !ok {
 		de = domain.NewError(domain.CodeInternal, "internal error")
 	}
-	writeProblem(w, statusFor(de.Code), de)
+	if de.Code == domain.CodeUnauthenticated && w.Header().Get("WWW-Authenticate") == "" {
+		w.Header().Set("WWW-Authenticate", auth.BearerRealm)
+	}
+	writeProblemID(w, statusFor(de.Code), de, requestID)
 }
 
 func writeProblem(w http.ResponseWriter, status int, err domain.Error) {
+	writeProblemID(w, status, err, "")
+}
+
+func writeProblemID(w http.ResponseWriter, status int, err domain.Error, requestID string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	body := map[string]any{
@@ -33,6 +45,9 @@ func writeProblem(w http.ResponseWriter, status int, err domain.Error) {
 	}
 	if err.Path != "" {
 		body["path"] = err.Path
+	}
+	if requestID != "" {
+		body["instance"] = requestID
 	}
 	_ = json.NewEncoder(w).Encode(body)
 }

@@ -6,6 +6,7 @@
 // api/operations.yaml is the enumerated inventory. Every YAML operation is
 // registered here. Implemented handlers are system.status.get, system.build.get,
 // policy.evaluate, events.list, events.subscribe (scope gate; SSE framing stays
-// in REST), tokens.list/create/revoke, and session.create/delete.
-// Remaining handlers return unavailable until later work fills them.
+// in REST), tokens.list/create/revoke, and session.create/delete. Remaining
+// handlers return unavailable until later work fills them. REST (PR-16a)
+// exposes only this implemented set.
 package operations

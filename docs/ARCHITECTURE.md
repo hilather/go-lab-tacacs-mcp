@@ -273,7 +273,7 @@ Responsibilities:
 - serve OpenAPI.
 - provide SSE event streams.
 
-This skeleton serves `/health/live`, `/health/ready`, `GET /api/v1/status`, `POST /api/v1/policy/evaluate`, and a write-deadline-opt-out SSE stub at `/api/v1/events/stream`. Adapters invoke the operation registry and never the MCP package.
+PR-16a serves the frozen implemented surface only: `/health/live`, `/health/ready`, `/api/openapi.json`, `GET /api/v1/status`, `GET /api/v1/build`, `POST /api/v1/policy/evaluate`, token CRUD, `POST`/`DELETE /api/v1/session` (CSRF on cookie mutations; `cookie_secure` follows HTTP TLS), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). Unimplemented operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
 
 It contains no independent business rules.
 
@@ -304,7 +304,7 @@ Responsibilities:
 - fan out live events to REST SSE and MCP subscribers.
 - emit redacted structured logs and metrics.
 
-This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE body fan-out and MCP listen notifications are later adapters. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
+This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. MCP listen notifications remain a later adapter. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
 
 ### 4.15 `web`
 

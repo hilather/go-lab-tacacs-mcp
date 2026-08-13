@@ -10,13 +10,13 @@ export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${PATH}"
 go run ./tools/generate
 go run ./tools/check-registries -write-docs
 
-if ! git diff --exit-code -- docs/generated; then
-  echo "generated-file drift: docs/generated does not match tools/generate and tools/check-registries -write-docs" >&2
-  echo "run: make generate && git add docs/generated" >&2
+if ! git diff --exit-code -- docs/generated api/openapi.json web/src/generated; then
+  echo "generated-file drift: generated artifacts do not match tools/generate and tools/check-registries -write-docs" >&2
+  echo "run: make generate && git add docs/generated api/openapi.json web/src/generated" >&2
   exit 1
 fi
 
-untracked="$(git ls-files --others --exclude-standard -- docs/generated || true)"
+untracked="$(git ls-files --others --exclude-standard -- docs/generated api/openapi.json web/src/generated || true)"
 if [[ -n "$untracked" ]]; then
   echo "generated-file drift: untracked generated files:" >&2
   echo "$untracked" >&2

@@ -1,6 +1,7 @@
 // Package rest is the HTTP adapter for the operation registry.
 //
-// This skeleton serves health probes, system.status.get, policy.evaluate,
-// and an SSE write-deadline opt-out stub. It invokes operations and never
-// the MCP adapter.
+// It serves health probes, the frozen implemented /api/v1 surface, SSE
+// event bodies, and /api/openapi.json. Adapters invoke operations and
+// never the MCP package. Browser cookie mutations require CSRF.
+// cookie_secure follows listeners.http.tls.enabled.
 package rest

@@ -245,7 +245,17 @@ func isHTTPClosed(err error) bool {
 }
 
 func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring) (*http.Server, net.Listener, error) {
-	reg, err := loadRegistry(operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime}, ring)
+	if err := auth.LoadBootstrap(mgr.Snapshot(), lookup); err != nil {
+		return nil, nil, err
+	}
+	authSvc := auth.New(auth.Options{})
+	reg, err := loadRegistry(operations.Deps{
+		Build:    operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime},
+		State:    mgr,
+		Sessions: authSvc,
+		Usage:    authSvc,
+		Events:   ring,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -263,11 +273,14 @@ func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLoo
 		return true
 	}
 	restSrv := &rest.Server{
-		Registry: reg,
-		Snapshot: mgr.Snapshot,
-		Auth:     verifier,
-		Ready:    ready,
-		MaxBody:  doc.Listeners.HTTP.MaxRequestBodyBytes,
+		Registry:     reg,
+		Snapshot:     mgr.Snapshot,
+		Auth:         authSvc,
+		Events:       ring,
+		Ready:        ready,
+		MaxBody:      doc.Listeners.HTTP.MaxRequestBodyBytes,
+		WriteTimeout: doc.Listeners.HTTP.WriteTimeout,
+		IdleTimeout:  doc.Listeners.HTTP.IdleTimeout,
 	}
 	mux := http.NewServeMux()
 	mcpH := mcpapi.Handler(mcpapi.Options{
@@ -298,8 +311,7 @@ func startHTTP(doc *config.Document, mgr *state.Manager, lookup config.SecretLoo
 	return hs, ln, nil
 }
 
-func loadRegistry(meta operations.BuildMeta, ring *events.Ring) (*operations.Registry, error) {
-	deps := operations.Deps{Build: meta, Events: ring}
+func loadRegistry(deps operations.Deps) (*operations.Registry, error) {
 	if reg, err := operations.NewFromRepo(".", deps); err == nil {
 		return reg, nil
 	}

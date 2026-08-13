@@ -43,18 +43,41 @@ export function joinList(items: readonly string[] | undefined): string {
   return items && items.length > 0 ? items.join(", ") : "";
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** UTC instant → `datetime-local` wall time in the operator zone. */
 export function toDatetimeLocal(iso: string | undefined): string {
   if (!iso) {
     return "";
   }
-  return iso.length >= 16 ? iso.slice(0, 16) : iso;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return "";
+  }
+  return `${String(d.getFullYear())}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+/** `datetime-local` wall time in the operator zone → UTC instant. */
 export function fromDatetimeLocal(value: string): string | undefined {
-  if (value.trim() === "") {
+  const trimmed = value.trim();
+  if (trimmed === "") {
     return undefined;
   }
-  const d = new Date(value);
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(trimmed);
+  if (!m) {
+    return undefined;
+  }
+  const d = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    m[6] !== undefined ? Number(m[6]) : 0,
+    0,
+  );
   if (Number.isNaN(d.getTime())) {
     return undefined;
   }

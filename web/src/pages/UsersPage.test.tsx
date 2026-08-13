@@ -175,8 +175,8 @@ describe("UsersPage", () => {
       const patch = fetchMock.mock.calls.find((c) => String(c[1]?.method ?? "GET").toUpperCase() === "PATCH");
       expect(patch).toBeTruthy();
       const body = JSON.parse(String(patch?.[1]?.body)) as { restrictions?: { valid_after?: string; valid_before?: string } };
-      expect(body.restrictions?.valid_after).toBeTruthy();
-      expect(body.restrictions?.valid_before).toBeTruthy();
+      expect(body.restrictions?.valid_after).toBe(sampleUser.restrictions.valid_after);
+      expect(body.restrictions?.valid_before).toBe(sampleUser.restrictions.valid_before);
     });
   });
 });

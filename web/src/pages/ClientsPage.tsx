@@ -22,7 +22,16 @@ import { emptySecret, SecretRefFields, secretPayload, type SecretDraft } from ".
 import type { Client, CreateClientRequest, UpdateClientRequest } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
 import { usePagedList } from "../hooks/usePagedList";
-import { AUTH_METHODS, compact, joinList, lifecycleLabel, MATCH_MODES, splitList, TRANSPORTS } from "../ui/constants";
+import {
+  AUTH_METHODS,
+  compact,
+  fromDatetimeLocal,
+  joinList,
+  lifecycleLabel,
+  MATCH_MODES,
+  splitList,
+  TRANSPORTS,
+} from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
 
 type EditorMode = { kind: "create" } | { kind: "edit"; client: Client };
@@ -214,7 +223,7 @@ function ClientEditor({
       const lifecycle =
         rotatedAt !== "" || interval !== ""
           ? {
-              ...(rotatedAt !== "" ? { last_rotated_at: new Date(rotatedAt).toISOString() } : {}),
+              ...(rotatedAt !== "" ? { last_rotated_at: fromDatetimeLocal(rotatedAt) } : {}),
               ...(interval !== "" ? { rotation_interval: interval } : {}),
             }
           : undefined;

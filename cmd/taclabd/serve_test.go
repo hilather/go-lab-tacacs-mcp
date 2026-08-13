@@ -38,6 +38,8 @@ listeners:
     single_connect: {enabled: true, max_lifetime: 1m, idle_timeout: 2s}
   secure_tacacs: {enabled: false}
   http: {enabled: false}
+observability:
+  metrics: {enabled: false}
 clients:
   - id: loop
     priority: 10
@@ -105,6 +107,8 @@ listeners:
     single_connect: {enabled: true, max_lifetime: 1m, idle_timeout: 2s}
   secure_tacacs: {enabled: false}
   http: {enabled: false}
+observability:
+  metrics: {enabled: false}
 clients:
   - id: loop
     priority: 10
@@ -263,6 +267,8 @@ listeners:
         ticket_lifetime: 168h
       reject_early_data: true
   http: {enabled: false}
+observability:
+  metrics: {enabled: false}
 clients:
   - id: nas
     priority: 10

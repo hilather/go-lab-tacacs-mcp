@@ -506,6 +506,7 @@ func eventType(flow authFlow, start AuthenticationStart) string {
 }
 
 func (s *Service) recordAuth(snap *state.Snapshot, start AuthenticationStart, user, kind, result string) {
+	s.metrics.Authen(string(start.Transport), kind, result)
 	if snap != nil && snap.Settings() != nil {
 		ev := snap.Settings().Events
 		ok := ev.IncludeFailedAuthentication

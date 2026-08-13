@@ -197,3 +197,91 @@ func FuzzSequence(f *testing.F) {
 		}
 	})
 }
+
+func FuzzAuthenContinue(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		c, err := DecodeAuthenContinue(data)
+		if err != nil {
+			return
+		}
+		enc, err := c.Encode()
+		if err != nil {
+			return
+		}
+		if uint32(len(enc)) > MaxBodyBytes {
+			t.Fatalf("encoded %d", len(enc))
+		}
+	})
+}
+
+func FuzzAuthenReply(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		r, err := DecodeAuthenReply(data)
+		if err != nil {
+			return
+		}
+		enc, err := r.Encode()
+		if err != nil {
+			return
+		}
+		if uint32(len(enc)) > MaxBodyBytes {
+			t.Fatalf("encoded %d", len(enc))
+		}
+	})
+}
+
+func FuzzAuthorResponse(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		r, err := DecodeAuthorResponse(data)
+		if err != nil {
+			return
+		}
+		enc, err := r.Encode()
+		if err != nil {
+			return
+		}
+		if uint32(len(enc)) > MaxBodyBytes {
+			t.Fatalf("encoded %d", len(enc))
+		}
+	})
+}
+
+func FuzzAcctReply(f *testing.F) {
+	addBodySeeds(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		r, err := DecodeAcctReply(data)
+		if err != nil {
+			return
+		}
+		enc, err := r.Encode()
+		if err != nil {
+			return
+		}
+		if uint32(len(enc)) > MaxBodyBytes {
+			t.Fatalf("encoded %d", len(enc))
+		}
+	})
+}
+
+func FuzzParseArgument(f *testing.F) {
+	f.Add([]byte("cmd=show"))
+	f.Add([]byte("priv-lvl*15"))
+	f.Add([]byte("="))
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, data []byte) {
+		a, ok, err := ParseArgument(data)
+		if err != nil || !ok {
+			return
+		}
+		enc, err := a.Encode()
+		if err != nil {
+			return
+		}
+		if len(enc) > 255 {
+			t.Fatalf("encoded %d", len(enc))
+		}
+	})
+}

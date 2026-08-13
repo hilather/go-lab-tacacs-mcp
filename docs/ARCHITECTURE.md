@@ -320,6 +320,18 @@ React/TypeScript responsibilities:
 
 The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`.
 
+### 4.16 `internal/observability`
+
+Responsibilities:
+
+- Structured JSON logs (`log/slog`) with redacted fields.
+- Prometheus text metrics with a closed label allowlist.
+- Disabled-by-default tracing hook with redacted attributes.
+- Disabled-by-default `net/http/pprof` on the dedicated metrics socket only.
+- Resource governors (connection/session semaphores, field limits).
+
+Metrics must not label by username, command text, token ID, raw address, or fingerprint. `taclab_secret_lifecycle` and `taclab_secret_warnings_total` accept only `status`. Profiling is never mounted on the admin listener.
+
 ## 5. Dependency rules
 
 ```mermaid
@@ -342,6 +354,12 @@ flowchart TD
     STATE --> POLICY
     STATE --> CREDS
     CONFIG --> STATE
+    REST --> OBS[observability]
+    MCP --> OBS
+    AAA --> OBS
+    EVENTS --> OBS
+    TSERVER --> OBS
+    CMD --> OBS
 
     LEGACY[tacacs/legacy] --> TSERVER
     TLS[tacacs/tls] --> TSERVER

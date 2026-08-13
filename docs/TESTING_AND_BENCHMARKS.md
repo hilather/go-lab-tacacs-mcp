@@ -233,9 +233,12 @@ Regression tests are permanent. Removing one requires an ADR-quality explanation
 - username/text validation.
 - authentication session transition function.
 - connection sequence/session dispatch model.
-- configuration decoder/compiler.
-- cursor decoder.
-- common API request validators for complex policy rules.
+- configuration decoder/compiler (`FuzzParse`).
+- cursor decoder (`FuzzDecodeCursor`).
+- common API request validators for complex policy rules (`FuzzEvaluatePolicyRequest`).
+- remaining packet-family bodies (`FuzzAuthenContinue`, `FuzzAuthenReply`, `FuzzAuthorResponse`, `FuzzAcctReply`).
+- AV-pair parser (`FuzzParseAVPair`, `FuzzParseArgument`).
+- username PRECIS (`FuzzCanonicalUsername`).
 
 ### 5.2 Fuzz invariants
 

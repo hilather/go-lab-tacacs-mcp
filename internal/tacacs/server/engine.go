@@ -5,12 +5,16 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 )
 
 // Engine tracks global connection occupancy and coordinates drain.
 type Engine struct {
-	Limits  Limits
-	Handler Handler
+	Limits   Limits
+	Handler  Handler
+	Metrics  *observability.Recorder
+	Listener string
 
 	sem    chan struct{}
 	wg     sync.WaitGroup
@@ -73,6 +77,7 @@ func (e *Engine) Serve(ctx context.Context, pio PacketIO, id Identity) error {
 	e.init()
 	if !e.TryAcquire() {
 		_ = pio.Close()
+		e.Metrics.ConnectionRejected(e.listenerName(), transportOf(id), "conn_limit")
 		return ErrConnLimit
 	}
 	return e.ServeHeld(ctx, pio, id)
@@ -84,7 +89,25 @@ func (e *Engine) ServeHeld(ctx context.Context, pio PacketIO, id Identity) error
 	e.wg.Add(1)
 	defer e.wg.Done()
 	defer e.Release()
-	return ServeConn(ctx, pio, id, e.Limits, e.Handler)
+	tr := transportOf(id)
+	ln := e.listenerName()
+	e.Metrics.ConnectionAccepted(ln, tr)
+	defer e.Metrics.ConnectionClosed(ln, tr)
+	return ServeConnMetrics(ctx, pio, id, e.Limits, e.Handler, e.Metrics, ln)
+}
+
+func (e *Engine) listenerName() string {
+	if e != nil && e.Listener != "" {
+		return e.Listener
+	}
+	return observability.ListenerLegacy
+}
+
+func transportOf(id Identity) string {
+	if id.Transport == "" {
+		return observability.TransportLegacy
+	}
+	return string(id.Transport)
 }
 
 // Drain waits for in-flight Serve calls up to the configured grace period.

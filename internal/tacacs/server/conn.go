@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/codec"
 )
 
@@ -49,6 +50,8 @@ type connState struct {
 	started  time.Time
 	lastAct  atomic.Int64
 	wg       sync.WaitGroup
+	metrics  *observability.Recorder
+	listener string
 }
 
 // ServeConn reads packets from pio, demultiplexes by session ID, and writes
@@ -56,6 +59,11 @@ type connState struct {
 // flag bits are ignored. If single-connect is not established the TCP
 // session is closed after the first TACACS session completes.
 func ServeConn(ctx context.Context, pio PacketIO, id Identity, lim Limits, h Handler) error {
+	return ServeConnMetrics(ctx, pio, id, lim, h, nil, "")
+}
+
+// ServeConnMetrics is ServeConn with optional occupancy metrics.
+func ServeConnMetrics(ctx context.Context, pio PacketIO, id Identity, lim Limits, h Handler, metrics *observability.Recorder, listener string) error {
 	if pio == nil {
 		return errors.New("packet io is required")
 	}
@@ -75,6 +83,8 @@ func ServeConn(ctx context.Context, pio PacketIO, id Identity, lim Limits, h Han
 		connKey:  connSeq.Add(1),
 		sessions: make(map[uint32]*session),
 		started:  time.Now(),
+		metrics:  metrics,
+		listener: listener,
 	}
 	cs.lastAct.Store(time.Now().UnixNano())
 	defer cs.shutdownSessions(lim.ShutdownGrace)
@@ -228,6 +238,7 @@ func (cs *connState) handlePacket(ctx context.Context, hdr codec.Header, body []
 	cs.mu.Lock()
 	cs.sessions[hdr.SessionID] = sess
 	cs.mu.Unlock()
+	cs.metrics.SessionOpen(cs.listenerName(), string(cs.id.Transport))
 
 	if first {
 		return cs.processFirst(ctx, sess, hdr, body)
@@ -522,9 +533,19 @@ func (cs *connState) dropSession(s *session) {
 	cs.mu.Lock()
 	if cur, ok := cs.sessions[s.id]; ok && cur == s {
 		delete(cs.sessions, s.id)
+		cs.mu.Unlock()
+		cs.metrics.SessionClose(cs.listenerName(), string(cs.id.Transport))
+	} else {
+		cs.mu.Unlock()
 	}
-	cs.mu.Unlock()
 	cs.endAAA(s.id)
+}
+
+func (cs *connState) listenerName() string {
+	if cs != nil && cs.listener != "" {
+		return cs.listener
+	}
+	return observability.ListenerLegacy
 }
 
 func (cs *connState) endAAA(sessionID uint32) {

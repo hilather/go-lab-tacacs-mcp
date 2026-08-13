@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
 )
@@ -27,6 +28,7 @@ type Options struct {
 	Handler  server.Handler
 	Logger   *slog.Logger
 	Listen   func(network, address string) (net.Listener, error)
+	Metrics  *observability.Recorder
 }
 
 // Listener is the RFC 9887 TLS 1.3 socket.
@@ -83,8 +85,10 @@ func Listen(opts Options) (*Listener, error) {
 	}
 	connCtx, connCancel := context.WithCancel(context.Background())
 	eng := &server.Engine{
-		Limits:  limitsFrom(opts.Settings.TACACSListener, opts.Grace),
-		Handler: opts.Handler,
+		Limits:   limitsFrom(opts.Settings.TACACSListener, opts.Grace),
+		Handler:  opts.Handler,
+		Metrics:  opts.Metrics,
+		Listener: observability.ListenerSecure,
 	}
 	eng.Prepare()
 	l := &Listener{
@@ -172,6 +176,7 @@ func (l *Listener) Serve(ctx context.Context) error {
 func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 	defer nc.Close()
 	if !l.engine.TryAcquire() {
+		l.opts.Metrics.ConnectionRejected(observability.ListenerSecure, observability.TransportTLS, "conn_limit")
 		return
 	}
 	held := true
@@ -196,6 +201,7 @@ func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 		if l.opts.Logger != nil {
 			l.opts.Logger.Info("secure reject: tls handshake failed")
 		}
+		l.opts.Metrics.ConnectionRejected(observability.ListenerSecure, observability.TransportTLS, "protocol")
 		return
 	}
 	if bound.identity.ClientID == "" {
@@ -203,6 +209,7 @@ func (l *Listener) handle(ctx context.Context, nc net.Conn) {
 		if l.opts.Logger != nil {
 			l.opts.Logger.Info("secure reject: no client identity")
 		}
+		l.opts.Metrics.ConnectionRejected(observability.ListenerSecure, observability.TransportTLS, "unknown_client")
 		return
 	}
 

@@ -55,6 +55,8 @@ listeners:
     single_connect: {enabled: true, max_lifetime: 1m, idle_timeout: 5s}
   secure_tacacs: {enabled: false}
   http: {enabled: false}
+observability:
+  metrics: {enabled: false}
 clients:
   - id: lab-switches
     priority: 10

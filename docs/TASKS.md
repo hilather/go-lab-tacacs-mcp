@@ -976,7 +976,7 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 **Tests**
 
 - [x] Correct, malformed, expired, revoked, insufficient-scope, and token enumeration cases.
-- [ ] Secret canaries in all token responses/logs/events (list/JSON/errors covered; event-ring canaries wait on P9.2/P13).
+- [x] Secret canaries in all token responses/logs/events (list/JSON/errors covered; event-ring canaries wait on P9.2/P13).
 
 **Benchmarks**
 
@@ -1205,60 +1205,60 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 
 ### P13.1 Implement metrics
 
-- [ ] Bounded-cardinality counters/histograms for connections, sessions, auth methods/results, authorization results, accounting actions, API/MCP operations, reloads, event drops, secret lifecycle status/warnings, and durations.
-- [ ] No username, token ID, raw client IP, command text, or free-form error as metric labels.
-- [ ] Separate legacy and TLS transport labels using a bounded enum.
+- [x] Bounded-cardinality counters/histograms for connections, sessions, auth methods/results, authorization results, accounting actions, API/MCP operations, reloads, event drops, secret lifecycle status/warnings, and durations.
+- [x] No username, token ID, raw client IP, command text, or free-form error as metric labels.
+- [x] Separate legacy and TLS transport labels using a bounded enum.
 
 **Tests/benchmarks**
 
-- [ ] Cardinality review and metric output tests.
-- [ ] Instrumentation overhead benchmark.
+- [x] Cardinality review and metric output tests.
+- [x] Instrumentation overhead benchmark.
 
 ### P13.2 Implement tracing hooks
 
-- [ ] Disabled by default.
-- [ ] Redacted, bounded attributes.
-- [ ] Context propagation through connection, operation, REST, and MCP paths.
-- [ ] No packet bodies or credentials.
+- [x] Disabled by default.
+- [x] Redacted, bounded attributes.
+- [x] Context propagation through connection, operation, REST, and MCP paths.
+- [x] No packet bodies or credentials.
 
 ### P13.3 Implement resource governance
 
-- [ ] Connection/session semaphores.
-- [ ] Packet, field, request, event, and object limits.
-- [ ] Timeouts and cancellation at all external boundaries.
-- [ ] Bounded worker and stream behavior.
-- [ ] Graceful degradation for optional observers.
+- [x] Connection/session semaphores.
+- [x] Packet, field, request, event, and object limits.
+- [x] Timeouts and cancellation at all external boundaries.
+- [x] Bounded worker and stream behavior.
+- [x] Graceful degradation for optional observers.
 
 **Tests**
 
-- [ ] Saturation, cancellation, shutdown, slow-client, and leak suites.
+- [x] Saturation, cancellation, shutdown, slow-client, and leak suites.
 
 ### P13.4 Complete fuzzing and parser hardening
 
-- [ ] Continuous fuzz targets for all TACACS packet families and state transitions.
-- [ ] Config and API payload fuzzing.
-- [ ] Regression corpus committed for every discovered crash/hang/invariant failure.
-- [ ] Fuzzers enforce allocation/time bounds where testable.
+- [x] Continuous fuzz targets for all TACACS packet families and state transitions.
+- [x] Config and API payload fuzzing.
+- [x] Regression corpus committed for every discovered crash/hang/invariant failure.
+- [x] Fuzzers enforce allocation/time bounds where testable.
 
 ### P13.5 Complete secret-redaction matrix
 
-- [ ] Plant unique canaries in each secret type.
-- [ ] Exercise success and every error path.
-- [ ] Scan logs, events, metrics, traces, REST, MCP, UI artifacts, config export, panic recovery, and CI reports.
-- [ ] Treat any canary exposure as release blocking.
+- [x] Plant unique canaries in each secret type.
+- [x] Exercise success and every error path.
+- [x] Scan logs, events, metrics, traces, REST, MCP, UI artifacts, config export, panic recovery, and CI reports.
+- [x] Treat any canary exposure as release blocking.
 
 ### P13.6 Threat model and security review
 
-- [ ] Document trust boundaries, assets, attackers, abuse cases, and mitigations.
-- [ ] Review user enumeration, timing, replay, downgrade, parser, resource exhaustion, token theft, CSRF, XSS, path handling, certificate identity, and logging risks.
-- [ ] Link each high-risk threat to tests or an explicit accepted-risk decision.
+- [x] Document trust boundaries, assets, attackers, abuse cases, and mitigations.
+- [x] Review user enumeration, timing, replay, downgrade, parser, resource exhaustion, token theft, CSRF, XSS, path handling, certificate identity, and logging risks.
+- [x] Link each high-risk threat to tests or an explicit accepted-risk decision.
 
 ### P13 exit gate
 
-- [ ] Race, fuzz-seed, resource, leak, and secret suites pass.
-- [ ] Metrics have bounded cardinality.
-- [ ] Threat model has no unowned critical/high finding.
-- [ ] Instrumentation overhead remains within budget.
+- [x] Race, fuzz-seed, resource, leak, and secret suites pass.
+- [x] Metrics have bounded cardinality.
+- [x] Threat model has no unowned critical/high finding.
+- [x] Instrumentation overhead remains within budget.
 
 ## 17. Milestone P14 - OCI image and Docker Compose lab
 

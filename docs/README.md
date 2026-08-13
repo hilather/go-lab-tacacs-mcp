@@ -37,6 +37,7 @@ Agents must read these files before modifying implementation code:
 12. [LAB_DEPLOYMENT.md](LAB_DEPLOYMENT.md) - container and reference lab requirements.
 13. [TASKS.md](TASKS.md) - phased implementation backlog and acceptance gates.
 14. [REFERENCES.md](REFERENCES.md) - normative and implementation references.
+15. [THREAT_MODEL.md](THREAT_MODEL.md) - trust boundaries, abuse cases, and test links.
 
 ## Product-level release gates
 

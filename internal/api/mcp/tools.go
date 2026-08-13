@@ -9,10 +9,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -55,29 +57,38 @@ func isDestructive(id string) bool {
 }
 
 func callTool(ctx context.Context, opts Options, p auth.Principal, snap *state.Snapshot, raw json.RawMessage) (map[string]any, error) {
+	start := time.Now()
 	var params struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
 	}
 	if err := json.Unmarshal(raw, &params); err != nil {
+		opts.Metrics.MCP("unknown", "invalid_argument", "invalid_argument", time.Since(start).Seconds())
 		return nil, domain.NewError(domain.CodeInvalidArgument, "invalid tool params")
 	}
 	op, ok := toolByName(opts.Registry, params.Name)
 	if !ok {
+		opts.Metrics.MCP("unknown", "not_found", "not_found", time.Since(start).Seconds())
 		return nil, domain.NewError(domain.CodeNotFound, "unknown tool").WithDetail("name", params.Name)
 	}
+	ctx, span := opts.Tracer.Start(ctx, "mcp."+op.ID, observability.Attr{Key: "operation_id", Value: op.ID})
+	defer span.End()
 	body, rev, idem, err := splitAdapterArgs(params.Arguments)
 	if err != nil {
+		opts.Metrics.MCP(op.ID, "invalid_argument", "invalid_argument", time.Since(start).Seconds())
 		return nil, domain.NewError(domain.CodeInvalidArgument, "invalid tool arguments")
 	}
 	req, err := decodeRequest(op.Request, body)
 	if err != nil {
+		opts.Metrics.MCP(op.ID, "invalid_argument", "invalid_argument", time.Since(start).Seconds())
 		return nil, domain.NewError(domain.CodeInvalidArgument, "invalid tool arguments")
 	}
 	if opts.Registry == nil {
+		opts.Metrics.MCP(op.ID, "unavailable", "unavailable", time.Since(start).Seconds())
 		return nil, domain.NewError(domain.CodeUnavailable, "operation registry is not initialized")
 	}
 	if snap == nil {
+		opts.Metrics.MCP(op.ID, "unavailable", "unavailable", time.Since(start).Seconds())
 		return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
 	}
 	if ctx == nil {
@@ -90,8 +101,11 @@ func callTool(ctx context.Context, opts Options, p auth.Principal, snap *state.S
 		Request:          req,
 	})
 	if err != nil {
+		result, code := observability.ResultFromError(err)
+		opts.Metrics.MCP(op.ID, result, code, time.Since(start).Seconds())
 		return nil, err
 	}
+	opts.Metrics.MCP(op.ID, observability.ResultSuccess, "none", time.Since(start).Seconds())
 	text, _ := json.Marshal(res.Data)
 	if len(text) == 0 {
 		text = []byte("ok")

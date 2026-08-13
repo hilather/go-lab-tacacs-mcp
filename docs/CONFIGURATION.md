@@ -518,11 +518,14 @@ observability:
     enabled: true
     bind: 127.0.0.1:9090
     path: /metrics
+    expose_on_admin: false
   tracing:
     enabled: false
   profiling:
     enabled: false
 ```
+
+Metrics labels are a closed set (`listener`, `transport`, `result_class`, `authen_type`, `operation_id`, `error_code`, `status`, and optionally config-bounded `client_id`). `taclab_secret_lifecycle` and `taclab_secret_warnings_total` accept **only** `status`. Profiling is off by default and is never mounted on the admin listener; when enabled it shares the dedicated metrics socket or binds `127.0.0.1:6060`. Tracing is off by default and never records packet bodies or credentials.
 
 ## 7. Root sections
 

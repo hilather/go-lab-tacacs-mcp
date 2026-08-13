@@ -21,6 +21,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
@@ -85,13 +86,35 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		return fmt.Errorf("at least one TACACS listener must be enabled")
 	}
 
+	obs := observability.New(observability.Options{
+		MetricsEnabled: doc.Observability.Metrics.Enabled,
+		MetricsBind:    doc.Observability.Metrics.Bind,
+		MetricsPath:    doc.Observability.Metrics.Path,
+		ExposeOnAdmin:  doc.Observability.Metrics.ExposeOnAdmin,
+		TracingEnabled: doc.Observability.Tracing.Enabled,
+		PprofEnabled:   doc.Observability.Profiling.Enabled,
+	})
+	observeSnap := func(snap *state.Snapshot) {
+		if snap == nil {
+			return
+		}
+		obs.Rec.SetRevision(uint64(snap.Revision))
+		counts := map[string]int{}
+		for st, n := range snap.LifecycleCounts() {
+			counts[string(st)] = n
+		}
+		obs.Rec.SetSecretLifecycle(counts)
+	}
+
 	lookup := secretLookup(doc)
-	mgr, err := state.New(doc, state.Options{Secrets: lookup})
+	mgr, err := state.New(doc, state.Options{Secrets: lookup, Hook: observeSnap})
 	if err != nil {
 		return err
 	}
+	observeSnap(mgr.Snapshot())
+	emitLifecycleWarnings(obs.Rec, mgr.Snapshot())
 
-	logger := slog.New(slog.NewJSONHandler(stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := observability.NewJSONLogger(stderr, observability.ParseLogLevel(doc.Server.LogLevel))
 	if legacyOn && secureOn {
 		logger.Warn(operations.ColocatedTopologyWarning)
 	}
@@ -106,8 +129,9 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Capacity:        doc.Events.RingBufferCapacity,
 			Stdout:          stdoutSink,
 			RedactUserInput: doc.Events.RedactUserInput,
+			Metrics:         obs.Rec,
 		})
-		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring})
+		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec})
 		if err != nil {
 			return err
 		}
@@ -125,6 +149,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Secrets:  lookup,
 			Handler:  h,
 			Logger:   logger,
+			Metrics:  obs.Rec,
 		})
 		if err != nil {
 			return err
@@ -141,6 +166,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Secrets:  lookup,
 			Handler:  h,
 			Logger:   logger,
+			Metrics:  obs.Rec,
 		})
 		if err != nil {
 			if legacyLn != nil {
@@ -164,26 +190,44 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 				return
 			case <-hup:
 				if err := reloadSnapshot(path, mgr); err != nil {
+					obs.Rec.Reload(false)
 					logger.Error("reload rejected", "err", err)
 				} else {
+					obs.Rec.Reload(true)
+					emitLifecycleWarnings(obs.Rec, mgr.Snapshot())
 					logger.Info("reload published", "revision", uint64(mgr.Revision()))
 				}
 			}
 		}
 	}()
 
-	errc := make(chan error, 3)
+	errc := make(chan error, 4)
 	if legacyLn != nil {
 		go func() { errc <- legacyLn.Serve(serveCtx) }()
 	}
 	if secureLn != nil {
 		go func() { errc <- secureLn.Serve(serveCtx) }()
 	}
+	if obs.NeedsListener() {
+		if err := obs.Listen(); err != nil {
+			if legacyLn != nil {
+				_ = legacyLn.Shutdown(context.Background())
+			}
+			if secureLn != nil {
+				_ = secureLn.Shutdown(context.Background())
+			}
+			return err
+		}
+		go func() { errc <- obs.Serve(serveCtx) }()
+		if addr := obs.Addr(); addr != nil {
+			fmt.Fprintf(stdout, "listening metrics %s\n", addr.String())
+		}
+	}
 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, legacyLn, secureLn, ring, logger)
+		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, legacyLn, secureLn, ring, logger, obs)
 		if err != nil {
 			if legacyLn != nil {
 				_ = legacyLn.Shutdown(context.Background())
@@ -221,6 +265,9 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	if httpSrv != nil {
 		shutErr = httpSrv.Shutdown(shutCtx)
 	}
+	if err := obs.Shutdown(shutCtx); err != nil && shutErr == nil {
+		shutErr = err
+	}
 	if legacyLn != nil {
 		if err := legacyLn.Shutdown(shutCtx); err != nil && shutErr == nil {
 			shutErr = err
@@ -244,7 +291,10 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring, logger *slog.Logger) (*http.Server, net.Listener, error) {
+func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring, logger *slog.Logger, obs *observability.Server) (*http.Server, net.Listener, error) {
+	if obs == nil {
+		obs = observability.New(observability.Options{})
+	}
 	if err := auth.LoadBootstrap(mgr.Snapshot(), lookup); err != nil {
 		return nil, nil, err
 	}
@@ -294,8 +344,17 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		WriteTimeout: doc.Listeners.HTTP.WriteTimeout,
 		IdleTimeout:  doc.Listeners.HTTP.IdleTimeout,
 		Logger:       logger,
+		Metrics:      obs.Rec,
+		Tracer:       obs.Tr,
 	}
 	mux := http.NewServeMux()
+	if admin := obs.AdminMetricsHandler(); admin != nil {
+		path := doc.Observability.Metrics.Path
+		if path == "" {
+			path = "/metrics"
+		}
+		mux.Handle(path, admin)
+	}
 	mcpStop := make(chan struct{})
 	mcpH := mcpapi.Handler(mcpapi.Options{
 		Registry:     reg,
@@ -307,6 +366,8 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		WriteTimeout: doc.Listeners.HTTP.WriteTimeout,
 		IdleTimeout:  doc.Listeners.HTTP.IdleTimeout,
 		MaxBody:      doc.Listeners.HTTP.MaxRequestBodyBytes,
+		Metrics:      obs.Rec,
+		Tracer:       obs.Tr,
 		Done:         mcpStop,
 	})
 	mux.Handle("/mcp", mcpH)
@@ -382,6 +443,20 @@ func secretLookup(doc *config.Document) config.SecretLookup {
 			return s.Bytes(), nil
 		default:
 			return nil, fmt.Errorf("unsupported secret purpose")
+		}
+	}
+}
+
+func emitLifecycleWarnings(rec *observability.Recorder, snap *state.Snapshot) {
+	if rec == nil || snap == nil {
+		return
+	}
+	for st, n := range snap.LifecycleCounts() {
+		switch st {
+		case "due_soon", "overdue", "unknown":
+			for i := 0; i < n; i++ {
+				rec.SecretWarning(string(st))
+			}
 		}
 	}
 }

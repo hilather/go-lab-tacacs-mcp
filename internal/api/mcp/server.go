@@ -15,6 +15,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -64,6 +65,8 @@ type Options struct {
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 	MaxBody      int64
+	Metrics      *observability.Recorder
+	Tracer       *observability.Tracer
 	// Done is closed on HTTP server shutdown (RegisterOnShutdown). Listen
 	// writes resultType complete so SIGTERM is not an abrupt SSE drop.
 	Done <-chan struct{}

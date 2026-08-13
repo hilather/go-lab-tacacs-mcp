@@ -41,12 +41,12 @@ if (!("sessionStorage" in globalThis) || !globalThis.sessionStorage) {
   Object.defineProperty(globalThis, "sessionStorage", { value: new MemoryStorage() });
 }
 
-if (!("EventSource" in globalThis)) {
-  Object.defineProperty(globalThis, "EventSource", {
-    value: class {
-      addEventListener(): void {}
-      removeEventListener(): void {}
-      close(): void {}
-    },
-  });
-}
+Object.defineProperty(globalThis, "EventSource", {
+  configurable: true,
+  writable: true,
+  value: class {
+    addEventListener(): void {}
+    removeEventListener(): void {}
+    close(): void {}
+  },
+});

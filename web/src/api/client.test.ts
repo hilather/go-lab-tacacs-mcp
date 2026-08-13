@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiFetch, createSession, hashPrefix } from "./client";
+import { apiFetch, createSession, hashPrefix, isRevisionMismatch, revisionETag, updateUser, APIError } from "./client";
 import { futureExpiry } from "../test/time";
 
 describe("API client", () => {
@@ -69,5 +69,39 @@ describe("API client", () => {
 
   it("shortens hashes for display", () => {
     expect(hashPrefix("abcdefghijklmnop", 12)).toBe("abcdefghijkl");
+  });
+
+  it("sends If-Match and CSRF on user updates", async () => {
+    document.cookie = "taclab_csrf=csrf-mut";
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => {
+      return new Response(JSON.stringify({ revision: 4, request_id: "r", data: { id: "alice" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await updateUser("alice", { id: "alice", display_name: "A" }, 3);
+    const init = fetchMock.mock.calls[0]?.[1];
+    if (!init) {
+      throw new Error("expected fetch init");
+    }
+    const headers = new Headers(init.headers);
+    expect(headers.get("If-Match")).toBe(revisionETag(3));
+    expect(headers.get("X-CSRF-Token")).toBe("csrf-mut");
+    expect(init.method).toBe("PATCH");
+  });
+
+  it("detects revision mismatches", () => {
+    expect(
+      isRevisionMismatch(
+        new APIError({
+          type: "about:blank",
+          title: "revision_mismatch",
+          status: 412,
+          detail: "expected revision does not match published snapshot",
+          code: "revision_mismatch",
+        }),
+      ),
+    ).toBe(true);
   });
 });

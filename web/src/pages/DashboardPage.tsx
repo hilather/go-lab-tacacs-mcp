@@ -18,13 +18,13 @@ export function DashboardPage() {
   });
   const eventsQuery = useQuery({
     queryKey: ["events"],
-    queryFn: () => listEvents(1),
+    queryFn: () => listEvents({ limit: 1 }),
     enabled: hasScope("events:read"),
     retry: false,
   });
   const tokensQuery = useQuery({
     queryKey: ["tokens"],
-    queryFn: listTokens,
+    queryFn: () => listTokens(),
     enabled: hasScope("tokens:manage"),
     retry: false,
   });

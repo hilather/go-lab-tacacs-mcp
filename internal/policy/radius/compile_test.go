@@ -176,6 +176,39 @@ func TestCompileDenyReplyOnlyReplyMessage(t *testing.T) {
 	}
 }
 
+func TestCompileDenyReplyRejectsRawVSA(t *testing.T) {
+	t.Parallel()
+	_, err := Compile(Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{{
+			ID: "vsa",
+			Attributes: []config.RADIUSReplyAttr{{
+				Vendor:   9,
+				Code:     1,
+				ValueHex: "666f6f",
+			}},
+		}},
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID:            "r",
+				Enabled:       true,
+				Effect:        domain.EffectDeny,
+				ReplyProfiles: []string{"vsa"},
+			}},
+		}},
+	})
+	if err == nil {
+		t.Fatal("deny must not emit raw VSA")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigYAMLInvalid {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(de.Message, "Reply-Message") {
+		t.Fatalf("message=%q", de.Message)
+	}
+}
+
 func TestCompileDuplicateSingleCardinality(t *testing.T) {
 	t.Parallel()
 	_, err := Compile(Input{

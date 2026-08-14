@@ -281,7 +281,9 @@ func mergeReplyProfiles(effect domain.Effect, ids []string, profiles map[string]
 				return nil, domain.NewError(domain.CodeConfigYAMLInvalid, "attribute is not legal in Access-Accept").
 					WithPath(rulePath + ".reply_profiles")
 			}
-			if packet == packetAccessReject && !a.def.allowReject && a.key.Vendor == 0 {
+			// Deny replies are Reply-Message only. Raw VSAs (vendor != 0)
+			// skip IETF role bits on Accept; they must not slip through here.
+			if packet == packetAccessReject && (a.key.Vendor != 0 || !a.def.allowReject) {
 				return nil, domain.NewError(domain.CodeConfigYAMLInvalid, "deny rules may include only Access-Reject attributes (Reply-Message)").
 					WithPath(rulePath + ".reply_profiles")
 			}

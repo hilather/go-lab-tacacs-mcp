@@ -1568,7 +1568,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-GOV-004` Create RADIUS conformance registry skeleton (`R65-*`, `R66-*`, `R69-*`, `R79-*`, `R80-*`, `PRJ-*`).
 - [x] `RAD-GOV-006` Freeze naming and compatibility policy for the first RADIUS release (ADR 0018).
 - [ ] `RAD-GOV-001` Verify checkout, baseline, and source drift (pin recorded as `3322c26`; remaining baseline smoke is ongoing CI).
-- [ ] `RAD-GOV-005` Add package-boundary and import guard tests.
+- [x] `RAD-GOV-005` Add package-boundary and import guard tests.
 
 ### 22.2 Later epics (not started)
 

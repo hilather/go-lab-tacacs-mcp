@@ -1,4 +1,4 @@
-package aaa
+package radius
 
 import (
 	"go/parser"
@@ -16,10 +16,10 @@ func TestNoForbiddenImports(t *testing.T) {
 	}
 	forbidden := []string{
 		"net/http",
-		"github.com/hilather/go-lab-tacacs-mcp/internal/api",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs",
-		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec",
-		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/api",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/config",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/state",
 	}
 	for _, pkg := range pkgs {
 		for name, f := range pkg.Files {

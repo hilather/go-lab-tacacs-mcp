@@ -6,8 +6,9 @@
 // RADIUS listener fields exist and default to enabled:false; they are not
 // started by the current process.
 //
-// Validate checks references, limits, command patterns, and fail-closed
-// client match. Secret material is referenced (file or environment), never
-// stored as a string on Document. ReadSecret loads bytes into credentials
-// holders.
+// Validate checks references, limits, command patterns, fail-closed TACACS
+// and RADIUS client match, and the endpoint/projection invariant. Secret
+// material is referenced (file or environment), never stored as a string on
+// Document. ReadSecret loads bytes into credentials holders, including
+// PurposeRADIUSSharedSecret.
 package config

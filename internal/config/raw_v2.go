@@ -11,7 +11,7 @@ type rawFileV2 struct {
 	Listeners     rawListenersV2   `yaml:"listeners"`
 	API           rawAPI           `yaml:"api"`
 	Limits        rawLimits        `yaml:"limits"`
-	Clients       []rawClient      `yaml:"clients"`
+	Clients       []rawClientV2    `yaml:"clients"`
 	Groups        []rawGroup       `yaml:"groups"`
 	Users         []rawUser        `yaml:"users"`
 	FallbackRules rawRuleSet       `yaml:"fallback_rules"`
@@ -72,4 +72,42 @@ type rawRADIUSAccounting struct {
 	JournalEntries               *int   `yaml:"journal_entries"`
 	JournalBytes                 string `yaml:"journal_bytes"`
 	AmbiguousAccountingPerMinute *int   `yaml:"ambiguous_accounting_per_minute"`
+}
+
+// rawClientV2 adds endpoints[] on schema 2. v1 rawClient rejects that field.
+type rawClientV2 struct {
+	rawClient `yaml:",inline"`
+	Endpoints []rawClientEndpoint `yaml:"endpoints"`
+}
+
+type rawClientEndpoint struct {
+	ID        string             `yaml:"id"`
+	Protocol  string             `yaml:"protocol"`
+	Transport string             `yaml:"transport"`
+	Roles     []string           `yaml:"roles"`
+	TACACS    *rawTACACSEndpoint `yaml:"tacacs"`
+	RADIUS    *rawRADIUSEndpoint `yaml:"radius"`
+}
+
+type rawTACACSEndpoint struct {
+	SharedSecret          *rawSecretRef          `yaml:"shared_secret"`
+	SharedSecretLifecycle rawSecretLifecycleMeta `yaml:"shared_secret_lifecycle"`
+	AllowedMethods        []string               `yaml:"allowed_methods"`
+	DefaultService        string                 `yaml:"default_service"`
+	DefaultGroupIDs       []string               `yaml:"default_group_ids"`
+	Accounting            rawClientAcct          `yaml:"accounting"`
+}
+
+type rawRADIUSEndpoint struct {
+	SharedSecret                 *rawSecretRef          `yaml:"shared_secret"`
+	SharedSecretLifecycle        rawSecretLifecycleMeta `yaml:"shared_secret_lifecycle"`
+	RequireMessageAuthenticator  *bool                  `yaml:"require_message_authenticator"`
+	LimitProxyState              *bool                  `yaml:"limit_proxy_state"`
+	AllowedAuthenticationMethods []string               `yaml:"allowed_authentication_methods"`
+	AccessPolicyID               string                 `yaml:"access_policy_id"`
+	Accounting                   rawRADIUSEndpointAcct  `yaml:"accounting"`
+}
+
+type rawRADIUSEndpointAcct struct {
+	AcceptStatusTypes []string `yaml:"accept_status_types"`
 }

@@ -31,18 +31,26 @@ type SecretLookup func(ref SecretRef) ([]byte, error)
 func CheckSharedSecret(policy SharedSecretPolicy, secret credentials.SharedSecret, path string) error {
 	raw := secret.Bytes()
 	defer wipeBytes(raw)
-	return checkSharedSecretBytes(policy, raw, path)
+	return checkSharedSecretBytes(policy, raw, path, "legacy shared secret")
 }
 
-func checkSharedSecretBytes(policy SharedSecretPolicy, raw []byte, path string) error {
+// CheckRADIUSSharedSecret enforces RADIUS secret policy. Values of 32 or more
+// bytes are accepted without truncation.
+func CheckRADIUSSharedSecret(policy SharedSecretPolicy, secret credentials.RADIUSSharedSecret, path string) error {
+	raw := secret.Bytes()
+	defer wipeBytes(raw)
+	return checkSharedSecretBytes(policy, raw, path, "RADIUS shared secret")
+}
+
+func checkSharedSecretBytes(policy SharedSecretPolicy, raw []byte, path, noun string) error {
 	if policy.MinimumLengthCharacters > 0 && len(raw) < policy.MinimumLengthCharacters {
-		return domain.NewError(domain.CodeSharedSecretPolicyViolation, "legacy shared secret is shorter than the configured minimum").WithPath(path)
+		return domain.NewError(domain.CodeSharedSecretPolicyViolation, noun+" is shorter than the configured minimum").WithPath(path)
 	}
 	if policy.MinimumCharacterClasses > 0 && characterClasses(raw) < policy.MinimumCharacterClasses {
-		return domain.NewError(domain.CodeSharedSecretPolicyViolation, "legacy shared secret does not meet the character-class policy").WithPath(path)
+		return domain.NewError(domain.CodeSharedSecretPolicyViolation, noun+" does not meet the character-class policy").WithPath(path)
 	}
 	if policy.RejectKnownWeakValues && isKnownWeakSecret(raw) {
-		return domain.NewError(domain.CodeSharedSecretPolicyViolation, "legacy shared secret is a known-weak value").WithPath(path)
+		return domain.NewError(domain.CodeSharedSecretPolicyViolation, noun+" is a known-weak value").WithPath(path)
 	}
 	return nil
 }
@@ -168,7 +176,7 @@ func (t *reuseTracker) warnings() []SecretWarning {
 		sort.Strings(ids)
 		out = append(out, SecretWarning{
 			Code:    domain.CodeSharedSecretPolicyViolation,
-			Message: "legacy shared secret is reused by clients " + strings.Join(ids, ", "),
+			Message: "shared secret is reused by clients " + strings.Join(ids, ", "),
 			Path:    "clients",
 		})
 	}
@@ -179,43 +187,73 @@ func (t *reuseTracker) warnings() []SecretWarning {
 // EvaluateSecrets applies shared-secret policy and optional reuse detection.
 // Missing files surface as SECRET_FILE_UNREADABLE. Overdue rotation is a
 // warning unless the caller treats CodeSharedSecretRotationOverdue as fatal.
+// RADIUS endpoint secrets use Security.RADIUSSharedSecrets and purpose
+// radius_shared_secret. Cross-purpose reuse is warned when the HMAC key is set.
 func EvaluateSecrets(doc *Document, lookup SecretLookup, now time.Time, hmacKey []byte) (lifecycles map[string]domain.SecretLifecycle, warnings []SecretWarning, err error) {
 	if doc == nil || lookup == nil {
 		return nil, nil, nil
 	}
 	lifecycles = make(map[string]domain.SecretLifecycle, len(doc.Clients))
 	policy := doc.Security.LegacySharedSecrets
+	radiusPolicy := doc.Security.RADIUSSharedSecrets
+	warnReuse := (policy.WarnOnReuse || radiusPolicy.WarnOnReuse) && len(hmacKey) > 0
 	var reuse *reuseTracker
-	if policy.WarnOnReuse && len(hmacKey) > 0 {
+	if warnReuse {
 		reuse = newReuseTracker(hmacKey)
 	}
 	for i, c := range doc.Clients {
 		// TLS-only (or any client without a legacy secret) is omitted.
 		// unknown is reserved for a present secret with missing rotation metadata.
-		if !c.Legacy.SharedSecret.Set() {
-			continue
-		}
-		path := indexPath("clients", i) + ".legacy.shared_secret"
-		raw, rerr := lookup(c.Legacy.SharedSecret)
-		if rerr != nil {
-			return nil, nil, mapSecretLookupErr(rerr, path)
-		}
-		if err := checkSharedSecretBytes(policy, raw, path); err != nil {
+		if c.Legacy.SharedSecret.Set() {
+			path := indexPath("clients", i) + ".legacy.shared_secret"
+			raw, rerr := lookup(c.Legacy.SharedSecret)
+			if rerr != nil {
+				return nil, nil, mapSecretLookupErr(rerr, path)
+			}
+			if err := checkSharedSecretBytes(policy, raw, path, "legacy shared secret"); err != nil {
+				wipeBytes(raw)
+				return nil, nil, err
+			}
+			if reuse != nil {
+				reuse.add(c.ID, raw)
+			}
 			wipeBytes(raw)
-			return nil, nil, err
+			st := SecretLifecycleStatus(c.Legacy.SharedSecretLifecycle, policy, now)
+			lifecycles[c.ID] = st
+			if st == domain.LifecycleOverdue {
+				warnings = append(warnings, SecretWarning{
+					Code:    domain.CodeSharedSecretRotationOverdue,
+					Message: "legacy shared secret rotation is overdue",
+					Path:    path,
+				})
+			}
 		}
-		if reuse != nil {
-			reuse.add(c.ID, raw)
-		}
-		wipeBytes(raw)
-		st := SecretLifecycleStatus(c.Legacy.SharedSecretLifecycle, policy, now)
-		lifecycles[c.ID] = st
-		if st == domain.LifecycleOverdue {
-			warnings = append(warnings, SecretWarning{
-				Code:    domain.CodeSharedSecretRotationOverdue,
-				Message: "legacy shared secret rotation is overdue",
-				Path:    path,
-			})
+		for j, ep := range c.Endpoints {
+			if ep.RADIUS == nil || !ep.RADIUS.SharedSecret.Set() {
+				continue
+			}
+			path := indexPath(indexPath("clients", i)+".endpoints", j) + ".radius.shared_secret"
+			raw, rerr := lookup(ep.RADIUS.SharedSecret)
+			if rerr != nil {
+				return nil, nil, mapSecretLookupErr(rerr, path)
+			}
+			if err := checkSharedSecretBytes(radiusPolicy, raw, path, "RADIUS shared secret"); err != nil {
+				wipeBytes(raw)
+				return nil, nil, err
+			}
+			if reuse != nil {
+				reuse.add(c.ID+" (radius)", raw)
+			}
+			wipeBytes(raw)
+			st := SecretLifecycleStatus(ep.RADIUS.SharedSecretLifecycle, radiusPolicy, now)
+			lifecycles[c.ID+"/"+ep.ID] = st
+			if st == domain.LifecycleOverdue {
+				warnings = append(warnings, SecretWarning{
+					Code:    domain.CodeSharedSecretRotationOverdue,
+					Message: "RADIUS shared secret rotation is overdue",
+					Path:    path,
+				})
+			}
 		}
 	}
 	if reuse != nil {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
@@ -481,6 +482,127 @@ clients:
 	}
 	if len(warns) != 0 {
 		t.Fatalf("unexpected warnings: %+v", warns)
+	}
+}
+
+func TestEvaluateSecretsRADIUSPurposeAndCrossReuse(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	dir := t.TempDir()
+	tacacsPath := writeSecret(t, dir, "tacacs", "Str0ng-Shared-Secret!!\n", 0o600)
+	radiusPath := writeSecret(t, dir, "radius", "Str0ng-Shared-Secret!!\n", 0o600)
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+security:
+  legacy_shared_secrets:
+    warn_on_reuse: true
+    reject_known_weak_values: true
+    minimum_length_characters: 16
+    minimum_character_classes: 3
+  radius_shared_secrets:
+    warn_on_reuse: true
+    reject_known_weak_values: true
+    minimum_length_characters: 16
+    minimum_character_classes: 3
+clients:
+  - id: tacacs
+    match:
+      source_cidrs: ["10.0.0.0/8"]
+      transports: [legacy]
+    legacy:
+      shared_secret: {file: ` + tacacsPath + `}
+  - id: radius
+    match:
+      source_cidrs: ["11.0.0.0/8"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: ` + radiusPath + `}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Resolve through ReadSecret so purpose mapping is covered, then EvaluateSecrets.
+	_, holder, err := ReadSecret(doc.Clients[1].Endpoints[0].RADIUS.SharedSecret, ReadOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := holder.(credentials.RADIUSSharedSecret); !ok {
+		t.Fatalf("ReadSecret type=%T", holder)
+	}
+	life, warns, err := EvaluateSecrets(doc, FileLookup(ReadOptions{}), now, []byte("process-local-hmac-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := life["tacacs"]; !ok {
+		t.Fatalf("missing tacacs lifecycle: %+v", life)
+	}
+	if _, ok := life["radius/radius-udp"]; !ok {
+		t.Fatalf("missing radius lifecycle: %+v", life)
+	}
+	var reuse bool
+	for _, w := range warns {
+		if w.Code == domain.CodeSharedSecretPolicyViolation {
+			reuse = true
+			if strings.Contains(w.Message, "Str0ng-Shared-Secret!!") {
+				t.Fatalf("warning leaked secret: %+v", w)
+			}
+			if !strings.Contains(w.Message, "tacacs") || !strings.Contains(w.Message, "radius") {
+				t.Fatalf("reuse must name both clients: %+v", w)
+			}
+		}
+	}
+	if !reuse {
+		t.Fatal("expected cross-purpose reuse warning")
+	}
+}
+
+func TestEvaluateSecretsRADIUSPolicyRejectsWithoutEcho(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	p := writeSecret(t, dir, "r", "password\n", 0o600)
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+security:
+  radius_shared_secrets:
+    reject_known_weak_values: true
+    minimum_length_characters: 8
+clients:
+  - id: radius
+    match:
+      source_cidrs: ["10.0.0.0/8"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: ` + p + `}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = EvaluateSecrets(doc, FileLookup(ReadOptions{}), time.Now().UTC(), nil)
+	if err == nil {
+		t.Fatal("expected policy violation")
+	}
+	if strings.Contains(err.Error(), "password") {
+		t.Fatalf("echoed secret: %v", err)
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeSharedSecretPolicyViolation {
+		t.Fatalf("got %v", err)
 	}
 }
 

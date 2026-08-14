@@ -24,9 +24,20 @@ const (
 	RADIUSMessageAuthenticatorAllowMissing = "allow_missing"
 	RADIUSMinPacketBytes                   = 20
 	RADIUSMaxPacketBytes                   = 4096
-	RADIUSAccessRetransmissionTTLMin       = 5 * time.Second
-	RADIUSAccessRetransmissionTTLMax       = 30 * time.Second
-	RADIUSAccountingRetransmissionTTLMax   = 300 * time.Second
+	// v2 endpoint transport tokens are scoped by protocol, not domain.Transport.
+	EndpointTransportTCP                 = "tcp"
+	EndpointTransportTLS                 = "tls"
+	EndpointTransportUDP                 = "udp"
+	RADIUSAuthMethodPAP                  = "pap"
+	RADIUSAuthMethodCHAP                 = "chap"
+	RADIUSAcctStart                      = "start"
+	RADIUSAcctStop                       = "stop"
+	RADIUSAcctInterimUpdate              = "interim_update"
+	RADIUSAcctAccountingOn               = "accounting_on"
+	RADIUSAcctAccountingOff              = "accounting_off"
+	RADIUSAccessRetransmissionTTLMin     = 5 * time.Second
+	RADIUSAccessRetransmissionTTLMax     = 30 * time.Second
+	RADIUSAccountingRetransmissionTTLMax = 300 * time.Second
 )
 
 // DefaultMaxBytes is the default maximum baseline file size (4 MiB).
@@ -101,7 +112,8 @@ type Security struct {
 	StrictSecretFiles       bool
 	LegacySharedSecrets     SharedSecretPolicy
 	// RADIUSSharedSecrets is the RADIUS secret policy. v1 documents copy
-	// the effective legacy policy; secret-purpose wiring is a later change.
+	// the effective legacy policy. RADIUS endpoint secrets use
+	// credentials.PurposeRADIUSSharedSecret.
 	RADIUSSharedSecrets SharedSecretPolicy
 }
 
@@ -302,6 +314,10 @@ type Limits struct {
 }
 
 // Client is a NAS or device group.
+//
+// Endpoints is the canonical protocol model after normalize. Match.Transports,
+// Legacy, Authentication, Authorization, and Accounting are a deterministic
+// projection of TACACS endpoints (v1 flatten fields, or v2 endpoints[]).
 type Client struct {
 	ID             string
 	DisplayName    string
@@ -313,6 +329,40 @@ type Client struct {
 	Authentication ClientAuth
 	Authorization  ClientAuthz
 	Accounting     ClientAcct
+	Endpoints      []ClientEndpoint
+}
+
+// ClientEndpoint is one protocol binding on a client. Exactly one of TACACS
+// or RADIUS is set and must match Protocol.
+type ClientEndpoint struct {
+	ID        string
+	Protocol  domain.Protocol
+	Transport string
+	Roles     []domain.ListenerRole
+	TACACS    *TACACSEndpoint
+	RADIUS    *RADIUSEndpoint
+}
+
+// TACACSEndpoint is the per-transport TACACS policy copied onto flatten fields.
+type TACACSEndpoint struct {
+	SharedSecret          SecretRef
+	SharedSecretLifecycle SecretLifecycleMeta
+	AllowedMethods        []AuthMethod
+	DefaultService        domain.AuthenService
+	DefaultGroupIDs       []string
+	Accounting            ClientAcct
+}
+
+// RADIUSEndpoint is the UDP access/accounting profile. Access and accounting
+// share this secret and compile into separate role indexes.
+type RADIUSEndpoint struct {
+	SharedSecret                 SecretRef
+	SharedSecretLifecycle        SecretLifecycleMeta
+	RequireMessageAuthenticator  bool
+	LimitProxyState              bool
+	AllowedAuthenticationMethods []string
+	AccessPolicyID               string
+	AcceptStatusTypes            []string
 }
 
 // ClientMatch is identity selection input.

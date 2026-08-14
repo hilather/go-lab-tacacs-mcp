@@ -115,6 +115,34 @@ func cloneClient(c config.Client) config.Client {
 	out.Legacy.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(c.Legacy.SharedSecretLifecycle.LastRotatedAt)
 	out.Authentication.AllowedMethods = append([]config.AuthMethod(nil), c.Authentication.AllowedMethods...)
 	out.Authorization.DefaultGroupIDs = cloneStrings(c.Authorization.DefaultGroupIDs)
+	if c.Endpoints != nil {
+		out.Endpoints = make([]config.ClientEndpoint, len(c.Endpoints))
+		for i, ep := range c.Endpoints {
+			out.Endpoints[i] = cloneClientEndpoint(ep)
+		}
+	}
+	return out
+}
+
+func cloneClientEndpoint(ep config.ClientEndpoint) config.ClientEndpoint {
+	out := ep
+	out.Roles = append([]domain.ListenerRole(nil), ep.Roles...)
+	if ep.TACACS != nil {
+		tac := *ep.TACACS
+		tac.SharedSecret = cloneSecretRef(ep.TACACS.SharedSecret)
+		tac.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(ep.TACACS.SharedSecretLifecycle.LastRotatedAt)
+		tac.AllowedMethods = append([]config.AuthMethod(nil), ep.TACACS.AllowedMethods...)
+		tac.DefaultGroupIDs = cloneStrings(ep.TACACS.DefaultGroupIDs)
+		out.TACACS = &tac
+	}
+	if ep.RADIUS != nil {
+		rad := *ep.RADIUS
+		rad.SharedSecret = cloneSecretRef(ep.RADIUS.SharedSecret)
+		rad.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(ep.RADIUS.SharedSecretLifecycle.LastRotatedAt)
+		rad.AllowedAuthenticationMethods = cloneStrings(ep.RADIUS.AllowedAuthenticationMethods)
+		rad.AcceptStatusTypes = cloneStrings(ep.RADIUS.AcceptStatusTypes)
+		out.RADIUS = &rad
+	}
 	return out
 }
 

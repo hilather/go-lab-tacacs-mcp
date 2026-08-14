@@ -155,6 +155,31 @@ func TestReadSecretEnv(t *testing.T) {
 	}
 }
 
+func TestReadSecretRADIUSPurpose(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	canary := "unit-test-radius-file-canary-9911aabb"
+	p := writeSecret(t, dir, "radius", canary+"\n", 0o600)
+	ref := SecretRef{Purpose: credentials.PurposeRADIUSSharedSecret, File: p}
+	purpose, got, err := ReadSecret(ref, ReadOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if purpose != credentials.PurposeRADIUSSharedSecret {
+		t.Fatalf("purpose=%s", purpose)
+	}
+	sec, ok := got.(credentials.RADIUSSharedSecret)
+	if !ok {
+		t.Fatalf("type=%T", got)
+	}
+	if string(sec.Bytes()) != canary {
+		t.Fatalf("bytes=%q", sec.Bytes())
+	}
+	if strings.Contains(fmt.Sprintf("%v %#v", sec, sec), canary) {
+		t.Fatal("holder leaked")
+	}
+}
+
 func TestReadSecretOversized(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

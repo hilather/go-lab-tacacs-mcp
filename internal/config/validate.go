@@ -100,6 +100,12 @@ func validateDocument(doc *Document, schema int) error {
 			return domain.NewError(domain.CodeInvalidArgument, "duplicate client id").WithPath(indexPath("clients", i) + ".id")
 		}
 		clients[c.ID] = struct{}{}
+		// Flatten-first TACACS overlay patches do not rebuild endpoints.
+		// Re-synthesize so projection stays aligned; RADIUS endpoints are canonical.
+		if !hasRADIUSEndpoint(c) {
+			doc.Clients[i].Endpoints = synthesizeTACACSEndpoints(c)
+			c = doc.Clients[i]
+		}
 		if err := validateClient(c, groups, indexPath("clients", i)); err != nil {
 			return err
 		}
@@ -118,6 +124,12 @@ func validateDocument(doc *Document, schema int) error {
 		return err
 	}
 	if _, err := CompileClientIndex(doc.Clients); err != nil {
+		return err
+	}
+	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess); err != nil {
+		return err
+	}
+	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting); err != nil {
 		return err
 	}
 	return nil
@@ -337,11 +349,32 @@ func validateBootstrapTokens(tokens []BootstrapToken) error {
 }
 
 func validateClient(c Client, groups map[string]struct{}, path string) error {
-	if len(c.Match.Transports) == 0 {
+	if hasRADIUSEndpoint(c) {
+		if err := checkClientProjection(c, path); err != nil {
+			return err
+		}
+	}
+	hasTACACS := len(c.Match.Transports) > 0
+	rad := radiusEndpoint(c)
+	if !hasTACACS && rad == nil {
 		return domain.NewError(domain.CodeInvalidArgument, "at least one transport is required").WithPath(path + ".match.transports")
 	}
 	if hasTransport(c.Match.Transports, domain.TransportLegacy) && !c.Legacy.SharedSecret.Set() {
 		return domain.NewError(domain.CodeAuthMethodCredentialMissing, "legacy transport requires a shared secret").WithPath(path + ".legacy.shared_secret")
+	}
+	if c.Match.Mode == domain.MatchCertificateOnly && !hasTACACSTLSEndpoint(c) {
+		return domain.NewError(domain.CodeInvalidArgument, "certificate_only requires a TACACS TLS endpoint").WithPath(path + ".match.mode")
+	}
+	if rad != nil {
+		if !rad.RADIUS.SharedSecret.Set() {
+			return domain.NewError(domain.CodeRADIUSSecretMissing, "RADIUS endpoint requires a shared secret").WithPath(path + ".endpoints")
+		}
+		if len(c.Match.SourceCIDRs) == 0 {
+			return domain.NewError(domain.CodeInvalidArgument, "RADIUS clients require match.source_cidrs").WithPath(path + ".match.source_cidrs")
+		}
+		if c.Match.Mode == domain.MatchCertificateOnly && !hasTACACS {
+			return domain.NewError(domain.CodeInvalidArgument, "RADIUS-only clients cannot use certificate_only").WithPath(path + ".match.mode")
+		}
 	}
 	for i, s := range c.Match.Certificate.IPSANs {
 		if net.ParseIP(s) == nil {

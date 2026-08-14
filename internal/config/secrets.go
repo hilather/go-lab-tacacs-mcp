@@ -69,6 +69,8 @@ func ReadSecret(ref SecretRef, opts ReadOptions) (credentials.Purpose, any, erro
 		return ref.Purpose, credentials.NewEnableVerifier(raw), nil
 	case credentials.PurposeLegacySharedSecret:
 		return ref.Purpose, credentials.NewSharedSecret(raw), nil
+	case credentials.PurposeRADIUSSharedSecret:
+		return ref.Purpose, credentials.NewRADIUSSharedSecret(raw), nil
 	case credentials.PurposeAPIBearerToken:
 		return ref.Purpose, credentials.NewTokenMaterial(raw), nil
 	case credentials.PurposeTLSPrivateKey:

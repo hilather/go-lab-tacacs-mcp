@@ -183,8 +183,9 @@ Secret references are typed. A value intended for one purpose must not be reused
 | `api_bearer_token` | Bootstrap REST/MCP token input |
 | `tls_private_key` | TLS server identity key |
 | `tls_psk` | Optional RFC 9887 external TLS PSK; never shared with legacy obfuscation |
+| `radius_shared_secret` | RADIUS per-client shared secret (schema v2 `endpoints[].radius.shared_secret`). Distinct holder type; cannot be assigned to a TACACS legacy secret. |
 
-Agents must enforce separation between legacy TACACS shared secrets and TLS PSKs.
+Agents must enforce separation between legacy TACACS shared secrets, RADIUS shared secrets, and TLS PSKs. Cross-purpose reuse is a warning via process-local HMAC, never a fingerprint export.
 
 ## 6. Complete annotated baseline example
 
@@ -567,7 +568,7 @@ A future persistence adapter requires a separate design approval and must not ch
 
 The `legacy_shared_secrets` policy is a server-management control required for safe RFC 8907 operation. It applies whenever a legacy secret is resolved from baseline or runtime input.
 
-`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. Secret-purpose wiring for RADIUS client secrets is a later change; this field is stored and validated as policy only.
+`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. RADIUS endpoint secrets are resolved as `radius_shared_secret` through `config.ReadSecret` / `EvaluateSecrets`. `serve.go` does not yet start RADIUS listeners or type-switch this purpose at the composition root.
 
 - `minimum_length_characters` is enforceable and defaults to at least 16. The implementation must accept shared keys of 32 or more characters without truncation.
 - `minimum_character_classes` is an integer from 0 through 4 and counts ASCII lowercase, uppercase, digit, and symbol classes. A value of 0 disables the class-count rule without disabling the length rule.
@@ -638,7 +639,7 @@ listeners:
   http: { enabled: true, bind: 0.0.0.0:8080 }
 ```
 
-v2 client `endpoints[]` and top-level `radius_policies` are not accepted yet (unknown field). Clients stay on the v1 `match.transports` / `legacy.shared_secret` shape in both schema versions.
+v2 clients may declare `endpoints[]` (canonical protocol model). `match.source_cidrs` stays shared. v2 does not use `match.transports`; transports live on endpoints (`tacacs`+`tcp`/`tls`, `radius`+`udp`). Flatten TACACS fields (`match.transports`, `legacy`, `authentication`, `authorization`, `accounting`) are a deterministic projection of TACACS endpoints. v1 client YAML is unchanged; after load, TACACS endpoints are synthesized so the projection invariant holds. A client may have at most one RADIUS UDP endpoint (access and accounting share the secret and compile into separate role indexes). `certificate_only` is invalid unless a TACACS TLS endpoint exists. RADIUS-only clients require `source_cidrs`. `radius_policies` remain an unknown field.
 
 ### 7.6 `api`
 
@@ -664,13 +665,13 @@ Limits are security boundaries. Reducing a limit through reload is permitted onl
 
 A client identifies a Network Access Server or a group of devices. Matching is fail-closed and uses a deterministic order:
 
-1. Listener/transport compatibility (`legacy` vs `tls`).
-2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN).
-3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a match key.
+1. Listener/transport compatibility (`legacy` vs `tls` for TACACS; `access` vs `accounting` role indexes for RADIUS).
+2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN). Certificate match does not apply to RADIUS/UDP.
+3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a TACACS match key and requires a TACACS TLS endpoint.
 4. Lowest numeric client priority.
 5. A remaining tie is a configuration error (`CLIENT_MATCH_AMBIGUOUS`). Lexicographic client ID is not a runtime tie-breaker.
 
-Validation must reject indistinguishable client definitions. Disabled clients are not match candidates.
+RADIUS access and accounting indexes are compiled independently. The same CIDR may map to different clients per role; two access (or two accounting) clients that share an identical prefix at the same priority fail compile. Validation must reject indistinguishable client definitions. Disabled clients are not match candidates. `CLIENT_ENDPOINT_PROJECTION_MISMATCH` is a compile error when flatten TACACS fields disagree with `endpoints[]`.
 
 For a legacy connection, a selected client must have a legacy shared secret. Its resolved value must satisfy the configured length/complexity policy, and its lifecycle metadata is compiled into a non-secret health status. Secret reuse produces a warning when enabled but does not reveal the shared value or fingerprint. For a TLS connection, client identity must satisfy the configured mutual-TLS policy; the legacy shared secret is not used for packet protection.
 

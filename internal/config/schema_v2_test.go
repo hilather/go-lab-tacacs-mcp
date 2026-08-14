@@ -166,15 +166,12 @@ listeners:
 	}
 }
 
-func TestV2RejectsClientEndpoints(t *testing.T) {
+func TestV2RejectsRadiusPoliciesStill(t *testing.T) {
 	t.Parallel()
 	src := []byte(`
 schema_version: 2
-clients:
-  - id: sw
-    endpoints:
-      - id: radius-udp
-        protocol: radius
+radius_policies:
+  - id: default-radius-access
 `)
 	_, err := Parse(src)
 	if err == nil {
@@ -184,7 +181,7 @@ clients:
 	if !ok || de.Code != domain.CodeConfigUnknownField {
 		t.Fatalf("got %v", err)
 	}
-	if !strings.Contains(de.Path, "endpoints") {
+	if !strings.Contains(de.Path, "radius_policies") {
 		t.Fatalf("path=%q", de.Path)
 	}
 }

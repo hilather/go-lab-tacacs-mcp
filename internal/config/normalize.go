@@ -412,6 +412,15 @@ func normalizeLimits(dst *Limits, raw rawLimits) error {
 }
 
 func normalizeClients(raw []rawClient, allowEnv bool) ([]Client, error) {
+	out, err := normalizeClientsFlatten(raw, allowEnv)
+	if err != nil {
+		return nil, err
+	}
+	finalizeMissingEndpoints(out)
+	return out, nil
+}
+
+func normalizeClientsFlatten(raw []rawClient, allowEnv bool) ([]Client, error) {
 	out := make([]Client, 0, len(raw))
 	seen := map[string]struct{}{}
 	for i, c := range raw {

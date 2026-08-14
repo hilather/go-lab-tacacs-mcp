@@ -177,6 +177,7 @@ func TestRejectFixtures(t *testing.T) {
 		{"testdata/reject/v2_listeners_legacy_tacacs.yaml", domain.CodeConfigYAMLInvalid, "listeners.legacy_tacacs", "listeners.tacacs.legacy"},
 		{"testdata/reject/v2_unknown_field.yaml", domain.CodeConfigUnknownField, "not_a_listener", ""},
 		{"testdata/reject/v2_radius_policies.yaml", domain.CodeConfigUnknownField, "radius_policies", ""},
+		{"testdata/reject/v1_client_endpoints.yaml", domain.CodeConfigUnknownField, "endpoints", ""},
 		{"testdata/reject/default_command_permit.yaml", domain.CodeConfigYAMLInvalid, "default_command_action", "deny"},
 		{"testdata/reject/env_secret.yaml", domain.CodeConfigYAMLInvalid, "shared_secret", "environment"},
 		{"testdata/reject/secret_scalar.yaml", domain.CodeConfigYAMLInvalid, "", "mapping"},

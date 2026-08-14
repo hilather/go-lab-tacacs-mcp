@@ -67,6 +67,7 @@ func statusFor(code domain.Code) int {
 	case domain.CodeUnavailable:
 		return http.StatusServiceUnavailable
 	case domain.CodeAuthMethodCredentialMissing, domain.CodeClientMatchAmbiguous,
+		domain.CodeClientEndpointProjectionMismatch, domain.CodeRADIUSSecretMissing,
 		domain.CodeConfigYAMLInvalid, domain.CodeConfigUnknownField,
 		domain.CodeGroupNotFound, domain.CodeObjectLimitExceeded, domain.CodeRegexInvalid,
 		domain.CodeSecretFileUnreadable, domain.CodeSharedSecretPolicyViolation:

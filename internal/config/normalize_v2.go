@@ -1,5 +1,7 @@
 package config
 
+import "github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+
 func normalizeV2(raw *rawFileV2) (*Document, error) {
 	doc := defaultDocument()
 	doc.SchemaVersion = SchemaVersionV2
@@ -49,7 +51,7 @@ func normalizeV2(raw *rawFileV2) (*Document, error) {
 		return nil, err
 	}
 
-	clients, err := normalizeClients(raw.Clients, doc.Security.AllowEnvironmentSecrets)
+	clients, err := normalizeClientsV2(raw.Clients, doc.Security.AllowEnvironmentSecrets, doc.Listeners.RADIUSAccess)
 	if err != nil {
 		return nil, err
 	}
@@ -141,4 +143,33 @@ func normalizeRADIUSCommon(dst *RADIUSListener, raw rawRADIUSCommon, path string
 	dst.PerSourceRate = floatOr(raw.PerSourceRate, dst.PerSourceRate)
 	dst.PerSourceBurst = intOr(raw.PerSourceBurst, dst.PerSourceBurst)
 	return nil
+}
+
+func normalizeClientsV2(raw []rawClientV2, allowEnv bool, access RADIUSListener) ([]Client, error) {
+	flat := make([]rawClient, len(raw))
+	for i, c := range raw {
+		flat[i] = c.rawClient
+	}
+	// Flatten first without synthesizing; endpoints are canonical when present.
+	out, err := normalizeClientsFlatten(flat, allowEnv)
+	if err != nil {
+		return nil, err
+	}
+	for i, c := range raw {
+		if len(c.Endpoints) == 0 {
+			continue
+		}
+		path := indexPath("clients", i)
+		eps, err := normalizeEndpoints(c.Endpoints, path, allowEnv, access, out[i])
+		if err != nil {
+			return nil, err
+		}
+		if flattenProtocolSpecified(c.rawClient) && !projectionMatchesClient(out[i], projectTACACS(eps)) {
+			return nil, domain.NewError(domain.CodeClientEndpointProjectionMismatch, "client TACACS fields do not match endpoints").WithPath(path)
+		}
+		out[i].Endpoints = eps
+		applyTACACSProjection(&out[i])
+	}
+	finalizeMissingEndpoints(out)
+	return out, nil
 }

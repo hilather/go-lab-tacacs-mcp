@@ -311,10 +311,13 @@ func (s *Service) oneShotPAP(ctx context.Context, snap *state.Snapshot, start Au
 		s.recordAuth(snap, start, user, "pap_login", "fail")
 		return failStep(), nil
 	}
-	pw := append([]byte(nil), start.Data...)
-	err := s.boundCreds(snap, start.ClientID).VerifyASCIIOrPAP(ctx, user, pw)
-	wipe(pw)
-	return s.finishOneShot(snap, start, user, "pap_login", err), nil
+	pw := credentials.NewPassword(start.Data)
+	outcome := s.verifyAgainst(ctx, snap, user, start.ClientID, CredentialEvidence{
+		Method:   domain.AuthMethodPassword,
+		Password: pw,
+	})
+	pw.Wipe()
+	return s.finishOneShotOutcome(snap, start, user, "pap_login", outcome), nil
 }
 
 func (s *Service) oneShotCHAP(ctx context.Context, snap *state.Snapshot, start AuthenticationStart) (AuthenticationStep, error) {
@@ -329,8 +332,13 @@ func (s *Service) oneShotCHAP(ctx context.Context, snap *state.Snapshot, start A
 		s.recordAuth(snap, start, user, "chap_login", "fail")
 		return failStep(), nil
 	}
-	ver := s.boundCreds(snap, start.ClientID).VerifyCHAP(ctx, user, id, chal, resp)
-	return s.finishOneShot(snap, start, user, "chap_login", ver), nil
+	outcome := s.verifyAgainst(ctx, snap, user, start.ClientID, CredentialEvidence{
+		Method:    domain.AuthMethodCHAP,
+		CHAPID:    id,
+		Challenge: chal,
+		Response:  resp,
+	})
+	return s.finishOneShotOutcome(snap, start, user, "chap_login", outcome), nil
 }
 
 func (s *Service) oneShotMSCHAP(ctx context.Context, snap *state.Snapshot, start AuthenticationStart, v2 bool) (AuthenticationStep, error) {
@@ -371,16 +379,21 @@ func (s *Service) oneShotMSCHAP(ctx context.Context, snap *state.Snapshot, start
 }
 
 func (s *Service) finishOneShot(snap *state.Snapshot, start AuthenticationStart, user, kind string, err error) AuthenticationStep {
-	if err == nil {
+	return s.finishOneShotOutcome(snap, start, user, kind, outcomeFromCreds(err))
+}
+
+func (s *Service) finishOneShotOutcome(snap *state.Snapshot, start AuthenticationStart, user, kind string, outcome domain.AuthOutcome) AuthenticationStep {
+	switch outcome {
+	case domain.AuthPass:
 		s.recordAuth(snap, start, user, kind, "pass")
 		return passStep()
-	}
-	if protoError(err) {
+	case domain.AuthError:
 		s.recordAuth(snap, start, user, kind, "error")
 		return errorStep()
+	default:
+		s.recordAuth(snap, start, user, kind, "fail")
+		return failStep()
 	}
-	s.recordAuth(snap, start, user, kind, "fail")
-	return failStep()
 }
 
 func (s *Service) boundCreds(snap *state.Snapshot, clientID string) *credentials.Service {

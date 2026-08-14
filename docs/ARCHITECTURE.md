@@ -156,13 +156,14 @@ type Service interface {
     BeginAuthentication(context.Context, AuthenticationStart) (AuthenticationStep, error)
     ContinueAuthentication(context.Context, AuthenticationContinue) (AuthenticationStep, error)
     AbortAuthentication(context.Context, AuthenticationAbort) error
+    VerifyCredentials(context.Context, userID, clientID string, ev CredentialEvidence) (domain.AuthOutcome, error)
     Authorize(context.Context, AuthorizationRequest) (AuthorizationDecision, error)
     RecordAccounting(context.Context, AccountingRecord) (AccountingResult, error)
     ExplainAuthorization(context.Context, AuthorizationRequest) (PolicyTrace, error)
 }
 ```
 
-The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. SUCCESS is returned only after ring accept. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
+`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` is not exported. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. SUCCESS is returned only after ring accept. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
 
 ### 4.7 `internal/tacacs/codec`
 

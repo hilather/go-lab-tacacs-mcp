@@ -1,0 +1,15 @@
+# Machine-readable RFC 3579 Message-Authenticator / EAP-Message registry.
+# File prefix is R79-. Do not invent R3579-* row IDs.
+# EAP method termination is deferred by ADR 0016 and is not a separate row until an EAP ADR.
+schema_version: 1
+rfc: "3579"
+title: RFC 3579 RADIUS Support For Extensible Authentication Protocol (EAP)
+rows:
+  - id: R79-MA-001
+    section: authentication-and-integrity
+    section_title: Authentication and integrity
+    level: MUST
+    requirement: Validate/calculate Message-Authenticator
+    evidence_required: HMAC-MD5; EAP-Message requires valid MA; responses insert MA first
+    status: NOT_STARTED
+    evidence: []

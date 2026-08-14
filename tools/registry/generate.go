@@ -8,7 +8,7 @@ import (
 )
 
 // GenerateDocs writes the human-readable inventories under docs/generated.
-func GenerateDocs(root string, ops *OperationRegistry, r89, r98 *ConformanceRegistry) error {
+func GenerateDocs(root string, ops *OperationRegistry, tables ...*ConformanceRegistry) error {
 	dir := filepath.Join(root, "docs", "generated")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -16,7 +16,7 @@ func GenerateDocs(root string, ops *OperationRegistry, r89, r98 *ConformanceRegi
 	if err := os.WriteFile(filepath.Join(root, GeneratedParity), []byte(renderParity(ops)), 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(root, GeneratedConformance), []byte(renderConformance(r89, r98)), 0o644)
+	return os.WriteFile(filepath.Join(root, GeneratedConformance), []byte(renderConformance(tables...)), 0o644)
 }
 
 func renderParity(ops *OperationRegistry) string {
@@ -60,17 +60,29 @@ func renderParity(ops *OperationRegistry) string {
 
 func renderConformance(tables ...*ConformanceRegistry) string {
 	var b strings.Builder
-	b.WriteString("# Generated TACACS+ conformance inventory\n\n")
+	b.WriteString("# Generated TACACS+ and RADIUS conformance inventory\n\n")
 	b.WriteString("Do not hand-edit this file. Run `make generate`.\n\n")
-	b.WriteString("Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml`\n\n")
-	b.WriteString(renderQualificationSummary(tables...))
+	sources := make([]string, 0, len(ConformanceSpecs))
+	for _, spec := range ConformanceSpecs {
+		sources = append(sources, "`"+spec.Path+"`")
+	}
+	b.WriteString("Sources: ")
+	b.WriteString(strings.Join(sources, ", "))
+	b.WriteString("\n\n")
+	tacacs, radius := splitConformanceTables(tables)
+	b.WriteString(renderQualificationSummary(tacacs...))
+	b.WriteString(renderRADIUSQualificationSummary(radius...))
 	for _, table := range tables {
 		if table == nil {
 			continue
 		}
-		b.WriteString("## RFC ")
-		b.WriteString(table.RFC)
-		b.WriteString("\n\n")
+		if table.RFC == "PROJECT" {
+			b.WriteString("## Project RADIUS\n\n")
+		} else {
+			b.WriteString("## RFC ")
+			b.WriteString(table.RFC)
+			b.WriteString("\n\n")
+		}
 		if table.Title != "" {
 			b.WriteString(table.Title)
 			b.WriteString("\n\n")
@@ -93,6 +105,21 @@ func renderConformance(tables ...*ConformanceRegistry) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+func splitConformanceTables(tables []*ConformanceRegistry) (tacacs, radius []*ConformanceRegistry) {
+	for _, table := range tables {
+		if table == nil {
+			continue
+		}
+		switch table.RFC {
+		case "8907", "9887":
+			tacacs = append(tacacs, table)
+		default:
+			radius = append(radius, table)
+		}
+	}
+	return tacacs, radius
 }
 
 func renderQualificationSummary(tables ...*ConformanceRegistry) string {
@@ -140,6 +167,52 @@ func renderQualificationSummary(tables ...*ConformanceRegistry) string {
 	} else {
 		b.WriteString("Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Device-family interop is not claimed.\n\n")
 	}
+	return b.String()
+}
+
+func renderRADIUSQualificationSummary(tables ...*ConformanceRegistry) string {
+	var mustTotal, mustPass, mustOpen int
+	openMust := []string{}
+	for _, table := range tables {
+		if table == nil {
+			continue
+		}
+		for _, row := range table.Rows {
+			if !row.Mandatory() {
+				continue
+			}
+			mustTotal++
+			switch row.Status {
+			case StatusPass, StatusNADeprecated, StatusDeferredMAY:
+				mustPass++
+			default:
+				mustOpen++
+				openMust = append(openMust, row.ID+"="+row.Status)
+			}
+		}
+	}
+	var b strings.Builder
+	b.WriteString("## RADIUS qualification summary\n\n")
+	b.WriteString("| Gate | Result |\n|---|---|\n")
+	if mustOpen == 0 && mustTotal > 0 {
+		b.WriteString("| RADIUS / project MVP rows | **PASS** (")
+		b.WriteString(strconv.Itoa(mustPass))
+		b.WriteString("/")
+		b.WriteString(strconv.Itoa(mustTotal))
+		b.WriteString(" mandatory rows `PASS` or deferred with ADR evidence) |\n")
+	} else {
+		b.WriteString("| RADIUS / project MVP rows | **OPEN** (")
+		b.WriteString(strconv.Itoa(mustOpen))
+		b.WriteString(" unresolved")
+		if len(openMust) > 0 {
+			b.WriteString(": ")
+			b.WriteString(escapeCell(strings.Join(openMust, ", ")))
+		}
+		b.WriteString(") |\n")
+	}
+	b.WriteString("| Advertised completeness | **Do not claim complete RADIUS** while any MVP row is `NOT_STARTED` or lacks evidence |\n")
+	b.WriteString("| Independent software peer | `internal/radius/testclient` (separate codec; not yet required while rows are `NOT_STARTED`) |\n\n")
+	b.WriteString("RADIUS registries are skeletons until implementation PRs attach evidence. TACACS 1.0 `-release` still gates only RFC 8907/9887.\n\n")
 	return b.String()
 }
 

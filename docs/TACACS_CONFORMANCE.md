@@ -45,7 +45,7 @@ Level labels are interpreted as follows:
 
 ### 2.1 Machine-readable registry
 
-Row IDs are encoded in `testdata/conformance/rfc8907.yaml` and `testdata/conformance/rfc9887.yaml`. 1.0 qualification fills status and evidence in the YAML; `make generate` rewrites this inventory. `make generate` writes [docs/generated/conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md). `make check-registries` fails on duplicate IDs, empty tables, and contract rows that are missing from the YAML.
+Row IDs are encoded in `testdata/conformance/rfc8907.yaml` and `testdata/conformance/rfc9887.yaml`. 1.0 qualification fills status and evidence in the YAML; `make generate` rewrites this inventory. `make generate` writes [docs/generated/conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md). `make check-registries` fails on duplicate IDs, empty tables, and contract rows that are missing from the YAML. RADIUS/PRJ rows live in sibling YAML files and [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md); they are not TACACS 1.0 `-release` gates.
 
 Do not mark a row `PASS` without linked evidence. `make check-registries` includes the 1.0 MUST/SHOULD `-release` gate (mandatory rows `PASS` or `N/A_RFC_DEPRECATED`; SHOULD rows `PASS` or `DISPOSITIONED_SHOULD`; evidence prefixes and resolvable `Test*`/`Fuzz*`/`Benchmark*` symbols). Structural-only validation is `go run ./tools/check-registries` without `-release`.
 

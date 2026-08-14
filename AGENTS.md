@@ -2,13 +2,15 @@
 
 Status: mandatory  
 Applies to: every code, configuration, test, schema, UI, deployment, and documentation change  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. Mission
 
-Build TacLab as a protocol-correct, deterministic, observable, and reproducible TACACS+ lab server. Favor explicit behavior and testable contracts over convenience or hidden magic.
+Build TacLab as a protocol-correct, deterministic, observable, and reproducible TACACS+ **and RADIUS** lab server. Favor explicit behavior and testable contracts over convenience or hidden magic.
 
 The implementation must remain a single deployable Go service with an embedded React/TypeScript UI. Runtime-created objects are ephemeral by default. The configured baseline is immutable at runtime and is restored after restart.
+
+Do **not** claim complete RADIUS support. RADIUS is adopted architecturally ([ADR 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)); listeners, codec, and policy land in later PRs. Product/module/binary/image names stay `TacLab` / `go-lab-tacacs-mcp` / `taclabd` / `ghcr.io/hilather/go-lab-tacacs-mcp`.
 
 ## 1.1 First-time environment setup
 
@@ -62,7 +64,7 @@ Copy-paste client JSON and a `tools/list` curl: [docs/MCP.md](https://github.com
 2. Terminate HTTPS in front of `:8080`. Do not strip `Authorization`, `MCP-Protocol-Version`, `Mcp-Method`, or `Mcp-Name`.
 3. Disable proxy buffering and raise read timeout for `subscriptions/listen`.
 4. Point the client at `https://<host>/mcp` with the same headers.
-5. Keep ports 49 and 300 off the public internet.
+5. Keep ports 49 and 300 (TACACS) and 1812/1813 (RADIUS/UDP, when enabled) off the public internet.
 
 Caddy/nginx snippets and the remote checklist: [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) §4.
 
@@ -83,7 +85,8 @@ Caddy/nginx snippets and the remote checklist: [docs/MCP.md](https://github.com/
 2. [docs/CANONICAL_DESIGN.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md) — wins on conflict.
 3. [docs/ARCHITECTURE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md)
 4. [docs/API_PARITY.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md) for any REST/MCP change.
-5. [docs/TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) for any protocol change.
+5. [docs/TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) for any TACACS protocol change.
+6. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) and [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) for any RADIUS change. Use pack task IDs `RAD-*`.
 
 After every push, watch GitHub Actions until green (§9).
 
@@ -95,7 +98,7 @@ Before changing implementation code, read the relevant design, architecture, con
 
 ### 2.2 Never bypass the application service layer
 
-TACACS listeners, REST handlers, MCP tools/resources, and the React UI must converge on the same typed application operations and state snapshot. Do not duplicate authorization, validation, policy evaluation, redaction, revision handling, or business logic in adapters.
+TACACS listeners, RADIUS listeners (when enabled), REST handlers, MCP tools/resources, and the React UI must converge on the same typed application operations and state snapshot. Do not duplicate authorization, validation, policy evaluation, redaction, revision handling, or business logic in adapters.
 
 Required dependency direction:
 
@@ -177,6 +180,7 @@ At minimum, evaluate and update:
 
 - architecture and design.
 - TACACS conformance status.
+- RADIUS conformance status (do not mark PASS without evidence; do not advertise completeness).
 - REST/MCP parity matrix.
 - OpenAPI and MCP schemas.
 - configuration reference and examples.
@@ -200,6 +204,19 @@ Generated documentation must be regenerated, checked in, and verified clean by C
 
 Do not claim support based only on a library README. Verify behavior with independent packet fixtures and interoperability tests.
 
+“Complete RADIUS support” means, when it is later advertised:
+
+- RFC 2865 Access-Request/Accept/Reject with bounded packet/attribute framing, VSA preservation, Proxy-State order, PAP and CHAP, and Response Authenticator evidence.
+- RFC 2866 Accounting-Request/Response for Start, Stop, Interim-Update, Accounting-On, and Accounting-Off, with authenticator validation before side effects.
+- RFC 2869 interim/gigawords/Event-Timestamp and Message-Authenticator request/response behavior used by the declared MVP.
+- RFC 3579 Message-Authenticator validate/calculate and EAP-Message-without-MA discard. EAP **termination** is not included.
+- RFC 5080 deterministic bounded duplicate/retransmission behavior.
+- Project rows `PRJ-*` for MA discard policy, unknown-client discard, deterministic policy, stable error mapping, accounting idempotency, bounded storage, runtime limits, one-datagram binding, v1/v2 config, TACACS regression, and REST/MCP parity.
+- Independent `internal/radius/testclient` codec evidence. Shared-codec loopback is not sufficient.
+- Access-Challenge, EAP methods, CoA, RadSec, proxying, MS-CHAP, custom dictionaries, and named `Cisco-AVPair` stay deferred until their ADRs and tests land.
+
+Do not set RADIUS `conformance_status` to `pass` or expose a complete-RADIUS badge while any MVP row is `NOT_STARTED` or lacks evidence. UDP ports **1812** (access) and **1813** (accounting) are the RADIUS lab ports when listeners are enabled; they stay off the public internet.
+
 ### 2.8 Fail closed and preserve old state on invalid change
 
 - Unknown clients are rejected.
@@ -209,12 +226,14 @@ Do not claim support based only on a library README. Verify behavior with indepe
 - Invalid runtime mutations do not partially apply.
 - Unsupported or malformed protocol options receive the RFC-defined failure/error behavior and session handling.
 - Missing authorization scope denies the operation.
+- RADIUS exception (documented, not a general waiver): Accounting-Request with no Acct-Session-Id **and** no NAS-IP/NAS-Identifier is fail-open-to-ack (send Accounting-Response) and sample-capped for ring append so the shared event ring cannot be filled unbounded. See [ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md).
 
 ### 2.9 Protect secrets everywhere
 
 Never return, log, trace, export, include in events, or expose in UI state:
 
 - TACACS shared secrets.
+- RADIUS shared secrets and unhidden User-Password material.
 - clear-equivalent CHAP or MS-CHAP secrets.
 - passwords or password-change values.
 - API bearer token values after their one-time creation response.
@@ -361,6 +380,7 @@ Do not:
 - write runtime changes back into the source configuration file.
 - add persistent storage without an architecture decision and explicit opt-in configuration.
 - expose a “complete” badge while conformance rows are unverified.
+- claim complete RADIUS while `R65-*` / `R66-*` / `R69-*` / `R79-*` / `R80-*` / `PRJ-*` MVP rows are `NOT_STARTED` or lack evidence.
 - disable race, fuzz, security, or interoperability tests to make CI pass.
 - tag a release and walk away while tag CI is red or still running.
 - publish a GitHub Release without a CHANGELOG section that lists **all high-level changes since the previous tag**, or without Ubuntu and Rocky image builds.

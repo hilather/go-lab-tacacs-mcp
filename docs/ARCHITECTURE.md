@@ -1,11 +1,13 @@
 # TacLab Architecture
 
 Status: implementation contract  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. Architectural summary
 
 TacLab is a single Go process with multiple listeners and one authoritative in-memory effective-state snapshot. The React/TypeScript application is compiled to static assets and embedded into the Go binary. REST and MCP are transport adapters over the same operation registry. TACACS+ protocol handlers are adapters over the same AAA and policy services.
+
+RADIUS is adopted as a **peer** of TACACS in this process ([ADR 0013](decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)). Target packages live under `internal/radius` and must not import `internal/tacacs` (or the reverse). Neutral AAA contracts are additive ([ADR 0014](decisions/0014-neutral-aaa-contract-and-protocol-taxonomy.md)); `domain.Transport` stays TACACS `legacy`/`tls`. Config schema version 2 plus an in-memory v1 migrator is the RADIUS configuration path ([ADR 0017](decisions/0017-config-schema-v2-with-v1-migration.md)). This document does **not** claim a production RADIUS listener exists yet. Do not advertise complete RADIUS until [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) MVP rows have evidence. Implementation names and seams are frozen in [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md).
 
 The source configuration is a read-only baseline. Runtime mutations form an in-memory overlay. A successful mutation or reload compiles a new immutable effective snapshot and swaps it atomically. Read-heavy protocol and API paths do not mutate the active snapshot.
 
@@ -41,6 +43,8 @@ One `taclabd` process hosts:
 | Legacy TACACS+ | `0.0.0.0:4949` | `49/tcp` | RFC 8907 legacy transport with per-client shared-secret obfuscation |
 | Secure TACACS+ | `0.0.0.0:4300` | `300/tcp` | RFC 9887 TACACS+ over TLS 1.3 |
 | HTTP admin | `0.0.0.0:8080` | `8080/tcp` or reverse proxy | UI, REST, MCP, events, health, metrics when enabled |
+| RADIUS access (planned) | `0.0.0.0:1812` | `1812/udp` | RFC 2865 Access-Request/Accept/Reject over UDP. Default `enabled: false` until a later PR registers the listener |
+| RADIUS accounting (planned) | `0.0.0.0:1813` | `1813/udp` | RFC 2866 Accounting-Request/Response over UDP. Default `enabled: false` until a later PR registers the listener |
 
 The listeners have independent enablement, connection limits, timeouts, and shutdown deadlines. A failure to bind a configured required listener makes readiness fail and normally terminates startup. An explicitly optional listener may fail only when configuration defines the degraded behavior.
 

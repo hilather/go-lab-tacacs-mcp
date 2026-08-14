@@ -1,0 +1,30 @@
+# Machine-readable RFC 2869 RADIUS extension conformance registry.
+# Pack prefix is R69-*. Message-Authenticator Access rows also cite R79-MA-001.
+schema_version: 1
+rfc: "2869"
+title: RFC 2869 RADIUS Extensions
+rows:
+  - id: R69-MA-001
+    section: message-authenticator
+    section_title: Message-Authenticator
+    level: MUST
+    requirement: Validate Message-Authenticator on Access-Request whenever present
+    evidence_required: Attribute 80 framing, zeroing, HMAC-MD5; not a substitute for R79-MA-001
+    status: NOT_STARTED
+    evidence: []
+  - id: R69-MA-002
+    section: message-authenticator
+    section_title: Message-Authenticator
+    level: MUST
+    requirement: Insert Message-Authenticator on Access responses before Response Authenticator
+    evidence_required: Independent testclient validates response MA
+    status: NOT_STARTED
+    evidence: []
+  - id: R69-ACCT-002
+    section: accounting-extensions
+    section_title: Accounting extensions
+    level: MUST
+    requirement: Interim accounting, gigaword counters, Event-Timestamp, and Acct-Interim-Interval
+    evidence_required: Semantic journal includes Event-Timestamp and counters; delay-time excluded
+    status: NOT_STARTED
+    evidence: []

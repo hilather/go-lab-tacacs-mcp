@@ -1,0 +1,95 @@
+# Machine-readable project RADIUS completeness registry.
+# File prefix is PRJ-*. These rows are RADIUS MVP project requirements.
+# They are not TACACS 1.0 -release gates until RADIUS is advertised.
+schema_version: 1
+rfc: "PROJECT"
+title: Project RADIUS completeness
+rows:
+  - id: PRJ-SEC-001
+    section: authentication-and-integrity
+    section_title: Authentication and integrity
+    level: PROJECT MUST
+    requirement: Missing/invalid required Message-Authenticator silently discards with bounded diagnostics
+    evidence_required: discard_missing_message_authenticator / discard_invalid_message_authenticator
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-SEC-002
+    section: authentication-and-integrity
+    section_title: Authentication and integrity
+    level: PROJECT MUST
+    requirement: Unknown/ambiguous clients and invalid authenticators receive no useful response
+    evidence_required: Silent discard; no oracular errors
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-POL-001
+    section: access-behavior
+    section_title: Access behavior
+    level: PROJECT MUST
+    requirement: Policy result is deterministic and reply attributes are role/type validated
+    evidence_required: Default deny; compile-time packet-role legality
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-ERR-001
+    section: access-behavior
+    section_title: Access behavior
+    level: PROJECT MUST
+    requirement: Discard/reject/internal/overload mapping is stable and non-oracular
+    evidence_required: Frozen reason_code to wire/cache table
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-ACCT-001
+    section: accounting-behavior
+    section_title: Accounting behavior
+    level: PROJECT MUST
+    requirement: Retransmission replays exact response and emits one accounting event
+    evidence_required: Exact cache plus semantic journal excluding Acct-Delay-Time
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-ACCT-002
+    section: accounting-behavior
+    section_title: Accounting behavior
+    level: PROJECT MUST
+    requirement: Accounting/event storage is bounded, redacted, and documented as memory-only
+    evidence_required: Journal/ring caps; ambiguous-identity sample budget
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-RUN-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: Listener queues/workers/cache/state/output have hard limits and recover after overload
+    evidence_required: drop_overload; cache/journal saturation metrics
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-RUN-002
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: One datagram binds to one endpoint, secret handle, snapshot revision, and policy view
+    evidence_required: Role-specific LPM; no secret selection by NAS-IP claim
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-CFG-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax
+    evidence_required: v1 goldens unchanged; mixed keys fail closed
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-TAC-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: Existing TACACS legacy/TLS conformance remains green
+    evidence_required: TACACS registries stay PASS on shared-package PRs
+    status: NOT_STARTED
+    evidence: []
+  - id: PRJ-PAR-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: REST/MCP/UI generated parity remains green
+    evidence_required: Same-change api/operations.yaml + generate for new RADIUS ops
+    status: NOT_STARTED
+    evidence: []

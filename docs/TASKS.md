@@ -2,11 +2,13 @@
 
 Status: executable implementation plan  
 Architecture: all-in-one Go backend with React and TypeScript frontend  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. How agents must use this backlog
 
-This file is the implementation sequence and acceptance checklist. It is not permission to ignore the contracts in `AGENTS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `TACACS_CONFORMANCE.md`, `API_PARITY.md`, `CONFIGURATION.md`, `TESTING_AND_BENCHMARKS.md`, or `LAB_DEPLOYMENT.md`.
+This file is the implementation sequence and acceptance checklist. It is not permission to ignore the contracts in `AGENTS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `TACACS_CONFORMANCE.md`, `RADIUS_CONFORMANCE.md`, `API_PARITY.md`, `CONFIGURATION.md`, `TESTING_AND_BENCHMARKS.md`, or `LAB_DEPLOYMENT.md`.
+
+RADIUS work uses stable pack task IDs `RAD-*` (section 22). Do not invent a parallel RADIUS numbering scheme.
 
 For every task:
 
@@ -1526,6 +1528,7 @@ See `docs/MAINTENANCE.md`.
 - [ ] MCP catalog.
 - [ ] API parity table.
 - [ ] TACACS conformance table.
+- [ ] RADIUS conformance table when the change touches RADIUS.
 - [ ] Testing/benchmark guidance.
 - [ ] Lab deployment/runbook.
 - [ ] Changelog/release notes.
@@ -1551,3 +1554,34 @@ The first sprint should produce a thin, testable vertical skeleton rather than U
 - [x] P14 build image and start Compose on high container ports.
 
 This sprint is not a release and must not label TACACS support complete. Its purpose is to validate architectural boundaries, parity mechanics, test scaffolding, and deployment flow before filling the conformance matrix.
+
+## 22. RADIUS implementation backlog (`RAD-*`)
+
+Pack task IDs are the backlog keys. Implementation design: [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md). Binding ADRs: [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md). Conformance: [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md). Source pin: `3322c26bd78969498e6fa0cd6e4b30902d5c8a94`.
+
+Do not advertise complete RADIUS. Do not implement production listeners in governance-only PRs.
+
+### 22.1 EPIC-00 Governance
+
+- [x] `RAD-GOV-002` Update canonical design and architecture scope (RADIUS removed from 1.0 non-goals; v2 migrator; accounting fail-open-to-ack exception).
+- [x] `RAD-GOV-003` Approve and integrate RADIUS ADRs 0013–0018.
+- [x] `RAD-GOV-004` Create RADIUS conformance registry skeleton (`R65-*`, `R66-*`, `R69-*`, `R79-*`, `R80-*`, `PRJ-*`).
+- [x] `RAD-GOV-006` Freeze naming and compatibility policy for the first RADIUS release (ADR 0018).
+- [ ] `RAD-GOV-001` Verify checkout, baseline, and source drift (pin recorded as `3322c26`; remaining baseline smoke is ongoing CI).
+- [ ] `RAD-GOV-005` Add package-boundary and import guard tests.
+
+### 22.2 Later epics (not started)
+
+- [ ] `RAD-DOM-001` … `RAD-DOM-008` Protocol-neutral domain and AAA seam.
+- [ ] `RAD-CFG-001` … `RAD-CFG-008` Config schema v2, migration, and immutable state. `config.export` never emits v2 for a v1 source without `normalize=true`.
+- [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
+- [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
+- [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.
+- [ ] `RAD-POL-001` … `RAD-POL-007` RADIUS access policy and response attributes.
+- [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.
+- [ ] `RAD-API-001` … `RAD-API-006` Administrative operations and REST/MCP parity.
+- [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
+- [ ] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, secrets, smoke.
+- [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
+- [ ] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance, independent evidence, interop, fuzz, race, benches.
+- [ ] `RAD-REL-001` … `RAD-REL-007` Documentation, migration, operations, and release.

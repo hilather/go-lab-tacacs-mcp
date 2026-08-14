@@ -1,8 +1,8 @@
-# Generated TACACS+ conformance inventory
+# Generated TACACS+ and RADIUS conformance inventory
 
 Do not hand-edit this file. Run `make generate`.
 
-Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml`
+Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml`, `testdata/conformance/rfc2865.yaml`, `testdata/conformance/rfc2866.yaml`, `testdata/conformance/rfc2869.yaml`, `testdata/conformance/rfc3579.yaml`, `testdata/conformance/rfc5080.yaml`, `testdata/conformance/project-radius.yaml`
 
 ## Qualification summary
 
@@ -14,6 +14,16 @@ Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml
 | External TLS PSK / RPK | `DEFERRED_MAY` ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)); T98-OPT-002/003/004 stay `NOT_STARTED` |
 
 Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Device-family interop is not claimed.
+
+## RADIUS qualification summary
+
+| Gate | Result |
+|---|---|
+| RADIUS / project MVP rows | **OPEN** (31 unresolved: R65-PKT-001=NOT_STARTED, R65-PKT-002=NOT_STARTED, R65-ATTR-001=NOT_STARTED, R65-ATTR-002=NOT_STARTED, R65-VSA-001=NOT_STARTED, R65-PROXY-001=NOT_STARTED, R65-RAUTH-001=NOT_STARTED, R65-PAP-001=NOT_STARTED, R65-CHAP-001=NOT_STARTED, R65-ACCESS-001=NOT_STARTED, R65-ACCESS-002=NOT_STARTED, R65-ACCESS-003=NOT_STARTED, R66-PKT-001=NOT_STARTED, R66-RESP-001=NOT_STARTED, R66-STAT-001=NOT_STARTED, R69-MA-001=NOT_STARTED, R69-MA-002=NOT_STARTED, R69-ACCT-002=NOT_STARTED, R79-MA-001=NOT_STARTED, R80-DUP-001=NOT_STARTED, PRJ-SEC-001=NOT_STARTED, PRJ-SEC-002=NOT_STARTED, PRJ-POL-001=NOT_STARTED, PRJ-ERR-001=NOT_STARTED, PRJ-ACCT-001=NOT_STARTED, PRJ-ACCT-002=NOT_STARTED, PRJ-RUN-001=NOT_STARTED, PRJ-RUN-002=NOT_STARTED, PRJ-CFG-001=NOT_STARTED, PRJ-TAC-001=NOT_STARTED, PRJ-PAR-001=NOT_STARTED) |
+| Advertised completeness | **Do not claim complete RADIUS** while any MVP row is `NOT_STARTED` or lacks evidence |
+| Independent software peer | `internal/radius/testclient` (separate codec; not yet required while rows are `NOT_STARTED`) |
+
+RADIUS registries are skeletons until implementation PRs attach evidence. TACACS 1.0 `-release` still gates only RFC 8907/9887.
 
 ## RFC 8907
 
@@ -247,4 +257,78 @@ RFC 9887 Secure TACACS+
 | T98-ROLE-004 | CLIENT-ROLE MUST | PASS | Test client sends the unencrypted flag on every packet over TLS and terminates on a nonconforming server reply | unit:internal/tacacs/testclient.TestTLSForcesUnencryptedAndRejectsClearFlag |
 | T98-ROLE-005 | CLIENT-ROLE MUST NOT | PASS | Test client sends no 0-RTT and includes no early-data extension | unit:internal/tacacs/testclient.TestDialTLSClientHelloHasNoEarlyData |
 | T98-ROLE-006 | OPERATOR SHOULD | PASS | Production-like security tests run TLS-only or use separate hosts/instances for legacy and secure services | docs:deployments/compose/compose.tls-only.yaml; lab:tools/lab-test.sh TLS-only phase; docs:docs/OPERATOR.md |
+
+## RFC 2865
+
+RFC 2865 RADIUS
+
+| ID | Level | Status | Requirement | Evidence |
+|---|---|---|---|---|
+| R65-PKT-001 | MUST | NOT_STARTED | Enforce packet length/header bounds |  |
+| R65-PKT-002 | MUST | NOT_STARTED | Handle supported/unsupported Codes deterministically |  |
+| R65-ATTR-001 | MUST | NOT_STARTED | Validate Type/Length/Value framing |  |
+| R65-ATTR-002 | MUST | NOT_STARTED | Preserve ordered duplicate attributes |  |
+| R65-VSA-001 | MUST | NOT_STARTED | Parse/encode VSA framing and preserve unknown vendor data safely |  |
+| R65-PROXY-001 | MUST | NOT_STARTED | Preserve Proxy-State order/value in responses |  |
+| R65-RAUTH-001 | MUST | NOT_STARTED | Validate/generate request and response authenticators |  |
+| R65-PAP-001 | MUST | NOT_STARTED | Correct User-Password hide/unhide and block/length checks |  |
+| R65-CHAP-001 | MUST | NOT_STARTED | Validate CHAP evidence/challenge selection |  |
+| R65-ACCESS-001 | MUST | NOT_STARTED | Parse and validate Access-Request |  |
+| R65-ACCESS-002 | MUST | NOT_STARTED | Construct valid Access-Accept |  |
+| R65-ACCESS-003 | MUST | NOT_STARTED | Construct valid Access-Reject |  |
+| R65-ACCESS-004 | MUST | DEFERRED_MAY | Access-Challenge only under complete state/security gate | adr:docs/decisions/0016-radius-udp-security-retransmission-and-scope.md |
+
+## RFC 2866
+
+RFC 2866 RADIUS Accounting
+
+| ID | Level | Status | Requirement | Evidence |
+|---|---|---|---|---|
+| R66-PKT-001 | MUST | NOT_STARTED | Validate Accounting-Request and its authenticator |  |
+| R66-RESP-001 | MUST | NOT_STARTED | Construct exact Accounting-Response |  |
+| R66-STAT-001 | MUST | NOT_STARTED | Map declared Acct-Status-Type values |  |
+
+## RFC 2869
+
+RFC 2869 RADIUS Extensions
+
+| ID | Level | Status | Requirement | Evidence |
+|---|---|---|---|---|
+| R69-MA-001 | MUST | NOT_STARTED | Validate Message-Authenticator on Access-Request whenever present |  |
+| R69-MA-002 | MUST | NOT_STARTED | Insert Message-Authenticator on Access responses before Response Authenticator |  |
+| R69-ACCT-002 | MUST | NOT_STARTED | Interim accounting, gigaword counters, Event-Timestamp, and Acct-Interim-Interval |  |
+
+## RFC 3579
+
+RFC 3579 RADIUS Support For Extensible Authentication Protocol (EAP)
+
+| ID | Level | Status | Requirement | Evidence |
+|---|---|---|---|---|
+| R79-MA-001 | MUST | NOT_STARTED | Validate/calculate Message-Authenticator |  |
+
+## RFC 5080
+
+RFC 5080 Common RADIUS Implementation Issues and Suggested Fixes
+
+| ID | Level | Status | Requirement | Evidence |
+|---|---|---|---|---|
+| R80-DUP-001 | MUST | NOT_STARTED | Duplicate/retransmission behavior is deterministic and bounded |  |
+
+## Project RADIUS
+
+Project RADIUS completeness
+
+| ID | Level | Status | Requirement | Evidence |
+|---|---|---|---|---|
+| PRJ-SEC-001 | PROJECT MUST | NOT_STARTED | Missing/invalid required Message-Authenticator silently discards with bounded diagnostics |  |
+| PRJ-SEC-002 | PROJECT MUST | NOT_STARTED | Unknown/ambiguous clients and invalid authenticators receive no useful response |  |
+| PRJ-POL-001 | PROJECT MUST | NOT_STARTED | Policy result is deterministic and reply attributes are role/type validated |  |
+| PRJ-ERR-001 | PROJECT MUST | NOT_STARTED | Discard/reject/internal/overload mapping is stable and non-oracular |  |
+| PRJ-ACCT-001 | PROJECT MUST | NOT_STARTED | Retransmission replays exact response and emits one accounting event |  |
+| PRJ-ACCT-002 | PROJECT MUST | NOT_STARTED | Accounting/event storage is bounded, redacted, and documented as memory-only |  |
+| PRJ-RUN-001 | PROJECT MUST | NOT_STARTED | Listener queues/workers/cache/state/output have hard limits and recover after overload |  |
+| PRJ-RUN-002 | PROJECT MUST | NOT_STARTED | One datagram binds to one endpoint, secret handle, snapshot revision, and policy view |  |
+| PRJ-CFG-001 | PROJECT MUST | NOT_STARTED | Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax |  |
+| PRJ-TAC-001 | PROJECT MUST | NOT_STARTED | Existing TACACS legacy/TLS conformance remains green |  |
+| PRJ-PAR-001 | PROJECT MUST | NOT_STARTED | REST/MCP/UI generated parity remains green |  |
 

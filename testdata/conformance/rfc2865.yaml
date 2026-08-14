@@ -1,0 +1,113 @@
+# Machine-readable RFC 2865 RADIUS access conformance registry.
+# Status and evidence start NOT_STARTED. Edit this file; generate docs.
+# Human-readable tables are generated under docs/generated/.
+# Pack IDs are verbatim (R65-*). Do not invent R3579-* / R5080-* IDs.
+schema_version: 1
+rfc: "2865"
+title: RFC 2865 RADIUS
+rows:
+  - id: R65-PKT-001
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: MUST
+    requirement: Enforce packet length/header bounds
+    evidence_required: Minimum 20, maximum 4096, padding and short-packet handling
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-PKT-002
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: MUST
+    requirement: Handle supported/unsupported Codes deterministically
+    evidence_required: Invalid code silently discarded; supported codes decoded
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-ATTR-001
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: MUST
+    requirement: Validate Type/Length/Value framing
+    evidence_required: Length >= 2 and within remaining declared payload; overflow discards
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-ATTR-002
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: MUST
+    requirement: Preserve ordered duplicate attributes
+    evidence_required: Order and duplicates survive decode/encode
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-VSA-001
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: MUST
+    requirement: Parse/encode VSA framing and preserve unknown vendor data safely
+    evidence_required: Vendor-Specific (26) framing; unknown VSA payloads preserved raw
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-PROXY-001
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: MUST
+    requirement: Preserve Proxy-State order/value in responses
+    evidence_required: Unmodified Proxy-State copied in order after Message-Authenticator
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-RAUTH-001
+    section: authentication-and-integrity
+    section_title: Authentication and integrity
+    level: MUST
+    requirement: Validate/generate request and response authenticators
+    evidence_required: Response Authenticator vectors; Access-Request authenticator is a nonce
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-PAP-001
+    section: authentication-and-integrity
+    section_title: Authentication and integrity
+    level: MUST
+    requirement: Correct User-Password hide/unhide and block/length checks
+    evidence_required: Independent hide/unhide vectors; wipe plaintext
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-CHAP-001
+    section: authentication-and-integrity
+    section_title: Authentication and integrity
+    level: MUST
+    requirement: Validate CHAP evidence/challenge selection
+    evidence_required: CHAP-Password length 17; CHAP-Challenge else Request Authenticator
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-ACCESS-001
+    section: access-behavior
+    section_title: Access behavior
+    level: MUST
+    requirement: Parse and validate Access-Request
+    evidence_required: Required identity/evidence rules; conflicting methods reject
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-ACCESS-002
+    section: access-behavior
+    section_title: Access behavior
+    level: MUST
+    requirement: Construct valid Access-Accept
+    evidence_required: Identifier, Response Authenticator, Message-Authenticator first, reply attributes
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-ACCESS-003
+    section: access-behavior
+    section_title: Access behavior
+    level: MUST
+    requirement: Construct valid Access-Reject
+    evidence_required: Correct response and permitted reject attributes
+    status: NOT_STARTED
+    evidence: []
+  - id: R65-ACCESS-004
+    section: access-behavior
+    section_title: Access behavior
+    level: MUST
+    requirement: Access-Challenge only under complete state/security gate
+    evidence_required: Types may exist; no provider ships until a later ADR
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0016-radius-udp-security-retransmission-and-scope.md

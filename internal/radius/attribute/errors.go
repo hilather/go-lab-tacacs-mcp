@@ -11,4 +11,11 @@ var (
 	ErrNotVSA       = errors.New("radius attribute is not Vendor-Specific")
 	ErrVSAShort     = errors.New("radius Vendor-Specific value is shorter than a vendor id")
 	ErrVSAValueLong = errors.New("radius Vendor-Specific payload exceeds attribute value budget")
+
+	ErrUnknownPacket   = errors.New("radius attribute role check: unknown packet code")
+	ErrIllegalRole     = errors.New("radius attribute is not legal in this packet")
+	ErrCardinality     = errors.New("radius attribute exceeds dictionary cardinality")
+	ErrMissingRequired = errors.New("radius packet is missing a required attribute")
+	ErrNotFirst        = errors.New("radius attribute must be first in this packet")
+	ErrValueLength     = errors.New("radius attribute value length is illegal for its type")
 )

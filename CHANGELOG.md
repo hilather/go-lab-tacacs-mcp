@@ -16,12 +16,13 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Protocol
 
-- In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Named dictionary and UDP listener are not in this tree yet. Not advertised.
+- In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Not advertised.
+- Built-in IETF MVP RADIUS dictionary and packet-role checks (`attribute.Builtin`, version `builtin-mvp-1`). Unknown attributes stay raw. Message-Authenticator is allowed on Accounting-Request and required first on Access and Accounting responses. Named `Cisco-AVPair` is not added. Not advertised.
 - RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Stub UDP replies insert Message-Authenticator first, then the Response Authenticator. Inbound require-versus-allow MA policy and PAP/CHAP are later. Not advertised.
 
 ### Added
 
-- RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter. No RADIUS listener; RADIUS support is not advertised.
+- RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter.
 
 ### Security
 

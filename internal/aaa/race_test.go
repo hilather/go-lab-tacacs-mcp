@@ -40,6 +40,44 @@ func TestConcurrentPAPAndCHAP(t *testing.T) {
 	wg.Wait()
 }
 
+func TestRecordRADIUSAccountingRace(t *testing.T) {
+	svc, _, _ := testService(t)
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	errc := make(chan error, 64)
+	for i := 0; i < 16; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, err := svc.RecordRADIUSAccounting(ctx, RADIUSAccountingRecord{
+				Kind:      AccountingStart,
+				UserID:    "lab-admin",
+				SessionID: "race-sess",
+			})
+			if err != nil {
+				errc <- err
+			}
+		}()
+		go func(n uint32) {
+			defer wg.Done()
+			_, err := svc.RecordAccounting(ctx, AccountingRecord{
+				Flags:     AcctFlagStart,
+				ClientID:  "lab-switches",
+				UserID:    "lab-admin",
+				SessionID: n + 1,
+			})
+			if err != nil {
+				errc <- err
+			}
+		}(uint32(i))
+	}
+	wg.Wait()
+	close(errc)
+	for err := range errc {
+		t.Fatal(err)
+	}
+}
+
 func TestAuthorizeExplainRace(t *testing.T) {
 	svc, _, _ := testService(t)
 	ctx := context.Background()

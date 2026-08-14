@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter. No RADIUS listener; RADIUS support is not advertised.
+
 ### Security
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).

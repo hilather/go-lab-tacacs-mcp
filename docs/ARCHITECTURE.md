@@ -159,11 +159,12 @@ type Service interface {
     VerifyCredentials(context.Context, userID, clientID string, ev CredentialEvidence) (domain.AuthOutcome, error)
     Authorize(context.Context, AuthorizationRequest) (AuthorizationDecision, error)
     RecordAccounting(context.Context, AccountingRecord) (AccountingResult, error)
+    RecordRADIUSAccounting(context.Context, RADIUSAccountingRecord) (AccountingResult, error)
     ExplainAuthorization(context.Context, AuthorizationRequest) (PolicyTrace, error)
 }
 ```
 
-`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` is not exported. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. SUCCESS is returned only after ring accept. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
+`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` is not exported. `RecordRADIUSAccounting` (`RAD-DOM-004`) maps a RADIUS record onto the same ring: `Acct-Session-Id` is `Event.AcctSessionID` (string) and is never stuffed into TACACS `Event.SessionID uint32`. SUCCESS is returned only after ring accept. There is no RADIUS UDP listener in this change. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
 
 ### 4.7 `internal/tacacs/codec`
 
@@ -309,7 +310,7 @@ Responsibilities:
 - fan out live events to REST SSE and MCP subscribers.
 - emit redacted structured logs and metrics.
 
-This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. A slow subscriber is detached without closing the event channel; the ring closes a separate dropped signal and REST writes `event: reset` then ends the stream. MCP `subscriptions/listen` is C8 URI-only: `notifications/resources/updated` for `taclab://events/recent` (and list-changed on overlay revision when requested); event bodies are pulled through `taclab.events.list`. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
+This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. `Query` ANDs optional `protocol`, `listener_role`, `packet_code`, and `outcome` onto the existing category filter. RADIUS `Acct-Session-Id` is stored as `Event.AcctSessionID`; TACACS `Event.SessionID` remains `uint32`. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. A slow subscriber is detached without closing the event channel; the ring closes a separate dropped signal and REST writes `event: reset` then ends the stream. MCP `subscriptions/listen` is C8 URI-only: `notifications/resources/updated` for `taclab://events/recent` (and list-changed on overlay revision when requested); event bodies are pulled through `taclab.events.list`. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
 
 ### 4.15 `web`
 

@@ -1,6 +1,8 @@
 package events
 
 import (
+	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -113,6 +115,68 @@ func TestReadCategoryFilter(t *testing.T) {
 	page := r.Read(Query{Categories: []string{CategoryAcct}, Limit: 10})
 	if len(page.Items) != 2 || page.Items[0].Type != "start" || page.Items[1].Type != "stop" {
 		t.Fatalf("page=%+v", page)
+	}
+}
+
+func TestReadProtocolRoleCodeOutcomeFilters(t *testing.T) {
+	t.Parallel()
+	r := New(16, domain.SystemClock{})
+	r.Accept(Event{Category: CategoryAcct, Type: "start", Protocol: "tacacs", SessionID: 9})
+	r.Accept(Event{
+		Category: CategoryAcct, Type: "start", Protocol: "radius", ListenerRole: "accounting",
+		PacketCode: "accounting_request", Outcome: "success", AcctSessionID: "sess-1",
+	})
+	r.Accept(Event{
+		Category: CategoryAuthen, Type: "radius.access", Protocol: "radius", ListenerRole: "access",
+		PacketCode: "access_request", Outcome: "access_reject",
+	})
+	r.Accept(Event{
+		Category: CategoryAcct, Type: "stop", Protocol: "radius", ListenerRole: "accounting",
+		PacketCode: "accounting_request", Outcome: "success", AcctSessionID: "sess-2",
+	})
+
+	// Existing category filter still works when new fields are empty.
+	acct := r.Read(Query{Categories: []string{CategoryAcct}, Limit: 10})
+	if len(acct.Items) != 3 {
+		t.Fatalf("category-only=%d", len(acct.Items))
+	}
+
+	tacacs := r.Read(Query{Protocol: "tacacs", Limit: 10})
+	if len(tacacs.Items) != 1 || tacacs.Items[0].SessionID != 9 {
+		t.Fatalf("omitted protocol must match tacacs: %+v", tacacs.Items)
+	}
+
+	radiusAcct := r.Read(Query{Categories: []string{CategoryAcct}, Protocol: "radius", Limit: 10})
+	if len(radiusAcct.Items) != 2 || radiusAcct.Items[0].Type != "start" || radiusAcct.Items[1].Type != "stop" {
+		t.Fatalf("protocol+category=%+v", radiusAcct.Items)
+	}
+	for _, ev := range radiusAcct.Items {
+		if ev.SessionID != 0 {
+			t.Fatalf("RADIUS session stuffed into uint32: %+v", ev)
+		}
+		if ev.AcctSessionID == "" {
+			t.Fatalf("missing AcctSessionID: %+v", ev)
+		}
+	}
+
+	access := r.Read(Query{Protocol: "radius", ListenerRole: "access", Limit: 10})
+	if len(access.Items) != 1 || access.Items[0].Type != "radius.access" {
+		t.Fatalf("role=%+v", access.Items)
+	}
+
+	code := r.Read(Query{PacketCode: "accounting_request", Outcome: "success", Limit: 10})
+	if len(code.Items) != 2 {
+		t.Fatalf("code+outcome=%+v", code.Items)
+	}
+
+	none := r.Read(Query{Categories: []string{CategoryAcct}, Protocol: "radius", Outcome: "access_reject", Limit: 10})
+	if len(none.Items) != 0 {
+		t.Fatalf("AND should be empty: %+v", none.Items)
+	}
+
+	page := r.Read(Query{Protocol: "radius", Limit: 1})
+	if len(page.Items) != 1 || !page.HasMore {
+		t.Fatalf("hasMore=%+v", page)
 	}
 }
 
@@ -258,6 +322,35 @@ func TestConcurrentReadAndWrite(t *testing.T) {
 	wg.Wait()
 	if r.Len() != 64 {
 		t.Fatalf("len=%d", r.Len())
+	}
+}
+
+func TestEventJSONOmitsRADIUSFieldsForTACACS(t *testing.T) {
+	t.Parallel()
+	tacacs := Event{Category: CategoryAcct, Type: "start", Result: "success", SessionID: 7}
+	raw, err := json.Marshal(tacacs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	if strings.Contains(s, "acct_session_id") || strings.Contains(s, "protocol") || strings.Contains(s, "listener_role") {
+		t.Fatalf("TACACS JSON grew RADIUS fields: %s", s)
+	}
+	if !strings.Contains(s, `"session_id"`) {
+		t.Fatalf("TACACS session_id missing: %s", s)
+	}
+
+	radius := Event{Category: CategoryAcct, Type: "stop", Protocol: "radius", AcctSessionID: "s1"}
+	raw, err = json.Marshal(radius)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = string(raw)
+	if strings.Contains(s, `"session_id"`) {
+		t.Fatalf("RADIUS uint32 session_id present: %s", s)
+	}
+	if !strings.Contains(s, `"acct_session_id"`) {
+		t.Fatalf("RADIUS acct_session_id missing: %s", s)
 	}
 }
 

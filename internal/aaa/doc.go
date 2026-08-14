@@ -7,6 +7,8 @@
 // exported. Authorization uses the two policy evaluators. The full RFC 8907
 // accounting flag table (START, STOP, WATCHDOG, WATCHDOG+update) is accepted;
 // SUCCESS is returned only after the event ring accepts the record.
+// RecordRADIUSAccounting is additive: Acct-Session-Id is Event.AcctSessionID
+// (string), not Event.SessionID. There is no RADIUS listener here.
 //
 // Authorize and ExplainAuthorization share Evaluate so live AUTHOR packets
 // and policy.evaluate produce the same decision for the same snapshot.

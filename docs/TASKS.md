@@ -1574,7 +1574,8 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 
 - [x] `RAD-DOM-001` Domain taxonomy: `Protocol`, `ListenerRole`, `Carrier`, `RequestContext`, and shared `AuthMethod`/`Effect`/`AuthOutcome`. `domain.Transport` remains TACACS `legacy`/`tls` only. `ParseAuthMethod` accepts `password`/`pap`/`chap`; `pap` stores `password`.
 - [x] `RAD-DOM-002` Neutral AAA `VerifyCredentials` facade over password/CHAP evidence. TACACS one-shot PAP/CHAP map `AuthPass`/`AuthReject`/`AuthError` to the same `AuthenticationStep` statuses. `AuthenticateAccess` is not public.
-- [ ] `RAD-DOM-003` … `RAD-DOM-008` RADIUS access/accounting methods and TACACS Bridge adapter.
+- [x] `RAD-DOM-004` Neutral `RecordRADIUSAccounting` maps onto the event ring. `Acct-Session-Id` is `Event.AcctSessionID` (string); TACACS `SessionID` stays `uint32`. Sensitive attribute summaries are stored redacted. No UDP listener.
+- [ ] `RAD-DOM-003`, `RAD-DOM-005` … `RAD-DOM-008` RADIUS access methods and TACACS Bridge adapter.
 
 ### 22.3 Later epics (not started)
 

@@ -140,6 +140,10 @@ Responsibilities:
 
 The policy package must not know about HTTP, MCP, JSON-RPC, React, TCP connection objects, or YAML syntax types.
 
+### 4.4.1 `internal/policy/radius`
+
+RADIUS access policy is a **separate dialect**. It must not import `internal/aaa` or the TACACS policy parent. Shared enums are `domain.AuthMethod` and `domain.Effect`. MVP evaluation is client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. User/group RADIUS rules are deferred. Match keys are `groups_any`, `method` (`pap` stores `password`), and typed `equals`/`present`/`absent`. Reply-profile merge and Access-Accept/Reject role legality are compile-time. There is no UDP in this package. Do not advertise complete RADIUS.
+
 ### 4.5 `internal/credentials`
 
 Responsibilities:

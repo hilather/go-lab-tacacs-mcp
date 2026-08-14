@@ -1,0 +1,4 @@
+schema_version: 2
+users:
+  - id: lab-admin
+    radius_policy_id: default-radius-access

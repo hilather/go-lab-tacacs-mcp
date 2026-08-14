@@ -1,4 +1,4 @@
 schema_version: 2
-radius_policies:
-  - id: default-radius-access
-    rules: []
+groups:
+  - id: lab-admins
+    radius_rules: []

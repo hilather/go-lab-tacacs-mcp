@@ -22,6 +22,28 @@ func hashBaseline(doc *config.Document) string {
 		b.WriteString(tok.ID)
 		b.WriteByte('\n')
 	}
+	for _, p := range doc.RADIUSPolicies {
+		b.WriteString("rp\t")
+		b.WriteString(p.ID)
+		b.WriteByte('\n')
+		for _, r := range p.Rules {
+			b.WriteString("rpr\t")
+			b.WriteString(r.ID)
+			b.WriteByte('\t')
+			b.WriteString(r.Effect.String())
+			b.WriteByte('\n')
+		}
+	}
+	for _, p := range doc.RADIUSReplyProfiles {
+		b.WriteString("rr\t")
+		b.WriteString(p.ID)
+		b.WriteByte('\n')
+	}
+	if doc.FallbackRADIUSPolicyID != "" {
+		b.WriteString("rpf\t")
+		b.WriteString(doc.FallbackRADIUSPolicyID)
+		b.WriteByte('\n')
+	}
 	return sha256Hex(b.String())
 }
 

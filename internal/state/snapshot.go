@@ -10,6 +10,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	policyradius "github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius"
 )
 
 // CompiledCommand is a command rule with RE2 patterns compiled at snapshot time.
@@ -49,6 +50,7 @@ type Snapshot struct {
 	index             *config.ClientIndex
 	radiusAccessIndex *config.RADIUSIndex
 	radiusAcctIndex   *config.RADIUSIndex
+	radiusPolicies    *policyradius.Engine
 	radiusDictionary  Dictionary
 	radiusDictVersion string
 	secretWarns       []config.SecretWarning
@@ -343,6 +345,14 @@ func (s *Snapshot) RADIUSAccountingIndex() *config.RADIUSIndex {
 		return nil
 	}
 	return s.radiusAcctIndex
+}
+
+// RADIUSPolicies returns the compiled RADIUS access-policy engine.
+func (s *Snapshot) RADIUSPolicies() *policyradius.Engine {
+	if s == nil {
+		return nil
+	}
+	return s.radiusPolicies
 }
 
 // Dictionary returns the compiled RADIUS dictionary view. Empty until a

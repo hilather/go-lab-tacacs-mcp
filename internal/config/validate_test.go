@@ -564,6 +564,44 @@ clients:
 	}
 }
 
+func TestValidateRADIUSPolicyRefs(t *testing.T) {
+	t.Parallel()
+	_, err := parseAndValidate(t, `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+fallback_radius_policy_id: missing
+`)
+	if err == nil {
+		t.Fatal("missing fallback")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeNotFound {
+		t.Fatalf("got %v", err)
+	}
+	_, err = parseAndValidate(t, `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+radius_policies:
+  - id: p
+    rules:
+      - id: r
+        match:
+          groups_any: [no-such-group]
+        effect: deny
+`)
+	if err == nil {
+		t.Fatal("unknown group")
+	}
+	de, ok = domain.AsError(err)
+	if !ok || de.Code != domain.CodeGroupNotFound {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestEvaluateSecretsRADIUSPolicyRejectsWithoutEcho(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

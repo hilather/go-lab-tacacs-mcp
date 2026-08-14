@@ -133,6 +133,9 @@ func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	if !s.Dictionary().Empty() || s.DictionaryVersion() != "" {
 		t.Fatalf("dictionary placeholder: %+v %q", s.Dictionary(), s.DictionaryVersion())
 	}
+	if s.RADIUSPolicies() == nil {
+		t.Fatal("compiled RADIUS policy engine missing")
+	}
 }
 
 func TestReloadInvalidRADIUSKeepsSnapshot(t *testing.T) {
@@ -183,6 +186,48 @@ clients:
 	c, _, err := m.Snapshot().MatchRADIUS(domain.RoleAccess, net.ParseIP("192.0.2.10"))
 	if err != nil || c.Client.ID != "lab-switches" {
 		t.Fatalf("previous RADIUS index lost: %s err=%v", c.Client.ID, err)
+	}
+}
+
+func TestReloadInvalidRADIUSPolicyKeepsSnapshot(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, mixedRADIUSYAML)
+	before := m.Snapshot()
+	rev := before.Revision
+	bad := mustParse(t, `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+radius_reply_profiles:
+  - id: bad
+    attributes:
+      - name: NAS-IP-Address
+        value: "192.0.2.1"
+radius_policies:
+  - id: p
+    rules:
+      - id: r
+        effect: permit
+        reply_profiles: [bad]
+clients:
+  - id: lab-switches
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: /run/secrets/lab_switches_radius_secret}
+          access_policy_id: p
+`)
+	if _, err := m.Reload(bad, &rev); err == nil {
+		t.Fatal("illegal reply role must fail compile")
+	}
+	if m.Snapshot() != before {
+		t.Fatal("invalid RADIUS policy compile must keep previous snapshot")
 	}
 }
 

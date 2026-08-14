@@ -30,6 +30,9 @@ const (
 	EndpointTransportUDP                 = "udp"
 	RADIUSAuthMethodPAP                  = "pap"
 	RADIUSAuthMethodCHAP                 = "chap"
+	RADIUSMatchOpEquals                  = "equals"
+	RADIUSMatchOpPresent                 = "present"
+	RADIUSMatchOpAbsent                  = "absent"
 	RADIUSAcctStart                      = "start"
 	RADIUSAcctStop                       = "stop"
 	RADIUSAcctInterimUpdate              = "interim_update"
@@ -66,8 +69,14 @@ type Document struct {
 	Groups        []Group
 	Users         []User
 	FallbackRules RuleSet
-	Events        Events
-	Observability Observability
+	// RADIUSPolicies, RADIUSReplyProfiles, and FallbackRADIUSPolicyID are
+	// schema v2 only. v1 documents keep them empty; the v1 raw model still
+	// rejects the YAML keys.
+	RADIUSPolicies         []RADIUSPolicy
+	RADIUSReplyProfiles    []RADIUSReplyProfile
+	FallbackRADIUSPolicyID string
+	Events                 Events
+	Observability          Observability
 }
 
 // Metadata is descriptive and must not affect policy.
@@ -464,6 +473,57 @@ type CommandRule struct {
 type StringMatch struct {
 	Exact   string
 	Pattern string
+}
+
+// RADIUSPolicy is a named first-match access policy (client or fallback).
+// User/group RADIUS rule attachment is not in this schema.
+type RADIUSPolicy struct {
+	ID    string
+	Rules []RADIUSRule
+}
+
+// RADIUSRule is one access decision. Enabled defaults true; false skips the rule.
+type RADIUSRule struct {
+	ID            string
+	Enabled       bool
+	Match         RADIUSMatch
+	Effect        domain.Effect
+	ReplyProfiles []string
+}
+
+// RADIUSMatch is the frozen client/fallback dialect: groups_any, method, attributes.
+// Empty GroupsAny or a nil Method is no constraint.
+type RADIUSMatch struct {
+	GroupsAny  []string
+	Method     *domain.AuthMethod
+	Attributes []RADIUSAttrMatch
+}
+
+// RADIUSAttrMatch is one typed request-attribute predicate.
+// Name is an IETF dictionary name, or Vendor+Code identify a raw VSA / type code.
+type RADIUSAttrMatch struct {
+	Name     string
+	Vendor   uint32
+	Code     uint8
+	Op       string
+	Value    string
+	ValueHex string
+}
+
+// RADIUSReplyProfile is a named ordered attribute list merged by permit rules.
+type RADIUSReplyProfile struct {
+	ID         string
+	Attributes []RADIUSReplyAttr
+}
+
+// RADIUSReplyAttr is one policy/config reply attribute. No secret-bearing values.
+// Name is an IETF dictionary name, or Vendor+Code+ValueHex emit a raw VSA.
+type RADIUSReplyAttr struct {
+	Name     string
+	Vendor   uint32
+	Code     uint8
+	Value    string
+	ValueHex string
 }
 
 // User is a TACACS identity. ID is UsernameCasePreserved.

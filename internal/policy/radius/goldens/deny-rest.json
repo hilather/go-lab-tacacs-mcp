@@ -1,0 +1,36 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "lab-guest",
+  "client_id": "lab-switches",
+  "endpoint_id": "radius-udp",
+  "method": "chap",
+  "groups": [
+    "lab-guests"
+  ],
+  "steps": [
+    {
+      "source": "client_policy:default-radius-access",
+      "rule_id": "permit-lab-admins",
+      "matched": false,
+      "reason": "groups_any mismatch"
+    },
+    {
+      "source": "client_policy:default-radius-access",
+      "rule_id": "permit-pap-nas",
+      "matched": false,
+      "reason": "method mismatch"
+    },
+    {
+      "source": "client_policy:default-radius-access",
+      "rule_id": "deny-rest",
+      "matched": true,
+      "reason": "matched"
+    }
+  ],
+  "winner": {
+    "source": "client_policy:default-radius-access",
+    "rule_id": "deny-rest",
+    "effect": "deny"
+  },
+  "effect": "deny"
+}

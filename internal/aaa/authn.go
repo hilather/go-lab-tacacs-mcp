@@ -10,8 +10,8 @@ import (
 
 // CredentialEvidence is protocol-neutral proof for VerifyCredentials.
 // Password is PAP/password material (credentials.Password, not a raw slice).
-// CHAP uses CHAPID + Challenge + Response. AuthenticateAccess is not exported
-// yet (RAD-DOM-003).
+// CHAP uses CHAPID + Challenge + Response. AuthenticateAccess is the RADIUS
+// access facade and default-denies after a credential pass (no policy accept).
 type CredentialEvidence struct {
 	Method    domain.AuthMethod
 	Password  credentials.Password

@@ -163,6 +163,7 @@ type Service interface {
     ContinueAuthentication(context.Context, AuthenticationContinue) (AuthenticationStep, error)
     AbortAuthentication(context.Context, AuthenticationAbort) error
     VerifyCredentials(context.Context, userID, clientID string, ev CredentialEvidence) (domain.AuthOutcome, error)
+    AuthenticateAccess(context.Context, RadiusAccessAttempt) (RadiusAccessDecision, error)
     Authorize(context.Context, AuthorizationRequest) (AuthorizationDecision, error)
     RecordAccounting(context.Context, AccountingRecord) (AccountingResult, error)
     RecordRADIUSAccounting(context.Context, RADIUSAccountingRecord) (AccountingResult, error)
@@ -170,7 +171,7 @@ type Service interface {
 }
 ```
 
-`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` is not exported. `RecordRADIUSAccounting` (`RAD-DOM-004`) maps a RADIUS record onto the same ring: `Acct-Session-Id` is `Event.AcctSessionID` (string) and is never stuffed into TACACS `Event.SessionID uint32`. SUCCESS is returned only after ring accept. There is no RADIUS UDP listener in this change. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
+`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` (`RAD-DOM-003`) verifies RADIUS PAP/CHAP and default-denies; it does not emit Access-Accept until policy evaluation. `RecordRADIUSAccounting` (`RAD-DOM-004`) maps a RADIUS record onto the same ring: `Acct-Session-Id` is `Event.AcctSessionID` (string) and is never stuffed into TACACS `Event.SessionID uint32`. SUCCESS is returned only after ring accept. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates. RADIUS packets stay in `internal/radius`.
 
 ### 4.7 `internal/tacacs/codec`
 
@@ -216,7 +217,7 @@ Responsibilities:
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
 
-`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS), enabled RADIUS/UDP listeners (stub path), and, when enabled, the HTTP admin listener (REST + MCP).
+`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS), enabled RADIUS/UDP listeners (Access-Request PAP/CHAP with default-deny Access-Reject; accounting still stub), and, when enabled, the HTTP admin listener (REST + MCP). Do not advertise complete RADIUS.
 
 ### 4.10 `internal/tacacs/tls`
 

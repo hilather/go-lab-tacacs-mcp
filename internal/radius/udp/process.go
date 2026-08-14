@@ -81,6 +81,26 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		return
 	}
 
+	requireMA, limitPS, methods := endpointAccessPolicy(client, endpointID)
+	req := server.Request{
+		Role:                        l.role,
+		Packet:                      pkt,
+		Declared:                    body,
+		Secret:                      secret,
+		ClientID:                    client.Client.ID,
+		EndpointID:                  endpointID,
+		ListenerID:                  l.id,
+		Revision:                    snap.Revision,
+		RequireMessageAuthenticator: requireMA,
+		LimitProxyState:             limitPS,
+		AllowedMethods:              methods,
+	}
+	// Invalid MA must not read, insert, or purge the retransmission cache.
+	if reason := server.CheckIntegrity(req); reason != "" {
+		l.note(reason)
+		return
+	}
+
 	key := slotKey{
 		endpointID: endpointID,
 		role:       l.role,
@@ -101,15 +121,7 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		return
 	}
 
-	res := l.handler.Handle(ctx, server.Request{
-		Role:       l.role,
-		Packet:     pkt,
-		Declared:   body,
-		Secret:     secret,
-		ClientID:   client.Client.ID,
-		EndpointID: endpointID,
-		Revision:   snap.Revision,
-	})
+	res := l.handler.Handle(ctx, req)
 	if res.Action != server.ActionReply || len(res.Response) == 0 {
 		l.cache.Abandon(key, fp)
 		if res.Reason != "" {
@@ -135,6 +147,18 @@ func codeAllowed(role domain.ListenerRole, code codec.Code) bool {
 func isAmbiguous(err error) bool {
 	de, ok := domain.AsError(err)
 	return ok && de.Code == domain.CodeClientMatchAmbiguous
+}
+
+func endpointAccessPolicy(client state.EffectiveClient, endpointID string) (requireMA, limitPS bool, methods []string) {
+	requireMA = true
+	limitPS = true
+	for _, ep := range client.Client.Endpoints {
+		if ep.ID != endpointID || ep.RADIUS == nil {
+			continue
+		}
+		return ep.RADIUS.RequireMessageAuthenticator, ep.RADIUS.LimitProxyState, append([]string(nil), ep.RADIUS.AllowedAuthenticationMethods...)
+	}
+	return requireMA, limitPS, nil
 }
 
 func lookupRADIUSSecret(lookup config.SecretLookup, client state.EffectiveClient, endpointID string) ([]byte, error) {

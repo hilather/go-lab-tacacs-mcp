@@ -23,6 +23,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
+	radiusserver "github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 	radiusudp "github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -124,6 +125,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 
 	var ring *events.Ring
+	var aaaSvc *aaa.Service
 	if h == nil {
 		var stdoutSink io.Writer
 		if doc.Events.Stdout.Enabled {
@@ -135,12 +137,17 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			RedactUserInput: doc.Events.RedactUserInput,
 			Metrics:         obs.Rec,
 		})
-		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec})
+		var err error
+		aaaSvc, err = aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec})
 		if err != nil {
 			return err
 		}
 		h = server.Bridge{AAA: aaaSvc}
 		defer ring.Close()
+	}
+	var radiusAccess radiusserver.Handler = radiusserver.Stub{}
+	if aaaSvc != nil {
+		radiusAccess = radiusserver.Access{AAA: aaaSvc}
 	}
 
 	var built []runtime.Listener
@@ -191,6 +198,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Settings: doc.Listeners.RADIUSAccess,
 			Snapshot: mgr.Snapshot,
 			Secrets:  lookup,
+			Handler:  radiusAccess,
 			Logger:   logger,
 			Metrics:  obs.Rec,
 		})

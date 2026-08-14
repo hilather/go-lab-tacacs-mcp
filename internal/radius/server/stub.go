@@ -20,13 +20,17 @@ const (
 
 // Request is one decoded datagram plus the endpoint secret selected by source IP.
 type Request struct {
-	Role       domain.ListenerRole
-	Packet     codec.Packet
-	Declared   []byte
-	Secret     []byte
-	ClientID   string
-	EndpointID string
-	Revision   domain.Revision
+	Role                        domain.ListenerRole
+	Packet                      codec.Packet
+	Declared                    []byte
+	Secret                      []byte
+	ClientID                    string
+	EndpointID                  string
+	ListenerID                  string
+	Revision                    domain.Revision
+	RequireMessageAuthenticator bool
+	LimitProxyState             bool
+	AllowedMethods              []string
 }
 
 // Result is discard or a fully signed reply.

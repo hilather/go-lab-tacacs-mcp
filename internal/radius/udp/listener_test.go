@@ -313,7 +313,7 @@ func readUDP(t *testing.T, c *net.UDPConn, wait time.Duration) []byte {
 
 func accessRequest(t *testing.T, id uint8, ra [16]byte) []byte {
 	t.Helper()
-	raw, err := codec.Encode(codec.Packet{
+	return signAccessRequest(t, []byte(labSecret), codec.Packet{
 		Code:          codec.CodeAccessRequest,
 		Identifier:    id,
 		Authenticator: ra,
@@ -321,9 +321,31 @@ func accessRequest(t *testing.T, id uint8, ra [16]byte) []byte {
 			{Type: attribute.TypeUserName, Value: []byte("alice")},
 		},
 	})
+}
+
+func signAccessRequest(t *testing.T, secret []byte, pkt codec.Packet) []byte {
+	t.Helper()
+	attrs := append(attribute.RawSet(nil), pkt.Attributes...)
+	attrs = append(attrs, attribute.Raw{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)})
+	pkt.Attributes = attrs
+	raw, err := codec.Encode(pkt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	mac, err := crypto.MessageAuthenticator(secret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	off := codec.HeaderSize
+	for off+2 <= len(raw) {
+		alen := int(raw[off+1])
+		if raw[off] == attribute.TypeMessageAuthenticator {
+			copy(raw[off+2:off+18], mac[:])
+			return raw
+		}
+		off += alen
+	}
+	t.Fatal("Message-Authenticator missing after encode")
 	return raw
 }
 

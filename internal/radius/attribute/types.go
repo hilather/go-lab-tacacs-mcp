@@ -38,6 +38,7 @@ const (
 	TypeEventTimestamp       uint8 = 55
 	TypeCHAPChallenge        uint8 = 60
 	TypeNASPortType          uint8 = 61
+	TypeEAPMessage           uint8 = 79
 	TypeMessageAuthenticator uint8 = 80
 	TypeAcctInterimInterval  uint8 = 85
 	TypeNASIPv6Address       uint8 = 95

@@ -54,3 +54,8 @@ func CopyProxyState(in attribute.RawSet) attribute.RawSet {
 	}
 	return found.Clone()
 }
+
+// RejectAccess signs an Access-Reject: MA first, then unmodified Proxy-State.
+func RejectAccess(secret []byte, id uint8, reqAuth [16]byte, reqAttrs attribute.RawSet) ([]byte, error) {
+	return SignResponse(secret, codec.CodeAccessReject, id, reqAuth, CopyProxyState(reqAttrs))
+}

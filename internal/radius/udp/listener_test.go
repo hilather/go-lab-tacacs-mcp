@@ -11,8 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
@@ -107,12 +110,38 @@ func TestAccessRejectAndCacheHitPendingPurgeOnUDP(t *testing.T) {
 	assertAccessReject(t, repB, 4, raB, []byte(labSecret))
 }
 
+func TestUnknownAccountingClientUsesCompiledRADIUSIndex(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	doc := mustParse(t, radiusYAML(sec, "192.0.2.0/24", "127.0.0.1:0"))
+	idx, err := config.CompileRADIUSIndex(doc.Clients, domain.RoleAccounting)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := idx.Match(net.ParseIP("127.0.0.1")); err == nil {
+		t.Fatal("127.0.0.1 must miss the compiled accounting index")
+	}
+	ln, _, ring := startAccounting(t, doc)
+	c := dialUDP(t, ln.Addr().String())
+	req := accountingRequest(t, []byte(labSecret), 8)
+	if _, err := c.Write(req); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUDP(t, c, 150*time.Millisecond); got != nil {
+		t.Fatalf("unknown accounting client must be silent, got %d bytes", len(got))
+	}
+	if ring.Len() != 0 {
+		t.Fatal("unknown client must not record")
+	}
+}
+
 func TestAccountingResponseOnUDP(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, radiusYAML(sec, "127.0.0.0/8", "127.0.0.1:0"))
-	ln, _ := startAccounting(t, doc)
+	ln, _, ring := startAccounting(t, doc)
 	c := dialUDP(t, ln.Addr().String())
 	req := accountingRequest(t, []byte(labSecret), 8)
 	if _, err := c.Write(req); err != nil {
@@ -127,6 +156,139 @@ func TestAccountingResponseOnUDP(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertSigned(t, rep, codec.CodeAccountingResponse, 8, pkt.Authenticator, []byte(labSecret))
+	if ring.Len() != 1 {
+		t.Fatalf("recorded=%d", ring.Len())
+	}
+	got, _ := ring.Latest()
+	if got.Type != "start" || got.AcctSessionID != "sess-1" || got.SessionID != 0 {
+		t.Fatalf("event=%+v", got)
+	}
+}
+
+func TestAccountingExactRetryAndDelayTimeAndInterim(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	doc := mustParse(t, radiusYAML(sec, "127.0.0.0/8", "127.0.0.1:0"))
+	ln, _, ring := startAccounting(t, doc)
+	c := dialUDP(t, ln.Addr().String())
+	secret := []byte(labSecret)
+
+	start := accountingAttrs(t, secret, 1, attribute.RawSet{
+		uint32Raw(attribute.TypeAcctStatusType, 1),
+		{Type: attribute.TypeAcctSessionID, Value: []byte("same-sess")},
+		uint32Raw(attribute.TypeAcctDelayTime, 0),
+	})
+	if _, err := c.Write(start); err != nil {
+		t.Fatal(err)
+	}
+	rep1 := readUDP(t, c, 2*time.Second)
+	if rep1 == nil {
+		t.Fatal("missing first start")
+	}
+	if _, err := c.Write(start); err != nil {
+		t.Fatal(err)
+	}
+	repHit := readUDP(t, c, 2*time.Second)
+	if !bytes.Equal(rep1, repHit) {
+		t.Fatal("exact retry must replay cached bytes")
+	}
+	if ring.Len() != 1 {
+		t.Fatalf("exact retry recorded extra event: %d", ring.Len())
+	}
+
+	delayed := accountingAttrs(t, secret, 2, attribute.RawSet{
+		uint32Raw(attribute.TypeAcctStatusType, 1),
+		{Type: attribute.TypeAcctSessionID, Value: []byte("same-sess")},
+		uint32Raw(attribute.TypeAcctDelayTime, 7),
+	})
+	if _, err := c.Write(delayed); err != nil {
+		t.Fatal(err)
+	}
+	repDelay := readUDP(t, c, 2*time.Second)
+	if repDelay == nil {
+		t.Fatal("missing delay-time response")
+	}
+	if bytes.Equal(rep1, repDelay) {
+		t.Fatal("delay-time retry must be a new Accounting-Response")
+	}
+	pkt, err := codec.Decode(delayed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSigned(t, repDelay, codec.CodeAccountingResponse, 2, pkt.Authenticator, secret)
+	if ring.Len() != 1 {
+		t.Fatalf("delay-time retry must not record again: %d", ring.Len())
+	}
+
+	int1 := accountingAttrs(t, secret, 3, attribute.RawSet{
+		uint32Raw(attribute.TypeAcctStatusType, 3),
+		{Type: attribute.TypeAcctSessionID, Value: []byte("same-sess")},
+		uint32Raw(attribute.TypeAcctInputOctets, 10),
+	})
+	int2 := accountingAttrs(t, secret, 4, attribute.RawSet{
+		uint32Raw(attribute.TypeAcctStatusType, 3),
+		{Type: attribute.TypeAcctSessionID, Value: []byte("same-sess")},
+		uint32Raw(attribute.TypeAcctInputOctets, 20),
+	})
+	if _, err := c.Write(int1); err != nil {
+		t.Fatal(err)
+	}
+	if readUDP(t, c, 2*time.Second) == nil {
+		t.Fatal("missing interim 1")
+	}
+	if _, err := c.Write(int2); err != nil {
+		t.Fatal(err)
+	}
+	if readUDP(t, c, 2*time.Second) == nil {
+		t.Fatal("missing interim 2")
+	}
+	if ring.Len() != 3 {
+		t.Fatalf("start + two interims want 3, got %d", ring.Len())
+	}
+}
+
+func TestAccountingInboundMAAndInvalidMADiscard(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	doc := mustParse(t, radiusYAML(sec, "127.0.0.0/8", "127.0.0.1:0"))
+	ln, _, ring := startAccounting(t, doc)
+	c := dialUDP(t, ln.Addr().String())
+	secret := []byte(labSecret)
+
+	withMA := accountingRequestWithMA(t, secret, 9, attribute.RawSet{
+		uint32Raw(attribute.TypeAcctStatusType, 1),
+		{Type: attribute.TypeAcctSessionID, Value: []byte("ma-ok")},
+	})
+	if _, err := c.Write(withMA); err != nil {
+		t.Fatal(err)
+	}
+	rep := readUDP(t, c, 2*time.Second)
+	if rep == nil {
+		t.Fatal("valid inbound MA must not discard")
+	}
+	pkt, err := codec.Decode(withMA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSigned(t, rep, codec.CodeAccountingResponse, 9, pkt.Authenticator, secret)
+
+	bad := append([]byte(nil), withMA...)
+	// Flip a byte inside the Message-Authenticator value.
+	if len(bad) < 40 {
+		t.Fatal("short")
+	}
+	bad[len(bad)-1] ^= 0xff
+	if _, err := c.Write(bad); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUDP(t, c, 150*time.Millisecond); got != nil {
+		t.Fatalf("invalid MA must be silent, got %d", len(got))
+	}
+	if ring.Len() != 1 {
+		t.Fatalf("invalid MA recorded extra: %d", ring.Len())
+	}
 }
 
 func TestInvalidCodeAndShortDatagramDiscard(t *testing.T) {
@@ -171,15 +333,17 @@ func (h *holdHandler) Handle(ctx context.Context, in server.Request) server.Resu
 
 func startAccess(t *testing.T, doc *config.Document, h server.Handler) (*Listener, *state.Manager) {
 	t.Helper()
-	return startRole(t, doc, domain.RoleAccess, h)
+	ln, mgr, _ := startRole(t, doc, domain.RoleAccess, h)
+	return ln, mgr
 }
 
-func startAccounting(t *testing.T, doc *config.Document) (*Listener, *state.Manager) {
+func startAccounting(t *testing.T, doc *config.Document) (*Listener, *state.Manager, *events.Ring) {
 	t.Helper()
-	return startRole(t, doc, domain.RoleAccounting, nil)
+	ln, mgr, ring := startRole(t, doc, domain.RoleAccounting, nil)
+	return ln, mgr, ring
 }
 
-func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h server.Handler) (*Listener, *state.Manager) {
+func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h server.Handler) (*Listener, *state.Manager, *events.Ring) {
 	t.Helper()
 	lookup := func(ref config.SecretRef) ([]byte, error) { return os.ReadFile(ref.File) }
 	mgr, err := state.New(doc, state.Options{Secrets: lookup})
@@ -194,6 +358,22 @@ func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h s
 	settings.Workers = 2
 	settings.QueueCapacity = 32
 	settings.WorkerDeadline = 2 * time.Second
+	var rec server.RADIUSRecorder
+	var ring *events.Ring
+	if role == domain.RoleAccounting && h == nil {
+		ring = events.New(64, nil)
+		t.Cleanup(ring.Close)
+		svc, err := aaa.New(aaa.Options{
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Events:   ring,
+			Creds:    credentials.Options{Params: credentials.TestParams},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rec = svc
+	}
 	ln, err := Listen(Options{
 		Role:     role,
 		Bind:     bind,
@@ -202,6 +382,7 @@ func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h s
 		Snapshot: mgr.Snapshot,
 		Secrets:  lookup,
 		Handler:  h,
+		Recorder: rec,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -219,7 +400,7 @@ func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h s
 		case <-time.After(2 * time.Second):
 		}
 	})
-	return ln, mgr
+	return ln, mgr, ring
 }
 
 func waitReady(t *testing.T, ln *Listener) {
@@ -351,7 +532,15 @@ func signAccessRequest(t *testing.T, secret []byte, pkt codec.Packet) []byte {
 
 func accountingRequest(t *testing.T, secret []byte, id uint8) []byte {
 	t.Helper()
-	pkt := codec.Packet{Code: codec.CodeAccountingRequest, Identifier: id}
+	return accountingAttrs(t, secret, id, attribute.RawSet{
+		uint32Raw(attribute.TypeAcctStatusType, 1),
+		{Type: attribute.TypeAcctSessionID, Value: []byte("sess-1")},
+	})
+}
+
+func accountingAttrs(t *testing.T, secret []byte, id uint8, attrs attribute.RawSet) []byte {
+	t.Helper()
+	pkt := codec.Packet{Code: codec.CodeAccountingRequest, Identifier: id, Attributes: attrs}
 	raw, err := codec.Encode(pkt)
 	if err != nil {
 		t.Fatal(err)
@@ -361,6 +550,40 @@ func accountingRequest(t *testing.T, secret []byte, id uint8) []byte {
 		t.Fatal(err)
 	}
 	pkt.Authenticator = auth
+	out, err := codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func uint32Raw(typ uint8, v uint32) attribute.Raw {
+	return attribute.Raw{Type: typ, Value: []byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)}}
+}
+
+func accountingRequestWithMA(t *testing.T, secret []byte, id uint8, attrs attribute.RawSet) []byte {
+	t.Helper()
+	withMA := attrs.Clone()
+	withMA = append(withMA, attribute.Raw{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)})
+	pkt := codec.Packet{Code: codec.CodeAccountingRequest, Identifier: id, Attributes: withMA}
+	raw, err := codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth, err := crypto.AccountingRequestAuthenticator(secret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt.Authenticator = auth
+	raw, err = codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac, err := crypto.MessageAuthenticator(secret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt.Attributes[len(pkt.Attributes)-1].Value = append([]byte(nil), mac[:]...)
 	out, err := codec.Encode(pkt)
 	if err != nil {
 		t.Fatal(err)

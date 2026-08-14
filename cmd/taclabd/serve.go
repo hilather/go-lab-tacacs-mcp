@@ -217,6 +217,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Settings: doc.Listeners.RADIUSAccounting,
 			Snapshot: mgr.Snapshot,
 			Secrets:  lookup,
+			Recorder: aaaSvc,
 			Logger:   logger,
 			Metrics:  obs.Rec,
 		})

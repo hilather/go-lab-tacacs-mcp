@@ -29,6 +29,7 @@ type Options struct {
 	Snapshot func() *state.Snapshot
 	Secrets  config.SecretLookup
 	Handler  server.Handler
+	Recorder server.RADIUSRecorder
 	Logger   *slog.Logger
 	Metrics  *observability.Recorder
 	Now      func() time.Time
@@ -48,6 +49,8 @@ type Listener struct {
 	role    domain.ListenerRole
 	handler server.Handler
 	cache   *Cache
+	journal *journal
+	sampler *minuteSampler
 	limit   *sourceLimiter
 	queue   chan workItem
 	bounds  codec.Bounds
@@ -92,6 +95,9 @@ func Listen(opts Options) (*Listener, error) {
 		opts.Now = time.Now
 	}
 	handler := opts.Handler
+	if handler == nil && opts.Role == domain.RoleAccounting && opts.Recorder != nil {
+		handler = server.Accounting{AAA: opts.Recorder}
+	}
 	if handler == nil {
 		handler = server.Stub{}
 	}
@@ -115,6 +121,10 @@ func Listen(opts Options) (*Listener, error) {
 		bounds: codec.Bounds{
 			MaxPacketBytes: opts.Settings.MaxPacketBytes,
 		},
+	}
+	if opts.Role == domain.RoleAccounting {
+		l.journal = newJournal(opts.Settings.JournalEntries, opts.Settings.JournalBytes, opts.Settings.RetransmissionTTL, opts.Now)
+		l.sampler = newMinuteSampler(opts.Settings.AmbiguousAccountingPerMinute, opts.Now)
 	}
 	n := opts.Settings.Workers
 	l.workerWG.Add(n)
@@ -167,6 +177,17 @@ func normalizeSettings(s config.RADIUSListener, role domain.ListenerRole) config
 	}
 	if s.PerSourceBurst <= 0 {
 		s.PerSourceBurst = 200
+	}
+	if role == domain.RoleAccounting {
+		if s.JournalEntries <= 0 {
+			s.JournalEntries = 20000
+		}
+		if s.JournalBytes <= 0 {
+			s.JournalBytes = 8 << 20
+		}
+		if s.AmbiguousAccountingPerMinute < 0 {
+			s.AmbiguousAccountingPerMinute = 60
+		}
 	}
 	return s
 }

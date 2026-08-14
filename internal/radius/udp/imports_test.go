@@ -17,6 +17,7 @@ func TestNoForbiddenImports(t *testing.T) {
 	forbidden := []string{
 		"net/http",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/aaa",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/credentials",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/policy",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api",

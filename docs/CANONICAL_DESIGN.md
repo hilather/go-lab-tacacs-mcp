@@ -40,7 +40,7 @@ TacLab is **one Go process** (`taclabd`) with these externally visible surfaces:
 
 The source YAML is an immutable baseline. Runtime mutations live in a memory-only overlay, compile into an immutable effective snapshot, and vanish on restart. REST and MCP are adapters over one typed operation layer. TACACS and future RADIUS listeners are adapters over one AAA/policy/credential core. The UI consumes only public REST.
 
-Multi-protocol configuration uses schema version 2 with a deterministic in-memory v1 migrator ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). Current binaries accept `schema_version: 1` and `schema_version: 2` for listener syntax. Existing v1 files keep loading unchanged and compile to the same TACACS effective fields; RADIUS listeners are synthesized `enabled: false`. v2 RADIUS listeners compile but are **not started** (`serve.go` unchanged). v2 clients accept `endpoints[]`; flatten TACACS fields are a projection of TACACS endpoints. Role-specific RADIUS LPM indexes compile at validate time. `radius_policies` are later work. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; not implemented on export yet).
+Multi-protocol configuration uses schema version 2 with a deterministic in-memory v1 migrator ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). Current binaries accept `schema_version: 1` and `schema_version: 2` for listener syntax. Existing v1 files keep loading unchanged and compile to the same TACACS effective fields; RADIUS listeners are synthesized `enabled: false`. v2 RADIUS listeners compile but are **not started**. TACACS sockets start through `internal/runtime.Registry`; at least one TACACS listener is still required. v2 clients accept `endpoints[]`; flatten TACACS fields are a projection of TACACS endpoints. Role-specific RADIUS LPM indexes compile at validate time. `radius_policies` are later work. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; not implemented on export yet).
 
 ---
 
@@ -919,7 +919,7 @@ Root: current binaries accept `schema_version: 1` and `schema_version: 2`. v1 re
 | Section | Runtime-mutable? | Notes |
 |---|---|---|
 | `metadata` | no (reload) | Must not affect policy |
-| `server` | no | `instance_id`, `shutdown_grace`, `startup_failure_mode`, `log_level`; v2 `admin_only` (default false; not honored until the listener registry lands) |
+| `server` | no | `instance_id`, `shutdown_grace`, `startup_failure_mode`, `log_level`; v2 `admin_only` (default false; stored, not honored — TACACS is still required) |
 | `runtime` | no | `persistence: memory` only; `allow_shadowing`; `delete_baseline_behavior: tombstone`; `reload_overlay_behavior: rebase\|reset`; object caps |
 | `security` | no | shared-secret policy; `allow_environment_secrets`; `strict_secret_files` |
 | `listeners` | no | v1: `legacy_tacacs` / `secure_tacacs` / `http`. v2: `tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. Distinct TACACS binds when both enabled. RADIUS UDP is not started. HTTP `write_timeout` / `idle_timeout` do **not** apply raw to SSE / `subscriptions/listen` (see REST timeouts) |

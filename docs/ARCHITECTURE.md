@@ -63,7 +63,11 @@ Responsibilities:
 - Install signal handling.
 - Coordinate readiness, reload, and graceful shutdown.
 
-It contains no protocol, policy, or storage logic.
+It contains no protocol, policy, or storage logic. Enabled TACACS listeners are registered in `internal/runtime.Registry`. HTTP and metrics stay outside the registry. RADIUS UDP is not registered. At least one TACACS listener is still required at process start.
+
+### 4.1.1 `internal/runtime`
+
+Composition-root listener inventory. Protocol packages implement `runtime.Listener` (`ID`, `Protocol`, `Carrier`, `Role`, `Start`/`Ready`/`Drain`/`Close`/`Status`). The registry validates unique IDs and bind conflicts, starts in deterministic ID order, and drains in reverse. `domain.Transport` stays TACACS `legacy`/`tls`; the wire binding is `domain.Carrier`.
 
 ### 4.2 `internal/config`
 

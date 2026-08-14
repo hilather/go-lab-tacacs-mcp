@@ -126,7 +126,7 @@ Mixed keys fail closed with a path and remediation:
 
 `Document.SchemaVersion` records the **source** version. `config.export` still emits `schema_version: 1` for the sanitized object view and does **not** convert a v1 source to v2 YAML (that convert flag is a later change).
 
-RADIUS listeners may be enabled in a v2 file and will validate, but **this binary does not start UDP 1812/1813**. `serve.go` is unchanged; TACACS is still required at process start. Do not advertise RADIUS completeness.
+RADIUS listeners may be enabled in a v2 file and will validate, but **this binary does not start UDP 1812/1813**. TACACS listeners start through `internal/runtime.Registry`. At least one TACACS listener is still required at process start. Do not advertise RADIUS completeness.
 
 Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
 
@@ -551,7 +551,7 @@ Metadata is descriptive and must not affect policy decisions. Labels are bounded
 
 Controls process-wide lifecycle and logging behavior. `instance_id` is stable within a deployment and appears in events and health responses. It is not an authentication credential.
 
-`server.admin_only` is accepted only on `schema_version: 2` (default `false`). It is the future switch that allows starting with no AAA listener. The current process still requires at least one TACACS listener and does not honor `admin_only`.
+`server.admin_only` is accepted only on `schema_version: 2` (default `false`). The listener registry exists, but the process still requires at least one TACACS listener and does not honor `admin_only`.
 
 ### 7.3 `runtime`
 
@@ -568,7 +568,7 @@ A future persistence adapter requires a separate design approval and must not ch
 
 The `legacy_shared_secrets` policy is a server-management control required for safe RFC 8907 operation. It applies whenever a legacy secret is resolved from baseline or runtime input.
 
-`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. RADIUS endpoint secrets are resolved as `radius_shared_secret` through `config.ReadSecret` / `EvaluateSecrets`. `serve.go` does not yet start RADIUS listeners or type-switch this purpose at the composition root.
+`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. RADIUS endpoint secrets are resolved as `radius_shared_secret` through `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`. RADIUS listeners are still not started.
 
 - `minimum_length_characters` is enforceable and defaults to at least 16. The implementation must accept shared keys of 32 or more characters without truncation.
 - `minimum_character_classes` is an integer from 0 through 4 and counts ASCII lowercase, uppercase, digit, and symbol classes. A value of 0 disables the class-count rule without disabling the length rule.

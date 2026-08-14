@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
 	tclient "github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/testclient"
@@ -353,5 +355,214 @@ func TestServeMissingConfigFile(t *testing.T) {
 	code := serve(context.Background(), []string{"--config", filepath.Join(t.TempDir(), "missing.yaml")}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit %d want 1 stderr=%q", code, stderr.String())
+	}
+}
+
+func TestServeRequiresTACACS(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "v1-none",
+			src: `
+schema_version: 1
+listeners:
+  legacy_tacacs: {enabled: false}
+  secure_tacacs: {enabled: false}
+  http: {enabled: false}
+observability:
+  metrics: {enabled: false}
+`,
+		},
+		{
+			name: "v2-radius-only",
+			src: `
+schema_version: 2
+listeners:
+  tacacs:
+    legacy: {enabled: false}
+    tls: {enabled: false}
+  radius:
+    access: {enabled: true, bind: 127.0.0.1:28182}
+  http: {enabled: false}
+observability:
+  metrics: {enabled: false}
+`,
+		},
+		{
+			name: "v2-admin-only",
+			src: `
+schema_version: 2
+server:
+  admin_only: true
+listeners:
+  tacacs:
+    legacy: {enabled: false}
+    tls: {enabled: false}
+  http: {enabled: false}
+observability:
+  metrics: {enabled: false}
+`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := filepath.Join(t.TempDir(), "lab.yaml")
+			if err := os.WriteFile(cfg, []byte(tc.src), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			code := serve(context.Background(), []string{"--config", cfg}, &stdout, &stderr)
+			if code != 1 {
+				t.Fatalf("exit %d want 1 stderr=%q", code, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), "at least one TACACS listener must be enabled") {
+				t.Fatalf("stderr=%q", stderr.String())
+			}
+		})
+	}
+}
+
+func TestServeRADIUSSecretCompilesAndDoesNotBindUDP(t *testing.T) {
+	dir := t.TempDir()
+	tacacsSec := filepath.Join(dir, "tacacs")
+	radiusSec := filepath.Join(dir, "radius")
+	if err := os.WriteFile(tacacsSec, []byte("LabSecret-16chars!"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(radiusSec, []byte("LabRadius-Secret-32-bytes-ok!!"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	radiusBind := pc.LocalAddr().String()
+	_ = pc.Close()
+
+	cfg := filepath.Join(dir, "lab.yaml")
+	src := `
+schema_version: 2
+server:
+  shutdown_grace: 1s
+  admin_only: true
+listeners:
+  tacacs:
+    legacy:
+      enabled: true
+      bind: 127.0.0.1:0
+      single_connect: {enabled: true, max_lifetime: 1m, idle_timeout: 2s}
+    tls: {enabled: false}
+  radius:
+    access:
+      enabled: true
+      required: true
+      bind: ` + radiusBind + `
+    accounting:
+      enabled: true
+      bind: 127.0.0.1:0
+  http: {enabled: false}
+observability:
+  metrics: {enabled: false}
+clients:
+  - id: loop
+    priority: 10
+    match:
+      source_cidrs: ["127.0.0.0/8"]
+    endpoints:
+      - id: tacacs-legacy
+        protocol: tacacs
+        transport: tcp
+        roles: [authentication, authorization, accounting]
+        tacacs:
+          shared_secret: {file: ` + tacacsSec + `}
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access, accounting]
+        radius:
+          shared_secret: {file: ` + radiusSec + `}
+          require_message_authenticator: true
+          limit_proxy_state: true
+`
+	if err := os.WriteFile(cfg, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var stdout, stderr syncBuf
+	errc := make(chan error, 1)
+	go func() { errc <- runServeWith(ctx, cfg, &stdout, &stderr, nil) }()
+	addr := waitServeAddr(t, &stdout, &stderr)
+	out := stdout.String()
+	if strings.Contains(out, "radius") {
+		t.Fatalf("RADIUS must not be started: %q", out)
+	}
+
+	probe, err := net.ListenPacket("udp", radiusBind)
+	if err != nil {
+		t.Fatalf("RADIUS UDP must remain unbound: %v", err)
+	}
+	_ = probe.Close()
+
+	c, err := tclient.Dial(addr, []byte("LabSecret-16chars!"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := tcodec.WriteAuthorReq(tcodec.AuthorReq{
+		Method: tcodec.MethTACACS, Service: tcodec.SvcLogin,
+		User: []byte("alice"), Port: []byte("tty0"), RemAddr: []byte("127.0.0.1"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := tcodec.Header{Version: tcodec.VersionByte(0), Type: tcodec.TypeAuthor, SeqNo: 1, SessionID: 1}
+	if err := c.WritePacket(h, body); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.ReadPacket(); err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Close()
+
+	cancel()
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatalf("serve: %v stderr=%q", err, stderr.String())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("serve did not shut down")
+	}
+}
+
+func TestSecretLookupRADIUSPurpose(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	canary := "LabRadius-Secret-32-bytes-ok!!"
+	p := filepath.Join(dir, "radius")
+	if err := os.WriteFile(p, []byte(canary), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	doc := &config.Document{}
+	doc.Security.StrictSecretFiles = true
+	lookup := secretLookup(doc)
+	got, err := lookup(config.SecretRef{Purpose: credentials.PurposeRADIUSSharedSecret, File: p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != canary {
+		t.Fatalf("got %q", got)
+	}
+	_, err = lookup(config.SecretRef{Purpose: credentials.Purpose("not-a-purpose"), File: p})
+	if err == nil {
+		t.Fatal("expected unsupported purpose")
+	}
+	if strings.Contains(err.Error(), canary) {
+		t.Fatalf("error leaked secret: %v", err)
 	}
 }

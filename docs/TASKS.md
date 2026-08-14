@@ -1577,10 +1577,11 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 
 ### 22.3 Later epics (not started)
 
-- [x] `RAD-CFG-001` Schema v2 loader + in-memory v1 migrator. RADIUS listeners default `enabled: false` and are not started (`serve.go` unchanged). Client endpoints and `radius_policies` are later PRs. `config.export` still emits v1.
-- [x] `RAD-CFG-002` v2 `clients[].endpoints[]`, `PurposeRADIUSSharedSecret`, `EvaluateSecrets` RADIUS policy, `certificate_only` requires TACACS TLS, projection invariant, role-specific RADIUS LPM indexes. `serve.go` unchanged. Secrets resolved via `config.ReadSecret` / `EvaluateSecrets`.
+- [x] `RAD-CFG-001` Schema v2 loader + in-memory v1 migrator. RADIUS listeners default `enabled: false` and are not started. Client endpoints and `radius_policies` are later PRs. `config.export` still emits v1.
+- [x] `RAD-CFG-002` v2 `clients[].endpoints[]`, `PurposeRADIUSSharedSecret`, `EvaluateSecrets` RADIUS policy, `certificate_only` requires TACACS TLS, projection invariant, role-specific RADIUS LPM indexes. Secrets resolved via `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`.
 - [ ] `RAD-CFG-003` … `RAD-CFG-008` Snapshot views, export convert flag (`normalize=true`).
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
+- [x] Listener registry (`internal/runtime`) wraps TACACS listeners. `secretLookup` handles `RADIUSSharedSecret`. RADIUS UDP is not started. TACACS is still required. `admin_only` is not honored. HTTP/status still lists three sockets.
 - [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.
 - [ ] `RAD-POL-001` … `RAD-POL-007` RADIUS access policy and response attributes.

@@ -23,11 +23,14 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server"
 	tacacstls "github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/tls"
 )
+
+var _ operations.StatusProvider = (*runtime.Registry)(nil)
 
 func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	path, err := parseConfigFlag(args)
@@ -83,6 +86,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	if !legacyOn && !secureOn {
 		return fmt.Errorf("at least one TACACS listener must be enabled")
 	}
+	// RADIUS UDP is not registered. admin_only is stored, not honored.
 
 	obs := observability.New(observability.Options{
 		MetricsEnabled: doc.Observability.Metrics.Enabled,
@@ -137,9 +141,14 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		defer ring.Close()
 	}
 
-	var legacyLn *legacy.Listener
+	var built []runtime.Listener
+	cleanup := func() {
+		for i := len(built) - 1; i >= 0; i-- {
+			_ = built[i].Close()
+		}
+	}
 	if legacyOn {
-		legacyLn, err = legacy.Listen(legacy.Options{
+		legacyLn, err := legacy.Listen(legacy.Options{
 			Bind:     doc.Listeners.LegacyTACACS.Bind,
 			Settings: doc.Listeners.LegacyTACACS,
 			Grace:    doc.Server.ShutdownGrace,
@@ -152,11 +161,10 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		if err != nil {
 			return err
 		}
+		built = append(built, legacyLn)
 	}
-
-	var secureLn *tacacstls.Listener
 	if secureOn {
-		secureLn, err = tacacstls.Listen(tacacstls.Options{
+		secureLn, err := tacacstls.Listen(tacacstls.Options{
 			Bind:     doc.Listeners.SecureTACACS.Bind,
 			Settings: doc.Listeners.SecureTACACS,
 			Grace:    doc.Server.ShutdownGrace,
@@ -167,11 +175,18 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Metrics:  obs.Rec,
 		})
 		if err != nil {
-			if legacyLn != nil {
-				_ = legacyLn.Shutdown(context.Background())
-			}
+			cleanup()
 			return err
 		}
+		built = append(built, secureLn)
+	}
+	listeners, err := runtime.New(built...)
+	if err != nil {
+		cleanup()
+		return err
+	}
+	if doc.Listeners.RADIUSAccess.Enabled || doc.Listeners.RADIUSAccounting.Enabled {
+		logger.Info("radius listeners configured but not started")
 	}
 
 	// serveCtx stops Accept only. Connection sessions use a detached drain context.
@@ -199,21 +214,21 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 	}()
 
-	errc := make(chan error, 4)
-	if legacyLn != nil {
-		go func() { errc <- legacyLn.Serve(serveCtx) }()
+	extra := 0
+	if obs.NeedsListener() {
+		extra++
 	}
-	if secureLn != nil {
-		go func() { errc <- secureLn.Serve(serveCtx) }()
+	if doc.Listeners.HTTP.Enabled {
+		extra++
+	}
+	errc := make(chan error, listeners.Len()+extra)
+	if err := listeners.Start(serveCtx, errc); err != nil {
+		cleanup()
+		return err
 	}
 	if obs.NeedsListener() {
 		if err := obs.Listen(); err != nil {
-			if legacyLn != nil {
-				_ = legacyLn.Shutdown(context.Background())
-			}
-			if secureLn != nil {
-				_ = secureLn.Shutdown(context.Background())
-			}
+			_ = listeners.Drain(context.Background())
 			return err
 		}
 		go func() { errc <- obs.Serve(serveCtx) }()
@@ -225,25 +240,20 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, legacyLn, secureLn, ring, logger, obs)
+		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, logger, obs)
 		if err != nil {
-			if legacyLn != nil {
-				_ = legacyLn.Shutdown(context.Background())
-			}
-			if secureLn != nil {
-				_ = secureLn.Shutdown(context.Background())
-			}
+			_ = listeners.Drain(context.Background())
 			return err
 		}
 		go func() { errc <- httpSrv.Serve(httpLn) }()
 		fmt.Fprintf(stdout, "listening http %s\n", httpLn.Addr().String())
 	}
 
-	if legacyLn != nil {
-		fmt.Fprintf(stdout, "listening legacy_tacacs %s\n", legacyLn.Addr().String())
+	if l := listeners.Get(runtime.IDLegacyTACACS); l != nil {
+		fmt.Fprintf(stdout, "listening legacy_tacacs %s\n", l.Status().Bind)
 	}
-	if secureLn != nil {
-		fmt.Fprintf(stdout, "listening secure_tacacs %s\n", secureLn.Addr().String())
+	if l := listeners.Get(runtime.IDSecureTACACS); l != nil {
+		fmt.Fprintf(stdout, "listening secure_tacacs %s\n", l.Status().Bind)
 	}
 	fmt.Fprintln(stdout, "ready")
 
@@ -266,15 +276,8 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	if err := obs.Shutdown(shutCtx); err != nil && shutErr == nil {
 		shutErr = err
 	}
-	if legacyLn != nil {
-		if err := legacyLn.Shutdown(shutCtx); err != nil && shutErr == nil {
-			shutErr = err
-		}
-	}
-	if secureLn != nil {
-		if err := secureLn.Shutdown(shutCtx); err != nil && shutErr == nil {
-			shutErr = err
-		}
+	if err := listeners.Drain(shutCtx); err != nil && shutErr == nil {
+		shutErr = err
 	}
 	if serveErr != nil && serveCtx.Err() == nil && !isHTTPClosed(serveErr) {
 		return serveErr
@@ -289,7 +292,7 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, legacyLn *legacy.Listener, secureLn *tacacstls.Listener, ring *events.Ring, logger *slog.Logger, obs *observability.Server) (*http.Server, net.Listener, error) {
+func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, logger *slog.Logger, obs *observability.Server) (*http.Server, net.Listener, error) {
 	if obs == nil {
 		obs = observability.New(observability.Options{})
 	}
@@ -309,6 +312,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		Events:   ring,
 		Secrets:  lookup,
 		Creds:    creds,
+		Runtime:  listeners,
 		LoadBaseline: func() (*config.Document, error) {
 			next, err := config.Load(configPath)
 			if err != nil {
@@ -327,10 +331,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		if mgr.Snapshot() == nil {
 			return false
 		}
-		if legacyLn == nil && secureLn == nil {
-			return false
-		}
-		return true
+		return listeners != nil && listeners.HasProtocol(domain.ProtocolTACACS)
 	}
 	restSrv := &rest.Server{
 		Registry:     reg,
@@ -428,6 +429,8 @@ func secretLookup(doc *config.Document) config.SecretLookup {
 		}
 		switch s := holder.(type) {
 		case credentials.SharedSecret:
+			return s.Bytes(), nil
+		case credentials.RADIUSSharedSecret:
 			return s.Bytes(), nil
 		case credentials.LoginVerifier:
 			return s.Bytes(), nil

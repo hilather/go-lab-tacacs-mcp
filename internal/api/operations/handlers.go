@@ -22,6 +22,15 @@ type Deps struct {
 	LoadBaseline func() (*config.Document, error)
 	Secrets      config.SecretLookup
 	Creds        *credentials.Service
+	// Runtime is the live listener inventory. handleStatus does not use
+	// it yet; HTTP/status still lists the three named sockets.
+	Runtime StatusProvider
+}
+
+// StatusProvider is the live listener inventory from internal/runtime.
+// Status handlers do not consult it yet.
+type StatusProvider interface {
+	Ready() bool
 }
 
 // BuildMeta is linker-injected identity. Empty fields become conservative defaults.

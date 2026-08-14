@@ -155,8 +155,9 @@ vuln:
 
 .PHONY: docs-check
 docs-check:
-	@chmod +x tools/check-docs.sh
+	@chmod +x tools/check-docs.sh tools/check-pages-workflow.sh
 	./tools/check-docs.sh
+	./tools/check-pages-workflow.sh
 
 .PHONY: check-hooks
 check-hooks:

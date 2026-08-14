@@ -391,9 +391,10 @@ These rules apply to every agent (main session and subagents) after a push, PR u
 1. Identify the GitHub Actions run for the ref you just changed (`gh run list --branch <ref>` or the tag). Official `gh` only (`cli/cli`).
 2. Wait for completion. Do not declare the change done while that run is queued, in progress, or red.
 3. Required green jobs on `main` and on pull requests: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, `ci-gate`.
-4. On tags (`v*`), also wait for the `release` workflow: release notes, Ubuntu image, Rocky image, GitHub Release.
-5. On failure: read the failed job logs, fix the root cause, and **harden** so the same class of failure cannot recur (pin, allowlist, timeout, test, or workflow change). Push and watch again.
-6. After a release tag, a red run is a **release blocker**. Cut a fix commit and either move the tag after the new run is green or publish a patch tag. Do not leave a published tag pointing at a failing tree.
+4. On `main` pushes that touch `site/` or `.github/workflows/pages.yml`, also wait for the `pages` workflow. `GITHUB_TOKEN` cannot create a Pages site; do not set `configure-pages` `enablement: true`. See [docs/MAINTENANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md) §GitHub Pages.
+5. On tags (`v*`), also wait for the `release` workflow: release notes, Ubuntu image, Rocky image, GitHub Release.
+6. On failure: read the failed job logs, fix the root cause, and **harden** so the same class of failure cannot recur (pin, allowlist, timeout, test, or workflow change). Push and watch again.
+7. After a release tag, a red run is a **release blocker**. Cut a fix commit and either move the tag after the new run is green or publish a patch tag. Do not leave a published tag pointing at a failing tree.
 
 ### 9.2 Every release must include all high-level changes between versions
 

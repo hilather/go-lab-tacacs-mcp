@@ -60,4 +60,45 @@ if tools/check-secrets.sh "$tmpdir/leaked.pem"; then
 fi
 echo "hook-check: secret scan rejects planted test secret"
 
+# Pages workflow must reject configure-pages enablement: true.
+# GITHUB_TOKEN cannot create a Pages site (Resource not accessible by integration).
+cat > "$tmpdir/bad-pages.yml" <<'EOF'
+permissions:
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/deploy-pages@v4
+        with:
+          path: site
+EOF
+if tools/check-pages-workflow.sh "$tmpdir/bad-pages.yml"; then
+  echo "hook-check: pages workflow check missed enablement: true" >&2
+  exit 1
+fi
+echo "hook-check: pages workflow check rejects enablement: true"
+
+cat > "$tmpdir/good-pages.yml" <<'EOF'
+permissions:
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+EOF
+if ! tools/check-pages-workflow.sh "$tmpdir/good-pages.yml"; then
+  echo "hook-check: pages workflow check rejected a valid workflow" >&2
+  exit 1
+fi
+echo "hook-check: pages workflow check accepts a valid workflow"
+
 echo "hook-check: all dedicated validations passed"

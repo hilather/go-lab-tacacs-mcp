@@ -178,6 +178,28 @@ Parallel work must not create duplicate domain models or API-only business logic
 
 - [x] Document generation and review workflow in `API_PARITY.md` and `TACACS_CONFORMANCE.md`.
 
+### P0.5 Publish the static project site on GitHub Pages
+
+**Depends on:** P0.3
+
+- [x] Deploy `site/` from `.github/workflows/pages.yml` using GitHub Actions as the Pages source.
+- [x] Enable the Pages site once as a repo admin (`build_type=workflow`). `GITHUB_TOKEN` cannot create it.
+- [x] Reject `configure-pages` `enablement: true` in `tools/check-pages-workflow.sh`.
+- [x] Fail the deploy job with an actionable message if Pages is missing or not `workflow`.
+
+**Acceptance**
+
+- [x] `make docs-check` rejects a pages workflow that sets `enablement: true`.
+- [x] Pages deploy no longer depends on `GITHUB_TOKEN` creating the site.
+
+**Regression tests**
+
+- [x] `tools/check-hooks.sh` plants `enablement: true` and expects the checker to fail.
+
+**Documentation**
+
+- [x] [MAINTENANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md) records the one-time admin enable command.
+
 ### P0 exit gate
 
 - [ ] Clean backend/frontend build works.

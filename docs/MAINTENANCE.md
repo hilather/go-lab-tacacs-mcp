@@ -1,7 +1,7 @@
 # TacLab 1.0 maintenance policy
 
 Status: post-release contract  
-Last updated: 2026-08-13 (release watch + Ubuntu/Rocky variants)
+Last updated: 2026-08-13 (Pages enablement + release watch + Ubuntu/Rocky variants)
 
 ## Supported versions
 
@@ -56,6 +56,22 @@ Issues must include:
 3. A regression test name that fails before the fix.
 
 Flaky security, conformance, parity, or race tests block release. Do not quarantine them without an owner and expiry.
+
+## GitHub Pages
+
+The project site is the static tree in [`site/`](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/site), published to `https://hilather.github.io/go-lab-tacacs-mcp/` by [`.github/workflows/pages.yml`](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/.github/workflows/pages.yml).
+
+`GITHUB_TOKEN` can **deploy** an existing Pages site (`pages: write` + `id-token: write`). It **cannot create** the site. `actions/configure-pages` `enablement: true` fails with `Resource not accessible by integration` ([actions/configure-pages#40](https://github.com/actions/configure-pages/issues/40)). Do not re-add that input. `make docs-check` rejects it.
+
+A repo admin enables Pages **once**:
+
+```bash
+gh api --method POST repos/hilather/go-lab-tacacs-mcp/pages -f build_type=workflow
+```
+
+Settings equivalent: **Pages → Source → GitHub Actions**. After that, pushes to `main` that touch `site/` or the workflow deploy the artifact.
+
+If the site is deleted, recreate it with the same `POST` (or `PUT` to switch `build_type` to `workflow`). Do not try to create it from the workflow.
 
 ## Release
 

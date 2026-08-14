@@ -65,6 +65,8 @@ GitHub Actions workflow: https://github.com/hilather/go-lab-tacacs-mcp/blob/main
 
 Required jobs for merge: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, and the aggregating `ci-gate`.
 
+The `pages` workflow deploys `site/` to GitHub Pages. It is not part of `ci-gate`, but a red `pages` run on `main` is still a defect. Do not “fix” it with `configure-pages` `enablement: true` (`GITHUB_TOKEN` cannot create the site). Enablement is documented in [MAINTENANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md) §GitHub Pages. `make docs-check` rejects that input.
+
 Publish notes go in [CHANGELOG.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/CHANGELOG.md). The `## [X.Y.Z]` section must list **all high-level changes since the previous tag**. After tagging `vX.Y.Z`, watch the `ci` and `release` workflows until they pass ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9). If tag CI fails, investigate and harden the workflow or tests before the next tag. Every release must include:
 
 - `make release-notes` → `dist/RELEASE_NOTES.md` (high-level CHANGELOG section + commits since the previous tag)

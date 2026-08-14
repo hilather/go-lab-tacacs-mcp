@@ -8,6 +8,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).
 
+### CI
+
+- GitHub Pages deploy no longer tries to create the site with `GITHUB_TOKEN` (`configure-pages` `enablement: true` fails with `Resource not accessible by integration`). The site is enabled once by a repo admin; `make docs-check` rejects the forbidden enablement input.
+
 ### Documentation
 
 - Operator-facing README with feature catalog, REST/MCP matrix, and a documentation map for every contract linked from the root page.

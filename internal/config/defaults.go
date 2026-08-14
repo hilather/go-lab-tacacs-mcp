@@ -8,6 +8,7 @@ func defaultDocument() Document {
 		Server: Server{
 			ShutdownGrace:      15 * time.Second,
 			StartupFailureMode: "fail_closed",
+			AdminOnly:          false,
 			LogLevel:           "info",
 		},
 		Runtime: Runtime{
@@ -26,14 +27,8 @@ func defaultDocument() Document {
 		Security: Security{
 			AllowEnvironmentSecrets: false,
 			StrictSecretFiles:       true,
-			LegacySharedSecrets: SharedSecretPolicy{
-				MinimumLengthCharacters: 16,
-				MinimumCharacterClasses: 3,
-				RejectKnownWeakValues:   true,
-				WarnOnReuse:             true,
-				DefaultRotationInterval: 90 * 24 * time.Hour,
-				RotationWarningBefore:   14 * 24 * time.Hour,
-			},
+			LegacySharedSecrets:     defaultSharedSecretPolicy(),
+			RADIUSSharedSecrets:     defaultSharedSecretPolicy(),
 		},
 		Listeners: Listeners{
 			LegacyTACACS: defaultTACACSListener("0.0.0.0:4949", 49, true),
@@ -62,6 +57,8 @@ func defaultDocument() Document {
 				TrustedProxyCIDRs:   []string{},
 				TLS:                 HTTPTLS{Enabled: false},
 			},
+			RADIUSAccess:     defaultRADIUSAccess(),
+			RADIUSAccounting: defaultRADIUSAccounting(),
 		},
 		API: API{
 			Mode: "lab_static_bearer",
@@ -119,6 +116,58 @@ func defaultDocument() Document {
 				ExposeOnAdmin: false,
 			},
 		},
+	}
+}
+
+func defaultSharedSecretPolicy() SharedSecretPolicy {
+	return SharedSecretPolicy{
+		MinimumLengthCharacters: 16,
+		MinimumCharacterClasses: 3,
+		RejectKnownWeakValues:   true,
+		WarnOnReuse:             true,
+		DefaultRotationInterval: 90 * 24 * time.Hour,
+		RotationWarningBefore:   14 * 24 * time.Hour,
+	}
+}
+
+func defaultRADIUSAccess() RADIUSListener {
+	return RADIUSListener{
+		Enabled:                    false,
+		Required:                   false,
+		Bind:                       "0.0.0.0:1812",
+		Transport:                  RADIUSTransportUDP,
+		MaxPacketBytes:             RADIUSMaxPacketBytes,
+		QueueCapacity:              2048,
+		Workers:                    32,
+		WorkerDeadline:             5 * time.Second,
+		RetransmissionCacheEntries: 10000,
+		RetransmissionCacheBytes:   4 << 20,
+		RetransmissionTTL:          15 * time.Second,
+		PerSourceRate:              100,
+		PerSourceBurst:             200,
+		MessageAuthenticator:       RADIUSMessageAuthenticatorRequired,
+		LimitProxyState:            true,
+	}
+}
+
+func defaultRADIUSAccounting() RADIUSListener {
+	return RADIUSListener{
+		Enabled:                      false,
+		Required:                     false,
+		Bind:                         "0.0.0.0:1813",
+		Transport:                    RADIUSTransportUDP,
+		MaxPacketBytes:               RADIUSMaxPacketBytes,
+		QueueCapacity:                2048,
+		Workers:                      16,
+		WorkerDeadline:               5 * time.Second,
+		RetransmissionCacheEntries:   20000,
+		RetransmissionCacheBytes:     8 << 20,
+		RetransmissionTTL:            60 * time.Second,
+		JournalEntries:               20000,
+		JournalBytes:                 8 << 20,
+		PerSourceRate:                100,
+		PerSourceBurst:               200,
+		AmbiguousAccountingPerMinute: 60,
 	}
 }
 

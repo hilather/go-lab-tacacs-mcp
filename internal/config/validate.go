@@ -50,15 +50,32 @@ var scopeOrder = []string{
 
 // Validate checks cross-object references, limits, command patterns, credential
 // presence for enabled transports, and client-match uniqueness. It does not
-// read secret files.
+// read secret files. Listener error paths follow Document.SchemaVersion.
 func Validate(doc *Document) error {
 	if doc == nil {
 		return domain.NewError(domain.CodeInvalidArgument, "document is required")
 	}
+	schema := doc.SchemaVersion
+	if schema == 0 {
+		schema = SchemaVersionV1
+	}
+	return validateDocument(doc, schema)
+}
+
+// ValidateV2 is Validate using v2 listener paths. Callers that already know
+// the source is v2 may use it directly.
+func ValidateV2(doc *Document) error {
+	if doc == nil {
+		return domain.NewError(domain.CodeInvalidArgument, "document is required")
+	}
+	return validateDocument(doc, SchemaVersionV2)
+}
+
+func validateDocument(doc *Document, schema int) error {
 	if err := validateLimits(doc); err != nil {
 		return err
 	}
-	if err := validateListeners(doc); err != nil {
+	if err := validateListeners(doc, pathsForSchema(schema)); err != nil {
 		return err
 	}
 	if err := validateBootstrapTokens(doc.API.BootstrapTokens); err != nil {
@@ -126,17 +143,34 @@ func validateLimits(doc *Document) error {
 	return nil
 }
 
-func validateListeners(doc *Document) error {
+func pathsForSchema(schema int) listenerYAMLPaths {
+	if schema == SchemaVersionV2 {
+		return v2ListenerPaths
+	}
+	return v1ListenerPaths
+}
+
+func validateListeners(doc *Document, paths listenerYAMLPaths) error {
 	legacy := doc.Listeners.LegacyTACACS
 	secure := doc.Listeners.SecureTACACS
-	if err := validateBind(legacy.Bind, "listeners.legacy_tacacs.bind"); err != nil {
+	if err := validateBind(legacy.Bind, paths.Legacy+".bind"); err != nil {
 		return err
 	}
-	if err := validateBind(secure.Bind, "listeners.secure_tacacs.bind"); err != nil {
+	if err := validateBind(secure.Bind, paths.Secure+".bind"); err != nil {
 		return err
 	}
-	if err := validateBind(doc.Listeners.HTTP.Bind, "listeners.http.bind"); err != nil {
+	if err := validateBind(doc.Listeners.HTTP.Bind, paths.HTTP+".bind"); err != nil {
 		return err
+	}
+	if err := validateRADIUSListener(doc.Listeners.RADIUSAccess, "listeners.radius.access", false); err != nil {
+		return err
+	}
+	if err := validateRADIUSListener(doc.Listeners.RADIUSAccounting, "listeners.radius.accounting", true); err != nil {
+		return err
+	}
+	if doc.Listeners.RADIUSAccess.Enabled && doc.Listeners.RADIUSAccounting.Enabled &&
+		doc.Listeners.RADIUSAccess.Bind == doc.Listeners.RADIUSAccounting.Bind {
+		return domain.NewError(domain.CodeInvalidArgument, "RADIUS access and accounting listeners must use distinct binds").WithPath("listeners.radius")
 	}
 	if legacy.Enabled && secure.Enabled && legacy.Bind == secure.Bind {
 		return domain.NewError(domain.CodeInvalidArgument, "legacy and secure TACACS listeners must use distinct binds").WithPath("listeners")
@@ -144,8 +178,9 @@ func validateListeners(doc *Document) error {
 	if !secure.Enabled {
 		return nil
 	}
+	tlsPath := paths.Secure + ".tls"
 	if len(secure.TLS.Identities.Profiles) == 0 {
-		return domain.NewError(domain.CodeInvalidArgument, "secure TACACS requires at least one TLS identity profile").WithPath("listeners.secure_tacacs.tls.identities.profiles")
+		return domain.NewError(domain.CodeInvalidArgument, "secure TACACS requires at least one TLS identity profile").WithPath(tlsPath + ".identities.profiles")
 	}
 	if secure.TLS.Identities.DefaultID != "" {
 		found := false
@@ -156,11 +191,11 @@ func validateListeners(doc *Document) error {
 			}
 		}
 		if !found {
-			return domain.NewError(domain.CodeInvalidArgument, "default TLS identity is not defined").WithPath("listeners.secure_tacacs.tls.identities.default_id")
+			return domain.NewError(domain.CodeInvalidArgument, "default TLS identity is not defined").WithPath(tlsPath + ".identities.default_id")
 		}
 	}
 	for i, p := range secure.TLS.Identities.Profiles {
-		path := indexPath("listeners.secure_tacacs.tls.identities.profiles", i)
+		path := indexPath(tlsPath+".identities.profiles", i)
 		if p.CertificateChain.File == "" {
 			return domain.NewError(domain.CodeInvalidArgument, "certificate chain file is required").WithPath(path + ".certificate_chain")
 		}
@@ -169,33 +204,90 @@ func validateListeners(doc *Document) error {
 		}
 	}
 	if secure.TLS.ClientCABundle.File == "" {
-		return domain.NewError(domain.CodeInvalidArgument, "client CA bundle is required").WithPath("listeners.secure_tacacs.tls.client_ca_bundle")
+		return domain.NewError(domain.CodeInvalidArgument, "client CA bundle is required").WithPath(tlsPath + ".client_ca_bundle")
 	}
 	if secure.TLS.Revocation.Mode == "configured_crl" && secure.TLS.Revocation.CRLBundle.File == "" {
-		return domain.NewError(domain.CodeInvalidArgument, "CRL bundle is required when revocation.mode is configured_crl").WithPath("listeners.secure_tacacs.tls.revocation.crl_bundle")
+		return domain.NewError(domain.CodeInvalidArgument, "CRL bundle is required when revocation.mode is configured_crl").WithPath(tlsPath + ".revocation.crl_bundle")
 	}
 	if !secure.TLS.RejectEarlyData {
-		return domain.NewError(domain.CodeInvalidArgument, "reject_early_data cannot be disabled").WithPath("listeners.secure_tacacs.tls.reject_early_data")
+		return domain.NewError(domain.CodeInvalidArgument, "reject_early_data cannot be disabled").WithPath(tlsPath + ".reject_early_data")
 	}
 	if !secure.TLS.SessionResumption.RecheckClientRevocation {
 		return domain.NewError(domain.CodeInvalidArgument, "recheck_client_revocation cannot be disabled (ADR-0005)").
-			WithPath("listeners.secure_tacacs.tls.session_resumption.recheck_client_revocation")
+			WithPath(tlsPath + ".session_resumption.recheck_client_revocation")
 	}
 	if secure.TLS.SessionResumption.Enabled {
 		life := secure.TLS.SessionResumption.TicketLifetime
 		if life != 0 && life != TLSTicketLifetimeEnforced {
 			return domain.NewError(domain.CodeInvalidArgument, "ticket_lifetime must be 0 (disabled) or 168h (Go crypto/tls cap; ADR-0005)").
-				WithPath("listeners.secure_tacacs.tls.session_resumption.ticket_lifetime").
+				WithPath(tlsPath+".session_resumption.ticket_lifetime").
 				WithDetail("enforced", TLSTicketLifetimeEnforced.String())
 		}
 	}
 	for i, p := range secure.TLS.Identities.Profiles {
-		path := indexPath("listeners.secure_tacacs.tls.identities.profiles", i)
+		path := indexPath(tlsPath+".identities.profiles", i)
 		for j, name := range p.ServerNames {
 			if err := ValidateWildcardServerName(name); err != nil {
 				return domain.NewError(domain.CodeInvalidArgument, err.Error()).WithPath(indexPath(path+".server_names", j))
 			}
 		}
+	}
+	return nil
+}
+
+func validateRADIUSListener(l RADIUSListener, path string, accounting bool) error {
+	if err := validateBind(l.Bind, path+".bind"); err != nil {
+		return err
+	}
+	if l.Transport != "" && l.Transport != RADIUSTransportUDP {
+		return domain.NewError(domain.CodeInvalidArgument, "transport must be udp").WithPath(path + ".transport")
+	}
+	if l.MaxPacketBytes < RADIUSMinPacketBytes || l.MaxPacketBytes > RADIUSMaxPacketBytes {
+		return domain.NewError(domain.CodeInvalidArgument, "max_packet_bytes must be between 20 and 4096").WithPath(path + ".max_packet_bytes")
+	}
+	if l.QueueCapacity <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "queue_capacity must be > 0").WithPath(path + ".queue_capacity")
+	}
+	if l.Workers <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "workers must be > 0").WithPath(path + ".workers")
+	}
+	if l.WorkerDeadline <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "worker_deadline must be > 0").WithPath(path + ".worker_deadline")
+	}
+	if l.RetransmissionCacheEntries <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "retransmission_cache_entries must be > 0").WithPath(path + ".retransmission_cache_entries")
+	}
+	if l.RetransmissionCacheBytes <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "retransmission_cache_bytes must be > 0").WithPath(path + ".retransmission_cache_bytes")
+	}
+	if accounting {
+		if l.RetransmissionTTL <= 0 || l.RetransmissionTTL > RADIUSAccountingRetransmissionTTLMax {
+			return domain.NewError(domain.CodeInvalidArgument, "retransmission_ttl must be between 1ns and 300s").WithPath(path + ".retransmission_ttl")
+		}
+		if l.JournalEntries <= 0 {
+			return domain.NewError(domain.CodeInvalidArgument, "journal_entries must be > 0").WithPath(path + ".journal_entries")
+		}
+		if l.JournalBytes <= 0 {
+			return domain.NewError(domain.CodeInvalidArgument, "journal_bytes must be > 0").WithPath(path + ".journal_bytes")
+		}
+		if l.AmbiguousAccountingPerMinute < 0 {
+			return domain.NewError(domain.CodeInvalidArgument, "ambiguous_accounting_per_minute must be >= 0").WithPath(path + ".ambiguous_accounting_per_minute")
+		}
+	} else {
+		if l.RetransmissionTTL < RADIUSAccessRetransmissionTTLMin || l.RetransmissionTTL > RADIUSAccessRetransmissionTTLMax {
+			return domain.NewError(domain.CodeInvalidArgument, "retransmission_ttl must be between 5s and 30s").WithPath(path + ".retransmission_ttl")
+		}
+		switch l.MessageAuthenticator {
+		case "", RADIUSMessageAuthenticatorRequired, RADIUSMessageAuthenticatorAllowMissing:
+		default:
+			return domain.NewError(domain.CodeInvalidArgument, "message_authenticator must be required or allow_missing").WithPath(path + ".message_authenticator")
+		}
+	}
+	if l.PerSourceRate <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "per_source_rate must be > 0").WithPath(path + ".per_source_rate")
+	}
+	if l.PerSourceBurst <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "per_source_burst must be > 0").WithPath(path + ".per_source_burst")
 	}
 	return nil
 }

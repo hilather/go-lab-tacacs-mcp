@@ -40,7 +40,7 @@ TacLab is **one Go process** (`taclabd`) with these externally visible surfaces:
 
 The source YAML is an immutable baseline. Runtime mutations live in a memory-only overlay, compile into an immutable effective snapshot, and vanish on restart. REST and MCP are adapters over one typed operation layer. TACACS and future RADIUS listeners are adapters over one AAA/policy/credential core. The UI consumes only public REST.
 
-Multi-protocol configuration **will** use schema version 2 with a deterministic in-memory v1 migrator after `RAD-CFG-*` ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). Current binaries still accept only `schema_version: 1`; a `schema_version: 2` file is a fatal load error today. Existing v1 files keep loading unchanged. When the migrator lands, `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`).
+Multi-protocol configuration uses schema version 2 with a deterministic in-memory v1 migrator ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). Current binaries accept `schema_version: 1` and `schema_version: 2` for listener syntax. Existing v1 files keep loading unchanged and compile to the same TACACS effective fields; RADIUS listeners are synthesized `enabled: false`. v2 RADIUS listeners compile but are **not started** (`serve.go` unchanged). Client `endpoints[]` and `radius_policies` are later work. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; not implemented on export yet).
 
 ---
 
@@ -554,7 +554,7 @@ bytes → syntax model → normalized model → secret resolution
 
 Rules:
 
-- Current binaries accept only `schema_version: 1`. After `RAD-CFG-*` implements [ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md), v1 remains accepted and is migrated **in memory** to the normalized v2 model; new RADIUS configuration requires `schema_version: 2`; mixed v1/v2 syntax is rejected. Source files are never rewritten. `schema_version: 2` is a fatal load error until that work lands.
+- Current binaries accept `schema_version: 1` and `schema_version: 2`. v1 is migrated **in memory** to the normalized named-listener model ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)); RADIUS listener YAML requires `schema_version: 2`; mixed v1/v2 syntax is rejected. Source files are never rewritten. RADIUS UDP sockets are not started until serve wiring lands.
 - YAML 1.2, UTF-8, single document, no aliases/anchors, no duplicate keys.
 - Default max file size 4 MiB.
 - Unknown fields are errors with path + “did you mean?”; never echo secrets.
@@ -914,15 +914,15 @@ Rules:
 
 ## Configuration contract (canonical keys)
 
-Root: current binaries accept only `schema_version: 1`. After `RAD-CFG-*` / [ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md), v1 remains valid and is migrated in memory to the normalized v2 model; RADIUS listeners and endpoints then require `schema_version: 2`.
+Root: current binaries accept `schema_version: 1` and `schema_version: 2`. v1 remains valid and is migrated in memory to the normalized v2 model ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). RADIUS listener YAML requires `schema_version: 2`. Client endpoints are not accepted yet.
 
 | Section | Runtime-mutable? | Notes |
 |---|---|---|
 | `metadata` | no (reload) | Must not affect policy |
-| `server` | no | `instance_id`, `shutdown_grace`, `startup_failure_mode`, `log_level` |
+| `server` | no | `instance_id`, `shutdown_grace`, `startup_failure_mode`, `log_level`; v2 `admin_only` (default false; not honored until the listener registry lands) |
 | `runtime` | no | `persistence: memory` only; `allow_shadowing`; `delete_baseline_behavior: tombstone`; `reload_overlay_behavior: rebase\|reset`; object caps |
 | `security` | no | shared-secret policy; `allow_environment_secrets`; `strict_secret_files` |
-| `listeners` | no | distinct binds required when both TACACS enabled. HTTP `write_timeout` / `idle_timeout` do **not** apply raw to SSE / `subscriptions/listen` (see REST timeouts) |
+| `listeners` | no | v1: `legacy_tacacs` / `secure_tacacs` / `http`. v2: `tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. Distinct TACACS binds when both enabled. RADIUS UDP is not started. HTTP `write_timeout` / `idle_timeout` do **not** apply raw to SSE / `subscriptions/listen` (see REST timeouts) |
 | `api` | tokens overlay yes | bootstrap tokens from files; UI session; rate limits; `api.mcp.allowed_origins` (string list; default empty, plus the same-host UI origin when the UI is served); `api.mcp.require_origin` (bool; default `false`) |
 | `limits` | no | security bounds |
 | `clients` | overlay yes | transport + match + secrets + methods |
@@ -1011,7 +1011,7 @@ No existing database. 1.0 state is process memory.
 
 ### Migration
 
-Current binaries accept only `schema_version: 1`. Unsupported `schema_version` (including `2` today) is a fatal load error. After `RAD-CFG-*` implements [ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md), the loader deterministically migrates v1 **in memory** to the normalized v2 model; schema version 2 is required for RADIUS listeners and endpoints; mixed v1/v2 syntax is a fatal load error. Source files are never rewritten automatically. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; default false). Golden tests must compare v1 and equivalent v2 effective TACACS snapshots. Runtime overlay is not migrated across process restart (it is discarded).
+Current binaries accept `schema_version: 1` and `schema_version: 2`. The loader deterministically migrates v1 **in memory** to the normalized v2 model ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)); schema version 2 is required for RADIUS listeners; mixed v1/v2 syntax is a fatal load error. Source files are never rewritten automatically. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; default false; export convert is not implemented yet). Golden tests compare v1 and equivalent v2 effective TACACS snapshots. Runtime overlay is not migrated across process restart (it is discarded). RADIUS listeners compile with `enabled: false` by default and are not started.
 
 ---
 

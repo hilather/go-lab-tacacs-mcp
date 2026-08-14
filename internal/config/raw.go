@@ -9,6 +9,7 @@ import (
 
 // YAML syntax types stay unexported.
 
+// rawFile is the schema_version: 1 syntax model.
 type rawFile struct {
 	SchemaVersion *int             `yaml:"schema_version"`
 	Metadata      rawMetadata      `yaml:"metadata"`
@@ -25,6 +26,9 @@ type rawFile struct {
 	Events        rawEvents        `yaml:"events"`
 	Observability rawObservability `yaml:"observability"`
 }
+
+// rawFileV1 is the schema_version: 1 syntax model (alias of rawFile).
+type rawFileV1 = rawFile
 
 type rawMetadata struct {
 	Name        string            `yaml:"name"`

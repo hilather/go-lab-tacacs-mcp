@@ -10,14 +10,35 @@ import (
 	"golang.org/x/text/secure/precis"
 )
 
-func normalize(raw *rawFile) (*Document, error) {
-	if raw.SchemaVersion == nil {
-		return nil, yamlErrorAt("schema_version", "schema_version is required")
+func normalizeV1(raw *rawFileV1) (*Document, error) {
+	doc, err := normalizeCommon(raw)
+	if err != nil {
+		return nil, err
 	}
-	if *raw.SchemaVersion != SchemaVersion {
-		return nil, yamlErrorAt("schema_version", "unsupported schema version")
-	}
+	migrateV1ToNormalized(doc)
+	return doc, nil
+}
 
+// migrateV1ToNormalized fills v2-normalized fields that v1 syntax cannot
+// express. The source file is never rewritten. SchemaVersion stays 1.
+func migrateV1ToNormalized(doc *Document) {
+	if doc == nil {
+		return
+	}
+	doc.SchemaVersion = SchemaVersionV1
+	doc.Server.AdminOnly = false
+	doc.Security.RADIUSSharedSecrets = doc.Security.LegacySharedSecrets
+	if doc.Listeners.RADIUSAccess.MaxPacketBytes == 0 {
+		doc.Listeners.RADIUSAccess = defaultRADIUSAccess()
+	}
+	if doc.Listeners.RADIUSAccounting.MaxPacketBytes == 0 {
+		doc.Listeners.RADIUSAccounting = defaultRADIUSAccounting()
+	}
+	doc.Listeners.RADIUSAccess.Enabled = false
+	doc.Listeners.RADIUSAccounting.Enabled = false
+}
+
+func normalizeCommon(raw *rawFile) (*Document, error) {
 	doc := defaultDocument()
 	doc.Metadata = Metadata{
 		Name:        raw.Metadata.Name,
@@ -34,7 +55,7 @@ func normalize(raw *rawFile) (*Document, error) {
 	if err := normalizeSecurity(&doc.Security, raw.Security); err != nil {
 		return nil, err
 	}
-	if err := normalizeListeners(&doc.Listeners, raw.Listeners, doc.Security.AllowEnvironmentSecrets); err != nil {
+	if err := normalizeListeners(&doc.Listeners, raw.Listeners, v1ListenerPaths, doc.Security.AllowEnvironmentSecrets); err != nil {
 		return nil, err
 	}
 	if err := normalizeAPI(&doc.API, raw.API, doc.Listeners.HTTP.TLS.Enabled, doc.Security.AllowEnvironmentSecrets); err != nil {
@@ -74,6 +95,7 @@ func normalize(raw *rawFile) (*Document, error) {
 	if err := normalizeObservability(&doc.Observability, raw.Observability); err != nil {
 		return nil, err
 	}
+	doc.SchemaVersion = SchemaVersionV1
 	return &doc, nil
 }
 
@@ -133,23 +155,26 @@ func normalizeRuntime(dst *Runtime, raw rawRuntime) error {
 func normalizeSecurity(dst *Security, raw rawSecurity) error {
 	dst.AllowEnvironmentSecrets = boolOr(raw.AllowEnvironmentSecrets, dst.AllowEnvironmentSecrets)
 	dst.StrictSecretFiles = boolOr(raw.StrictSecretFiles, dst.StrictSecretFiles)
-	p := &dst.LegacySharedSecrets
-	p.MinimumLengthCharacters = intOr(raw.LegacySharedSecrets.MinimumLengthCharacters, p.MinimumLengthCharacters)
-	p.MinimumCharacterClasses = intOr(raw.LegacySharedSecrets.MinimumCharacterClasses, p.MinimumCharacterClasses)
+	return applySharedSecretPolicy(&dst.LegacySharedSecrets, raw.LegacySharedSecrets, "security.legacy_shared_secrets")
+}
+
+func applySharedSecretPolicy(p *SharedSecretPolicy, raw rawSharedSecretPolicy, path string) error {
+	p.MinimumLengthCharacters = intOr(raw.MinimumLengthCharacters, p.MinimumLengthCharacters)
+	p.MinimumCharacterClasses = intOr(raw.MinimumCharacterClasses, p.MinimumCharacterClasses)
 	if p.MinimumCharacterClasses < 0 || p.MinimumCharacterClasses > 4 {
-		return yamlErrorAt("security.legacy_shared_secrets.minimum_character_classes", "minimum_character_classes must be 0-4")
+		return yamlErrorAt(path+".minimum_character_classes", "minimum_character_classes must be 0-4")
 	}
 	if p.MinimumLengthCharacters < 0 {
-		return yamlErrorAt("security.legacy_shared_secrets.minimum_length_characters", "minimum_length_characters must be >= 0")
+		return yamlErrorAt(path+".minimum_length_characters", "minimum_length_characters must be >= 0")
 	}
-	p.RejectKnownWeakValues = boolOr(raw.LegacySharedSecrets.RejectKnownWeakValues, p.RejectKnownWeakValues)
-	p.WarnOnReuse = boolOr(raw.LegacySharedSecrets.WarnOnReuse, p.WarnOnReuse)
-	d, err := parseDurationOr(raw.LegacySharedSecrets.DefaultRotationInterval, "security.legacy_shared_secrets.default_rotation_interval", p.DefaultRotationInterval)
+	p.RejectKnownWeakValues = boolOr(raw.RejectKnownWeakValues, p.RejectKnownWeakValues)
+	p.WarnOnReuse = boolOr(raw.WarnOnReuse, p.WarnOnReuse)
+	d, err := parseDurationOr(raw.DefaultRotationInterval, path+".default_rotation_interval", p.DefaultRotationInterval)
 	if err != nil {
 		return err
 	}
 	p.DefaultRotationInterval = d
-	w, err := parseDurationOr(raw.LegacySharedSecrets.RotationWarningBefore, "security.legacy_shared_secrets.rotation_warning_before", p.RotationWarningBefore)
+	w, err := parseDurationOr(raw.RotationWarningBefore, path+".rotation_warning_before", p.RotationWarningBefore)
 	if err != nil {
 		return err
 	}
@@ -157,14 +182,32 @@ func normalizeSecurity(dst *Security, raw rawSecurity) error {
 	return nil
 }
 
-func normalizeListeners(dst *Listeners, raw rawListeners, allowEnv bool) error {
-	if err := normalizeTACACS(&dst.LegacyTACACS, raw.LegacyTACACS, "listeners.legacy_tacacs"); err != nil {
+type listenerYAMLPaths struct {
+	Legacy string
+	Secure string
+	HTTP   string
+}
+
+var v1ListenerPaths = listenerYAMLPaths{
+	Legacy: "listeners.legacy_tacacs",
+	Secure: "listeners.secure_tacacs",
+	HTTP:   "listeners.http",
+}
+
+var v2ListenerPaths = listenerYAMLPaths{
+	Legacy: "listeners.tacacs.legacy",
+	Secure: "listeners.tacacs.tls",
+	HTTP:   "listeners.http",
+}
+
+func normalizeListeners(dst *Listeners, raw rawListeners, paths listenerYAMLPaths, allowEnv bool) error {
+	if err := normalizeTACACS(&dst.LegacyTACACS, raw.LegacyTACACS, paths.Legacy); err != nil {
 		return err
 	}
-	if err := normalizeTACACS(&dst.SecureTACACS.TACACSListener, raw.SecureTACACS.rawTACACSListener, "listeners.secure_tacacs"); err != nil {
+	if err := normalizeTACACS(&dst.SecureTACACS.TACACSListener, raw.SecureTACACS.rawTACACSListener, paths.Secure); err != nil {
 		return err
 	}
-	if err := normalizeSecureTLS(&dst.SecureTACACS.TLS, raw.SecureTACACS.TLS, allowEnv); err != nil {
+	if err := normalizeSecureTLS(&dst.SecureTACACS.TLS, raw.SecureTACACS.TLS, paths.Secure+".tls", allowEnv); err != nil {
 		return err
 	}
 	return normalizeHTTP(&dst.HTTP, raw.HTTP)
@@ -202,16 +245,16 @@ func normalizeTACACS(dst *TACACSListener, raw rawTACACSListener, path string) er
 	return nil
 }
 
-func normalizeSecureTLS(dst *SecureTLS, raw rawSecureTLS, allowEnv bool) error {
+func normalizeSecureTLS(dst *SecureTLS, raw rawSecureTLS, path string, allowEnv bool) error {
 	if raw.MinimumVersion != "" {
 		if raw.MinimumVersion != "TLS1.3" {
-			return domain.NewError(domain.CodeTLSVersionUnsupported, "secure TACACS minimum_version must be TLS1.3").WithPath("listeners.secure_tacacs.tls.minimum_version")
+			return domain.NewError(domain.CodeTLSVersionUnsupported, "secure TACACS minimum_version must be TLS1.3").WithPath(path + ".minimum_version")
 		}
 		dst.MinimumVersion = raw.MinimumVersion
 	}
 	if raw.ClientAuthentication != "" {
 		if raw.ClientAuthentication != "require_and_verify_certificate" {
-			return yamlErrorAt("listeners.secure_tacacs.tls.client_authentication", "client_authentication must be require_and_verify_certificate")
+			return yamlErrorAt(path+".client_authentication", "client_authentication must be require_and_verify_certificate")
 		}
 		dst.ClientAuthentication = raw.ClientAuthentication
 	}
@@ -220,15 +263,15 @@ func normalizeSecureTLS(dst *SecureTLS, raw rawSecureTLS, allowEnv bool) error {
 	profiles := make([]TLSProfile, 0, len(raw.Identities.Profiles))
 	seen := map[string]struct{}{}
 	for i, p := range raw.Identities.Profiles {
-		path := indexPath("listeners.secure_tacacs.tls.identities.profiles", i)
+		ppath := indexPath(path+".identities.profiles", i)
 		if p.ID == "" {
-			return yamlErrorAt(path+".id", "id is required")
+			return yamlErrorAt(ppath+".id", "id is required")
 		}
 		if _, ok := seen[p.ID]; ok {
-			return yamlErrorAt(path+".id", "duplicate TLS identity id")
+			return yamlErrorAt(ppath+".id", "duplicate TLS identity id")
 		}
 		seen[p.ID] = struct{}{}
-		key, err := normalizeSecretRef(p.PrivateKey, credentials.PurposeTLSPrivateKey, path+".private_key", allowEnv)
+		key, err := normalizeSecretRef(p.PrivateKey, credentials.PurposeTLSPrivateKey, ppath+".private_key", allowEnv)
 		if err != nil {
 			return err
 		}
@@ -243,13 +286,13 @@ func normalizeSecureTLS(dst *SecureTLS, raw rawSecureTLS, allowEnv bool) error {
 	dst.ClientCABundle = normalizeFileRef(raw.ClientCABundle)
 	if raw.Revocation.Mode != "" {
 		if raw.Revocation.Mode != "configured_crl" {
-			return yamlErrorAt("listeners.secure_tacacs.tls.revocation.mode", "revocation.mode must be configured_crl")
+			return yamlErrorAt(path+".revocation.mode", "revocation.mode must be configured_crl")
 		}
 		dst.Revocation.Mode = raw.Revocation.Mode
 	}
 	dst.Revocation.CRLBundle = normalizeFileRef(raw.Revocation.CRLBundle)
 	dst.SessionResumption.Enabled = boolOr(raw.SessionResumption.Enabled, dst.SessionResumption.Enabled)
-	d, err := parseDurationOr(raw.SessionResumption.TicketLifetime, "listeners.secure_tacacs.tls.session_resumption.ticket_lifetime", dst.SessionResumption.TicketLifetime)
+	d, err := parseDurationOr(raw.SessionResumption.TicketLifetime, path+".session_resumption.ticket_lifetime", dst.SessionResumption.TicketLifetime)
 	if err != nil {
 		return err
 	}

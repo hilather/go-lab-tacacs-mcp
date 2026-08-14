@@ -1,0 +1,12 @@
+schema_version: 2
+server:
+  admin_only: false
+listeners:
+  tacacs:
+    tls:
+      enabled: false
+  radius:
+    access:
+      enabled: false
+    accounting:
+      enabled: false

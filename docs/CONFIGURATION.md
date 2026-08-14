@@ -2,7 +2,7 @@
 
 Status: implementation contract  
 Applies to: config loader, validators, state compiler, REST API, MCP server, UI, export, and deployment  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First-time users/groups/clients/secrets: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
@@ -111,13 +111,24 @@ Mutation requests that can lose updates must support an expected revision using 
 
 ### 4.2 Schema version
 
-The root must include:
+The root must include `schema_version: 1` or `schema_version: 2`. A missing or unsupported version is a fatal validation error.
 
-```yaml
-schema_version: 1
-```
+| Source `schema_version` | Listener syntax | What happens |
+|---|---|---|
+| `1` | `listeners.legacy_tacacs`, `listeners.secure_tacacs`, `listeners.http` | Loaded unchanged for TACACS fields. Migrated **in memory** to the same named structs as v2. RADIUS listeners are synthesized as `enabled: false`. The file is never rewritten. |
+| `2` | `listeners.tacacs.legacy`, `listeners.tacacs.tls`, `listeners.radius.{access,accounting}`, `listeners.http` | Parsed directly. RADIUS listener structs are compiled (defaults `enabled: false`). |
+| other / omitted | — | Fatal (`CONFIG_YAML_INVALID`). |
 
-A missing or unsupported version is a fatal validation error. Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
+Mixed keys fail closed with a path and remediation:
+
+- v1 document with `listeners.radius` or `listeners.tacacs` → use `schema_version: 2` (or remove the v2 key).
+- v2 document with `listeners.legacy_tacacs` or `listeners.secure_tacacs` → use `listeners.tacacs.legacy` / `listeners.tacacs.tls`.
+
+`Document.SchemaVersion` records the **source** version. `config.export` still emits `schema_version: 1` for the sanitized object view and does **not** convert a v1 source to v2 YAML (that convert flag is a later change).
+
+RADIUS listeners may be enabled in a v2 file and will validate, but **this binary does not start UDP 1812/1813**. `serve.go` is unchanged; TACACS is still required at process start. Do not advertise RADIUS completeness.
+
+Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
 
 ### 4.3 Unknown fields
 
@@ -539,6 +550,8 @@ Metadata is descriptive and must not affect policy decisions. Labels are bounded
 
 Controls process-wide lifecycle and logging behavior. `instance_id` is stable within a deployment and appears in events and health responses. It is not an authentication credential.
 
+`server.admin_only` is accepted only on `schema_version: 2` (default `false`). It is the future switch that allows starting with no AAA listener. The current process still requires at least one TACACS listener and does not honor `admin_only`.
+
 ### 7.3 `runtime`
 
 Required initial behavior:
@@ -553,6 +566,8 @@ A future persistence adapter requires a separate design approval and must not ch
 ### 7.4 `security`
 
 The `legacy_shared_secrets` policy is a server-management control required for safe RFC 8907 operation. It applies whenever a legacy secret is resolved from baseline or runtime input.
+
+`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. Secret-purpose wiring for RADIUS client secrets is a later change; this field is stored and validated as policy only.
 
 - `minimum_length_characters` is enforceable and defaults to at least 16. The implementation must accept shared keys of 32 or more characters without truncation.
 - `minimum_character_classes` is an integer from 0 through 4 and counts ASCII lowercase, uppercase, digit, and symbol classes. A value of 0 disables the class-count rule without disabling the length rule.
@@ -570,6 +585,60 @@ Runtime-created or updated legacy clients must provide the same lifecycle metada
 Listener configuration is not runtime-mutable in the first release. Changing listener addresses, TLS identity, or global connection limits requires a configuration reload or process restart.
 
 Legacy and secure TACACS must have distinct bind addresses/ports. Secure TACACS begins TLS immediately and cannot share a port with the legacy listener. Secure TLS identities support SNI-based profile selection with an explicit default; every profile has its own certificate-chain and private-key references. Session-resumption settings include an enable switch, requested ticket lifetime, and revocation-recheck policy. If the selected Go TLS implementation cannot honor a configured RFC `SHOULD` exactly, configuration must reject the unsupported value and the release must carry the required ADR rather than silently approximating it.
+
+v2 named listener form (equivalent TACACS fields to the v1 example above):
+
+```yaml
+schema_version: 2
+listeners:
+  tacacs:
+    legacy:
+      enabled: true
+      bind: 0.0.0.0:4949
+      advertised_port: 49
+    tls:
+      enabled: true
+      bind: 0.0.0.0:4300
+      advertised_port: 300
+      # tls: same mapping as v1 listeners.secure_tacacs.tls
+  radius:
+    access:
+      enabled: false          # default; UDP 1812 is not started by this binary
+      required: false
+      bind: 0.0.0.0:1812
+      transport: udp
+      max_packet_bytes: 4096  # RFC maximum and lab default; not 4095
+      queue_capacity: 2048
+      workers: 32
+      worker_deadline: 5s
+      retransmission_cache_entries: 10000
+      retransmission_cache_bytes: 4MiB
+      retransmission_ttl: 15s   # clamped 5s–30s
+      per_source_rate: 100
+      per_source_burst: 200
+      message_authenticator: required   # or allow_missing
+      limit_proxy_state: true
+    accounting:
+      enabled: false          # default; UDP 1813 is not started by this binary
+      required: false
+      bind: 0.0.0.0:1813
+      transport: udp
+      max_packet_bytes: 4096
+      queue_capacity: 2048
+      workers: 16
+      worker_deadline: 5s
+      retransmission_cache_entries: 20000
+      retransmission_cache_bytes: 8MiB
+      retransmission_ttl: 60s   # max 300s
+      journal_entries: 20000
+      journal_bytes: 8MiB
+      per_source_rate: 100
+      per_source_burst: 200
+      ambiguous_accounting_per_minute: 60
+  http: { enabled: true, bind: 0.0.0.0:8080 }
+```
+
+v2 client `endpoints[]` and top-level `radius_policies` are not accepted yet (unknown field). Clients stay on the v1 `match.transports` / `legacy.shared_secret` shape in both schema versions.
 
 ### 7.6 `api`
 
@@ -756,7 +825,7 @@ A separate `validate_candidate` operation can preview errors before reload.
 
 ### 11.1 Sanitized effective export
 
-The default export contains effective non-secret data and secret placeholders:
+The default export contains effective non-secret data and secret placeholders. Export of a v1 source remains v1-shaped (`schema_version: 1` on the sanitized object view). There is no implicit v1→v2 YAML rewrite.
 
 ```yaml
 credentials:

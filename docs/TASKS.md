@@ -1577,7 +1577,8 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 
 ### 22.3 Later epics (not started)
 
-- [ ] `RAD-CFG-001` … `RAD-CFG-008` Config schema v2, migration, and immutable state. `config.export` never emits v2 for a v1 source without `normalize=true`.
+- [x] `RAD-CFG-001` Schema v2 loader + in-memory v1 migrator. RADIUS listeners default `enabled: false` and are not started (`serve.go` unchanged). Client endpoints and `radius_policies` are later PRs. `config.export` still emits v1.
+- [ ] `RAD-CFG-002` … `RAD-CFG-008` Client endpoints, RADIUS secret purpose, match indexes, snapshot views, export convert flag (`normalize=true`).
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
 - [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.

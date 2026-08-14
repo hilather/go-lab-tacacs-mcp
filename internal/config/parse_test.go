@@ -58,6 +58,10 @@ func TestParseMinimalDefaults(t *testing.T) {
 	if doc.Security.LegacySharedSecrets.DefaultRotationInterval != 90*24*time.Hour {
 		t.Fatalf("rotation=%s", doc.Security.LegacySharedSecrets.DefaultRotationInterval)
 	}
+	if doc.Server.AdminOnly {
+		t.Fatal("admin_only must default false")
+	}
+	assertRADIUSDisabledDefaults(t, doc)
 }
 
 func TestParseMCPOrigins(t *testing.T) {
@@ -168,7 +172,11 @@ func TestRejectFixtures(t *testing.T) {
 		{"testdata/reject/merge_key.yaml", domain.CodeConfigYAMLInvalid, "", "merge"},
 		{"testdata/reject/multi_document.yaml", domain.CodeConfigYAMLInvalid, "", "multiple"},
 		{"testdata/reject/missing_schema.yaml", domain.CodeConfigYAMLInvalid, "schema_version", "required"},
-		{"testdata/reject/schema_v2.yaml", domain.CodeConfigYAMLInvalid, "schema_version", "unsupported"},
+		{"testdata/reject/schema_v3.yaml", domain.CodeConfigYAMLInvalid, "schema_version", "unsupported"},
+		{"testdata/reject/v1_listeners_radius.yaml", domain.CodeConfigYAMLInvalid, "listeners.radius", "schema_version: 2"},
+		{"testdata/reject/v2_listeners_legacy_tacacs.yaml", domain.CodeConfigYAMLInvalid, "listeners.legacy_tacacs", "listeners.tacacs.legacy"},
+		{"testdata/reject/v2_unknown_field.yaml", domain.CodeConfigUnknownField, "not_a_listener", ""},
+		{"testdata/reject/v2_radius_policies.yaml", domain.CodeConfigUnknownField, "radius_policies", ""},
 		{"testdata/reject/default_command_permit.yaml", domain.CodeConfigYAMLInvalid, "default_command_action", "deny"},
 		{"testdata/reject/env_secret.yaml", domain.CodeConfigYAMLInvalid, "shared_secret", "environment"},
 		{"testdata/reject/secret_scalar.yaml", domain.CodeConfigYAMLInvalid, "", "mapping"},

@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Configuration
+
+- Baseline loader accepts `schema_version: 1` and `schema_version: 2`. v1 files migrate in memory to named listener structs; source files are never rewritten. v2 uses `listeners.tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. RADIUS listeners default `enabled: false` (`max_packet_bytes` default **4096**) and are **not started**. Mixed v1/v2 listener keys fail closed. `server.admin_only` and `security.radius_shared_secrets` are v2-only. Client `endpoints[]` and `radius_policies` remain unknown fields. `config.export` still emits `schema_version: 1`.
+
 ### Security
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).

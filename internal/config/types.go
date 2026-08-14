@@ -7,8 +7,27 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
-// SchemaVersion is the only baseline version this loader accepts.
-const SchemaVersion = 1
+const (
+	// SchemaVersionV1 is the TACACS-shaped baseline syntax.
+	SchemaVersionV1 = 1
+	// SchemaVersionV2 is the named-listener syntax (RADIUS fields optional).
+	SchemaVersionV2 = 2
+	// SchemaVersion is the v1 source version. Kept so export and existing
+	// callers continue to treat 1 as the default without emitting v2.
+	SchemaVersion = SchemaVersionV1
+)
+
+// RADIUS listener transport and Message-Authenticator inherit defaults.
+const (
+	RADIUSTransportUDP                     = "udp"
+	RADIUSMessageAuthenticatorRequired     = "required"
+	RADIUSMessageAuthenticatorAllowMissing = "allow_missing"
+	RADIUSMinPacketBytes                   = 20
+	RADIUSMaxPacketBytes                   = 4096
+	RADIUSAccessRetransmissionTTLMin       = 5 * time.Second
+	RADIUSAccessRetransmissionTTLMax       = 30 * time.Second
+	RADIUSAccountingRetransmissionTTLMax   = 300 * time.Second
+)
 
 // DefaultMaxBytes is the default maximum baseline file size (4 MiB).
 const DefaultMaxBytes = 4 << 20
@@ -52,7 +71,10 @@ type Server struct {
 	InstanceID         string
 	ShutdownGrace      time.Duration
 	StartupFailureMode string
-	LogLevel           string
+	// AdminOnly is accepted on schema v2. It is not honored by the process
+	// until the listener registry lands; default false.
+	AdminOnly bool
+	LogLevel  string
 }
 
 // Runtime is overlay policy. Persistence is memory in 1.0.
@@ -73,11 +95,14 @@ type MaxObjects struct {
 	APITokens int
 }
 
-// Security holds secret-reference and legacy shared-secret policy.
+// Security holds secret-reference and shared-secret policy.
 type Security struct {
 	AllowEnvironmentSecrets bool
 	StrictSecretFiles       bool
 	LegacySharedSecrets     SharedSecretPolicy
+	// RADIUSSharedSecrets is the RADIUS secret policy. v1 documents copy
+	// the effective legacy policy; secret-purpose wiring is a later change.
+	RADIUSSharedSecrets SharedSecretPolicy
 }
 
 // SharedSecretPolicy is the global legacy shared-secret policy.
@@ -90,11 +115,38 @@ type SharedSecretPolicy struct {
 	RotationWarningBefore   time.Duration
 }
 
-// Listeners is the three process sockets.
+// Listeners is the named process sockets. RADIUS fields exist after v1
+// migration and on v2 documents; both default to enabled:false. The
+// process does not start RADIUS sockets until serve wiring lands.
 type Listeners struct {
-	LegacyTACACS TACACSListener
-	SecureTACACS SecureTACACSListener
-	HTTP         HTTPListener
+	LegacyTACACS     TACACSListener
+	SecureTACACS     SecureTACACSListener
+	HTTP             HTTPListener
+	RADIUSAccess     RADIUSListener
+	RADIUSAccounting RADIUSListener
+}
+
+// RADIUSListener is a UDP access or accounting socket. Journal and
+// ambiguous-accounting fields apply to accounting only.
+type RADIUSListener struct {
+	Enabled                      bool
+	Required                     bool
+	Bind                         string
+	Transport                    string
+	MaxPacketBytes               int
+	QueueCapacity                int
+	Workers                      int
+	WorkerDeadline               time.Duration
+	RetransmissionCacheEntries   int
+	RetransmissionCacheBytes     int
+	RetransmissionTTL            time.Duration
+	JournalEntries               int
+	JournalBytes                 int
+	PerSourceRate                float64
+	PerSourceBurst               int
+	AmbiguousAccountingPerMinute int
+	MessageAuthenticator         string
+	LimitProxyState              bool
 }
 
 // TACACSListener is shared legacy/secure socket settings.

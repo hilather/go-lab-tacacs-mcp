@@ -48,17 +48,126 @@ func ParseWithOptions(data []byte, opts Options) (*Document, error) {
 		return nil, mapYAMLError(err)
 	}
 
-	if err := inspectNode(&root, reflect.TypeOf(rawFile{}), ""); err != nil {
+	schema, err := peekSchemaVersion(&root)
+	if err != nil {
+		return nil, err
+	}
+	if err := rejectMixedSchemaKeys(&root, schema); err != nil {
 		return nil, err
 	}
 
-	typed := newStrictDecoder(bytes.NewReader(data))
-	var raw rawFile
-	if err := typed.Decode(&raw); err != nil {
-		return nil, mapYAMLError(err)
+	switch schema {
+	case SchemaVersionV1:
+		if err := inspectNode(&root, reflect.TypeOf(rawFileV1{}), ""); err != nil {
+			return nil, err
+		}
+		typed := newStrictDecoder(bytes.NewReader(data))
+		var raw rawFileV1
+		if err := typed.Decode(&raw); err != nil {
+			return nil, mapYAMLError(err)
+		}
+		return normalizeV1(&raw)
+	case SchemaVersionV2:
+		if err := inspectNode(&root, reflect.TypeOf(rawFileV2{}), ""); err != nil {
+			return nil, err
+		}
+		typed := newStrictDecoder(bytes.NewReader(data))
+		var raw rawFileV2
+		if err := typed.Decode(&raw); err != nil {
+			return nil, mapYAMLError(err)
+		}
+		return normalizeV2(&raw)
+	default:
+		return nil, yamlErrorAt("schema_version", "unsupported schema version")
 	}
+}
 
-	return normalize(&raw)
+func peekSchemaVersion(root *yaml.Node) (int, error) {
+	m := rootMapping(root)
+	if m == nil {
+		if root != nil && root.Kind == yaml.DocumentNode && len(root.Content) == 0 {
+			return 0, yamlError("YAML document is empty")
+		}
+		return 0, yamlError("root must be a mapping")
+	}
+	node := mappingValue(m, "schema_version")
+	if node == nil || node.Kind != yaml.ScalarNode || isYAMLNull(node) {
+		return 0, yamlErrorAt("schema_version", "schema_version is required")
+	}
+	var v int
+	if err := node.Decode(&v); err != nil {
+		return 0, yamlErrorAt("schema_version", "unsupported schema version")
+	}
+	switch v {
+	case SchemaVersionV1, SchemaVersionV2:
+		return v, nil
+	default:
+		return 0, yamlErrorAt("schema_version", "unsupported schema version")
+	}
+}
+
+func rejectMixedSchemaKeys(root *yaml.Node, schema int) error {
+	m := rootMapping(root)
+	listeners := mappingValue(m, "listeners")
+	if listeners != nil && listeners.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(listeners.Content); i += 2 {
+			key := listeners.Content[i].Value
+			path := joinPath("listeners", key)
+			switch schema {
+			case SchemaVersionV1:
+				switch key {
+				case "radius":
+					return yamlErrorAt(path, "RADIUS listeners require schema_version: 2; remove listeners.radius or set schema_version: 2")
+				case "tacacs":
+					return yamlErrorAt(path, "v2 listener key is not allowed in schema_version 1; use schema_version: 2")
+				}
+			case SchemaVersionV2:
+				switch key {
+				case "legacy_tacacs":
+					return yamlErrorAt(path, "v1 listener key is not allowed in schema_version 2; use listeners.tacacs.legacy")
+				case "secure_tacacs":
+					return yamlErrorAt(path, "v1 listener key is not allowed in schema_version 2; use listeners.tacacs.tls")
+				}
+			}
+		}
+	}
+	if schema == SchemaVersionV1 {
+		if mappingValue(mappingValue(m, "security"), "radius_shared_secrets") != nil {
+			return yamlErrorAt("security.radius_shared_secrets", "RADIUS shared-secret policy requires schema_version: 2")
+		}
+		if mappingValue(mappingValue(m, "server"), "admin_only") != nil {
+			return yamlErrorAt("server.admin_only", "server.admin_only requires schema_version: 2")
+		}
+	}
+	return nil
+}
+
+func rootMapping(n *yaml.Node) *yaml.Node {
+	if n == nil {
+		return nil
+	}
+	if n.Kind == yaml.DocumentNode {
+		if len(n.Content) == 0 {
+			return nil
+		}
+		return rootMapping(n.Content[0])
+	}
+	if n.Kind != yaml.MappingNode {
+		return nil
+	}
+	return n
+}
+
+func mappingValue(n *yaml.Node, key string) *yaml.Node {
+	if n == nil || n.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == key {
+			return n.Content[i+1]
+		}
+	}
+	return nil
 }
 
 // Load reads path and parses it as a baseline.

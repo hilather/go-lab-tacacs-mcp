@@ -1,0 +1,40 @@
+schema_version: 2
+server:
+  instance_id: taclab-compare
+  shutdown_grace: 20s
+security:
+  legacy_shared_secrets:
+    minimum_length_characters: 20
+listeners:
+  tacacs:
+    legacy:
+      enabled: true
+      bind: 0.0.0.0:4949
+      advertised_port: 49
+    tls:
+      enabled: false
+  http:
+    enabled: true
+    bind: 127.0.0.1:8080
+clients:
+  - id: sw
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+      transports: [legacy]
+    legacy:
+      shared_secret: {file: /run/secrets/sw}
+    authentication:
+      allowed_methods: [ascii, pap]
+      default_service: login
+groups:
+  - id: ops
+    priority: 10
+    services:
+      - service: shell
+        action: permit
+users:
+  - id: operator
+    group_ids: [ops]
+    credentials:
+      login:
+        verifier: {file: /run/secrets/operator}

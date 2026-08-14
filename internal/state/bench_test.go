@@ -110,6 +110,26 @@ func BenchmarkClientLookup_IPv6(b *testing.B) {
 	}
 }
 
+func BenchmarkRADIUSLookup_IPv4(b *testing.B) {
+	doc, err := config.Parse([]byte(mixedRADIUSYAML))
+	if err != nil {
+		b.Fatal(err)
+	}
+	m, err := New(doc, Options{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	s := m.Snapshot()
+	ip := net.ParseIP("192.0.2.10")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, err := s.MatchRADIUS(domain.RoleAccess, ip); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func benchYAML(clients, users, groups int) []byte {
 	var b strings.Builder
 	b.WriteString("schema_version: 1\nlisteners:\n  secure_tacacs: {enabled: false}\ngroups:\n")

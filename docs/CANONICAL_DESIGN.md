@@ -581,6 +581,8 @@ type Snapshot struct {
     OverlayHash  string
     CompiledAt   time.Time
     // immutable indexes only — no caller-mutable maps
+    // TACACS ClientIndex plus RADIUS access/accounting LPM indexes
+    // dictionary is an empty placeholder until attribute.Builtin
 }
 ```
 

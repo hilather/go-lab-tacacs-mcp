@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
 func hashBaseline(doc *config.Document) string {
@@ -77,6 +78,10 @@ func hashOverlay(ov overlay) string {
 		}
 		b.WriteByte('\t')
 		b.WriteString(secretRefKey(e.client.Legacy.SharedSecret))
+		if rad := overlayRADIUSSecretKey(e.client); rad != "" {
+			b.WriteByte('\t')
+			b.WriteString(rad)
+		}
 		b.WriteByte('\n')
 	}
 	tids := make([]string, 0, len(ov.tokens))
@@ -128,8 +133,22 @@ func writeClients(b *strings.Builder, clients []config.Client) {
 		b.WriteString(c.ID)
 		b.WriteByte('\t')
 		b.WriteString(secretRefKey(c.Legacy.SharedSecret))
+		if rad := overlayRADIUSSecretKey(c); rad != "" {
+			b.WriteByte('\t')
+			b.WriteString(rad)
+		}
 		b.WriteByte('\n')
 	}
+}
+
+func overlayRADIUSSecretKey(c config.Client) string {
+	for i := range c.Endpoints {
+		ep := c.Endpoints[i]
+		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil && ep.RADIUS.SharedSecret.Set() {
+			return "r:" + secretRefKey(ep.RADIUS.SharedSecret)
+		}
+	}
+	return ""
 }
 
 func secretRefKey(r config.SecretRef) string {

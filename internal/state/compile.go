@@ -3,6 +3,7 @@ package state
 import (
 	"regexp"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -23,6 +24,40 @@ func copyStamps(in map[string]identityStamp) map[string]identityStamp {
 		out[k] = v
 	}
 	return out
+}
+
+// compileDictionary is the optional hook later PRs fill (PR 12
+// attribute.Builtin). It must be deterministic and must not pull
+// radius/codec or radius/udp into this package. Nil keeps the empty view.
+var compileDictionary atomic.Pointer[dictionaryFunc]
+
+type dictionaryFunc func() (Dictionary, string)
+
+// SetDictionaryCompiler installs the snapshot dictionary hook. Passing nil
+// restores the empty placeholder. Intended for package init, not per-request
+// mutation.
+func SetDictionaryCompiler(fn func() (Dictionary, string)) {
+	if fn == nil {
+		compileDictionary.Store(nil)
+		return
+	}
+	f := dictionaryFunc(fn)
+	compileDictionary.Store(&f)
+}
+
+func attachedDictionary() (Dictionary, string) {
+	p := compileDictionary.Load()
+	if p == nil || *p == nil {
+		return Dictionary{}, ""
+	}
+	d, ver := (*p)()
+	if ver == "" {
+		ver = d.version
+	}
+	if d.version == "" {
+		d.version = ver
+	}
+	return d, ver
 }
 
 func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision, now time.Time, touchBaseline bool) (*Snapshot, map[string]identityStamp, error) {
@@ -78,6 +113,15 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err != nil {
 		return nil, nil, err
 	}
+	accessIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleAccess)
+	if err != nil {
+		return nil, nil, err
+	}
+	acctIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleAccounting)
+	if err != nil {
+		return nil, nil, err
+	}
+	dict, dictVer := attachedDictionary()
 
 	var life map[string]domain.SecretLifecycle
 	var sw []config.SecretWarning
@@ -92,24 +136,31 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err != nil {
 		return nil, nil, err
 	}
+	matchWarns := append([]string(nil), idx.Warnings()...)
+	matchWarns = append(matchWarns, accessIdx.Warnings()...)
+	matchWarns = append(matchWarns, acctIdx.Warnings()...)
 	snap := &Snapshot{
-		Revision:       rev,
-		BaselineHash:   hashBaseline(base),
-		OverlayHash:    hashOverlay(ov),
-		CompiledAt:     now,
-		settings:       cloneDocument(base),
-		users:          map[string]EffectiveUser{},
-		groups:         map[string]EffectiveGroup{},
-		clients:        map[string]EffectiveClient{},
-		tokens:         map[string]EffectiveToken{},
-		tokenIndex:     map[tokenDigestKey]string{},
-		fallback:       fallback,
-		fallbackRules:  fbCompiled,
-		index:          idx,
-		secretWarns:    sw,
-		matchWarnings:  idx.Warnings(),
-		lifecycles:     life,
-		runtimeSecrets: cloneSecretBag(ov.secrets),
+		Revision:          rev,
+		BaselineHash:      hashBaseline(base),
+		OverlayHash:       hashOverlay(ov),
+		CompiledAt:        now,
+		settings:          cloneDocument(base),
+		users:             map[string]EffectiveUser{},
+		groups:            map[string]EffectiveGroup{},
+		clients:           map[string]EffectiveClient{},
+		tokens:            map[string]EffectiveToken{},
+		tokenIndex:        map[tokenDigestKey]string{},
+		fallback:          fallback,
+		fallbackRules:     fbCompiled,
+		index:             idx,
+		radiusAccessIndex: accessIdx,
+		radiusAcctIndex:   acctIdx,
+		radiusDictionary:  dict,
+		radiusDictVersion: dictVer,
+		secretWarns:       sw,
+		matchWarnings:     matchWarns,
+		lifecycles:        life,
+		runtimeSecrets:    cloneSecretBag(ov.secrets),
 	}
 	for _, u := range users {
 		u.Meta.EffectiveRevision = rev

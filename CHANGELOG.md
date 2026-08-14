@@ -7,6 +7,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ### Configuration
 
 - Baseline loader accepts `schema_version: 1` and `schema_version: 2`. v1 files migrate in memory to named listener structs; source files are never rewritten. v2 uses `listeners.tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. RADIUS listeners default `enabled: false` (`max_packet_bytes` default **4096**) and are **not started**. Mixed v1/v2 listener keys fail closed. `server.admin_only` and `security.radius_shared_secrets` are v2-only. v2 clients accept `endpoints[]` with `radius_shared_secret` purpose and role-specific RADIUS LPM indexes. Flatten TACACS fields are a projection of TACACS endpoints. `radius_policies` remain an unknown field. `config.export` still emits `schema_version: 1`.
+- Compiled snapshots now carry RADIUS access and accounting LPM indexes plus an empty dictionary placeholder. v1 TACACS snapshot fields stay equivalent. Invalid RADIUS compile leaves the previous snapshot. Overlay client patches retain omitted RADIUS secrets.
 
 ### Runtime
 

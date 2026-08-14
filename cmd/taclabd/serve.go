@@ -124,6 +124,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 
 	var ring *events.Ring
+	var aaaSvc *aaa.Service
 	if h == nil {
 		var stdoutSink io.Writer
 		if doc.Events.Stdout.Enabled {
@@ -135,7 +136,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			RedactUserInput: doc.Events.RedactUserInput,
 			Metrics:         obs.Rec,
 		})
-		aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec})
+		aaaSvc, err = aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec})
 		if err != nil {
 			return err
 		}
@@ -209,6 +210,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			Settings: doc.Listeners.RADIUSAccounting,
 			Snapshot: mgr.Snapshot,
 			Secrets:  lookup,
+			Recorder: aaaSvc,
 			Logger:   logger,
 			Metrics:  obs.Rec,
 		})

@@ -11,7 +11,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Runtime
 
-- `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on the `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, exact-response retransmission cache). Unknown or ambiguous sources are silently discarded using the compiled snapshot `RADIUSIndex`. The stub handler returns structurally valid Access-Reject / Accounting-Response (Message-Authenticator first). This is not PAP/CHAP and is not advertised as complete RADIUS. Default example YAML stays `enabled: false`.
+- `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on the `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, exact-response retransmission cache). Unknown or ambiguous sources are silently discarded using the compiled snapshot `RADIUSIndex`. Access still uses a structural Access-Reject stub (not PAP/CHAP). Accounting-Request is validated and recorded (five status types, inbound Message-Authenticator validate-if-present, semantic journal excluding Acct-Delay-Time). Accounting-Response always inserts Message-Authenticator first. Not advertised as complete RADIUS. Default example YAML stays `enabled: false`.
 - Readiness is snapshot + every required listener + at least one AAA listener (TACACS or RADIUS), unless `server.admin_only: true`. HTTP `system.status.get` still lists the three named sockets.
 
 ### Protocol
@@ -23,6 +23,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ### Added
 
 - RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter.
+- RADIUS Accounting-Request path records `start` / `stop` / `interim_update` / `accounting_on` / `accounting_off` after a valid Request Authenticator. Inbound Message-Authenticator is validated when present (never discarded solely because it exists). Exact retries replay cached Accounting-Response bytes. Delay-Time retries mint a new response without a second event. Interim counters are not collapsed. Unknown `Acct-Status-Type` is silently discarded. Ring reject sends no Accounting-Response. Ambiguous identity (no session id and no NAS identity) is fail-open-to-ack and sample-capped.
 
 ### Security
 

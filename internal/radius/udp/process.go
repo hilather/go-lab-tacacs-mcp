@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	reasonUnknownClient   = server.ReasonUnknownClient
-	reasonAmbiguousClient = server.ReasonAmbiguousClient
-	reasonOverload        = server.ReasonOverload
-	reasonSecretMissing   = "secret_unavailable"
+	reasonUnknownClient    = server.ReasonUnknownClient
+	reasonAmbiguousClient  = server.ReasonAmbiguousClient
+	reasonOverload         = server.ReasonOverload
+	reasonSecretMissing    = "secret_unavailable"
+	reasonJournalSaturated = "journal_saturated"
 )
 
 // serverReasonOverload is used by the receive loop (no process import cycle).
@@ -80,6 +81,14 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		l.note(server.ReasonInvalidCode)
 		return
 	}
+	// Accounting integrity before any cache mutation. Invalid MA or
+	// Request Authenticator must not read, insert, or purge a slot.
+	if l.role == domain.RoleAccounting {
+		if reason := server.CheckAccountingIntegrity(secret, body, pkt); reason != "" {
+			l.note(reason)
+			return
+		}
+	}
 
 	key := slotKey{
 		endpointID: endpointID,
@@ -102,20 +111,31 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 	}
 
 	res := l.handler.Handle(ctx, server.Request{
-		Role:       l.role,
-		Packet:     pkt,
-		Declared:   body,
-		Secret:     secret,
-		ClientID:   client.Client.ID,
-		EndpointID: endpointID,
-		Revision:   snap.Revision,
+		Role:              l.role,
+		Packet:            pkt,
+		Declared:          body,
+		Secret:            secret,
+		ClientID:          client.Client.ID,
+		EndpointID:        endpointID,
+		Revision:          snap.Revision,
+		Peer:              peerAddrPort(src),
+		ListenerID:        l.id,
+		AcceptStatusTypes: radiusAcceptStatusTypes(client, endpointID),
+		Journal:           l.journal,
+		Sampler:           l.sampler,
 	})
+	if res.JournalSaturated {
+		l.note(reasonJournalSaturated)
+	}
 	if res.Action != server.ActionReply || len(res.Response) == 0 {
 		l.cache.Abandon(key, fp)
 		if res.Reason != "" {
 			l.note(res.Reason)
 		}
 		return
+	}
+	if res.Reason == server.ReasonAmbiguousIdentity {
+		l.note(res.Reason)
 	}
 	l.cache.Complete(key, fp, res.Response)
 	l.writeTo(src, res.Response)
@@ -135,6 +155,36 @@ func codeAllowed(role domain.ListenerRole, code codec.Code) bool {
 func isAmbiguous(err error) bool {
 	de, ok := domain.AsError(err)
 	return ok && de.Code == domain.CodeClientMatchAmbiguous
+}
+
+func radiusAcceptStatusTypes(client state.EffectiveClient, endpointID string) []string {
+	for _, ep := range client.Client.Endpoints {
+		if ep.ID == endpointID && ep.RADIUS != nil {
+			return append([]string(nil), ep.RADIUS.AcceptStatusTypes...)
+		}
+	}
+	return nil
+}
+
+func peerAddrPort(addr net.Addr) netip.AddrPort {
+	if addr == nil {
+		return netip.AddrPort{}
+	}
+	if a, ok := addr.(*net.UDPAddr); ok && a.IP != nil {
+		ip, ok := netip.AddrFromSlice(a.IP)
+		if !ok {
+			return netip.AddrPort{}
+		}
+		if v4 := a.IP.To4(); v4 != nil {
+			ip = netip.AddrFrom4([4]byte{v4[0], v4[1], v4[2], v4[3]})
+		}
+		return netip.AddrPortFrom(ip, uint16(a.Port))
+	}
+	ap, err := netip.ParseAddrPort(addr.String())
+	if err != nil {
+		return netip.AddrPort{}
+	}
+	return ap
 }
 
 func lookupRADIUSSecret(lookup config.SecretLookup, client state.EffectiveClient, endpointID string) ([]byte, error) {
@@ -206,6 +256,10 @@ func metricCode(reason string) string {
 		return "secret_unavailable"
 	case reasonOverload:
 		return "rate_limited"
+	case server.ReasonAmbiguousIdentity:
+		return "ambiguous_identity"
+	case reasonJournalSaturated:
+		return "journal_saturated"
 	default:
 		return "protocol"
 	}

@@ -8,7 +8,11 @@ const (
 	ReasonInvalidLength     = "discard_invalid_length"
 	ReasonInvalidCode       = "discard_invalid_code"
 	ReasonInvalidAcctAuth   = "discard_invalid_accounting_request_authenticator"
+	ReasonInvalidMA         = "discard_invalid_message_authenticator"
+	ReasonUnknownAcctStatus = "discard_unknown_acct_status"
+	ReasonAmbiguousIdentity = "ambiguous_identity"
 	ReasonOverload          = "drop_overload"
 	ReasonUnsupportedMethod = "reject_unsupported_method"
+	ReasonInternal          = "internal_error"
 	ReasonOK                = "ok"
 )

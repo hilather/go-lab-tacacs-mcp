@@ -1589,10 +1589,10 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
   - [x] Built-in IETF MVP dictionary and packet-role checks (`internal/radius/attribute` `Builtin`, `DictionaryVersion` `builtin-mvp-1`). Unknown attributes preserved raw. Message-Authenticator allowed on Accounting-Request; required first on Access and Accounting responses. Named `Cisco-AVPair` is not MVP. `PRJ-POL-001` stays `NOT_STARTED` until policy compile uses the dictionary.
 - [x] Listener registry (`internal/runtime`) wraps TACACS and RADIUS listeners. `secretLookup` handles `RADIUSSharedSecret`. HTTP/status still lists three sockets.
 - [x] `RAD-RUN-001` Bounded UDP access/accounting listeners, worker/queue/rate limits, compiled `RADIUSIndex` unknown-client discard, exact-response cache (hit/pending/purge). Stub Access-Reject / Accounting-Response (MA first). Readiness is snapshot + required listeners + at least one AAA listener, or `server.admin_only`. Not advertised; default YAML stays off.
-- [ ] `RAD-RUN-002` … `RAD-RUN-008` Remaining runtime/journal/governor work.
+- [ ] `RAD-RUN-002` … `RAD-RUN-008` Remaining runtime/governor work (journal is in RAD-ACCT).
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.
 - [ ] `RAD-POL-001` … `RAD-POL-007` RADIUS access policy and response attributes.
-- [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.
+- [x] `RAD-ACCT-001` … `RAD-ACCT-007` Accounting-Request path: five status types, inbound MA validate-if-present, Accounting-Response MA-first, exact cache, semantic journal excluding Acct-Delay-Time, interim not collapsed, unknown-client discard via compiled accounting `RADIUSIndex`. SUCCESS only after ring Accept. Ambiguous identity is fail-open-to-ack and sample-capped. Not advertised.
 - [ ] `RAD-API-001` … `RAD-API-006` Administrative operations and REST/MCP parity.
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
 - [ ] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, secrets, smoke.

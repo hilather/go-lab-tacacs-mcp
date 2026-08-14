@@ -1,10 +1,11 @@
 // Package server translates RADIUS packets to AAA operations.
 //
-// The current handler is a structural stub: after a successful decode it
-// emits Access-Reject or Accounting-Response with Message-Authenticator
-// first, then the Response Authenticator. It is not a PAP/CHAP path and
-// does not record accounting. Full integrity and authentication are later.
+// Accounting-Request is validated (Request Authenticator, inbound
+// Message-Authenticator if present), mapped onto the five MVP status
+// types, and recorded through aaa.RecordRADIUSAccounting. Accounting-
+// Response always inserts Message-Authenticator first. Access is still
+// a structural Access-Reject stub (PAP/CHAP is a later PR).
 //
-// This package may import the RADIUS codec, attributes, and crypto. It
-// must not import TACACS, policy evaluation, or API adapters.
+// This package may import the RADIUS codec, attributes, crypto, and aaa.
+// It must not import TACACS, policy evaluation, or API adapters.
 package server

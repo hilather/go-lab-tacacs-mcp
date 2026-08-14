@@ -46,7 +46,7 @@ Acceptance: `make lab-test` (high host ports, ephemeral PKI, LAB-* suite).
 
 First-setup of users, groups, clients, tokens, and secret files: **[BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md)**. Schema: [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md).
 
-- Baseline: one YAML document, `schema_version: 1` or `2`, unknown fields rejected. v1 files keep working; v2 named listeners are accepted. RADIUS UDP defaults off; enabling it starts a stub Access-Reject / Accounting-Response path, not complete RADIUS.
+- Baseline: one YAML document, `schema_version: 1` or `2`, unknown fields rejected. v1 files keep working; v2 named listeners are accepted. RADIUS UDP defaults off; enabling access is still a stub Access-Reject path, and enabling accounting records the five MVP status types. This is not complete RADIUS.
 - Secrets are **file references** (`{file: PATH}`). Environment refs require `security.allow_environment_secrets: true` (default false).
 - `tools/labgen` writes unique ≥32-character legacy secrets, Argon2id PHC verifiers, a bearer token, and lab PKI. It does not print secret values into the manifest.
 - `taclabd validate --config PATH` checks a candidate without publishing.

@@ -1,4 +1,4 @@
-package legacy
+package udp
 
 import (
 	"go/parser"
@@ -16,11 +16,10 @@ func TestNoForbiddenImports(t *testing.T) {
 	}
 	forbidden := []string{
 		"net/http",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/credentials",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/policy",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api",
-		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/testclient",
-		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/tls",
-		"github.com/hilather/go-lab-tacacs-mcp/internal/radius",
-		"github.com/hilather/go-lab-tacacs-mcp/tools/spike",
 	}
 	for _, pkg := range pkgs {
 		for name, f := range pkg.Files {

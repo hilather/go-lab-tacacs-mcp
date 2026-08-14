@@ -83,16 +83,26 @@ rows:
     level: MUST
     requirement: Validate/generate request and response authenticators
     evidence_required: Response Authenticator vectors; Access-Request authenticator is a nonce
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestNewRequestAuthenticatorIsNonce
+      - unit:internal/radius/crypto.TestResponseAuthenticatorVectors
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - bench:internal/radius/crypto.BenchmarkResponseAuthenticator
   - id: R65-PAP-001
     section: authentication-and-integrity
     section_title: Authentication and integrity
     level: MUST
     requirement: Correct User-Password hide/unhide and block/length checks
     evidence_required: Independent hide/unhide vectors; wipe plaintext
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestUserPasswordVectors
+      - unit:internal/radius/crypto.TestHideUnhideRoundTrip
+      - unit:internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - fuzz:internal/radius/crypto.FuzzUnhideUserPassword
+      - bench:internal/radius/crypto.BenchmarkUnhideUserPassword
   - id: R65-CHAP-001
     section: authentication-and-integrity
     section_title: Authentication and integrity

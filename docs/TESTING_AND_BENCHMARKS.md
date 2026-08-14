@@ -244,6 +244,9 @@ Regression tests are permanent. Removing one requires an ADR-quality explanation
 - RADIUS packet decode (`FuzzRadiusPacketDecode`).
 - RADIUS raw attribute decode (`FuzzRadiusAttributeDecode`).
 - RADIUS Vendor-Specific framing (`FuzzRadiusVSA`).
+- RADIUS User-Password unhide (`FuzzUnhideUserPassword`).
+- RADIUS Message-Authenticator validate (`FuzzValidateMessageAuthenticator`).
+- RADIUS Accounting-Request Authenticator (`FuzzAccountingRequestAuthenticator`).
 
 ### 5.2 Fuzz invariants
 

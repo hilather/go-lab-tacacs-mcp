@@ -11,5 +11,9 @@ rows:
     level: MUST
     requirement: Validate/calculate Message-Authenticator
     evidence_required: HMAC-MD5; EAP-Message requires valid MA; responses insert MA first
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestMessageAuthenticatorVectors
+      - unit:internal/radius/crypto.TestMessageAuthenticatorMissingDuplicateWrongLength
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - bench:internal/radius/crypto.BenchmarkMessageAuthenticator

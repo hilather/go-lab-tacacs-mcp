@@ -19,7 +19,7 @@ Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Devi
 
 | Gate | Result |
 |---|---|
-| RADIUS / project MVP rows | **OPEN** (31 unresolved: R65-PKT-001=IN_PROGRESS, R65-PKT-002=IN_PROGRESS, R65-ATTR-001=IN_PROGRESS, R65-ATTR-002=IN_PROGRESS, R65-VSA-001=IN_PROGRESS, R65-PROXY-001=NOT_STARTED, R65-RAUTH-001=NOT_STARTED, R65-PAP-001=NOT_STARTED, R65-CHAP-001=NOT_STARTED, R65-ACCESS-001=NOT_STARTED, R65-ACCESS-002=NOT_STARTED, R65-ACCESS-003=NOT_STARTED, R66-PKT-001=NOT_STARTED, R66-RESP-001=NOT_STARTED, R66-STAT-001=NOT_STARTED, R69-MA-001=NOT_STARTED, R69-MA-002=NOT_STARTED, R69-ACCT-002=NOT_STARTED, R79-MA-001=NOT_STARTED, R80-DUP-001=NOT_STARTED, PRJ-SEC-001=NOT_STARTED, PRJ-SEC-002=NOT_STARTED, PRJ-POL-001=NOT_STARTED, PRJ-ERR-001=NOT_STARTED, PRJ-ACCT-001=NOT_STARTED, PRJ-ACCT-002=NOT_STARTED, PRJ-RUN-001=NOT_STARTED, PRJ-RUN-002=NOT_STARTED, PRJ-CFG-001=NOT_STARTED, PRJ-TAC-001=NOT_STARTED, PRJ-PAR-001=NOT_STARTED) |
+| RADIUS / project MVP rows | **OPEN** (31 unresolved: R65-PKT-001=IN_PROGRESS, R65-PKT-002=IN_PROGRESS, R65-ATTR-001=IN_PROGRESS, R65-ATTR-002=IN_PROGRESS, R65-VSA-001=IN_PROGRESS, R65-PROXY-001=NOT_STARTED, R65-RAUTH-001=IN_PROGRESS, R65-PAP-001=IN_PROGRESS, R65-CHAP-001=NOT_STARTED, R65-ACCESS-001=NOT_STARTED, R65-ACCESS-002=NOT_STARTED, R65-ACCESS-003=NOT_STARTED, R66-PKT-001=IN_PROGRESS, R66-RESP-001=NOT_STARTED, R66-STAT-001=NOT_STARTED, R69-MA-001=IN_PROGRESS, R69-MA-002=NOT_STARTED, R69-ACCT-002=NOT_STARTED, R79-MA-001=IN_PROGRESS, R80-DUP-001=NOT_STARTED, PRJ-SEC-001=NOT_STARTED, PRJ-SEC-002=NOT_STARTED, PRJ-POL-001=NOT_STARTED, PRJ-ERR-001=NOT_STARTED, PRJ-ACCT-001=NOT_STARTED, PRJ-ACCT-002=NOT_STARTED, PRJ-RUN-001=NOT_STARTED, PRJ-RUN-002=NOT_STARTED, PRJ-CFG-001=NOT_STARTED, PRJ-TAC-001=NOT_STARTED, PRJ-PAR-001=NOT_STARTED) |
 | Advertised completeness | **Do not claim complete RADIUS** while any MVP row is `NOT_STARTED` or lacks evidence |
 | Independent software peer | `internal/radius/testclient` (separate codec; not yet required while rows are `NOT_STARTED`) |
 
@@ -270,8 +270,8 @@ RFC 2865 RADIUS
 | R65-ATTR-002 | MUST | IN_PROGRESS | Preserve ordered duplicate attributes | unit:internal/radius/attribute.TestDecodePreservesOrderAndDuplicates; unit:internal/radius/codec.TestRoundTripWithAttributes; golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin |
 | R65-VSA-001 | MUST | IN_PROGRESS | Parse/encode VSA framing and preserve unknown vendor data safely | unit:internal/radius/attribute.TestParseVSARoundTrip; unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved; unit:internal/radius/attribute.TestPacketKeepsMalformedVSARaw; unit:internal/radius/codec.TestVSAGoldenFraming; fuzz:internal/radius/attribute.FuzzRadiusVSA; golden:testdata/protocol/radius/packets/access-request-vsa.bin |
 | R65-PROXY-001 | MUST | NOT_STARTED | Preserve Proxy-State order/value in responses |  |
-| R65-RAUTH-001 | MUST | NOT_STARTED | Validate/generate request and response authenticators |  |
-| R65-PAP-001 | MUST | NOT_STARTED | Correct User-Password hide/unhide and block/length checks |  |
+| R65-RAUTH-001 | MUST | IN_PROGRESS | Validate/generate request and response authenticators | unit:internal/radius/crypto.TestNewRequestAuthenticatorIsNonce; unit:internal/radius/crypto.TestResponseAuthenticatorVectors; golden:testdata/protocol/radius/crypto/vectors.json; bench:internal/radius/crypto.BenchmarkResponseAuthenticator |
+| R65-PAP-001 | MUST | IN_PROGRESS | Correct User-Password hide/unhide and block/length checks | unit:internal/radius/crypto.TestUserPasswordVectors; unit:internal/radius/crypto.TestHideUnhideRoundTrip; unit:internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzUnhideUserPassword; bench:internal/radius/crypto.BenchmarkUnhideUserPassword |
 | R65-CHAP-001 | MUST | NOT_STARTED | Validate CHAP evidence/challenge selection |  |
 | R65-ACCESS-001 | MUST | NOT_STARTED | Parse and validate Access-Request |  |
 | R65-ACCESS-002 | MUST | NOT_STARTED | Construct valid Access-Accept |  |
@@ -284,7 +284,7 @@ RFC 2866 RADIUS Accounting
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R66-PKT-001 | MUST | NOT_STARTED | Validate Accounting-Request and its authenticator |  |
+| R66-PKT-001 | MUST | IN_PROGRESS | Validate Accounting-Request and its authenticator | unit:internal/radius/crypto.TestAccountingRequestAuthenticatorVectors; unit:internal/radius/crypto.TestAccountingAuthenticatorIgnoresOnWireField; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzAccountingRequestAuthenticator; bench:internal/radius/crypto.BenchmarkAccountingRequestAuthenticator |
 | R66-RESP-001 | MUST | NOT_STARTED | Construct exact Accounting-Response |  |
 | R66-STAT-001 | MUST | NOT_STARTED | Map declared Acct-Status-Type values |  |
 
@@ -294,7 +294,7 @@ RFC 2869 RADIUS Extensions
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R69-MA-001 | MUST | NOT_STARTED | Validate Message-Authenticator on Access-Request whenever present |  |
+| R69-MA-001 | MUST | IN_PROGRESS | Validate Message-Authenticator on Access-Request whenever present | unit:internal/radius/crypto.TestMessageAuthenticatorVectors; unit:internal/radius/crypto.TestMessageAuthenticatorZerosValueDuringCompute; unit:internal/radius/crypto.TestValidateMessageAuthenticatorTamper; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzValidateMessageAuthenticator |
 | R69-MA-002 | MUST | NOT_STARTED | Insert Message-Authenticator on Access responses before Response Authenticator |  |
 | R69-ACCT-002 | MUST | NOT_STARTED | Interim accounting, gigaword counters, Event-Timestamp, and Acct-Interim-Interval |  |
 
@@ -304,7 +304,7 @@ RFC 3579 RADIUS Support For Extensible Authentication Protocol (EAP)
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R79-MA-001 | MUST | NOT_STARTED | Validate/calculate Message-Authenticator |  |
+| R79-MA-001 | MUST | IN_PROGRESS | Validate/calculate Message-Authenticator | unit:internal/radius/crypto.TestMessageAuthenticatorVectors; unit:internal/radius/crypto.TestMessageAuthenticatorMissingDuplicateWrongLength; golden:testdata/protocol/radius/crypto/vectors.json; bench:internal/radius/crypto.BenchmarkMessageAuthenticator |
 
 ## RFC 5080
 

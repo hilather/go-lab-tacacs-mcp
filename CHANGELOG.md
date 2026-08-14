@@ -13,6 +13,11 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - `taclabd serve` starts TACACS listeners through `internal/runtime.Registry`. The process still requires at least one TACACS listener (`server.admin_only` is stored, not honored). RADIUS UDP is **not** registered. `secretLookup` resolves `radius_shared_secret` so a v2 document with RADIUS endpoint secrets can compile. HTTP `system.status.get` still lists the three named sockets.
 
+### Protocol
+
+- In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Named dictionary and UDP listener are not in this tree yet. Not advertised.
+- RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Response MA-first insertion and require-versus-allow policy are later. Not advertised.
+
 ### Security
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).

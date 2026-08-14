@@ -12,40 +12,63 @@ rows:
     level: MUST
     requirement: Enforce packet length/header bounds
     evidence_required: Minimum 20, maximum 4096, padding and short-packet handling
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/codec.TestDecodeHeaderTruncation
+      - unit:internal/radius/codec.TestDecodeIgnoresTrailingPadding
+      - unit:internal/radius/codec.TestRadiusCatalog
+      - golden:testdata/protocol/radius/vectors.json
+      - fuzz:internal/radius/codec.FuzzRadiusPacketDecode
+      - bench:internal/radius/codec.BenchmarkRadiusPacketDecode_8Attrs
   - id: R65-PKT-002
     section: packet-and-attribute-framing
     section_title: Packet and attribute framing
     level: MUST
     requirement: Handle supported/unsupported Codes deterministically
     evidence_required: Invalid code silently discarded; supported codes decoded
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/codec.TestCodeClassification
+      - unit:internal/radius/codec.TestDecodeUnknownCodePreserved
+      - unit:internal/radius/codec.TestDecodeAccessChallenge
+      - golden:testdata/protocol/radius/packets/access-challenge-min.bin
   - id: R65-ATTR-001
     section: packet-and-attribute-framing
     section_title: Packet and attribute framing
     level: MUST
     requirement: Validate Type/Length/Value framing
     evidence_required: Length >= 2 and within remaining declared payload; overflow discards
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/attribute.TestDecodeRejectsShortLength
+      - unit:internal/radius/attribute.TestDecodeRejectsOverflow
+      - unit:internal/radius/codec.TestDecodeAttributeOverflow
+      - fuzz:internal/radius/attribute.FuzzRadiusAttributeDecode
   - id: R65-ATTR-002
     section: packet-and-attribute-framing
     section_title: Packet and attribute framing
     level: MUST
     requirement: Preserve ordered duplicate attributes
     evidence_required: Order and duplicates survive decode/encode
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/attribute.TestDecodePreservesOrderAndDuplicates
+      - unit:internal/radius/codec.TestRoundTripWithAttributes
+      - golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin
   - id: R65-VSA-001
     section: packet-and-attribute-framing
     section_title: Packet and attribute framing
     level: MUST
     requirement: Parse/encode VSA framing and preserve unknown vendor data safely
     evidence_required: Vendor-Specific (26) framing; unknown VSA payloads preserved raw
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/attribute.TestParseVSARoundTrip
+      - unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved
+      - unit:internal/radius/attribute.TestPacketKeepsMalformedVSARaw
+      - unit:internal/radius/codec.TestVSAGoldenFraming
+      - fuzz:internal/radius/attribute.FuzzRadiusVSA
+      - golden:testdata/protocol/radius/packets/access-request-vsa.bin
   - id: R65-PROXY-001
     section: packet-and-attribute-framing
     section_title: Packet and attribute framing
@@ -60,16 +83,26 @@ rows:
     level: MUST
     requirement: Validate/generate request and response authenticators
     evidence_required: Response Authenticator vectors; Access-Request authenticator is a nonce
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestNewRequestAuthenticatorIsNonce
+      - unit:internal/radius/crypto.TestResponseAuthenticatorVectors
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - bench:internal/radius/crypto.BenchmarkResponseAuthenticator
   - id: R65-PAP-001
     section: authentication-and-integrity
     section_title: Authentication and integrity
     level: MUST
     requirement: Correct User-Password hide/unhide and block/length checks
     evidence_required: Independent hide/unhide vectors; wipe plaintext
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestUserPasswordVectors
+      - unit:internal/radius/crypto.TestHideUnhideRoundTrip
+      - unit:internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - fuzz:internal/radius/crypto.FuzzUnhideUserPassword
+      - bench:internal/radius/crypto.BenchmarkUnhideUserPassword
   - id: R65-CHAP-001
     section: authentication-and-integrity
     section_title: Authentication and integrity

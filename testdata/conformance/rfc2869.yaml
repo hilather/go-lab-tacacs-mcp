@@ -10,8 +10,13 @@ rows:
     level: MUST
     requirement: Validate Message-Authenticator on Access-Request whenever present
     evidence_required: Attribute 80 framing, zeroing, HMAC-MD5; not a substitute for R79-MA-001
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestMessageAuthenticatorVectors
+      - unit:internal/radius/crypto.TestMessageAuthenticatorZerosValueDuringCompute
+      - unit:internal/radius/crypto.TestValidateMessageAuthenticatorTamper
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - fuzz:internal/radius/crypto.FuzzValidateMessageAuthenticator
   - id: R69-MA-002
     section: message-authenticator
     section_title: Message-Authenticator

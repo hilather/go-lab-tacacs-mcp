@@ -1582,6 +1582,8 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-CFG-003` Snapshot compiles RADIUS access/accounting LPM indexes and an empty dictionary placeholder. v1 TACACS snapshot fields stay equivalent. Invalid RADIUS compile keeps the previous snapshot. Overlay patches retain omitted RADIUS secrets. Listeners are not started.
 - [ ] `RAD-CFG-004` … `RAD-CFG-008` Export convert flag (`normalize=true`).
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
+  - [x] Bounded packet encode/decode and raw TLV / VSA framing (`internal/radius/codec`, `internal/radius/attribute`, `testdata/protocol/radius`). No named dictionary, no UDP listener. Rows `R65-PKT-001`, `R65-PKT-002`, `R65-ATTR-001`, `R65-ATTR-002`, `R65-VSA-001` are `IN_PROGRESS` (production goldens/fuzz only; independent `testclient` is still required before PASS).
+  - [x] Authenticators, User-Password hide/unhide, Message-Authenticator primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Rows `R65-RAUTH-001`, `R65-PAP-001`, `R66-PKT-001`, `R69-MA-001`, `R79-MA-001` are `IN_PROGRESS` (independent vectors + canary; no UDP listener, no MA-first insertion, independent `testclient` still required).
 - [x] Listener registry (`internal/runtime`) wraps TACACS listeners. `secretLookup` handles `RADIUSSharedSecret`. RADIUS UDP is not started. TACACS is still required. `admin_only` is not honored. HTTP/status still lists three sockets.
 - [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.

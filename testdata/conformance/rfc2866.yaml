@@ -10,8 +10,13 @@ rows:
     level: MUST
     requirement: Validate Accounting-Request and its authenticator
     evidence_required: Accounting-Request Authenticator verified before side effects
-    status: NOT_STARTED
-    evidence: []
+    status: IN_PROGRESS
+    evidence:
+      - unit:internal/radius/crypto.TestAccountingRequestAuthenticatorVectors
+      - unit:internal/radius/crypto.TestAccountingAuthenticatorIgnoresOnWireField
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - fuzz:internal/radius/crypto.FuzzAccountingRequestAuthenticator
+      - bench:internal/radius/crypto.BenchmarkAccountingRequestAuthenticator
   - id: R66-RESP-001
     section: accounting-behavior
     section_title: Accounting behavior

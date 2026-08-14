@@ -22,7 +22,7 @@ validated defaults
 = immutable compiled snapshot
 ```
 
-The compiled snapshot is the only state consumed by TACACS request processing. A failed startup, reload, or runtime mutation must never partially publish state.
+The compiled snapshot is the only state consumed by TACACS request processing. It also carries RADIUS access/accounting LPM indexes and an empty dictionary placeholder; UDP listeners are not started. A failed startup, reload, or runtime mutation must never partially publish state.
 
 ## 2. Non-negotiable rules
 
@@ -671,7 +671,7 @@ A client identifies a Network Access Server or a group of devices. Matching is f
 4. Lowest numeric client priority.
 5. A remaining tie is a configuration error (`CLIENT_MATCH_AMBIGUOUS`). Lexicographic client ID is not a runtime tie-breaker.
 
-RADIUS access and accounting indexes are compiled independently. The same CIDR may map to different clients per role; two access (or two accounting) clients that share an identical prefix at the same priority fail compile. Validation must reject indistinguishable client definitions. Disabled clients are not match candidates. `CLIENT_ENDPOINT_PROJECTION_MISMATCH` is a compile error when flatten TACACS fields disagree with `endpoints[]`.
+RADIUS access and accounting indexes are compiled independently onto the published snapshot. The same CIDR may map to different clients per role; two access (or two accounting) clients that share an identical prefix at the same priority fail compile and leave the previous snapshot. Validation must reject indistinguishable client definitions. Disabled clients are not match candidates. `CLIENT_ENDPOINT_PROJECTION_MISMATCH` is a compile error when flatten TACACS fields disagree with `endpoints[]`. Overlay client patches that omit the RADIUS secret retain the current material; an explicit null while a RADIUS endpoint remains is `RADIUS_SECRET_MISSING`.
 
 For a legacy connection, a selected client must have a legacy shared secret. Its resolved value must satisfy the configured length/complexity policy, and its lifecycle metadata is compiled into a non-secret health status. Secret reuse produces a warning when enabled but does not reveal the shared value or fingerprint. For a TLS connection, client identity must satisfy the configured mutual-TLS policy; the legacy shared secret is not used for packet protection.
 

@@ -80,6 +80,10 @@ type UpdateClient struct {
 	Authentication        *config.ClientAuth
 	Authorization         *config.ClientAuthz
 	Accounting            *config.ClientAcct
+	// RADIUSSharedSecret is the RADIUS endpoint secret. Nil retains the
+	// current material. Clear while a RADIUS endpoint remains is
+	// RADIUS_SECRET_MISSING.
+	RADIUSSharedSecret *SecretPatch
 }
 
 // CreateClient creates a runtime client or an explicit baseline override.
@@ -95,6 +99,7 @@ type CreateClient struct {
 	Authentication        *config.ClientAuth
 	Authorization         *config.ClientAuthz
 	Accounting            *config.ClientAcct
+	RADIUSSharedSecret    *SecretPatch
 	Override              bool
 }
 
@@ -238,7 +243,69 @@ func applyClientPatch(cur config.Client, p UpdateClient) (config.Client, error) 
 	if out.Legacy.SharedSecret, err = applySecret(out.Legacy.SharedSecret, p.SharedSecret, legacyOn, "legacy.shared_secret"); err != nil {
 		return config.Client{}, err
 	}
+	if err = applyRADIUSSecretPatch(&out, p.RADIUSSharedSecret); err != nil {
+		return config.Client{}, err
+	}
+	syncTACACSEndpointsFromFlatten(&out)
 	return out, nil
+}
+
+func applyRADIUSSecretPatch(c *config.Client, patch *SecretPatch) error {
+	if patch == nil {
+		return nil
+	}
+	ep := radiusEndpointPtr(c)
+	if ep == nil || ep.RADIUS == nil {
+		if patch.Clear || !patch.Ref.Set() {
+			return nil
+		}
+		return domain.NewError(domain.CodeInvalidArgument, "client has no RADIUS endpoint").WithPath("endpoints")
+	}
+	if patch.Clear || !patch.Ref.Set() {
+		return domain.NewError(domain.CodeRADIUSSecretMissing, "RADIUS endpoint requires a shared secret").WithPath("endpoints")
+	}
+	out := patch.Ref
+	if out.Purpose == "" {
+		out.Purpose = credentials.PurposeRADIUSSharedSecret
+	}
+	ep.RADIUS.SharedSecret = out
+	return nil
+}
+
+func radiusEndpointPtr(c *config.Client) *config.ClientEndpoint {
+	if c == nil {
+		return nil
+	}
+	for i := range c.Endpoints {
+		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil {
+			return &c.Endpoints[i]
+		}
+	}
+	return nil
+}
+
+// syncTACACSEndpointsFromFlatten pushes flatten TACACS fields onto existing
+// TACACS endpoints so mixed RADIUS clients keep the projection invariant.
+// TACACS-only clients are re-synthesized by Validate.
+func syncTACACSEndpointsFromFlatten(c *config.Client) {
+	if c == nil || radiusEndpointPtr(c) == nil {
+		return
+	}
+	for i := range c.Endpoints {
+		ep := &c.Endpoints[i]
+		if ep.Protocol != domain.ProtocolTACACS || ep.TACACS == nil {
+			continue
+		}
+		if ep.Transport == config.EndpointTransportTCP {
+			ep.TACACS.SharedSecret = c.Legacy.SharedSecret
+			ep.TACACS.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(c.Legacy.SharedSecretLifecycle.LastRotatedAt)
+			ep.TACACS.SharedSecretLifecycle.RotationInterval = c.Legacy.SharedSecretLifecycle.RotationInterval
+		}
+		ep.TACACS.AllowedMethods = append([]config.AuthMethod(nil), c.Authentication.AllowedMethods...)
+		ep.TACACS.DefaultService = c.Authentication.DefaultService
+		ep.TACACS.DefaultGroupIDs = cloneStrings(c.Authorization.DefaultGroupIDs)
+		ep.TACACS.Accounting = c.Accounting
+	}
 }
 
 func hasLegacyTransport(ts []domain.Transport) bool {
@@ -319,6 +386,7 @@ func clientFromCreate(base *config.Client, req CreateClient) (config.Client, err
 		Authentication:        req.Authentication,
 		Authorization:         req.Authorization,
 		Accounting:            req.Accounting,
+		RADIUSSharedSecret:    req.RADIUSSharedSecret,
 	})
 }
 

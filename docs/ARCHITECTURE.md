@@ -122,6 +122,8 @@ All mutations follow:
 
 Protocol request paths load the snapshot once and retain it for the request. They never hold the state write lock.
 
+Compile attaches the TACACS `ClientIndex`, independent RADIUS access and accounting LPM indexes, and an empty dictionary placeholder (`SetDictionaryCompiler` is the later hook). v1 TACACS fields stay equivalent. Invalid RADIUS compile discards the candidate. Overlay patches retain omitted RADIUS secrets.
+
 ### 4.4 `internal/policy`
 
 Responsibilities:

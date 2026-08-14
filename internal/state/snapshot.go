@@ -33,25 +33,42 @@ type Snapshot struct {
 	OverlayHash  string
 	CompiledAt   time.Time
 
-	settings       *config.Document
-	users          map[string]EffectiveUser
-	groups         map[string]EffectiveGroup
-	clients        map[string]EffectiveClient
-	tokens         map[string]EffectiveToken
-	userIDs        []string
-	groupIDs       []string
-	clientIDs      []string
-	tokenIDs       []string
-	tokenIndex     map[tokenDigestKey]string
-	tombstones     []domain.Tombstone
-	fallback       config.RuleSet
-	fallbackRules  CompiledRuleSet
-	index          *config.ClientIndex
-	secretWarns    []config.SecretWarning
-	matchWarnings  []string
-	lifecycles     map[string]domain.SecretLifecycle
-	runtimeSecrets map[string][]byte
+	settings          *config.Document
+	users             map[string]EffectiveUser
+	groups            map[string]EffectiveGroup
+	clients           map[string]EffectiveClient
+	tokens            map[string]EffectiveToken
+	userIDs           []string
+	groupIDs          []string
+	clientIDs         []string
+	tokenIDs          []string
+	tokenIndex        map[tokenDigestKey]string
+	tombstones        []domain.Tombstone
+	fallback          config.RuleSet
+	fallbackRules     CompiledRuleSet
+	index             *config.ClientIndex
+	radiusAccessIndex *config.RADIUSIndex
+	radiusAcctIndex   *config.RADIUSIndex
+	radiusDictionary  Dictionary
+	radiusDictVersion string
+	secretWarns       []config.SecretWarning
+	matchWarnings     []string
+	lifecycles        map[string]domain.SecretLifecycle
+	runtimeSecrets    map[string][]byte
 }
+
+// Dictionary is the compiled RADIUS attribute dictionary attached to a
+// snapshot. Until internal/radius/attribute registers a provider, the view
+// is empty (zero Version). Do not import radius/codec or radius/udp here.
+type Dictionary struct {
+	version string
+}
+
+// Version is the dictionary identifier, for example "builtin-mvp-1".
+func (d Dictionary) Version() string { return d.version }
+
+// Empty reports whether no dictionary is attached.
+func (d Dictionary) Empty() bool { return d.version == "" }
 
 // tokenDigestKey is a map key whose fmt output never includes digest bytes.
 type tokenDigestKey struct {
@@ -309,8 +326,70 @@ func (s *Snapshot) Warnings() []string {
 	return out
 }
 
-// ClientIndex returns the compiled matcher. It is immutable.
+// ClientIndex returns the compiled TACACS matcher. It is immutable.
 func (s *Snapshot) ClientIndex() *config.ClientIndex { return s.index }
+
+// RADIUSAccessIndex returns the compiled RADIUS access LPM. It is immutable.
+func (s *Snapshot) RADIUSAccessIndex() *config.RADIUSIndex {
+	if s == nil {
+		return nil
+	}
+	return s.radiusAccessIndex
+}
+
+// RADIUSAccountingIndex returns the compiled RADIUS accounting LPM. It is immutable.
+func (s *Snapshot) RADIUSAccountingIndex() *config.RADIUSIndex {
+	if s == nil {
+		return nil
+	}
+	return s.radiusAcctIndex
+}
+
+// Dictionary returns the compiled RADIUS dictionary view. Empty until a
+// later PR registers the built-in dictionary via SetDictionaryCompiler.
+func (s *Snapshot) Dictionary() Dictionary {
+	if s == nil {
+		return Dictionary{}
+	}
+	return s.radiusDictionary
+}
+
+// DictionaryVersion is the compiled dictionary identifier, or empty.
+func (s *Snapshot) DictionaryVersion() string {
+	if s == nil {
+		return ""
+	}
+	return s.radiusDictVersion
+}
+
+// MatchRADIUS selects one client for a RADIUS role by source IP. Ties fail
+// closed. endpointID is the compiled RADIUS endpoint on the winning client.
+func (s *Snapshot) MatchRADIUS(role domain.ListenerRole, ip net.IP) (client EffectiveClient, endpointID string, err error) {
+	if s == nil {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	var idx *config.RADIUSIndex
+	switch role {
+	case domain.RoleAccess:
+		idx = s.radiusAccessIndex
+	case domain.RoleAccounting:
+		idx = s.radiusAcctIndex
+	default:
+		return EffectiveClient{}, "", domain.NewError(domain.CodeInvalidArgument, "RADIUS index role must be access or accounting")
+	}
+	if idx == nil {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	id, epid, err := idx.Match(ip)
+	if err != nil {
+		return EffectiveClient{}, "", err
+	}
+	c, ok := s.Client(id)
+	if !ok {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	return c, epid, nil
+}
 
 // MatchClient selects one client for a peer. Ties fail closed.
 func (s *Snapshot) MatchClient(transport domain.Transport, ip net.IP, cert *config.CertIdentity) (EffectiveClient, error) {

@@ -6,7 +6,8 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Protocol
 
-- In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Named dictionary and UDP listener are not in this tree yet. Not advertised.
+- In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. UDP listener is not in this tree yet. Not advertised.
+- Built-in IETF MVP RADIUS dictionary and packet-role checks (`attribute.Builtin`, version `builtin-mvp-1`). Unknown attributes stay raw. Message-Authenticator is allowed on Accounting-Request and required first on Access and Accounting responses. Named `Cisco-AVPair` is not added. Not advertised.
 - RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Response MA-first insertion and require-versus-allow policy are later. Not advertised.
 
 ### Security

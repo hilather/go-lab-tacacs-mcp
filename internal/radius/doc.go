@@ -3,7 +3,7 @@
 //
 // Wire types stay in this tree. This package must not import TACACS,
 // HTTP, API adapters, config, or state. There is no production listener here.
-// The codec and raw attribute packages implement framing only. Crypto
-// primitives live in package crypto. These packages do not advertise
-// complete RADIUS.
+// The codec implements packet framing. Package attribute holds raw TLVs
+// and the built-in IETF MVP dictionary. Crypto primitives live in package
+// crypto. These packages do not advertise complete RADIUS.
 package radius

@@ -147,6 +147,9 @@ func TestSensitiveTypes(t *testing.T) {
 	if Sensitive(TypeUserName) || Sensitive(TypeVendorSpecific) {
 		t.Fatal("username/vsa are not auto-secret for framing")
 	}
+	if !Sensitive(TypeState) {
+		t.Fatal("challenge State is secret")
+	}
 }
 
 func TestFormatNeverPrintsSecretValues(t *testing.T) {

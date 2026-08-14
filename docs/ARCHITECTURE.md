@@ -178,6 +178,10 @@ The codec is independent of network I/O and can be tested using byte slices and 
 
 1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header encode/decode, unknown-type §3.6 replies, bounded body allocation, RFC 8907 §4.5 pad, and packet-family bodies live here. Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
 
+### 4.7b `internal/radius/codec` and `internal/radius/attribute`
+
+In-tree RADIUS framing only ([ADR 0015](decisions/0015-radius-codec-attribute-and-dictionary-boundary.md)). `codec` encodes and decodes one datagram (20..4096 octets, both access and accounting). `attribute` stores ordered, duplicate-preserving raw TLVs and Vendor-Specific (type 26) vendor-id plus opaque payload. There is no named dictionary, User-Password hiding, Message-Authenticator, or UDP listener in these packages. Access-Challenge (11) is decoded so a later adapter can discard it; it is not advertised. Independent `internal/radius/testclient` evidence is still required before any RADIUS conformance row is `PASS`.
+
 ### 4.8 `internal/tacacs/server`
 
 Responsibilities:
@@ -374,7 +378,7 @@ Rules:
 
 - Domain packages may depend on small interfaces, not concrete adapters.
 - Configuration syntax types do not escape `internal/config`.
-- Protocol packet types do not escape `internal/tacacs`.
+- Protocol packet types do not escape `internal/tacacs` or `internal/radius`.
 - REST and MCP wire models do not escape their adapters unless they are generated aliases of canonical operation types.
 - The web application depends on generated public API contracts only.
 - No package may import `cmd/taclabd`.

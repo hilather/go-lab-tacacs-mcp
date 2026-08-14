@@ -19,7 +19,7 @@ Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Devi
 
 | Gate | Result |
 |---|---|
-| RADIUS / project MVP rows | **OPEN** (31 unresolved: R65-PKT-001=NOT_STARTED, R65-PKT-002=NOT_STARTED, R65-ATTR-001=NOT_STARTED, R65-ATTR-002=NOT_STARTED, R65-VSA-001=NOT_STARTED, R65-PROXY-001=NOT_STARTED, R65-RAUTH-001=NOT_STARTED, R65-PAP-001=NOT_STARTED, R65-CHAP-001=NOT_STARTED, R65-ACCESS-001=NOT_STARTED, R65-ACCESS-002=NOT_STARTED, R65-ACCESS-003=NOT_STARTED, R66-PKT-001=NOT_STARTED, R66-RESP-001=NOT_STARTED, R66-STAT-001=NOT_STARTED, R69-MA-001=NOT_STARTED, R69-MA-002=NOT_STARTED, R69-ACCT-002=NOT_STARTED, R79-MA-001=NOT_STARTED, R80-DUP-001=NOT_STARTED, PRJ-SEC-001=NOT_STARTED, PRJ-SEC-002=NOT_STARTED, PRJ-POL-001=NOT_STARTED, PRJ-ERR-001=NOT_STARTED, PRJ-ACCT-001=NOT_STARTED, PRJ-ACCT-002=NOT_STARTED, PRJ-RUN-001=NOT_STARTED, PRJ-RUN-002=NOT_STARTED, PRJ-CFG-001=NOT_STARTED, PRJ-TAC-001=NOT_STARTED, PRJ-PAR-001=NOT_STARTED) |
+| RADIUS / project MVP rows | **OPEN** (31 unresolved: R65-PKT-001=IN_PROGRESS, R65-PKT-002=IN_PROGRESS, R65-ATTR-001=IN_PROGRESS, R65-ATTR-002=IN_PROGRESS, R65-VSA-001=IN_PROGRESS, R65-PROXY-001=NOT_STARTED, R65-RAUTH-001=NOT_STARTED, R65-PAP-001=NOT_STARTED, R65-CHAP-001=NOT_STARTED, R65-ACCESS-001=NOT_STARTED, R65-ACCESS-002=NOT_STARTED, R65-ACCESS-003=NOT_STARTED, R66-PKT-001=NOT_STARTED, R66-RESP-001=NOT_STARTED, R66-STAT-001=NOT_STARTED, R69-MA-001=NOT_STARTED, R69-MA-002=NOT_STARTED, R69-ACCT-002=NOT_STARTED, R79-MA-001=NOT_STARTED, R80-DUP-001=NOT_STARTED, PRJ-SEC-001=NOT_STARTED, PRJ-SEC-002=NOT_STARTED, PRJ-POL-001=NOT_STARTED, PRJ-ERR-001=NOT_STARTED, PRJ-ACCT-001=NOT_STARTED, PRJ-ACCT-002=NOT_STARTED, PRJ-RUN-001=NOT_STARTED, PRJ-RUN-002=NOT_STARTED, PRJ-CFG-001=NOT_STARTED, PRJ-TAC-001=NOT_STARTED, PRJ-PAR-001=NOT_STARTED) |
 | Advertised completeness | **Do not claim complete RADIUS** while any MVP row is `NOT_STARTED` or lacks evidence |
 | Independent software peer | `internal/radius/testclient` (separate codec; not yet required while rows are `NOT_STARTED`) |
 
@@ -264,11 +264,11 @@ RFC 2865 RADIUS
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R65-PKT-001 | MUST | NOT_STARTED | Enforce packet length/header bounds |  |
-| R65-PKT-002 | MUST | NOT_STARTED | Handle supported/unsupported Codes deterministically |  |
-| R65-ATTR-001 | MUST | NOT_STARTED | Validate Type/Length/Value framing |  |
-| R65-ATTR-002 | MUST | NOT_STARTED | Preserve ordered duplicate attributes |  |
-| R65-VSA-001 | MUST | NOT_STARTED | Parse/encode VSA framing and preserve unknown vendor data safely |  |
+| R65-PKT-001 | MUST | IN_PROGRESS | Enforce packet length/header bounds | unit:internal/radius/codec.TestDecodeHeaderTruncation; unit:internal/radius/codec.TestDecodeIgnoresTrailingPadding; unit:internal/radius/codec.TestRadiusCatalog; golden:testdata/protocol/radius/vectors.json; fuzz:internal/radius/codec.FuzzRadiusPacketDecode; bench:internal/radius/codec.BenchmarkRadiusPacketDecode_8Attrs |
+| R65-PKT-002 | MUST | IN_PROGRESS | Handle supported/unsupported Codes deterministically | unit:internal/radius/codec.TestCodeClassification; unit:internal/radius/codec.TestDecodeUnknownCodePreserved; unit:internal/radius/codec.TestDecodeAccessChallenge; golden:testdata/protocol/radius/packets/access-challenge-min.bin |
+| R65-ATTR-001 | MUST | IN_PROGRESS | Validate Type/Length/Value framing | unit:internal/radius/attribute.TestDecodeRejectsShortLength; unit:internal/radius/attribute.TestDecodeRejectsOverflow; unit:internal/radius/codec.TestDecodeAttributeOverflow; fuzz:internal/radius/attribute.FuzzRadiusAttributeDecode |
+| R65-ATTR-002 | MUST | IN_PROGRESS | Preserve ordered duplicate attributes | unit:internal/radius/attribute.TestDecodePreservesOrderAndDuplicates; unit:internal/radius/codec.TestRoundTripWithAttributes; golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin |
+| R65-VSA-001 | MUST | IN_PROGRESS | Parse/encode VSA framing and preserve unknown vendor data safely | unit:internal/radius/attribute.TestParseVSARoundTrip; unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved; unit:internal/radius/attribute.TestPacketKeepsMalformedVSARaw; unit:internal/radius/codec.TestVSAGoldenFraming; fuzz:internal/radius/attribute.FuzzRadiusVSA; golden:testdata/protocol/radius/packets/access-request-vsa.bin |
 | R65-PROXY-001 | MUST | NOT_STARTED | Preserve Proxy-State order/value in responses |  |
 | R65-RAUTH-001 | MUST | NOT_STARTED | Validate/generate request and response authenticators |  |
 | R65-PAP-001 | MUST | NOT_STARTED | Correct User-Password hide/unhide and block/length checks |  |

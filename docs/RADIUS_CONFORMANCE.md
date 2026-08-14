@@ -7,6 +7,8 @@ Source pin: `3322c26bd78969498e6fa0cd6e4b30902d5c8a94`
 Binding ADRs: [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)  
 Implementation design: [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md)
 
+Packet/attribute framing rows `R65-PKT-001`, `R65-PKT-002`, `R65-ATTR-001`, `R65-ATTR-002`, and `R65-VSA-001` are `IN_PROGRESS` with production codec goldens and fuzz seeds. They stay short of `PASS` until the independent testclient exists. Do not advertise RADIUS completeness.
+
 ## 1. Purpose
 
 This file defines what “complete RADIUS support” will mean for TacLab. It is the human contract parallel to [docs/TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md).

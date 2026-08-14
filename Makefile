@@ -90,7 +90,7 @@ lint:
 
 .PHONY: fuzz-smoke
 fuzz-smoke:
-	$(GO) test $(GOFLAGS) ./internal/tacacs/... ./internal/domain ./internal/config ./internal/credentials ./internal/events ./internal/api/operations -run 'Fuzz'
+	$(GO) test $(GOFLAGS) ./internal/tacacs/... ./internal/radius/... ./internal/domain ./internal/config ./internal/credentials ./internal/events ./internal/api/operations -run 'Fuzz'
 
 .PHONY: bench
 bench:

@@ -1575,6 +1575,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [ ] `RAD-DOM-001` … `RAD-DOM-008` Protocol-neutral domain and AAA seam.
 - [ ] `RAD-CFG-001` … `RAD-CFG-008` Config schema v2, migration, and immutable state. `config.export` never emits v2 for a v1 source without `normalize=true`.
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
+  - [x] Bounded packet encode/decode and raw TLV / VSA framing (`internal/radius/codec`, `internal/radius/attribute`, `testdata/protocol/radius`). No crypto, no named dictionary, no UDP listener. Rows `R65-PKT-001`, `R65-PKT-002`, `R65-ATTR-001`, `R65-ATTR-002`, `R65-VSA-001` are `IN_PROGRESS` (production goldens/fuzz only; independent `testclient` is still required before PASS).
 - [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.
 - [ ] `RAD-POL-001` … `RAD-POL-007` RADIUS access policy and response attributes.

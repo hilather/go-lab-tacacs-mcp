@@ -30,7 +30,7 @@ Do not claim complete TACACS+ if `-release` fails.
 ## Fixtures and fuzz
 
 - Golden bodies: `testdata/protocol/bodies/`.
-- Fuzz seeds: `testdata/protocol/fuzz/`. Every parser defect adds a seed.
+- Fuzz seeds: `testdata/protocol/fuzz/` (TACACS) and `testdata/protocol/radius/fuzz/` (RADIUS framing). Every parser defect adds a seed.
 - `make fuzz-smoke` runs `Fuzz*` as unit tests.
 
 ## Regression and benches

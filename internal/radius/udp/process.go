@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
@@ -121,34 +122,49 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 	fp := fingerprintOf(body)
 	switch got, cached := l.cache.Begin(key, fp); got {
 	case LookupHit:
+		l.observeRetransmit(observability.RetransmitHitCompleted)
 		l.writeTo(src, cached)
 		return
 	case LookupPending:
+		l.observeRetransmit(observability.RetransmitHitPending)
 		return
 	case LookupSaturated:
+		l.observeCacheSaturation()
 		l.note(reasonOverload)
 		return
+	case LookupPurged:
+		l.observeRetransmit(observability.RetransmitPurge)
+	default:
+		l.observeRetransmit(observability.RetransmitMiss)
 	}
 
 	req.Peer = peerAddrPort(src)
 	req.AcceptStatusTypes = radiusAcceptStatusTypes(client, endpointID)
 	req.Journal = l.journal
 	req.Sampler = l.sampler
+	start := l.now()
 	res := l.handler.Handle(ctx, req)
+	elapsed := l.now().Sub(start).Seconds()
 	if res.JournalSaturated {
-		l.note(reasonJournalSaturated)
+		l.setError(reasonJournalSaturated)
+		if l.opts.Metrics != nil {
+			l.opts.Metrics.RADIUSJournalSaturation(observability.RoleAccounting)
+		}
 	}
 	if res.Action != server.ActionReply || len(res.Response) == 0 {
 		l.cache.Abandon(key, fp)
 		if res.Reason != "" {
 			l.note(res.Reason)
 		}
+		l.observeCacheEntries()
 		return
 	}
 	if res.Reason == server.ReasonAmbiguousIdentity {
 		l.note(res.Reason)
 	}
 	l.cache.Complete(key, fp, res.Response)
+	l.observeCacheEntries()
+	l.observeRequest(pkt.Code, res, elapsed)
 	l.writeTo(src, res.Response)
 }
 
@@ -259,33 +275,78 @@ func (l *Listener) note(reason string) {
 	}
 	l.setError(reason)
 	l.opts.Logger.Debug("radius discard", "listener", l.id, "reason", reason)
-	if l.opts.Metrics != nil {
-		l.opts.Metrics.ProtocolError(metricListener(l.id), observability.TransportUDP, metricCode(reason))
+	if l.opts.Metrics == nil {
+		return
 	}
-}
-
-func metricListener(id string) string {
-	if id == observability.ListenerRADIUSAccounting {
-		return observability.ListenerRADIUSAccounting
-	}
-	return observability.ListenerRADIUSAccess
-}
-
-func metricCode(reason string) string {
+	l.opts.Metrics.ProtocolDiscard(observability.ProtocolRADIUS, observability.TransportUDP, l.metricRole(), reason)
 	switch reason {
-	case reasonUnknownClient, reasonAmbiguousClient:
-		return "unknown_client"
-	case reasonSecretMissing:
-		return "secret_unavailable"
-	case reasonOverload:
-		return "rate_limited"
-	case server.ReasonAmbiguousIdentity:
-		return "ambiguous_identity"
-	case reasonJournalSaturated:
-		return "journal_saturated"
-	default:
-		return "protocol"
+	case server.ReasonInvalidMA, server.ReasonMissingMA, server.ReasonEAPWithoutMA, server.ReasonProxyStateWithoutMA:
+		l.opts.Metrics.RADIUSAuthenticatorFailure(l.metricRole(), observability.AuthTypeMessageAuthenticator)
+	case server.ReasonInvalidAcctAuth:
+		l.opts.Metrics.RADIUSAuthenticatorFailure(l.metricRole(), observability.AuthTypeAccountingRequest)
 	}
+}
+
+func (l *Listener) observeRetransmit(result string) {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSRetransmission(l.metricRole(), result)
+	}
+}
+
+func (l *Listener) observeCacheSaturation() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSCacheSaturation(l.metricRole())
+	}
+}
+
+func (l *Listener) observeCacheEntries() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSCacheEntries(l.metricRole(), l.cache.len())
+	}
+}
+
+func (l *Listener) observeQueue() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSQueueDepth(l.metricRole(), int(l.queued.Load()))
+	}
+}
+
+func (l *Listener) observeInflight() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSInflight(l.metricRole(), int(l.inflight.Load()))
+	}
+}
+
+func (l *Listener) observeRequest(reqCode codec.Code, res server.Result, seconds float64) {
+	if l.opts.Metrics == nil {
+		return
+	}
+	code, outcome := replyLabels(reqCode, res)
+	l.opts.Metrics.ProtocolRequest(observability.ProtocolRADIUS, observability.TransportUDP, l.metricRole(), code, outcome, seconds)
+}
+
+func (l *Listener) metricRole() string {
+	if l.role == domain.RoleAccounting {
+		return observability.RoleAccounting
+	}
+	return observability.RoleAccess
+}
+
+func (l *Listener) now() time.Time {
+	if l.opts.Now != nil {
+		return l.opts.Now()
+	}
+	return time.Now()
+}
+
+func replyLabels(req codec.Code, res server.Result) (code, outcome string) {
+	if req == codec.CodeAccountingRequest {
+		return observability.CodeAccountingResponse, observability.OutcomeOK
+	}
+	if res.Reason == server.ReasonOK {
+		return observability.CodeAccessAccept, observability.OutcomeAccessAccept
+	}
+	return observability.CodeAccessReject, observability.OutcomeAccessReject
 }
 
 func wipe(b []byte) {

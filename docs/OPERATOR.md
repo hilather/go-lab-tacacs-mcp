@@ -138,7 +138,7 @@ File-watch reload is **off**. Invalid reload keeps the previous snapshot. There 
 
 - Logs: stdout/stderr JSON. Secrets are typed holders and must not appear.
 - Events: bounded ring (default 10_000). REST SSE `GET /api/v1/events/stream`; usernames/commands need `events:sensitive`.
-- Metrics: default `127.0.0.1:9090`. Optional `observability.metrics.expose_on_admin: true` adds `/metrics` on 8080. pprof is off by default and is not on the admin listener.
+- Metrics: default `127.0.0.1:9090`. Optional `observability.metrics.expose_on_admin: true` adds `/metrics` on 8080. pprof is off by default and is not on the admin listener. RADIUS scrapes use `taclab_protocol_*` / `taclab_radius_*` with closed `protocol`, `role`, `reason_code`, `outcome` labels — never `client_id`, User-Name, or peer IPs.
 - Accounting SUCCESS is returned only after the ring accepts the record.
 
 ## 11. Troubleshooting

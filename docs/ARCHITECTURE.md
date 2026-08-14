@@ -347,7 +347,7 @@ Responsibilities:
 - Disabled-by-default `net/http/pprof` on the dedicated metrics socket only.
 - Resource governors (connection/session semaphores, field limits).
 
-Metrics must not label by username, command text, token ID, raw address, or fingerprint. `taclab_secret_lifecycle` and `taclab_secret_warnings_total` accept only `status`. Profiling is never mounted on the admin listener.
+Metrics must not label by username, command text, token ID, raw address, or fingerprint. `taclab_secret_lifecycle` and `taclab_secret_warnings_total` accept only `status`. RADIUS series (`taclab_protocol_*`, `taclab_radius_*`) accept only closed `protocol`, `role`, `reason_code`, `outcome` (plus `transport`/`code`/`result`/`type` where listed) and never `client_id`, User-Name, or addresses. Profiling is never mounted on the admin listener.
 
 ## 5. Dependency rules
 
@@ -596,9 +596,9 @@ Shutdown:
 
 ## 15. Observability boundaries
 
-Metrics must use bounded-cardinality labels. Do not label metrics by username, command text, token ID, raw client address, or arbitrary AV pairs.
+Metrics must use bounded-cardinality labels. Do not label metrics by username, command text, token ID, raw client address, or arbitrary AV pairs. RADIUS series also reject `client_id`.
 
-Safe dimensions include listener, transport, result class, authentication type, client definition name when bounded by configuration, operation ID, and error code.
+Safe dimensions include listener, transport, result class, authentication type, client definition name when bounded by configuration (TACACS connection series only), operation ID, error code, and the closed RADIUS set `protocol` / `role` / `reason_code` / `outcome`.
 
 Traces and logs use redacted fields. Detailed policy explanations are available through authorized diagnostics, not ordinary logs.
 

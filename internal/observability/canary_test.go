@@ -20,6 +20,16 @@ func TestCanaryMatrixObservabilitySurfaces(t *testing.T) {
 	reg.Inc(MetricAuthenTotal, Labels{LabelTransport: TransportLegacy, LabelAuthenType: "ascii", "username": CanaryPassword}, 1)
 	reg.Inc(MetricAPIRequests, Labels{LabelOperationID: "tokens.create", LabelResultClass: ResultSuccess, "token": CanaryToken}, 1)
 	reg.Inc(MetricSecretWarnings, Labels{LabelStatus: StatusOverdue, "fingerprint": CanaryLegacyShared}, 1)
+	reg.Inc(MetricProtocolDiscards, Labels{
+		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccess,
+		LabelReasonCode: "discard_unknown_client", LabelClientID: CanaryRADIUSShared,
+	}, 1)
+	reg.Inc(MetricProtocolRequests, Labels{
+		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccess,
+		LabelPacketCode: CodeAccessRequest, LabelOutcome: OutcomeAccessReject,
+		"user_password": CanaryUserPassword,
+	}, 1)
+	rec.ProtocolDiscard(ProtocolRADIUS, TransportUDP, RoleAccess, "discard_unknown_client")
 
 	var metrics bytes.Buffer
 	if err := reg.WritePrometheus(&metrics); err != nil {
@@ -37,6 +47,8 @@ func TestCanaryMatrixObservabilitySurfaces(t *testing.T) {
 		Attr{Key: "secret", Value: CanaryChallenge},
 		Attr{Key: "token", Value: CanaryToken},
 		Attr{Key: "packet_body", Value: CanaryLegacyShared},
+		Attr{Key: "user_password", Value: CanaryUserPassword},
+		Attr{Key: "radius_secret", Value: CanaryRADIUSShared},
 		Attr{Key: "transport", Value: TransportLegacy},
 	)
 	sp.RecordError(fmt.Errorf("verify failed"))

@@ -16,6 +16,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
@@ -333,17 +334,17 @@ func (h *holdHandler) Handle(ctx context.Context, in server.Request) server.Resu
 
 func startAccess(t *testing.T, doc *config.Document, h server.Handler) (*Listener, *state.Manager) {
 	t.Helper()
-	ln, mgr, _ := startRole(t, doc, domain.RoleAccess, h)
+	ln, mgr, _ := startRole(t, doc, domain.RoleAccess, h, nil)
 	return ln, mgr
 }
 
 func startAccounting(t *testing.T, doc *config.Document) (*Listener, *state.Manager, *events.Ring) {
 	t.Helper()
-	ln, mgr, ring := startRole(t, doc, domain.RoleAccounting, nil)
+	ln, mgr, ring := startRole(t, doc, domain.RoleAccounting, nil, nil)
 	return ln, mgr, ring
 }
 
-func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h server.Handler) (*Listener, *state.Manager, *events.Ring) {
+func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h server.Handler, metrics *observability.Recorder) (*Listener, *state.Manager, *events.Ring) {
 	t.Helper()
 	lookup := func(ref config.SecretRef) ([]byte, error) { return os.ReadFile(ref.File) }
 	mgr, err := state.New(doc, state.Options{Secrets: lookup})
@@ -383,6 +384,7 @@ func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h s
 		Secrets:  lookup,
 		Handler:  h,
 		Recorder: rec,
+		Metrics:  metrics,
 	})
 	if err != nil {
 		t.Fatal(err)

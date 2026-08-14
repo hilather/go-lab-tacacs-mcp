@@ -164,6 +164,76 @@ func (r *Recorder) EventSubscriberReset() {
 	r.registry().Inc(MetricEventSubscriberResets, nil, 1)
 }
 
+// ProtocolRequest records one RADIUS (or future carrier) outcome. Labels are
+// closed enums only — no client_id, username, or address.
+func (r *Recorder) ProtocolRequest(protocol, transport, role, code, outcome string, seconds float64) {
+	labels := Labels{
+		LabelProtocol:   boundProtocol(protocol),
+		LabelTransport:  boundTransport(transport),
+		LabelRole:       boundRole(role),
+		LabelPacketCode: boundPacketCode(code),
+		LabelOutcome:    boundOutcome(outcome),
+	}
+	r.registry().Inc(MetricProtocolRequests, labels, 1)
+	if seconds >= 0 {
+		r.registry().Observe(MetricProtocolDuration, labels, seconds)
+	}
+}
+
+// ProtocolDiscard records a silent discard. reason must be a closed reason_code.
+func (r *Recorder) ProtocolDiscard(protocol, transport, role, reason string) {
+	r.registry().Inc(MetricProtocolDiscards, Labels{
+		LabelProtocol:   boundProtocol(protocol),
+		LabelTransport:  boundTransport(transport),
+		LabelRole:       boundRole(role),
+		LabelReasonCode: boundReasonCode(reason),
+	}, 1)
+}
+
+// RADIUSQueueDepth writes the per-role worker-queue gauge.
+func (r *Recorder) RADIUSQueueDepth(role string, n int) {
+	r.registry().Set(MetricRADIUSQueueDepth, Labels{LabelRole: boundRole(role)}, float64(n))
+}
+
+// RADIUSInflight writes the per-role in-flight gauge.
+func (r *Recorder) RADIUSInflight(role string, n int) {
+	r.registry().Set(MetricRADIUSInflight, Labels{LabelRole: boundRole(role)}, float64(n))
+}
+
+// RADIUSRetransmission records one cache lookup result.
+func (r *Recorder) RADIUSRetransmission(role, result string) {
+	r.registry().Inc(MetricRADIUSRetransmission, Labels{
+		LabelRole:   boundRole(role),
+		LabelResult: boundRetransmitResult(result),
+	}, 1)
+}
+
+// RADIUSCacheEntries writes retransmission-cache occupancy.
+func (r *Recorder) RADIUSCacheEntries(role string, n int) {
+	r.registry().Set(MetricRADIUSCacheEntries, Labels{LabelRole: boundRole(role)}, float64(n))
+}
+
+// RADIUSCacheSaturation increments cache-saturation drops.
+func (r *Recorder) RADIUSCacheSaturation(role string) {
+	r.registry().Inc(MetricRADIUSCacheSaturations, Labels{LabelRole: boundRole(role)}, 1)
+}
+
+// RADIUSJournalSaturation increments accounting-journal saturations.
+func (r *Recorder) RADIUSJournalSaturation(role string) {
+	if role == "" {
+		role = RoleAccounting
+	}
+	r.registry().Inc(MetricRADIUSJournalSaturations, Labels{LabelRole: boundRole(role)}, 1)
+}
+
+// RADIUSAuthenticatorFailure increments authenticator validation failures.
+func (r *Recorder) RADIUSAuthenticatorFailure(role, typ string) {
+	r.registry().Inc(MetricRADIUSAuthenticatorFail, Labels{
+		LabelRole: boundRole(role),
+		LabelType: boundAuthenticatorType(typ),
+	}, 1)
+}
+
 func boundTransport(v string) string {
 	switch strings.ToLower(v) {
 	case TransportLegacy:
@@ -172,9 +242,102 @@ func boundTransport(v string) string {
 		return TransportTLS
 	case TransportHTTP:
 		return TransportHTTP
+	case TransportUDP, "radius_udp":
+		return TransportUDP
 	default:
 		return TransportLegacy
 	}
+}
+
+func boundProtocol(v string) string {
+	switch strings.ToLower(v) {
+	case ProtocolRADIUS:
+		return ProtocolRADIUS
+	case ProtocolHTTP:
+		return ProtocolHTTP
+	case ProtocolTACACS:
+		return ProtocolTACACS
+	default:
+		return ProtocolRADIUS
+	}
+}
+
+func boundRole(v string) string {
+	switch strings.ToLower(v) {
+	case RoleAccounting:
+		return RoleAccounting
+	case RoleAAA:
+		return RoleAAA
+	case RoleAuthentication:
+		return RoleAuthentication
+	case RoleAuthorization:
+		return RoleAuthorization
+	case RoleAdmin:
+		return RoleAdmin
+	case RoleDynamicAuthorization:
+		return RoleDynamicAuthorization
+	case RoleAccess:
+		return RoleAccess
+	default:
+		return RoleAccess
+	}
+}
+
+func boundOutcome(v string) string {
+	switch strings.ToLower(v) {
+	case OutcomeAccessAccept:
+		return OutcomeAccessAccept
+	case OutcomeAccessReject:
+		return OutcomeAccessReject
+	case OutcomeOK, "success":
+		return OutcomeOK
+	case OutcomeDrop:
+		return OutcomeDrop
+	case OutcomeError:
+		return OutcomeError
+	default:
+		return OutcomeDiscard
+	}
+}
+
+func boundPacketCode(v string) string {
+	switch strings.ToLower(v) {
+	case CodeAccessAccept, "access-accept":
+		return CodeAccessAccept
+	case CodeAccessReject, "access-reject":
+		return CodeAccessReject
+	case CodeAccountingRequest, "accounting-request":
+		return CodeAccountingRequest
+	case CodeAccountingResponse, "accounting-response":
+		return CodeAccountingResponse
+	case CodeAccessChallenge, "access-challenge":
+		return CodeAccessChallenge
+	case CodeAccessRequest, "access-request":
+		return CodeAccessRequest
+	default:
+		return CodeAccessRequest
+	}
+}
+
+func boundReasonCode(v string) string {
+	if knownReasonCode(v) {
+		return v
+	}
+	return "internal_error"
+}
+
+func boundRetransmitResult(v string) string {
+	if knownRetransmitResult(v) {
+		return v
+	}
+	return RetransmitMiss
+}
+
+func boundAuthenticatorType(v string) string {
+	if knownAuthenticatorType(v) {
+		return v
+	}
+	return AuthTypeMessageAuthenticator
 }
 
 func boundAuthenType(v string) string {

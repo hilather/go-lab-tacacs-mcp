@@ -25,9 +25,15 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter.
 - RADIUS Accounting-Request path records `start` / `stop` / `interim_update` / `accounting_on` / `accounting_off` after a valid Request Authenticator. Inbound Message-Authenticator is validated when present (never discarded solely because it exists). Exact retries replay cached Accounting-Response bytes. Delay-Time retries mint a new response without a second event. Interim counters are not collapsed. Unknown `Acct-Status-Type` is silently discarded. Ring reject sends no Accounting-Response. Ambiguous identity (no session id and no NAS identity) is fail-open-to-ack and sample-capped.
 
+### Observability
+
+- RADIUS/UDP series (`taclab_protocol_requests_total`, `taclab_protocol_discards_total`, `taclab_protocol_request_duration_seconds`, `taclab_radius_*`) use closed labels only: `protocol`, `role`, `reason_code`, `outcome` (plus `transport`/`code`/`result`/`type` where listed). No `client_id`, User-Name, or addresses. TACACS `taclab_authen_total` / `taclab_author_total` / `taclab_acct_total` stay TACACS-only.
+- Unique canaries for RADIUS shared secrets and User-Password material (`TestRADIUSCanaryMatrix`). Hidden User-Password still never appears in crypto errors.
+
 ### Security
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).
+- Threat model covers RADIUS/UDP: BlastRADIUS / Message-Authenticator, replay cache, amplification, spoofed source, and unique secret canaries. UDP remains a controlled-network profile, not advertised as complete RADIUS.
 
 ### CI
 

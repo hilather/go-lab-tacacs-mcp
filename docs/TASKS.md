@@ -1598,6 +1598,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [ ] `RAD-API-001` … `RAD-API-006` Administrative operations and REST/MCP parity.
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
 - [ ] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, secrets, smoke.
-- [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
+- [~] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
+  - [x] RADIUS metric series + closed labels (`protocol`, `role`, `reason_code`, `outcome`); unique RADIUS shared-secret and User-Password canaries; threat-model UDP / MA / BlastRADIUS / replay / amplification rows. Not advertised as complete RADIUS.
 - [ ] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance, independent evidence, interop, fuzz, race, benches.
 - [ ] `RAD-REL-001` … `RAD-REL-007` Documentation, migration, operations, and release.

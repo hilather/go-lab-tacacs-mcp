@@ -359,11 +359,46 @@ func TestReleaseValidationPassesQualifiedRegistries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if issues := CheckReleaseStatuses(rep.RFC8907, rep.RFC9887); len(issues) != 0 {
+	if issues := CheckReleaseStatuses(rep.TACACSTables()...); len(issues) != 0 {
 		t.Fatalf("qualified MUST rows still open: %v", issues)
 	}
-	if issues := CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887); len(issues) != 0 {
+	if issues := CheckSHOULDDispositions(rep.TACACSTables()...); len(issues) != 0 {
 		t.Fatalf("SHOULD rows missing disposition: %v", issues)
+	}
+}
+
+func TestReleaseGateExcludesRADIUSSkeletons(t *testing.T) {
+	t.Parallel()
+	root := testRoot(t)
+	rep, err := ValidateRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range ReleaseConformanceTables(rep) {
+		if table == nil {
+			continue
+		}
+		switch table.RFC {
+		case "8907", "9887":
+		default:
+			t.Errorf("check-registries -release must not include rfc %q", table.RFC)
+		}
+	}
+	radiusIssues := CheckReleaseStatuses(rep.RADIUSTables()...)
+	if len(radiusIssues) == 0 {
+		t.Fatal("RADIUS NOT_STARTED MUST rows must fail CheckReleaseStatuses")
+	}
+	have := map[string]struct{}{}
+	for _, issue := range radiusIssues {
+		have[issue.ID] = struct{}{}
+	}
+	for _, id := range []string{"R65-PKT-001", "R65-ACCESS-004", "PRJ-SEC-001"} {
+		if _, ok := have[id]; !ok {
+			t.Errorf("expected %s in RADIUS CheckReleaseStatuses issues", id)
+		}
+	}
+	if issues := CheckReleaseStatuses(ReleaseConformanceTables(rep)...); len(issues) != 0 {
+		t.Fatalf("-release tables must stay clean: %v", issues)
 	}
 }
 

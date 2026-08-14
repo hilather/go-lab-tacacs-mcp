@@ -13,8 +13,7 @@
 | Go module | `github.com/hilather/go-lab-tacacs-mcp` (unchanged) |
 | Image | `ghcr.io/hilather/go-lab-tacacs-mcp` (unchanged) |
 | Source pin | `3322c26bd78969498e6fa0cd6e4b30902d5c8a94` |
-| Workspace HEAD | `3322c26bd78969498e6fa0cd6e4b30902d5c8a94` (no drift) |
-| Architecture pack | `/home/mbrewer/Downloads/taclab-radius-architecture-pack-3322c26` |
+| Architecture pack | External (not in this repository); pinned by the source-pin hash above |
 | Binding ADRs | [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) |
 | Conformance contract | [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) |
 | Normative MVP RFCs | RFC 2865, RFC 2866, RFC 2869 (MA / interim / gigawords / Event-Timestamp), RFC 3579 (MA/EAP-Message validation only), RFC 5080 |
@@ -1806,9 +1805,8 @@ Map pack epics onto repo work. Task IDs stay stable (`docs/TASKS.md` should gain
 
 ### Architecture pack
 
-- `/home/mbrewer/Downloads/taclab-radius-architecture-pack-3322c26/README.md`
+- External pack (not vendored). Source pin `3322c26bd78969498e6fa0cd6e4b30902d5c8a94`.
 - Pack docs 00–16, ADRs 0013–0018, tasks/epics, examples, conformance skeletons
-- Source pin `3322c26bd78969498e6fa0cd6e4b30902d5c8a94` (matches workspace HEAD)
 
 ### Type errata vs `3322c26`
 

@@ -79,8 +79,8 @@ TacLab solves these by providing one deterministic, disposable appliance with co
 - Nested groups, role hierarchies, approval workflows, or delegated administration.
 - High-availability multi-replica runtime state.
 - A required external database.
-- RADIUS support.
 - Acting as an LDAP, SAML, OIDC, or Kerberos identity provider.
+- RADIUS EAP method termination, Access-Challenge as an advertised feature, CoA/Disconnect, RadSec/DTLS/RADIUS/1.1, proxying, RADIUS MS-CHAP, custom dictionary files, named `Cisco-AVPair` decoding, persistent RADIUS accounting, or a second daemon/module rename. RADIUS/UDP access and accounting are in-process (ADRs 0013–0018) but not advertised until [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) MVP rows have evidence.
 - Rewriting the baseline YAML in place.
 - Treating deprecated TACACS+ redirection, SENDPASS, or insecure SEND authentication as normal supported features.
 - Kubernetes as the primary deployment mechanism.

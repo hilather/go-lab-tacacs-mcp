@@ -114,9 +114,6 @@ func TestMissingBindingFailsClosed(t *testing.T) {
 	}
 	copyFile(t, filepath.Join(root, registry.ParityDocPath), filepath.Join(tmp, registry.ParityDocPath))
 	copyFile(t, filepath.Join(root, registry.ConformanceDocPath), filepath.Join(tmp, registry.ConformanceDocPath))
-	if err := os.MkdirAll(filepath.Join(tmp, "docs"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	copyFile(t, filepath.Join(root, registry.RadiusConformanceDocPath), filepath.Join(tmp, registry.RadiusConformanceDocPath))
 
 	rep, err := registry.ValidateRoot(tmp)

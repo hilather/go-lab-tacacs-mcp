@@ -74,6 +74,15 @@ func (r *Report) TACACSTables() []*ConformanceRegistry {
 	return []*ConformanceRegistry{r.RFC8907, r.RFC9887}
 }
 
+// ReleaseConformanceTables returns the tables gated by `check-registries -release`.
+// RADIUS/PRJ skeletons are excluded until RADIUS is advertised.
+func ReleaseConformanceTables(rep *Report) []*ConformanceRegistry {
+	if rep == nil {
+		return nil
+	}
+	return rep.TACACSTables()
+}
+
 // RADIUSTables returns RADIUS and project-radius registries.
 func (r *Report) RADIUSTables() []*ConformanceRegistry {
 	if r == nil {

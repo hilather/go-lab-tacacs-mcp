@@ -14,6 +14,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Documentation
 
+- [ADRs 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) accepted: RADIUS is in-process in `taclabd` but **not advertised**. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) and `testdata/conformance/rfc2865.yaml` (plus rfc2866/2869/3579/5080 and `project-radius.yaml`) are `NOT_STARTED` / `DEFERRED_MAY` skeletons. TACACS `make check-registries -release` is unchanged.
 - Operator-facing README with feature catalog, REST/MCP matrix, and a documentation map for every contract linked from the root page.
 - [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md) — clone, `labgen`, Compose, UI, first REST and MCP calls.
 - [docs/BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md) — first-setup of YAML users, groups, clients, tokens, secret files, and Compose wiring.

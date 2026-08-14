@@ -17,19 +17,19 @@ const (
 	methodCHAP          = "chap"
 )
 
-// AccessAuthenticator is the AAA access facade. Implementations must not
-// return accept until policy evaluation exists.
+// AccessAuthenticator is the AAA access facade.
 type AccessAuthenticator interface {
 	AuthenticateAccess(ctx context.Context, in aaa.RadiusAccessAttempt) (aaa.RadiusAccessDecision, error)
 }
 
 // Access handles Access-Request after UDP client resolution. Accounting
-// is delegated to Stub. Valid credentials still Access-Reject (default-deny).
+// is delegated to Stub. Credential pass evaluates compiled RADIUS policy.
 type Access struct {
 	AAA AccessAuthenticator
 }
 
-// Handle implements Handler. It never emits Access-Accept.
+// Handle implements Handler. Permit is Access-Accept; deny and errors
+// are Access-Reject. Message-Authenticator is first on every reply.
 func (a Access) Handle(ctx context.Context, in Request) Result {
 	if ctx != nil && ctx.Err() != nil {
 		return Result{Action: ActionDiscard, Reason: ReasonOverload}
@@ -47,10 +47,10 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 	user, ev, reason, wipe := extractAccessEvidence(in)
 	defer wipe()
 	if reason != "" {
-		return rejectAccess(in, reason)
+		return replyAccess(in, codec.CodeAccessReject, reason, nil)
 	}
 	if a.AAA == nil {
-		return rejectAccess(in, ReasonInternal)
+		return replyAccess(in, codec.CodeAccessReject, ReasonInternal, nil)
 	}
 
 	dec, err := a.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
@@ -63,17 +63,20 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 			EndpointID:       in.EndpointID,
 			SnapshotRevision: in.Revision,
 		},
-		UserID:   user,
-		Evidence: ev,
+		UserID:     user,
+		Evidence:   ev,
+		Attributes: policySafeAttrs(in.Packet.Attributes),
 	})
 	if err != nil {
 		if ctx != nil && ctx.Err() != nil {
 			return Result{Action: ActionDiscard, Reason: ReasonOverload}
 		}
-		return rejectAccess(in, ReasonInternal)
+		return replyAccess(in, codec.CodeAccessReject, ReasonInternal, nil)
 	}
-	// Fail closed: even a future accept decision stays Access-Reject here.
-	return rejectAccess(in, wireAccessReason(dec.ReasonCode))
+	if dec.Outcome == aaa.RadiusAccessAccept {
+		return replyAccess(in, codec.CodeAccessAccept, ReasonOK, dec.ReplyAttributes)
+	}
+	return replyAccess(in, codec.CodeAccessReject, wireAccessReason(dec.ReasonCode), dec.ReplyAttributes)
 }
 
 func extractAccessEvidence(in Request) (user string, ev aaa.CredentialEvidence, reason string, wipe func()) {
@@ -148,7 +151,7 @@ func methodAllowed(allowed []string, method string) bool {
 
 func wireAccessReason(code string) string {
 	switch code {
-	case ReasonOK, ReasonPolicy:
+	case ReasonPolicy:
 		return ReasonPolicy
 	case ReasonBadCredentials, ReasonUnsupportedMethod, ReasonInternal,
 		ReasonMissingUsername, ReasonConflictingAuth, ReasonCHAPPasswordLength:
@@ -158,8 +161,38 @@ func wireAccessReason(code string) string {
 	}
 }
 
-func rejectAccess(in Request, reason string) Result {
-	wire, err := RejectAccess(in.Secret, in.Packet.Identifier, in.Packet.Authenticator, in.Packet.Attributes)
+func policySafeAttrs(in attribute.RawSet) attribute.RawSet {
+	if in.Len() == 0 {
+		return nil
+	}
+	out := make(attribute.RawSet, 0, in.Len())
+	for _, a := range in {
+		if attribute.Sensitive(a.Type) || a.Type == attribute.TypeMessageAuthenticator || a.Type == attribute.TypeProxyState || a.Type == attribute.TypeState {
+			continue
+		}
+		out = append(out, a.Clone())
+	}
+	return out
+}
+
+func replyAttrsLegal(code codec.Code, attrs attribute.RawSet) bool {
+	pkt := uint8(code)
+	for _, a := range attrs {
+		if !attribute.Builtin().AllowedIn(a.Type, pkt) {
+			return false
+		}
+	}
+	return true
+}
+
+func replyAccess(in Request, code codec.Code, reason string, policy attribute.RawSet) Result {
+	if policy.Len() > 0 && !replyAttrsLegal(code, policy) {
+		if code == codec.CodeAccessAccept {
+			return replyAccess(in, codec.CodeAccessReject, ReasonInternal, nil)
+		}
+		policy = nil
+	}
+	wire, err := ReplyAccess(in.Secret, code, in.Packet.Identifier, in.Packet.Authenticator, in.Packet.Attributes, policy)
 	if err != nil {
 		return Result{Action: ActionDiscard, Reason: ReasonMalformedHeader}
 	}

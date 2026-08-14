@@ -213,3 +213,47 @@ func TestEvaluateNoUserGroupRules(t *testing.T) {
 		t.Fatalf("without groups_any membership, catch-all deny: %+v", res)
 	}
 }
+
+func TestCheckReplyLegalAcceptAndRejectRoles(t *testing.T) {
+	t.Parallel()
+	timeout := Typed{Key: AttrKey{Name: "Session-Timeout", Code: 27}, Kind: KindInteger, Uint: 600}
+	msg := Typed{Key: AttrKey{Name: "Reply-Message", Code: 18}, Kind: KindText, Text: "denied"}
+	nas := Typed{Key: AttrKey{Name: "NAS-IP-Address", Code: 4}, Kind: KindIPv4}
+	vsa := Typed{Key: AttrKey{Vendor: 9, Code: 1, Name: "Vendor-Specific"}, Kind: KindVSA, Raw: []byte("foo")}
+	if err := CheckReplyLegal(domain.EffectPermit, TypedSet{timeout, msg, vsa}); err != nil {
+		t.Fatalf("legal accept: %v", err)
+	}
+	if err := CheckReplyLegal(domain.EffectDeny, TypedSet{msg}); err != nil {
+		t.Fatalf("legal reject: %v", err)
+	}
+	if err := CheckReplyLegal(domain.EffectPermit, TypedSet{nas}); err == nil {
+		t.Fatal("NAS-IP-Address is not legal on Access-Accept")
+	}
+	if err := CheckReplyLegal(domain.EffectDeny, TypedSet{timeout}); err == nil {
+		t.Fatal("Session-Timeout is not legal on Access-Reject")
+	}
+	if err := CheckReplyLegal(domain.EffectDeny, TypedSet{vsa}); err == nil {
+		t.Fatal("raw VSA is not legal on Access-Reject")
+	}
+}
+
+func TestEvaluateIllegalReplyIsError(t *testing.T) {
+	t.Parallel()
+	eng := &Engine{
+		policies: map[string]compiledPolicy{
+			"p": {id: "p", rules: []compiledRule{{
+				id:     "bad",
+				effect: domain.EffectPermit,
+				reply:  TypedSet{{Key: AttrKey{Name: "NAS-IP-Address", Code: 4}, Kind: KindIPv4}},
+			}}},
+		},
+		clients: map[string]compiledClient{"c": {endpointID: "e", policyID: "p"}},
+	}
+	res := eng.Evaluate(Request{ClientID: "c", EndpointID: "e"})
+	if res.Effect != domain.EffectError || res.Trace.Error == "" {
+		t.Fatalf("illegal compiled reply must fail closed: %+v", res)
+	}
+	if len(res.ReplyAttributes) != 0 {
+		t.Fatalf("error must not emit reply attrs: %+v", res.ReplyAttributes)
+	}
+}

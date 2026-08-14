@@ -161,8 +161,52 @@ func errorResult(tr Trace, reason string) Result {
 }
 
 func matchedResult(tr Trace, source, ruleID string, effect domain.Effect, reply TypedSet) Result {
+	if err := CheckReplyLegal(effect, reply); err != nil {
+		return errorResult(tr, "illegal reply attributes")
+	}
 	tr.Winner = &TraceWinner{Source: source, RuleID: ruleID, Effect: effect.String()}
 	tr.Effect = effect.String()
 	tr.DefaultDeny = ""
 	return Result{Effect: effect, ReplyAttributes: reply.clone(), Trace: tr}
+}
+
+// CheckReplyLegal reports whether attrs may appear on the Access-Accept
+// (permit) or Access-Reject (deny) packet. Compile already enforces this;
+// evaluation re-checks so a corrupted engine cannot emit an illegal reply.
+func CheckReplyLegal(effect domain.Effect, attrs TypedSet) error {
+	packet := packetAccessAccept
+	if effect == domain.EffectDeny {
+		packet = packetAccessReject
+	} else if effect != domain.EffectPermit {
+		return nil
+	}
+	for _, a := range attrs {
+		if err := replyAttrLegal(packet, a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func replyAttrLegal(packet int, a Typed) error {
+	if a.Key.Vendor != 0 {
+		if packet == packetAccessReject {
+			return domain.NewError(domain.CodeInvalidArgument, "deny rules may include only Access-Reject attributes (Reply-Message)")
+		}
+		return nil
+	}
+	def, ok := builtinDict.lookupCode(a.Key.Code)
+	if !ok {
+		return domain.NewError(domain.CodeInvalidArgument, "unknown RADIUS attribute code")
+	}
+	if def.Secret || def.ServerOwned {
+		return domain.NewError(domain.CodeInvalidArgument, "attribute is not a policy reply attribute")
+	}
+	if packet == packetAccessAccept && !def.allowAccept {
+		return domain.NewError(domain.CodeInvalidArgument, "attribute is not legal in Access-Accept")
+	}
+	if packet == packetAccessReject && !def.allowReject {
+		return domain.NewError(domain.CodeInvalidArgument, "deny rules may include only Access-Reject attributes (Reply-Message)")
+	}
+	return nil
 }

@@ -1574,7 +1574,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 
 - [x] `RAD-DOM-001` Domain taxonomy: `Protocol`, `ListenerRole`, `Carrier`, `RequestContext`, and shared `AuthMethod`/`Effect`/`AuthOutcome`. `domain.Transport` remains TACACS `legacy`/`tls` only. `ParseAuthMethod` accepts `password`/`pap`/`chap`; `pap` stores `password`.
 - [x] `RAD-DOM-002` Neutral AAA `VerifyCredentials` facade over password/CHAP evidence. TACACS one-shot PAP/CHAP map `AuthPass`/`AuthReject`/`AuthError` to the same `AuthenticationStep` statuses.
-- [x] `RAD-DOM-003` `AuthenticateAccess` verifies PAP/CHAP and default-denies (`reject_policy`). It never returns accept until policy evaluation.
+- [x] `RAD-DOM-003` `AuthenticateAccess` verifies PAP/CHAP then evaluates the snapshot-held RADIUS engine. Permit → accept + legal reply attrs; deny / default deny → `reject_policy`; evaluator error → `internal_error` Access-Reject.
 - [x] `RAD-DOM-004` Neutral `RecordRADIUSAccounting` maps onto the event ring. `Acct-Session-Id` is `Event.AcctSessionID` (string); TACACS `SessionID` stays `uint32`. Sensitive attribute summaries are stored redacted. No UDP listener.
 - [ ] `RAD-DOM-005` … `RAD-DOM-008` Remaining RADIUS access methods and TACACS Bridge adapter.
 
@@ -1592,9 +1592,11 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-RUN-001` Bounded UDP access/accounting listeners, worker/queue/rate limits, compiled `RADIUSIndex` unknown-client discard, exact-response cache (hit/pending/purge). Stub Access-Reject / Accounting-Response (MA first). Readiness is snapshot + required listeners + at least one AAA listener, or `server.admin_only`. Not advertised; default YAML stays off.
 - [ ] `RAD-RUN-002` … `RAD-RUN-008` Remaining runtime/journal/governor work.
 - [x] `RAD-ACCESS-001` Access integrity (MA / `limit_proxy_state` / EAP-without-MA) before cache mutation. PAP/CHAP extract + `VerifyCredentials`. Unknown user, bad password, CHAP length ≠ 17, conflicting auth, default-deny → Access-Reject. No Access-Accept.
-- [ ] `RAD-ACCESS-002` … `RAD-ACCESS-007` Remaining access reply orchestration (Access-Accept from policy).
+- [x] `RAD-ACCESS-002` Access-Accept/Reject from compiled policy: permit emits Access-Accept (MA first, then Proxy-State, then legal profile attrs); deny/default-deny/evaluator error emit Access-Reject. No user/group RADIUS rules.
+- [ ] `RAD-ACCESS-003` … `RAD-ACCESS-007` Remaining access reply orchestration (challenge, remaining methods).
 - [x] `RAD-POL-001` RADIUS access policy dialect compiler (client + fallback; `groups_any` / `method` / typed `equals|present|absent`; default deny). `pap` stores `password`. No user/group RADIUS fields. Snapshot compile fails closed on illegal reply roles.
-- [ ] `RAD-POL-002` … `RAD-POL-007` remaining policy eval-on-wire / Access-Accept from the access path.
+- [x] `RAD-POL-002` Policy evaluation on the access path; runtime reply-role legality; golden traces unchanged for TACACS.
+- [ ] `RAD-POL-003` … `RAD-POL-007` Remaining policy explain/API surfaces.
 - [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.
 - [ ] `RAD-API-001` … `RAD-API-006` Administrative operations and REST/MCP parity.
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.

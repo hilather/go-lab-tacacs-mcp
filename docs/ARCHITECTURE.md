@@ -142,7 +142,7 @@ The policy package must not know about HTTP, MCP, JSON-RPC, React, TCP connectio
 
 ### 4.4.1 `internal/policy/radius`
 
-RADIUS access policy is a **separate dialect**. It must not import `internal/aaa` or the TACACS policy parent. Shared enums are `domain.AuthMethod` and `domain.Effect`. MVP evaluation is client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. User/group RADIUS rules are deferred. Match keys are `groups_any`, `method` (`pap` stores `password`), and typed `equals`/`present`/`absent`. Reply-profile merge and Access-Accept/Reject role legality are compile-time. There is no UDP in this package. Do not advertise complete RADIUS.
+RADIUS access policy is a **separate dialect**. It must not import `internal/aaa` or the TACACS policy parent. Shared enums are `domain.AuthMethod` and `domain.Effect`. MVP evaluation is client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. User/group RADIUS rules are deferred. Match keys are `groups_any`, `method` (`pap` stores `password`), and typed `equals`/`present`/`absent`. Reply-profile merge and Access-Accept/Reject role legality are compile-time and re-checked at evaluate. There is no UDP in this package. Do not advertise complete RADIUS.
 
 ### 4.5 `internal/credentials`
 
@@ -175,7 +175,7 @@ type Service interface {
 }
 ```
 
-`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` (`RAD-DOM-003`) verifies RADIUS PAP/CHAP and default-denies; it does not emit Access-Accept until policy evaluation. `RecordRADIUSAccounting` (`RAD-DOM-004`) maps a RADIUS record onto the same ring: `Acct-Session-Id` is `Event.AcctSessionID` (string) and is never stuffed into TACACS `Event.SessionID uint32`. SUCCESS is returned only after ring accept. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates. RADIUS packets stay in `internal/radius`.
+`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` (`RAD-DOM-003`) verifies RADIUS PAP/CHAP and evaluates the snapshot-held RADIUS policy engine: permit is Access-Accept with legal reply-profile attributes (Message-Authenticator first on the wire); deny, default deny, and evaluator errors are Access-Reject. There are no user/group RADIUS rules. `RecordRADIUSAccounting` (`RAD-DOM-004`) maps a RADIUS record onto the same ring: `Acct-Session-Id` is `Event.AcctSessionID` (string) and is never stuffed into TACACS `Event.SessionID uint32`. SUCCESS is returned only after ring accept. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates. RADIUS packets stay in `internal/radius`.
 
 ### 4.7 `internal/tacacs/codec`
 
@@ -221,7 +221,7 @@ Responsibilities:
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
 
-`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS), enabled RADIUS/UDP listeners (Access-Request PAP/CHAP with default-deny Access-Reject; accounting still stub), and, when enabled, the HTTP admin listener (REST + MCP). Do not advertise complete RADIUS.
+`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS), enabled RADIUS/UDP listeners (Access-Request PAP/CHAP plus compiled-policy Access-Accept/Reject; accounting still stub), and, when enabled, the HTTP admin listener (REST + MCP). Do not advertise complete RADIUS.
 
 ### 4.10 `internal/tacacs/tls`
 

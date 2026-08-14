@@ -11,11 +11,12 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Runtime
 
-- `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on the `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, exact-response retransmission cache). Unknown or ambiguous sources are silently discarded using the compiled snapshot `RADIUSIndex`. The stub handler returns structurally valid Access-Reject / Accounting-Response (Message-Authenticator first). This is not PAP/CHAP and is not advertised as complete RADIUS. Default example YAML stays `enabled: false`.
+- `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on the `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, exact-response retransmission cache). Unknown or ambiguous sources are silently discarded using the compiled snapshot `RADIUSIndex`. Access replies are Access-Accept/Reject from PAP/CHAP plus compiled policy (Message-Authenticator first). Accounting-Response is still a stub. Not advertised as complete RADIUS. Default example YAML stays `enabled: false`.
 - Readiness is snapshot + every required listener + at least one AAA listener (TACACS or RADIUS), unless `server.admin_only: true`. HTTP `system.status.get` still lists the three named sockets.
 
 ### Protocol
 
+- RADIUS Access-Request that passes PAP/CHAP now evaluates the compiled snapshot policy engine. Permit is Access-Accept with legal reply-profile attributes (Message-Authenticator first, then Proxy-State). Deny, default deny, and evaluator errors are Access-Reject. There are no user/group RADIUS rules. Not advertised as complete RADIUS.
 - In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Not advertised.
 - Built-in IETF MVP RADIUS dictionary and packet-role checks (`attribute.Builtin`, version `builtin-mvp-1`). Unknown attributes stay raw. Message-Authenticator is allowed on Accounting-Request and required first on Access and Accounting responses. Named `Cisco-AVPair` is not added. Not advertised.
 - RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Stub UDP replies insert Message-Authenticator first, then the Response Authenticator. Inbound require-versus-allow MA policy and PAP/CHAP are later. Not advertised.

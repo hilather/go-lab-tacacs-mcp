@@ -182,9 +182,50 @@ func TestUDPPAPAndCHAPRejectPaths(t *testing.T) {
 			}
 			assertSigned(t, got, tc.code, tc.id, tc.ra, secret)
 			if got[0] == byte(codec.CodeAccessAccept) {
-				t.Fatal("Access-Accept is not allowed")
+				t.Fatal("no-policy snapshot must default-deny")
 			}
 		})
+	}
+}
+
+func TestUDPPAPAcceptFromCompiledPolicy(t *testing.T) {
+	t.Parallel()
+	ln, _ := startAccessPolicy(t)
+	c := dialUDP(t, ln.Addr().String())
+	secret := []byte(labSecret)
+	var ra [16]byte
+	ra[0] = 0x91
+	hidden, err := crypto.HideUserPassword(secret, ra, []byte(accessTestPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := signAccessRequest(t, secret, codec.Packet{
+		Code:          codec.CodeAccessRequest,
+		Identifier:    7,
+		Authenticator: ra,
+		Attributes: attribute.RawSet{
+			{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+			{Type: attribute.TypeUserPassword, Value: hidden},
+		},
+	})
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	got := readUDP(t, c, 2*time.Second)
+	if got == nil {
+		t.Fatal("missing reply")
+	}
+	assertSigned(t, got, codec.CodeAccessAccept, 7, ra, secret)
+	pkt, err := codec.Decode(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pkt.Attributes[0].Type != attribute.TypeMessageAuthenticator {
+		t.Fatal("Message-Authenticator must be first")
+	}
+	to, ok := pkt.Attributes.First(attribute.TypeSessionTimeout)
+	if !ok || len(to.Value) != 4 || to.Value[0] != 0 || to.Value[1] != 0 || to.Value[2] != 0x02 || to.Value[3] != 0x58 {
+		t.Fatalf("Session-Timeout=%v", to)
 	}
 }
 
@@ -287,6 +328,69 @@ func startAccessUsers(t *testing.T, requireMA, limitPS bool, h server.Handler) (
 	return ln, mgr
 }
 
+func startAccessPolicy(t *testing.T) (*Listener, *state.Manager) {
+	t.Helper()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	login := filepath.Join(dir, "login")
+	chal := filepath.Join(dir, "chal")
+	phc, err := credentials.DeriveArgon2id([]byte(accessTestPassword), credentials.TestParams, rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(login, phc, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(chal, []byte(accessTestChallenge), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	doc := mustParse(t, radiusPolicyYAML(sec, login, chal))
+	lookup := func(ref config.SecretRef) ([]byte, error) { return os.ReadFile(ref.File) }
+	mgr, err := state.New(doc, state.Options{Secrets: lookup})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := aaa.New(aaa.Options{
+		Manager: mgr,
+		Secrets: lookup,
+		Events:  events.New(8, domain.SystemClock{}),
+		Creds:   credentials.Options{Params: credentials.TestParams},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := doc.Listeners.RADIUSAccess
+	settings.Workers = 2
+	settings.QueueCapacity = 32
+	settings.WorkerDeadline = 2 * time.Second
+	ln, err := Listen(Options{
+		Role:     domain.RoleAccess,
+		Bind:     "127.0.0.1:0",
+		Required: true,
+		Settings: settings,
+		Snapshot: mgr.Snapshot,
+		Secrets:  lookup,
+		Handler:  server.Access{AAA: svc},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	errc := make(chan error, 1)
+	go func() { errc <- ln.Serve(ctx) }()
+	waitReady(t, ln)
+	t.Cleanup(func() {
+		cancel()
+		_ = ln.Drain(context.Background())
+		_ = ln.Close()
+		select {
+		case <-errc:
+		case <-time.After(2 * time.Second):
+		}
+	})
+	return ln, mgr
+}
+
 func radiusUsersYAML(secret, login, chal string, requireMA, limitPS bool) string {
 	return `
 schema_version: 2
@@ -324,6 +428,62 @@ users:
         verifier: {file: ` + login + `}
       challenge:
         secret: {file: ` + chal + `}
+`
+}
+
+func radiusPolicyYAML(secret, login, chal string) string {
+	return `
+schema_version: 2
+listeners:
+  tacacs:
+    legacy: {enabled: false}
+    tls: {enabled: false}
+  radius:
+    access:
+      enabled: true
+      bind: 127.0.0.1:0
+      workers: 2
+      queue_capacity: 32
+      retransmission_ttl: 15s
+    accounting:
+      enabled: false
+clients:
+  - id: loop
+    priority: 10
+    match:
+      source_cidrs: ["127.0.0.0/8"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: ` + secret + `}
+          access_policy_id: default-radius-access
+groups:
+  - id: lab-admins
+    priority: 10
+users:
+  - id: lab-admin
+    group_ids: [lab-admins]
+    credentials:
+      login:
+        verifier: {file: ` + login + `}
+      challenge:
+        secret: {file: ` + chal + `}
+radius_reply_profiles:
+  - id: lab-accept
+    attributes:
+      - name: Session-Timeout
+        value: "600"
+radius_policies:
+  - id: default-radius-access
+    rules:
+      - id: permit-lab-admins
+        match:
+          groups_any: [lab-admins]
+        effect: permit
+        reply_profiles: [lab-accept]
 `
 }
 

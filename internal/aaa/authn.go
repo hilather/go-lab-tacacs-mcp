@@ -11,7 +11,7 @@ import (
 // CredentialEvidence is protocol-neutral proof for VerifyCredentials.
 // Password is PAP/password material (credentials.Password, not a raw slice).
 // CHAP uses CHAPID + Challenge + Response. AuthenticateAccess is the RADIUS
-// access facade and default-denies after a credential pass (no policy accept).
+// access facade; after a credential pass it evaluates compiled RADIUS policy.
 type CredentialEvidence struct {
 	Method    domain.AuthMethod
 	Password  credentials.Password

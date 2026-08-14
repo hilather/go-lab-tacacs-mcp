@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/binary"
 	"testing"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
@@ -105,7 +106,7 @@ func TestAccessExtractRejects(t *testing.T) {
 				t.Fatalf("authenticator called=%v user=%q", auth.got.UserID != "", auth.got.UserID)
 			}
 			if res.Response[0] == byte(codec.CodeAccessAccept) {
-				t.Fatal("Access-Accept is not allowed")
+				t.Fatal("reject path must not Access-Accept")
 			}
 		})
 	}
@@ -153,7 +154,7 @@ func TestAccessCHAPUsesChallengeOrRequestAuthenticator(t *testing.T) {
 	}
 }
 
-func TestAccessAcceptDecisionStillRejects(t *testing.T) {
+func TestAccessPermitEmitsAcceptWithProfileAttrs(t *testing.T) {
 	t.Parallel()
 	var ra [16]byte
 	ra[0] = 0x44
@@ -161,14 +162,62 @@ func TestAccessAcceptDecisionStillRejects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	auth := &scriptedAuth{dec: aaa.RadiusAccessDecision{Outcome: aaa.RadiusAccessAccept, ReasonCode: ReasonOK}}
+	var timeout [4]byte
+	binary.BigEndian.PutUint32(timeout[:], 600)
+	auth := &scriptedAuth{dec: aaa.RadiusAccessDecision{
+		Outcome:    aaa.RadiusAccessAccept,
+		ReasonCode: aaa.AccessReasonOK,
+		ReplyAttributes: attribute.RawSet{
+			{Type: attribute.TypeSessionTimeout, Value: timeout[:]},
+		},
+	}}
+	in := signedAccessReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		{Type: attribute.TypeUserPassword, Value: hidden},
+		{Type: attribute.TypeProxyState, Value: []byte("ps")},
+	}, true)
+	res := Access{AAA: auth}.Handle(context.Background(), in)
+	if res.Action != ActionReply || res.Reason != ReasonOK {
+		t.Fatalf("permit must Access-Accept: %+v", res)
+	}
+	assertSigned(t, res.Response, codec.CodeAccessAccept, 1, ra, testSecret)
+	pkt, err := codec.Decode(res.Response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pkt.Attributes.Len() < 3 || pkt.Attributes[0].Type != attribute.TypeMessageAuthenticator {
+		t.Fatalf("MA first: %+v", pkt.Attributes)
+	}
+	if pkt.Attributes[1].Type != attribute.TypeProxyState || string(pkt.Attributes[1].Value) != "ps" {
+		t.Fatalf("Proxy-State second: %+v", pkt.Attributes)
+	}
+	if pkt.Attributes[2].Type != attribute.TypeSessionTimeout || binary.BigEndian.Uint32(pkt.Attributes[2].Value) != 600 {
+		t.Fatalf("Session-Timeout: %+v", pkt.Attributes)
+	}
+}
+
+func TestAccessIllegalAcceptAttrsFailClosed(t *testing.T) {
+	t.Parallel()
+	var ra [16]byte
+	ra[0] = 0x45
+	hidden, err := crypto.HideUserPassword(testSecret, ra, []byte("labpass1!"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth := &scriptedAuth{dec: aaa.RadiusAccessDecision{
+		Outcome:    aaa.RadiusAccessAccept,
+		ReasonCode: aaa.AccessReasonOK,
+		ReplyAttributes: attribute.RawSet{
+			{Type: attribute.TypeNASIPAddress, Value: []byte{192, 0, 2, 1}},
+		},
+	}}
 	in := signedAccessReq(t, ra, attribute.RawSet{
 		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
 		{Type: attribute.TypeUserPassword, Value: hidden},
 	}, true)
 	res := Access{AAA: auth}.Handle(context.Background(), in)
-	if res.Action != ActionReply || res.Reason != ReasonPolicy {
-		t.Fatalf("accept must stay Access-Reject: %+v", res)
+	if res.Action != ActionReply || res.Reason != ReasonInternal {
+		t.Fatalf("illegal accept attrs must reject: %+v", res)
 	}
 	assertSigned(t, res.Response, codec.CodeAccessReject, 1, ra, testSecret)
 }

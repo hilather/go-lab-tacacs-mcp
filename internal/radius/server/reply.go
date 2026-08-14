@@ -57,5 +57,15 @@ func CopyProxyState(in attribute.RawSet) attribute.RawSet {
 
 // RejectAccess signs an Access-Reject: MA first, then unmodified Proxy-State.
 func RejectAccess(secret []byte, id uint8, reqAuth [16]byte, reqAttrs attribute.RawSet) ([]byte, error) {
-	return SignResponse(secret, codec.CodeAccessReject, id, reqAuth, CopyProxyState(reqAttrs))
+	return ReplyAccess(secret, codec.CodeAccessReject, id, reqAuth, reqAttrs, nil)
+}
+
+// ReplyAccess signs an Access-Accept or Access-Reject: Message-Authenticator
+// first, then unmodified Proxy-State, then policy reply attributes.
+func ReplyAccess(secret []byte, code codec.Code, id uint8, reqAuth [16]byte, reqAttrs, policy attribute.RawSet) ([]byte, error) {
+	rest := CopyProxyState(reqAttrs)
+	if policy.Len() > 0 {
+		rest = append(rest, policy...)
+	}
+	return SignResponse(secret, code, id, reqAuth, rest)
 }

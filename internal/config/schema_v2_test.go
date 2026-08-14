@@ -166,23 +166,24 @@ listeners:
 	}
 }
 
-func TestV2RejectsRadiusPoliciesStill(t *testing.T) {
+func TestV2ParsesRadiusPolicies(t *testing.T) {
 	t.Parallel()
-	src := []byte(`
-schema_version: 2
-radius_policies:
-  - id: default-radius-access
-`)
-	_, err := Parse(src)
-	if err == nil {
-		t.Fatal("expected unknown field")
+	doc := mustParseFile(t, "testdata/parse/v2_radius_policies.yaml")
+	if len(doc.RADIUSPolicies) != 1 || doc.RADIUSPolicies[0].ID != "default-radius-access" {
+		t.Fatalf("policies=%+v", doc.RADIUSPolicies)
 	}
-	de, ok := domain.AsError(err)
-	if !ok || de.Code != domain.CodeConfigUnknownField {
-		t.Fatalf("got %v", err)
+	rule := doc.RADIUSPolicies[0].Rules[0]
+	if rule.Match.Method == nil || *rule.Match.Method != domain.AuthMethodPassword {
+		t.Fatalf("pap alias must store password: %#v", rule.Match.Method)
 	}
-	if !strings.Contains(de.Path, "radius_policies") {
-		t.Fatalf("path=%q", de.Path)
+	if doc.FallbackRADIUSPolicyID != "default-radius-access" {
+		t.Fatalf("fallback=%q", doc.FallbackRADIUSPolicyID)
+	}
+	if len(doc.RADIUSReplyProfiles) != 1 || doc.RADIUSReplyProfiles[0].Attributes[0].Name != "Session-Timeout" {
+		t.Fatalf("profiles=%+v", doc.RADIUSReplyProfiles)
+	}
+	if err := Validate(doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

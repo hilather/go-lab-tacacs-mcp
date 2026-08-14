@@ -1,0 +1,24 @@
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+groups:
+  - id: lab-admins
+    enabled: true
+radius_reply_profiles:
+  - id: lab-accept
+    attributes:
+      - name: Session-Timeout
+        value: "600"
+radius_policies:
+  - id: default-radius-access
+    rules:
+      - id: permit-lab-admins
+        match:
+          groups_any: [lab-admins]
+          method: pap
+        effect: permit
+        reply_profiles: [lab-accept]
+      - id: deny-rest
+        effect: deny
+fallback_radius_policy_id: default-radius-access

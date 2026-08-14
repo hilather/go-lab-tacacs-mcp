@@ -1584,7 +1584,8 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
 - [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.
-- [ ] `RAD-POL-001` … `RAD-POL-007` RADIUS access policy and response attributes.
+- [x] `RAD-POL-001` RADIUS access policy dialect compiler (client + fallback; `groups_any` / `method` / typed `equals|present|absent`; default deny). `pap` stores `password`. No user/group RADIUS fields. Snapshot compile fails closed on illegal reply roles. No UDP.
+- [ ] `RAD-POL-002` … `RAD-POL-007` remaining policy eval-on-wire / Access-Accept from the access path.
 - [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.
 - [ ] `RAD-API-001` … `RAD-API-006` Administrative operations and REST/MCP parity.
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.

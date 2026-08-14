@@ -3,20 +3,23 @@ package config
 // Schema version 2 syntax model. Unknown fields still fail via inspectNode.
 
 type rawFileV2 struct {
-	SchemaVersion *int             `yaml:"schema_version"`
-	Metadata      rawMetadata      `yaml:"metadata"`
-	Server        rawServerV2      `yaml:"server"`
-	Runtime       rawRuntime       `yaml:"runtime"`
-	Security      rawSecurityV2    `yaml:"security"`
-	Listeners     rawListenersV2   `yaml:"listeners"`
-	API           rawAPI           `yaml:"api"`
-	Limits        rawLimits        `yaml:"limits"`
-	Clients       []rawClientV2    `yaml:"clients"`
-	Groups        []rawGroup       `yaml:"groups"`
-	Users         []rawUser        `yaml:"users"`
-	FallbackRules rawRuleSet       `yaml:"fallback_rules"`
-	Events        rawEvents        `yaml:"events"`
-	Observability rawObservability `yaml:"observability"`
+	SchemaVersion          *int                    `yaml:"schema_version"`
+	Metadata               rawMetadata             `yaml:"metadata"`
+	Server                 rawServerV2             `yaml:"server"`
+	Runtime                rawRuntime              `yaml:"runtime"`
+	Security               rawSecurityV2           `yaml:"security"`
+	Listeners              rawListenersV2          `yaml:"listeners"`
+	API                    rawAPI                  `yaml:"api"`
+	Limits                 rawLimits               `yaml:"limits"`
+	Clients                []rawClientV2           `yaml:"clients"`
+	Groups                 []rawGroup              `yaml:"groups"`
+	Users                  []rawUser               `yaml:"users"`
+	FallbackRules          rawRuleSet              `yaml:"fallback_rules"`
+	RADIUSReplyProfiles    []rawRADIUSReplyProfile `yaml:"radius_reply_profiles"`
+	RADIUSPolicies         []rawRADIUSPolicy       `yaml:"radius_policies"`
+	FallbackRADIUSPolicyID string                  `yaml:"fallback_radius_policy_id"`
+	Events                 rawEvents               `yaml:"events"`
+	Observability          rawObservability        `yaml:"observability"`
 }
 
 type rawServerV2 struct {
@@ -110,4 +113,45 @@ type rawRADIUSEndpoint struct {
 
 type rawRADIUSEndpointAcct struct {
 	AcceptStatusTypes []string `yaml:"accept_status_types"`
+}
+
+type rawRADIUSPolicy struct {
+	ID    string          `yaml:"id"`
+	Rules []rawRADIUSRule `yaml:"rules"`
+}
+
+type rawRADIUSRule struct {
+	ID            string         `yaml:"id"`
+	Enabled       *bool          `yaml:"enabled"`
+	Match         rawRADIUSMatch `yaml:"match"`
+	Effect        string         `yaml:"effect"`
+	ReplyProfiles []string       `yaml:"reply_profiles"`
+}
+
+type rawRADIUSMatch struct {
+	GroupsAny  []string             `yaml:"groups_any"`
+	Method     string               `yaml:"method"`
+	Attributes []rawRADIUSAttrMatch `yaml:"attributes"`
+}
+
+type rawRADIUSAttrMatch struct {
+	Name     string  `yaml:"name"`
+	Vendor   *uint32 `yaml:"vendor"`
+	Code     *int    `yaml:"code"`
+	Op       string  `yaml:"op"`
+	Value    string  `yaml:"value"`
+	ValueHex string  `yaml:"value_hex"`
+}
+
+type rawRADIUSReplyProfile struct {
+	ID         string               `yaml:"id"`
+	Attributes []rawRADIUSReplyAttr `yaml:"attributes"`
+}
+
+type rawRADIUSReplyAttr struct {
+	Name     string  `yaml:"name"`
+	Vendor   *uint32 `yaml:"vendor"`
+	Code     *int    `yaml:"code"`
+	Value    string  `yaml:"value"`
+	ValueHex string  `yaml:"value_hex"`
 }

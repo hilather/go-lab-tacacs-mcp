@@ -1,0 +1,24 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "lab-admin",
+  "client_id": "lab-switches",
+  "endpoint_id": "radius-udp",
+  "method": "password",
+  "groups": [
+    "lab-admins"
+  ],
+  "steps": [
+    {
+      "source": "client_policy:default-radius-access",
+      "rule_id": "permit-lab-admins",
+      "matched": true,
+      "reason": "matched"
+    }
+  ],
+  "winner": {
+    "source": "client_policy:default-radius-access",
+    "rule_id": "permit-lab-admins",
+    "effect": "permit"
+  },
+  "effect": "permit"
+}

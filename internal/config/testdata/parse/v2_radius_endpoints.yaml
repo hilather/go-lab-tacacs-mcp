@@ -35,3 +35,8 @@ clients:
           access_policy_id: default-radius-access
           accounting:
             accept_status_types: [start, stop, interim_update, accounting_on, accounting_off]
+radius_policies:
+  - id: default-radius-access
+    rules:
+      - id: deny-rest
+        effect: deny

@@ -9,6 +9,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	policyradius "github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius"
 )
 
 type identityStamp struct {
@@ -121,6 +122,10 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err != nil {
 		return nil, nil, err
 	}
+	radPol, err := policyradius.CompileDocument(synth)
+	if err != nil {
+		return nil, nil, err
+	}
 	dict, dictVer := attachedDictionary()
 
 	var life map[string]domain.SecretLifecycle
@@ -155,6 +160,7 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 		index:             idx,
 		radiusAccessIndex: accessIdx,
 		radiusAcctIndex:   acctIdx,
+		radiusPolicies:    radPol,
 		radiusDictionary:  dict,
 		radiusDictVersion: dictVer,
 		secretWarns:       sw,

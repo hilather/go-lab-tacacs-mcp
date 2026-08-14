@@ -123,6 +123,9 @@ func validateDocument(doc *Document, schema int) error {
 	if err := validateRuleSet(doc.FallbackRules.Services, doc.FallbackRules.CommandRules, "fallback_rules"); err != nil {
 		return err
 	}
+	if err := validateRADIUSPolicyRefs(doc, groups); err != nil {
+		return err
+	}
 	if _, err := CompileClientIndex(doc.Clients); err != nil {
 		return err
 	}

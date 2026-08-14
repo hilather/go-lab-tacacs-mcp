@@ -1,0 +1,14 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "lab-admin",
+  "client_id": "no-such-client",
+  "endpoint_id": "",
+  "method": "password",
+  "groups": [
+    "lab-admins"
+  ],
+  "steps": [],
+  "winner": null,
+  "effect": "deny",
+  "default_deny": "no matching access rule"
+}

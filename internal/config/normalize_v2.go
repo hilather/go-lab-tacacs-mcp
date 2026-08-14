@@ -1,6 +1,10 @@
 package config
 
-import "github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+import (
+	"strings"
+
+	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+)
 
 func normalizeV2(raw *rawFileV2) (*Document, error) {
 	doc := defaultDocument()
@@ -74,6 +78,19 @@ func normalizeV2(raw *rawFileV2) (*Document, error) {
 		return nil, err
 	}
 	doc.FallbackRules = fb
+
+	profiles, err := normalizeRADIUSReplyProfiles(raw.RADIUSReplyProfiles)
+	if err != nil {
+		return nil, err
+	}
+	doc.RADIUSReplyProfiles = profiles
+
+	policies, err := normalizeRADIUSPolicies(raw.RADIUSPolicies)
+	if err != nil {
+		return nil, err
+	}
+	doc.RADIUSPolicies = policies
+	doc.FallbackRADIUSPolicyID = strings.TrimSpace(raw.FallbackRADIUSPolicyID)
 
 	if err := normalizeEvents(&doc.Events, raw.Events); err != nil {
 		return nil, err

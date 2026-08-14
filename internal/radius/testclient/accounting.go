@@ -73,8 +73,15 @@ func EncodeAccountingRequest(secret []byte, req AccountingRequest) ([]byte, erro
 	return pkt, nil
 }
 
-// DecodeAccountingResponse requires a valid Response Authenticator and
-// a valid Message-Authenticator.
+// EncodeAccountingResponse inserts Message-Authenticator first (HMAC'd
+// with the Accounting-Request Authenticator in the header), then writes
+// the Response Authenticator (RFC 2869 §5.14).
+func EncodeAccountingResponse(secret []byte, id uint8, reqAuth [16]byte, extra []codec.Attr) ([]byte, error) {
+	return encodeSignedResponse(secret, codec.AccountingResponse, id, reqAuth, extra)
+}
+
+// DecodeAccountingResponse requires a valid Message-Authenticator (computed
+// with reqAuth in the header) and a valid Response Authenticator.
 func DecodeAccountingResponse(secret []byte, reqAuth [16]byte, packet []byte) (AccountingResponse, error) {
 	p, err := codec.Decode(packet)
 	if err != nil {
@@ -83,11 +90,8 @@ func DecodeAccountingResponse(secret []byte, reqAuth [16]byte, packet []byte) (A
 	if p.Code != codec.AccountingResponse {
 		return AccountingResponse{}, ErrUnexpectedCode
 	}
-	if err := codec.ValidateMessageAuthenticator(secret, packet); err != nil {
-		return AccountingResponse{}, ErrInvalidMessageAuthenticator
-	}
-	if err := codec.ValidateResponseAuthenticator(secret, packet, reqAuth); err != nil {
-		return AccountingResponse{}, ErrInvalidResponseAuthenticator
+	if err := validateResponseIntegrity(secret, reqAuth, packet); err != nil {
+		return AccountingResponse{}, err
 	}
 	return AccountingResponse{
 		Identifier:    p.Identifier,

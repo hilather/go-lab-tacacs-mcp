@@ -311,6 +311,20 @@ func packetWithZeroedMA(packet []byte) ([]byte, error) {
 	return work, nil
 }
 
+// WithAuthenticator returns a copy of the declared packet with the
+// Authenticator field replaced. Used to put the Request Authenticator
+// back into a response before Message-Authenticator (RFC 2869 §5.14).
+func WithAuthenticator(packet []byte, auth [16]byte) ([]byte, error) {
+	declared, _, err := declaredSlice(packet)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, len(declared))
+	copy(out, declared)
+	copy(out[4:HeaderLen], auth[:])
+	return out, nil
+}
+
 // PutMessageAuthenticator writes mac into the first type-80 value.
 func PutMessageAuthenticator(packet []byte, mac [16]byte) error {
 	declared, _, err := declaredSlice(packet)

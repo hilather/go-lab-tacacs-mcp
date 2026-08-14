@@ -97,8 +97,19 @@ func EncodeAccessRequest(secret []byte, req AccessRequest, rand io.Reader) ([]by
 	return pkt, nil
 }
 
-// DecodeAccessReply decodes one Access response. The Response Authenticator
-// is always checked. Message-Authenticator is required and validated.
+// EncodeAccessReply builds an Access-Accept/Reject/Challenge. Message-
+// Authenticator is inserted first and HMAC'd with reqAuth in the header,
+// then the Response Authenticator replaces the header field (RFC 2869 §5.14).
+func EncodeAccessReply(secret []byte, code codec.Code, id uint8, reqAuth [16]byte, extra []codec.Attr) ([]byte, error) {
+	if !code.AccessFamily() || code == codec.AccessRequest {
+		return nil, ErrUnexpectedCode
+	}
+	return encodeSignedResponse(secret, code, id, reqAuth, extra)
+}
+
+// DecodeAccessReply decodes one Access response. Message-Authenticator is
+// required and checked with the Request Authenticator substituted into the
+// header. The Response Authenticator is then checked on the original packet.
 func DecodeAccessReply(secret []byte, reqAuth [16]byte, packet []byte) (AccessReply, error) {
 	p, err := codec.Decode(packet)
 	if err != nil {
@@ -107,11 +118,8 @@ func DecodeAccessReply(secret []byte, reqAuth [16]byte, packet []byte) (AccessRe
 	if !p.Code.AccessFamily() || p.Code == codec.AccessRequest {
 		return AccessReply{}, ErrUnexpectedCode
 	}
-	if err := codec.ValidateMessageAuthenticator(secret, packet); err != nil {
-		return AccessReply{}, ErrInvalidMessageAuthenticator
-	}
-	if err := codec.ValidateResponseAuthenticator(secret, packet, reqAuth); err != nil {
-		return AccessReply{}, ErrInvalidResponseAuthenticator
+	if err := validateResponseIntegrity(secret, reqAuth, packet); err != nil {
+		return AccessReply{}, err
 	}
 	return AccessReply{
 		Code:          p.Code,

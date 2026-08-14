@@ -165,7 +165,25 @@ func TestReadyRequiresRequiredListener(t *testing.T) {
 	if reg.HasProtocol(domain.ProtocolRADIUS) {
 		t.Fatal("no RADIUS listener registered")
 	}
+	if !reg.HasReadyAAA() {
+		t.Fatal("HasReadyAAA")
+	}
 	cancel()
+}
+
+func TestHasReadyAAAFalseWhenEmpty(t *testing.T) {
+	t.Parallel()
+	if (&Registry{}).HasReadyAAA() {
+		t.Fatal("empty")
+	}
+	l := newStub("radius_access", "127.0.0.1:1812", domain.CarrierRADIUSUDP)
+	reg, err := New(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reg.HasReadyAAA() {
+		t.Fatal("not started")
+	}
 }
 
 func TestStartRejectsNilErrcAndDoubleStart(t *testing.T) {

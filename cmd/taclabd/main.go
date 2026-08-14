@@ -28,9 +28,10 @@ Usage:
   taclabd version
   taclabd -h | --help
 
-serve binds the enabled TACACS listeners (legacy TCP and/or TLS 1.3)
-and the HTTP admin listener (UI + REST + MCP). Reload is SIGHUP or
-config.reload. File-watch reload is off.
+serve binds the enabled TACACS listeners (legacy TCP and/or TLS 1.3),
+enabled RADIUS/UDP listeners (stub path; default off), and the HTTP
+admin listener (UI + REST + MCP). Reload is SIGHUP or config.reload.
+File-watch reload is off.
 `
 
 func main() {

@@ -22,7 +22,7 @@ There is **no persisted runtime database**. The durable state is files on disk. 
 | Compose wiring | `deployments/compose/compose.yaml` | Yes — mounts YAML + Docker secrets |
 | Runtime overlay | *(none)* | **No** |
 
-`taclabd` never rewrites the baseline file. Unknown YAML fields fail closed. `schema_version: 1` remains the Compose/labgen default. `schema_version: 2` is also accepted for named listeners; RADIUS UDP is not started.
+`taclabd` never rewrites the baseline file. Unknown YAML fields fail closed. `schema_version: 1` remains the Compose/labgen default. `schema_version: 2` is also accepted for named listeners; RADIUS UDP defaults `enabled: false`.
 
 Checked-in template (no secrets): [configs/lab.example.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.yaml). `labgen` writes a Compose-ready copy with file refs that match Docker secret names.
 

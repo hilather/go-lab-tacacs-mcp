@@ -8,8 +8,10 @@ import (
 
 // Stable listener IDs match configuration keys and operations.Listener*.
 const (
-	IDLegacyTACACS = "legacy_tacacs"
-	IDSecureTACACS = "secure_tacacs"
+	IDLegacyTACACS     = "legacy_tacacs"
+	IDSecureTACACS     = "secure_tacacs"
+	IDRADIUSAccess     = "radius_access"
+	IDRADIUSAccounting = "radius_accounting"
 )
 
 // Descriptor is static listener identity. Carrier is the wire binding;

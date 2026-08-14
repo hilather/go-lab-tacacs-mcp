@@ -113,14 +113,17 @@ func keys(names ...string) map[string]struct{} {
 
 // Listener and transport enums used as metric labels.
 const (
-	ListenerLegacy  = "legacy_tacacs"
-	ListenerSecure  = "secure_tacacs"
-	ListenerHTTP    = "http"
-	ListenerMetrics = "metrics"
+	ListenerLegacy           = "legacy_tacacs"
+	ListenerSecure           = "secure_tacacs"
+	ListenerHTTP             = "http"
+	ListenerMetrics          = "metrics"
+	ListenerRADIUSAccess     = "radius_access"
+	ListenerRADIUSAccounting = "radius_accounting"
 
 	TransportLegacy = "legacy"
 	TransportTLS    = "tls"
 	TransportHTTP   = "http"
+	TransportUDP    = "udp"
 
 	ResultSuccess = "success"
 	ResultError   = "error"
@@ -142,7 +145,8 @@ var SecretLifecycleStatuses = []string{StatusCurrent, StatusDueSoon, StatusOverd
 
 func knownListener(v string) bool {
 	switch v {
-	case ListenerLegacy, ListenerSecure, ListenerHTTP, ListenerMetrics:
+	case ListenerLegacy, ListenerSecure, ListenerHTTP, ListenerMetrics,
+		ListenerRADIUSAccess, ListenerRADIUSAccounting:
 		return true
 	default:
 		return false
@@ -151,7 +155,7 @@ func knownListener(v string) bool {
 
 func knownTransport(v string) bool {
 	switch v {
-	case TransportLegacy, TransportTLS, TransportHTTP:
+	case TransportLegacy, TransportTLS, TransportHTTP, TransportUDP:
 		return true
 	default:
 		return false

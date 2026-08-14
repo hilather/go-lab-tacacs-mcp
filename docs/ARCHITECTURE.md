@@ -7,7 +7,7 @@ Last updated: 2026-08-14
 
 TacLab is a single Go process with multiple listeners and one authoritative in-memory effective-state snapshot. The React/TypeScript application is compiled to static assets and embedded into the Go binary. REST and MCP are transport adapters over the same operation registry. TACACS+ protocol handlers are adapters over the same AAA and policy services.
 
-RADIUS is adopted as a **peer** of TACACS in this process ([ADR 0013](decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)). Target packages live under `internal/radius` and must not import `internal/tacacs` (or the reverse). Neutral AAA contracts are additive ([ADR 0014](decisions/0014-neutral-aaa-contract-and-protocol-taxonomy.md)); `domain.Transport` stays TACACS `legacy`/`tls`. Config schema version 2 plus an in-memory v1 migrator is the RADIUS configuration path ([ADR 0017](decisions/0017-config-schema-v2-with-v1-migration.md)). This document does **not** claim a production RADIUS listener exists yet. Do not advertise complete RADIUS until [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) MVP rows have evidence. Implementation names and seams are frozen in [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md).
+RADIUS is adopted as a **peer** of TACACS in this process ([ADR 0013](decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)). Target packages live under `internal/radius` and must not import `internal/tacacs` (or the reverse). Neutral AAA contracts are additive ([ADR 0014](decisions/0014-neutral-aaa-contract-and-protocol-taxonomy.md)); `domain.Transport` stays TACACS `legacy`/`tls`. Config schema version 2 plus an in-memory v1 migrator is the RADIUS configuration path ([ADR 0017](decisions/0017-config-schema-v2-with-v1-migration.md)). Enabled v2 RADIUS/UDP sockets bind and use a stub Access-Reject / Accounting-Response path. Do not advertise complete RADIUS until [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) MVP rows have evidence. Implementation names and seams are frozen in [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md).
 
 The source configuration is a read-only baseline. Runtime mutations form an in-memory overlay. A successful mutation or reload compiles a new immutable effective snapshot and swaps it atomically. Read-heavy protocol and API paths do not mutate the active snapshot.
 
@@ -63,7 +63,7 @@ Responsibilities:
 - Install signal handling.
 - Coordinate readiness, reload, and graceful shutdown.
 
-It contains no protocol, policy, or storage logic. Enabled TACACS listeners are registered in `internal/runtime.Registry`. HTTP and metrics stay outside the registry. RADIUS UDP is not registered. At least one TACACS listener is still required at process start.
+It contains no protocol, policy, or storage logic. Enabled TACACS and RADIUS listeners are registered in `internal/runtime.Registry`. HTTP and metrics stay outside the registry. Process start requires at least one AAA listener unless `server.admin_only: true`.
 
 ### 4.1.1 `internal/runtime`
 
@@ -214,7 +214,7 @@ Responsibilities:
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
 
-`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener (REST + MCP).
+`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS), enabled RADIUS/UDP listeners (stub path), and, when enabled, the HTTP admin listener (REST + MCP).
 
 ### 4.10 `internal/tacacs/tls`
 

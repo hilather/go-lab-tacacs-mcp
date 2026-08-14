@@ -23,6 +23,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
+	radiusudp "github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy"
@@ -83,10 +84,11 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 	legacyOn := doc.Listeners.LegacyTACACS.Enabled
 	secureOn := doc.Listeners.SecureTACACS.Enabled
-	if !legacyOn && !secureOn {
-		return fmt.Errorf("at least one TACACS listener must be enabled")
+	accessOn := doc.Listeners.RADIUSAccess.Enabled
+	acctOn := doc.Listeners.RADIUSAccounting.Enabled
+	if !legacyOn && !secureOn && !accessOn && !acctOn && !doc.Server.AdminOnly {
+		return fmt.Errorf("at least one AAA listener must be enabled")
 	}
-	// RADIUS UDP is not registered. admin_only is stored, not honored.
 
 	obs := observability.New(observability.Options{
 		MetricsEnabled: doc.Observability.Metrics.Enabled,
@@ -180,13 +182,46 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 		built = append(built, secureLn)
 	}
+	if accessOn {
+		accessLn, err := radiusudp.Listen(radiusudp.Options{
+			ID:       runtime.IDRADIUSAccess,
+			Role:     domain.RoleAccess,
+			Bind:     doc.Listeners.RADIUSAccess.Bind,
+			Required: doc.Listeners.RADIUSAccess.Required,
+			Settings: doc.Listeners.RADIUSAccess,
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Logger:   logger,
+			Metrics:  obs.Rec,
+		})
+		if err != nil {
+			cleanup()
+			return err
+		}
+		built = append(built, accessLn)
+	}
+	if acctOn {
+		acctLn, err := radiusudp.Listen(radiusudp.Options{
+			ID:       runtime.IDRADIUSAccounting,
+			Role:     domain.RoleAccounting,
+			Bind:     doc.Listeners.RADIUSAccounting.Bind,
+			Required: doc.Listeners.RADIUSAccounting.Required,
+			Settings: doc.Listeners.RADIUSAccounting,
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Logger:   logger,
+			Metrics:  obs.Rec,
+		})
+		if err != nil {
+			cleanup()
+			return err
+		}
+		built = append(built, acctLn)
+	}
 	listeners, err := runtime.New(built...)
 	if err != nil {
 		cleanup()
 		return err
-	}
-	if doc.Listeners.RADIUSAccess.Enabled || doc.Listeners.RADIUSAccounting.Enabled {
-		logger.Info("radius listeners configured but not started")
 	}
 
 	// serveCtx stops Accept only. Connection sessions use a detached drain context.
@@ -254,6 +289,12 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 	if l := listeners.Get(runtime.IDSecureTACACS); l != nil {
 		fmt.Fprintf(stdout, "listening secure_tacacs %s\n", l.Status().Bind)
+	}
+	if l := listeners.Get(runtime.IDRADIUSAccess); l != nil {
+		fmt.Fprintf(stdout, "listening radius_access %s\n", l.Status().Bind)
+	}
+	if l := listeners.Get(runtime.IDRADIUSAccounting); l != nil {
+		fmt.Fprintf(stdout, "listening radius_accounting %s\n", l.Status().Bind)
 	}
 	fmt.Fprintln(stdout, "ready")
 
@@ -331,7 +372,13 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		if mgr.Snapshot() == nil {
 			return false
 		}
-		return listeners != nil && listeners.HasProtocol(domain.ProtocolTACACS)
+		if listeners != nil && listeners.Len() > 0 && !listeners.Ready() {
+			return false
+		}
+		if doc.Server.AdminOnly {
+			return true
+		}
+		return listeners != nil && listeners.HasReadyAAA()
 	}
 	restSrv := &rest.Server{
 		Registry:     reg,

@@ -153,6 +153,22 @@ func (r *Registry) HasProtocol(p domain.Protocol) bool {
 	return false
 }
 
+// HasReadyAAA reports that a TACACS or RADIUS listener is accepting.
+func (r *Registry) HasReadyAAA() bool {
+	if r == nil {
+		return false
+	}
+	for _, l := range r.listeners {
+		switch l.Protocol() {
+		case domain.ProtocolTACACS, domain.ProtocolRADIUS:
+			if l.Ready() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Start launches each listener in ID order. errc must have room for Len
 // sends; the caller sizes it for extra process sockets (obs, HTTP).
 func (r *Registry) Start(ctx context.Context, errc chan<- error) error {

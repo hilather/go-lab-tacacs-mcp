@@ -1577,15 +1577,16 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 
 ### 22.3 Later epics (not started)
 
-- [x] `RAD-CFG-001` Schema v2 loader + in-memory v1 migrator. RADIUS listeners default `enabled: false` and are not started. Client endpoints and `radius_policies` are later PRs. `config.export` still emits v1.
+- [x] `RAD-CFG-001` Schema v2 loader + in-memory v1 migrator. RADIUS listeners default `enabled: false`. Client endpoints and `radius_policies` are later PRs. `config.export` still emits v1.
 - [x] `RAD-CFG-002` v2 `clients[].endpoints[]`, `PurposeRADIUSSharedSecret`, `EvaluateSecrets` RADIUS policy, `certificate_only` requires TACACS TLS, projection invariant, role-specific RADIUS LPM indexes. Secrets resolved via `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`.
 - [x] `RAD-CFG-003` Snapshot compiles RADIUS access/accounting LPM indexes and an empty dictionary placeholder. v1 TACACS snapshot fields stay equivalent. Invalid RADIUS compile keeps the previous snapshot. Overlay patches retain omitted RADIUS secrets. Listeners are not started.
 - [ ] `RAD-CFG-004` … `RAD-CFG-008` Export convert flag (`normalize=true`).
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
   - [x] Bounded packet encode/decode and raw TLV / VSA framing (`internal/radius/codec`, `internal/radius/attribute`, `testdata/protocol/radius`). No named dictionary, no UDP listener. Rows `R65-PKT-001`, `R65-PKT-002`, `R65-ATTR-001`, `R65-ATTR-002`, `R65-VSA-001` are `IN_PROGRESS` (production goldens/fuzz only; independent `testclient` is still required before PASS).
   - [x] Authenticators, User-Password hide/unhide, Message-Authenticator primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Rows `R65-RAUTH-001`, `R65-PAP-001`, `R66-PKT-001`, `R69-MA-001`, `R79-MA-001` are `IN_PROGRESS` (independent vectors + canary; no UDP listener, no MA-first insertion, independent `testclient` still required).
-- [x] Listener registry (`internal/runtime`) wraps TACACS listeners. `secretLookup` handles `RADIUSSharedSecret`. RADIUS UDP is not started. TACACS is still required. `admin_only` is not honored. HTTP/status still lists three sockets.
-- [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.
+- [x] Listener registry (`internal/runtime`) wraps TACACS and RADIUS listeners. `secretLookup` handles `RADIUSSharedSecret`. HTTP/status still lists three sockets.
+- [x] `RAD-RUN-001` Bounded UDP access/accounting listeners, worker/queue/rate limits, compiled `RADIUSIndex` unknown-client discard, exact-response cache (hit/pending/purge). Stub Access-Reject / Accounting-Response (MA first). Readiness is snapshot + required listeners + at least one AAA listener, or `server.admin_only`. Not advertised; default YAML stays off.
+- [ ] `RAD-RUN-002` … `RAD-RUN-008` Remaining runtime/journal/governor work.
 - [ ] `RAD-ACCESS-001` … `RAD-ACCESS-007` Access authentication and reply orchestration.
 - [ ] `RAD-POL-001` … `RAD-POL-007` RADIUS access policy and response attributes.
 - [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.

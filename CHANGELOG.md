@@ -6,17 +6,18 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Configuration
 
-- Baseline loader accepts `schema_version: 1` and `schema_version: 2`. v1 files migrate in memory to named listener structs; source files are never rewritten. v2 uses `listeners.tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. RADIUS listeners default `enabled: false` (`max_packet_bytes` default **4096**) and are **not started**. Mixed v1/v2 listener keys fail closed. `server.admin_only` and `security.radius_shared_secrets` are v2-only. v2 clients accept `endpoints[]` with `radius_shared_secret` purpose and role-specific RADIUS LPM indexes. Flatten TACACS fields are a projection of TACACS endpoints. `radius_policies` remain an unknown field. `config.export` still emits `schema_version: 1`.
+- Baseline loader accepts `schema_version: 1` and `schema_version: 2`. v1 files migrate in memory to named listener structs; source files are never rewritten. v2 uses `listeners.tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. RADIUS listeners default `enabled: false` (`max_packet_bytes` default **4096**). Mixed v1/v2 listener keys fail closed. `server.admin_only` and `security.radius_shared_secrets` are v2-only. v2 clients accept `endpoints[]` with `radius_shared_secret` purpose and role-specific RADIUS LPM indexes. Flatten TACACS fields are a projection of TACACS endpoints. `radius_policies` remain an unknown field. `config.export` still emits `schema_version: 1`.
 - Compiled snapshots now carry RADIUS access and accounting LPM indexes plus an empty dictionary placeholder. v1 TACACS snapshot fields stay equivalent. Invalid RADIUS compile leaves the previous snapshot. Overlay client patches retain omitted RADIUS secrets.
 
 ### Runtime
 
-- `taclabd serve` starts TACACS listeners through `internal/runtime.Registry`. The process still requires at least one TACACS listener (`server.admin_only` is stored, not honored). RADIUS UDP is **not** registered. `secretLookup` resolves `radius_shared_secret` so a v2 document with RADIUS endpoint secrets can compile. HTTP `system.status.get` still lists the three named sockets.
+- `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on the `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, exact-response retransmission cache). Unknown or ambiguous sources are silently discarded using the compiled snapshot `RADIUSIndex`. The stub handler returns structurally valid Access-Reject / Accounting-Response (Message-Authenticator first). This is not PAP/CHAP and is not advertised as complete RADIUS. Default example YAML stays `enabled: false`.
+- Readiness is snapshot + every required listener + at least one AAA listener (TACACS or RADIUS), unless `server.admin_only: true`. HTTP `system.status.get` still lists the three named sockets.
 
 ### Protocol
 
 - In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Named dictionary and UDP listener are not in this tree yet. Not advertised.
-- RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Response MA-first insertion and require-versus-allow policy are later. Not advertised.
+- RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Stub UDP replies insert Message-Authenticator first, then the Response Authenticator. Inbound require-versus-allow MA policy and PAP/CHAP are later. Not advertised.
 
 ### Security
 

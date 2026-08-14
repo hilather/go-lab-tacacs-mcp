@@ -178,6 +178,18 @@ func waitServeAddr(t *testing.T, stdout, stderr *syncBuf) string {
 	return waitServePrefix(t, stdout, stderr, "listening legacy_tacacs ")
 }
 
+func waitServeReady(t *testing.T, stdout, stderr *syncBuf) {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(stdout.String(), "ready") {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("serve did not become ready: stdout=%q stderr=%q", stdout.String(), stderr.String())
+}
+
 func waitServePrefix(t *testing.T, stdout, stderr *syncBuf, prefix string) string {
 	t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
@@ -358,15 +370,9 @@ func TestServeMissingConfigFile(t *testing.T) {
 	}
 }
 
-func TestServeRequiresTACACS(t *testing.T) {
+func TestServeRequiresAAAUnlessAdminOnly(t *testing.T) {
 	t.Parallel()
-	cases := []struct {
-		name string
-		src  string
-	}{
-		{
-			name: "v1-none",
-			src: `
+	src := `
 schema_version: 1
 listeners:
   legacy_tacacs: {enabled: false}
@@ -374,28 +380,27 @@ listeners:
   http: {enabled: false}
 observability:
   metrics: {enabled: false}
-`,
-		},
-		{
-			name: "v2-radius-only",
-			src: `
-schema_version: 2
-listeners:
-  tacacs:
-    legacy: {enabled: false}
-    tls: {enabled: false}
-  radius:
-    access: {enabled: true, bind: 127.0.0.1:28182}
-  http: {enabled: false}
-observability:
-  metrics: {enabled: false}
-`,
-		},
-		{
-			name: "v2-admin-only",
-			src: `
+`
+	cfg := filepath.Join(t.TempDir(), "lab.yaml")
+	if err := os.WriteFile(cfg, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := serve(context.Background(), []string{"--config", cfg}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit %d want 1 stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "at least one AAA listener must be enabled") {
+		t.Fatalf("stderr=%q", stderr.String())
+	}
+}
+
+func TestServeAdminOnlyStartsWithoutAAA(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "lab.yaml")
+	src := `
 schema_version: 2
 server:
+  shutdown_grace: 1s
   admin_only: true
 listeners:
   tacacs:
@@ -404,29 +409,99 @@ listeners:
   http: {enabled: false}
 observability:
   metrics: {enabled: false}
-`,
-		},
+`
+	if err := os.WriteFile(cfg, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			cfg := filepath.Join(t.TempDir(), "lab.yaml")
-			if err := os.WriteFile(cfg, []byte(tc.src), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			var stdout, stderr bytes.Buffer
-			code := serve(context.Background(), []string{"--config", cfg}, &stdout, &stderr)
-			if code != 1 {
-				t.Fatalf("exit %d want 1 stderr=%q", code, stderr.String())
-			}
-			if !strings.Contains(stderr.String(), "at least one TACACS listener must be enabled") {
-				t.Fatalf("stderr=%q", stderr.String())
-			}
-		})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var stdout, stderr syncBuf
+	errc := make(chan error, 1)
+	go func() { errc <- runServeWith(ctx, cfg, &stdout, &stderr, nil) }()
+	waitServeReady(t, &stdout, &stderr)
+	cancel()
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatalf("serve: %v stderr=%q", err, stderr.String())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("serve did not shut down")
 	}
 }
 
-func TestServeRADIUSSecretCompilesAndDoesNotBindUDP(t *testing.T) {
+func TestServeRADIUSOnlyBindsUDP(t *testing.T) {
+	dir := t.TempDir()
+	radiusSec := filepath.Join(dir, "radius")
+	if err := os.WriteFile(radiusSec, []byte("LabRadius-Secret-32-bytes-ok!!"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(dir, "lab.yaml")
+	src := `
+schema_version: 2
+server:
+  shutdown_grace: 1s
+listeners:
+  tacacs:
+    legacy: {enabled: false}
+    tls: {enabled: false}
+  radius:
+    access:
+      enabled: true
+      required: true
+      bind: 127.0.0.1:0
+    accounting:
+      enabled: true
+      bind: 127.0.0.2:0
+  http: {enabled: false}
+observability:
+  metrics: {enabled: false}
+clients:
+  - id: loop
+    priority: 10
+    match:
+      source_cidrs: ["127.0.0.0/8"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access, accounting]
+        radius:
+          shared_secret: {file: ` + radiusSec + `}
+          require_message_authenticator: true
+          limit_proxy_state: true
+`
+	if err := os.WriteFile(cfg, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var stdout, stderr syncBuf
+	errc := make(chan error, 1)
+	go func() { errc <- runServeWith(ctx, cfg, &stdout, &stderr, nil) }()
+	access := waitServePrefix(t, &stdout, &stderr, "listening radius_access ")
+	if _, err := net.ResolveUDPAddr("udp", access); err != nil {
+		t.Fatalf("access bind %q: %v", access, err)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "listening radius_accounting ") {
+		t.Fatalf("accounting not started: %q", out)
+	}
+	if strings.Contains(out, "listening legacy_tacacs") || strings.Contains(out, "listening secure_tacacs") {
+		t.Fatalf("TACACS must stay off: %q", out)
+	}
+	cancel()
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatalf("serve: %v stderr=%q", err, stderr.String())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("serve did not shut down")
+	}
+}
+
+func TestServeRADIUSSecretCompilesAndBindsUDP(t *testing.T) {
 	dir := t.TempDir()
 	tacacsSec := filepath.Join(dir, "tacacs")
 	radiusSec := filepath.Join(dir, "radius")
@@ -463,7 +538,7 @@ listeners:
       bind: ` + radiusBind + `
     accounting:
       enabled: true
-      bind: 127.0.0.1:0
+      bind: 127.0.0.2:0
   http: {enabled: false}
 observability:
   metrics: {enabled: false}
@@ -499,15 +574,18 @@ clients:
 	go func() { errc <- runServeWith(ctx, cfg, &stdout, &stderr, nil) }()
 	addr := waitServeAddr(t, &stdout, &stderr)
 	out := stdout.String()
-	if strings.Contains(out, "radius") {
-		t.Fatalf("RADIUS must not be started: %q", out)
+	if !strings.Contains(out, "listening radius_access "+radiusBind) {
+		t.Fatalf("RADIUS access must bind %s: %q", radiusBind, out)
+	}
+	if !strings.Contains(out, "listening radius_accounting ") {
+		t.Fatalf("RADIUS accounting must start: %q", out)
 	}
 
 	probe, err := net.ListenPacket("udp", radiusBind)
-	if err != nil {
-		t.Fatalf("RADIUS UDP must remain unbound: %v", err)
+	if err == nil {
+		_ = probe.Close()
+		t.Fatalf("RADIUS UDP must be bound: %s", radiusBind)
 	}
-	_ = probe.Close()
 
 	c, err := tclient.Dial(addr, []byte("LabSecret-16chars!"))
 	if err != nil {

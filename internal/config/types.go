@@ -82,9 +82,8 @@ type Server struct {
 	InstanceID         string
 	ShutdownGrace      time.Duration
 	StartupFailureMode string
-	// AdminOnly is accepted on schema v2. The listener registry exists
-	// but the process still requires a TACACS listener and does not honor
-	// this flag; default false.
+	// AdminOnly is accepted on schema v2 (default false). It is the only
+	// way to start without an AAA listener.
 	AdminOnly bool
 	LogLevel  string
 }
@@ -129,8 +128,8 @@ type SharedSecretPolicy struct {
 }
 
 // Listeners is the named process sockets. RADIUS fields exist after v1
-// migration and on v2 documents; both default to enabled:false. The
-// process does not start RADIUS sockets; the registry is TACACS-only.
+// migration and on v2 documents; both default to enabled:false. When
+// enabled, cmd/taclabd registers the UDP sockets.
 type Listeners struct {
 	LegacyTACACS     TACACSListener
 	SecureTACACS     SecureTACACSListener

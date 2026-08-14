@@ -19,6 +19,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Named dictionary and UDP listener are not in this tree yet. Not advertised.
 - RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Stub UDP replies insert Message-Authenticator first, then the Response Authenticator. Inbound require-versus-allow MA policy and PAP/CHAP are later. Not advertised.
 
+### Added
+
+- RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter. No RADIUS listener; RADIUS support is not advertised.
+
 ### Security
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).

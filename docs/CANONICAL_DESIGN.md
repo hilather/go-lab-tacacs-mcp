@@ -672,11 +672,12 @@ type Service interface {
     AbortAuthentication(context.Context, AuthenticationAbort) error
     Authorize(context.Context, AuthorizationRequest) (AuthorizationDecision, error)
     RecordAccounting(context.Context, AccountingRecord) (AccountingResult, error)
+    RecordRADIUSAccounting(context.Context, RADIUSAccountingRecord) (AccountingResult, error)
     ExplainAuthorization(context.Context, AuthorizationRequest) (PolicyTrace, error)
 }
 ```
 
-No TACACS header/body types here.
+No TACACS header/body types here. `RecordRADIUSAccounting` is additive and does not use `AccountingRecord.Flags`. RADIUS `Acct-Session-Id` is `Event.AcctSessionID` (string).
 
 Authentication policy: the **intersection** of global, listener, client, and user allowed methods applies (most restrictive). Challenge-only mode is a first-class client/listener profile.
 
@@ -1009,7 +1010,7 @@ No existing database. 1.0 state is process memory.
 
 **Token:** `id`, `name`, digest, `scopes`, expiry, last-used (coarse), enabled/revoked, source. Value returned once.
 
-**Event:** monotonic id, timestamp, category/type, result, transport, client id, safe session id, revision, redacted context, optional sensitive fields gated by scope.
+**Event:** monotonic id, timestamp, category/type, result, transport, client id, TACACS session id (`uint32`), optional RADIUS `acct_session_id` (string; `events:sensitive`), revision, redacted context, optional sensitive fields gated by scope. Do not stuff RADIUS `Acct-Session-Id` into the TACACS session id.
 
 ### Migration
 

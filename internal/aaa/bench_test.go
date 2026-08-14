@@ -30,6 +30,27 @@ func BenchmarkCHAPLogin(b *testing.B) {
 	}
 }
 
+func BenchmarkRecordRADIUSAccounting(b *testing.B) {
+	svc, _, _ := testService(b)
+	rec := RADIUSAccountingRecord{
+		Kind:      AccountingStart,
+		UserID:    "lab-admin",
+		SessionID: "bench-sess",
+		SafeAttributes: []SafeAttributeSummary{
+			{Name: "NAS-IP-Address"},
+			{Name: "User-Name"},
+		},
+	}
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := svc.RecordRADIUSAccounting(ctx, rec); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkRecordAccounting(b *testing.B) {
 	svc, _, _ := testService(b)
 	rec := AccountingRecord{

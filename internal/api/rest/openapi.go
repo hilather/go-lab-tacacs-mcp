@@ -371,6 +371,10 @@ func listEventsPath() map[string]any {
 		map[string]any{"name": "cursor", "in": "query", "schema": map[string]any{"type": "string"}},
 		map[string]any{"name": "limit", "in": "query", "schema": map[string]any{"type": "integer"}},
 		map[string]any{"name": "category", "in": "query", "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "style": "form", "explode": true},
+		map[string]any{"name": "protocol", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "listener_role", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "packet_code", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "outcome", "in": "query", "schema": map[string]any{"type": "string"}},
 	}
 	return op
 }
@@ -385,6 +389,10 @@ func streamPath() map[string]any {
 			"parameters": []any{
 				map[string]any{"name": "Last-Event-ID", "in": "header", "schema": map[string]any{"type": "string"}},
 				map[string]any{"name": "category", "in": "query", "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "style": "form", "explode": true},
+				map[string]any{"name": "protocol", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "listener_role", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "packet_code", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "outcome", "in": "query", "schema": map[string]any{"type": "string"}},
 			},
 			"responses": map[string]any{
 				"200": map[string]any{

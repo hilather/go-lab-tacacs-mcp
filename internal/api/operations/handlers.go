@@ -8,6 +8,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -22,14 +23,14 @@ type Deps struct {
 	LoadBaseline func() (*config.Document, error)
 	Secrets      config.SecretLookup
 	Creds        *credentials.Service
-	// Runtime is the live listener inventory. handleStatus does not use
-	// it yet; HTTP/status still lists the three named sockets.
+	// Runtime is the live listener inventory. handleStatus overlays
+	// ready/inflight/queue_depth and appends configured RADIUS sockets.
 	Runtime StatusProvider
 }
 
 // StatusProvider is the live listener inventory from internal/runtime.
-// Status handlers do not consult it yet.
 type StatusProvider interface {
+	Statuses() []runtime.Status
 	Ready() bool
 }
 
@@ -43,7 +44,7 @@ type BuildMeta struct {
 
 func implementedHandlers(deps Deps) map[string]handleFunc {
 	return map[string]handleFunc{
-		IDSystemStatusGet:    handleStatus,
+		IDSystemStatusGet:    handleStatus(deps.Runtime),
 		IDSystemBuildGet:     handleBuild(deps.Build),
 		IDConfigEffectiveGet: handleEffectiveConfig,
 		IDConfigValidate:     handleValidateConfig(deps),

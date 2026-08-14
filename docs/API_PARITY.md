@@ -2,7 +2,7 @@
 
 Status: mandatory  
 MCP baseline: 2026-07-28  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. Objective
 
@@ -227,7 +227,13 @@ The token value appears exactly once in the successful create response on both s
 | `events.list` | `events:read` | `GET /api/v1/events` | tool `taclab.events.list`; resource `taclab://events/recent` | PARITY_REQUIRED |
 | `events.subscribe` | `events:read` | `GET /api/v1/events/stream` using SSE | MCP resource/subscription/listen mechanism | PARITY_DIFFERENT_BINDING |
 
-Sensitive event fields require `events:sensitive` in addition to `events:read`. Redaction is performed in the operation layer before adapter encoding.
+`system.status.get` listeners are additive: existing `id`/`enabled`/`bind`/`transport` stay. New fields are `protocol`, `carrier`, `roles`, `ready`, `required`, `inflight`, `queue_depth`, and `last_error_code`. RADIUS listeners appear after the three TACACS/HTTP sockets when configured. `transport` for RADIUS is `udp` and is not a `domain.Transport` value.
+
+`system.build.get` keeps `tacacs_conformance` and adds `protocols` (`tacacs` / `radius` → `standards` + `conformance_status`). RADIUS stays `partial` until MVP rows have evidence.
+
+`events.list` optional filters `protocol`, `listener_role`, `packet_code`, and `outcome` AND with `categories`. REST SSE accepts the same query parameters. MCP listen stays URI-only; clients pull filtered bodies through `events.list`.
+
+Sensitive event fields require `events:sensitive` in addition to `events:read`. Redaction is performed in the operation layer before adapter encoding. `acct_session_id` is sensitive.
 
 ### 9.7 Protocol-only exceptions
 

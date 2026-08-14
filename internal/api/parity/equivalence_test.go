@@ -8,6 +8,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/tools/registry"
 )
@@ -188,6 +189,18 @@ func parityCases() []parityCase {
 			}
 		}},
 		{id: operations.IDEventsList, req: operations.ListEventsRequest{Limit: 10}},
+		{
+			id:  operations.IDEventsList,
+			req: operations.ListEventsRequest{Limit: 10, Protocol: "radius", ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject"},
+			setup: func(t *testing.T, w *world) {
+				t.Helper()
+				w.Ring.Accept(events.Event{Category: events.CategoryAuthen, Type: "ascii_login"})
+				w.Ring.Accept(events.Event{
+					Category: events.CategoryAuthen, Type: "radius.access", Protocol: "radius",
+					ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject",
+				})
+			},
+		},
 	}
 }
 

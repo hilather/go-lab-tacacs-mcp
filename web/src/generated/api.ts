@@ -43,6 +43,7 @@ export interface BuildInfo {
   schema_version: number;
   tacacs_conformance: string;
   mcp_specification: string;
+  protocols: { [key: string]: ProtocolConformance };
 }
 
 export interface CertMatchView {
@@ -273,6 +274,15 @@ export interface EventView {
   privilege: number;
   port?: string;
   remote?: string;
+  protocol?: string;
+  carrier?: string;
+  listener_role?: string;
+  listener_id?: string;
+  packet_code?: string;
+  outcome?: string;
+  reason_code?: string;
+  endpoint_id?: string;
+  acct_session_id?: string;
 }
 
 export interface ExportConfigRequest {
@@ -345,6 +355,10 @@ export interface ListEventsRequest {
   cursor?: string;
   limit?: number;
   categories?: string[];
+  protocol?: string;
+  listener_role?: string;
+  packet_code?: string;
+  outcome?: string;
 }
 
 export interface ListGroupsRequest {
@@ -370,6 +384,14 @@ export interface ListenerStatus {
   bind: string;
   advertised_port?: number;
   transport: string;
+  protocol: string;
+  carrier: string;
+  roles: string[];
+  ready: boolean;
+  required: boolean;
+  inflight: number;
+  queue_depth: number;
+  last_error_code?: string;
 }
 
 export interface MatchView {
@@ -426,6 +448,11 @@ export interface PolicyTraceWinner {
   source: string;
   rule_id: string;
   action: string;
+}
+
+export interface ProtocolConformance {
+  standards: string[];
+  conformance_status: string;
 }
 
 export interface ReloadConfigRequest {

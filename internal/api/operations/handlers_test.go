@@ -51,11 +51,23 @@ func TestStatusReadsPublishedSnapshot(t *testing.T) {
 	if st.Listeners[0].ID != ListenerLegacy || !st.Listeners[0].Enabled || st.Listeners[0].Transport != string(domain.TransportLegacy) {
 		t.Fatalf("legacy=%+v", st.Listeners[0])
 	}
+	if st.Listeners[0].Protocol != string(domain.ProtocolTACACS) || st.Listeners[0].Carrier != string(domain.CarrierTACACSLegacyTCP) {
+		t.Fatalf("legacy protocol/carrier=%+v", st.Listeners[0])
+	}
+	if len(st.Listeners[0].Roles) != 1 || st.Listeners[0].Roles[0] != string(domain.RoleAAA) {
+		t.Fatalf("legacy roles=%v", st.Listeners[0].Roles)
+	}
 	if st.Listeners[1].ID != ListenerSecure || st.Listeners[1].Enabled {
 		t.Fatalf("secure=%+v", st.Listeners[1])
 	}
+	if st.Listeners[1].Transport != string(domain.TransportTLS) || st.Listeners[1].Protocol != string(domain.ProtocolTACACS) {
+		t.Fatalf("secure protocol/transport=%+v", st.Listeners[1])
+	}
 	if st.Listeners[2].ID != ListenerHTTP || !st.Listeners[2].Enabled || st.Listeners[2].Transport != TransportHTTP {
 		t.Fatalf("http=%+v", st.Listeners[2])
+	}
+	if st.Listeners[2].Protocol != string(domain.ProtocolHTTP) || st.Listeners[2].Carrier != string(domain.CarrierHTTPTCP) {
+		t.Fatalf("http protocol/carrier=%+v", st.Listeners[2])
 	}
 	if st.Listeners[0].Bind == "" || st.Listeners[2].Bind == "" {
 		t.Fatal("bind addresses required")
@@ -147,6 +159,17 @@ func TestBuildReadsSnapshotAndMeta(t *testing.T) {
 	}
 	if info.MCPSpecification != MCPSpecification || info.TACACSConformance != TACACSConformance {
 		t.Fatalf("specs=%+v", info)
+	}
+	tacacs := info.Protocols[string(domain.ProtocolTACACS)]
+	if tacacs.ConformanceStatus != ConformanceStatusPass || len(tacacs.Standards) == 0 {
+		t.Fatalf("tacacs conformance=%+v", tacacs)
+	}
+	radius := info.Protocols[string(domain.ProtocolRADIUS)]
+	if radius.ConformanceStatus != ConformanceStatusPartial {
+		t.Fatalf("radius must stay partial, got %+v", radius)
+	}
+	if radius.ConformanceStatus == ConformanceStatusPass {
+		t.Fatal("do not advertise RADIUS PASS")
 	}
 }
 

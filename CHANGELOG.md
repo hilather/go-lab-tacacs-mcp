@@ -12,7 +12,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ### Runtime
 
 - `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on the `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, exact-response retransmission cache). Unknown or ambiguous sources are silently discarded using the compiled snapshot `RADIUSIndex`. The stub handler returns structurally valid Access-Reject / Accounting-Response (Message-Authenticator first). This is not PAP/CHAP and is not advertised as complete RADIUS. Default example YAML stays `enabled: false`.
-- Readiness is snapshot + every required listener + at least one AAA listener (TACACS or RADIUS), unless `server.admin_only: true`. HTTP `system.status.get` still lists the three named sockets.
+- Readiness is snapshot + every required listener + at least one AAA listener (TACACS or RADIUS), unless `server.admin_only: true`.
+- `system.status.get` reports protocol, carrier, roles, required, and live ready/inflight/queue_depth from `Deps.Runtime`. RADIUS listeners are appended after the TACACS/HTTP sockets when configured. TACACS `transport` stays `legacy`/`tls`.
+- `system.build.get` adds a `protocols` map. RADIUS `conformance_status` is `partial` (not advertised as complete).
+- `events.list` / REST SSE accept optional `protocol`, `listener_role`, `packet_code`, and `outcome` filters ANDed with categories.
 
 ### Protocol
 

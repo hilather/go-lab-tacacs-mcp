@@ -51,6 +51,12 @@
           "mcp_specification": {
             "type": "string"
           },
+          "protocols": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProtocolConformance"
+            },
+            "type": "object"
+          },
           "schema_version": {
             "type": "integer"
           },
@@ -72,7 +78,8 @@
           "ui_version",
           "schema_version",
           "tacacs_conformance",
-          "mcp_specification"
+          "mcp_specification",
+          "protocols"
         ],
         "type": "object"
       },
@@ -829,6 +836,9 @@
       "EventView": {
         "additionalProperties": false,
         "properties": {
+          "acct_session_id": {
+            "type": "string"
+          },
           "arguments": {
             "items": {
               "$ref": "#/components/schemas/EventAV"
@@ -841,6 +851,9 @@
           "authen_type": {
             "type": "string"
           },
+          "carrier": {
+            "type": "string"
+          },
           "category": {
             "type": "string"
           },
@@ -850,14 +863,35 @@
           "command": {
             "type": "string"
           },
+          "endpoint_id": {
+            "type": "string"
+          },
           "id": {
             "type": "integer"
+          },
+          "listener_id": {
+            "type": "string"
+          },
+          "listener_role": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "packet_code": {
+            "type": "string"
           },
           "port": {
             "type": "string"
           },
           "privilege": {
             "type": "integer"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string"
           },
           "remote": {
             "type": "string"
@@ -1153,6 +1187,18 @@
           },
           "limit": {
             "type": "integer"
+          },
+          "listener_role": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "packet_code": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -1208,11 +1254,38 @@
           "bind": {
             "type": "string"
           },
+          "carrier": {
+            "type": "string"
+          },
           "enabled": {
             "type": "boolean"
           },
           "id": {
             "type": "string"
+          },
+          "inflight": {
+            "type": "integer"
+          },
+          "last_error_code": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "queue_depth": {
+            "type": "integer"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "transport": {
             "type": "string"
@@ -1222,7 +1295,14 @@
           "id",
           "enabled",
           "bind",
-          "transport"
+          "transport",
+          "protocol",
+          "carrier",
+          "roles",
+          "ready",
+          "required",
+          "inflight",
+          "queue_depth"
         ],
         "type": "object"
       },
@@ -1459,6 +1539,25 @@
           "status",
           "detail",
           "code"
+        ],
+        "type": "object"
+      },
+      "ProtocolConformance": {
+        "additionalProperties": false,
+        "properties": {
+          "conformance_status": {
+            "type": "string"
+          },
+          "standards": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "standards",
+          "conformance_status"
         ],
         "type": "object"
       },
@@ -3321,6 +3420,34 @@
               "type": "array"
             },
             "style": "form"
+          },
+          {
+            "in": "query",
+            "name": "protocol",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "listener_role",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "packet_code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3411,6 +3538,34 @@
               "type": "array"
             },
             "style": "form"
+          },
+          {
+            "in": "query",
+            "name": "protocol",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "listener_role",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "packet_code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

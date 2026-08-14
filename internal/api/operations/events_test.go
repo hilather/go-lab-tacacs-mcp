@@ -160,6 +160,21 @@ func TestListEventsProtocolFilters(t *testing.T) {
 		t.Fatalf("TACACS view should omit protocol: %+v", got.Items[0])
 	}
 
+	mixed, err := reg.Invoke(context.Background(), IDEventsList, mustSnap(t, smallYAML), Input{
+		Actor:   reader,
+		Request: ListEventsRequest{Protocol: "RADIUS", ListenerRole: "ACCESS"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mixedPage := mixed.Data.(EventList)
+	if len(mixedPage.Items) != 1 || mixedPage.Items[0].Type != page.Items[0].Type {
+		t.Fatalf("protocol=RADIUS should match protocol=radius: %+v vs %+v", mixedPage.Items, page.Items)
+	}
+	if mixedPage.Items[0].ID != page.Items[0].ID || mixedPage.Items[0].Protocol != "radius" {
+		t.Fatalf("mixed-case filter page=%+v want=%+v", mixedPage.Items[0], page.Items[0])
+	}
+
 	_, err = reg.Invoke(context.Background(), IDEventsList, mustSnap(t, smallYAML), Input{
 		Actor:   reader,
 		Request: ListEventsRequest{Protocol: "passwd"},

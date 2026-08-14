@@ -92,27 +92,31 @@ func viewEvent(e events.Event, sensitive bool) EventView {
 }
 
 // RingQuery maps list/subscribe filters onto the ring query. Invalid
-// protocol or listener_role values fail closed.
+// protocol or listener_role values fail closed. Accepted tokens are
+// stored in canonical form so mixed-case query values match.
 func (r ListEventsRequest) RingQuery(after uint64) (events.Query, error) {
+	q := events.Query{
+		AfterID:    after,
+		Limit:      r.Limit,
+		Categories: r.Categories,
+		PacketCode: r.PacketCode,
+		Outcome:    r.Outcome,
+	}
 	if r.Protocol != "" {
-		if _, err := domain.ParseProtocol(r.Protocol); err != nil {
+		p, err := domain.ParseProtocol(r.Protocol)
+		if err != nil {
 			return events.Query{}, err
 		}
+		q.Protocol = p.String()
 	}
 	if r.ListenerRole != "" {
-		if _, err := domain.ParseListenerRole(r.ListenerRole); err != nil {
+		role, err := domain.ParseListenerRole(r.ListenerRole)
+		if err != nil {
 			return events.Query{}, err
 		}
+		q.ListenerRole = role.String()
 	}
-	return events.Query{
-		AfterID:      after,
-		Limit:        r.Limit,
-		Categories:   r.Categories,
-		Protocol:     r.Protocol,
-		ListenerRole: r.ListenerRole,
-		PacketCode:   r.PacketCode,
-		Outcome:      r.Outcome,
-	}, nil
+	return q, nil
 }
 
 func copyEventAVs(in []events.EventAV, sensitive bool) []EventAV {

@@ -1570,9 +1570,13 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [ ] `RAD-GOV-001` Verify checkout, baseline, and source drift (pin recorded as `3322c26`; remaining baseline smoke is ongoing CI).
 - [x] `RAD-GOV-005` Add package-boundary and import guard tests.
 
-### 22.2 Later epics (not started)
+### 22.2 EPIC-01 Domain
 
-- [ ] `RAD-DOM-001` … `RAD-DOM-008` Protocol-neutral domain and AAA seam.
+- [x] `RAD-DOM-001` Domain taxonomy: `Protocol`, `ListenerRole`, `Carrier`, `RequestContext`, and shared `AuthMethod`/`Effect`/`AuthOutcome`. `domain.Transport` remains TACACS `legacy`/`tls` only. `ParseAuthMethod` accepts `password`/`pap`/`chap`; `pap` stores `password`.
+- [ ] `RAD-DOM-002` … `RAD-DOM-008` Neutral AAA verification facade, RADIUS access/accounting methods, and TACACS Bridge adapter.
+
+### 22.3 Later epics (not started)
+
 - [ ] `RAD-CFG-001` … `RAD-CFG-008` Config schema v2, migration, and immutable state. `config.export` never emits v2 for a v1 source without `normalize=true`.
 - [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
 - [ ] `RAD-RUN-001` … `RAD-RUN-008` Bounded UDP runtime and process lifecycle.

@@ -15,5 +15,7 @@ rows:
     evidence:
       - unit:internal/radius/crypto.TestMessageAuthenticatorVectors
       - unit:internal/radius/crypto.TestMessageAuthenticatorMissingDuplicateWrongLength
+      - unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors
+      - unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes
       - golden:testdata/protocol/radius/crypto/vectors.json
       - bench:internal/radius/crypto.BenchmarkMessageAuthenticator

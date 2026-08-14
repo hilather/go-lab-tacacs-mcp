@@ -14,6 +14,8 @@ rows:
     evidence:
       - unit:internal/radius/crypto.TestAccountingRequestAuthenticatorVectors
       - unit:internal/radius/crypto.TestAccountingAuthenticatorIgnoresOnWireField
+      - unit:internal/radius/testclient/codec.TestIndependentAccountingRequestAuthenticatorVectors
+      - unit:internal/radius/crypto.TestPeerAccountingRequestAuthenticatorBytes
       - golden:testdata/protocol/radius/crypto/vectors.json
       - fuzz:internal/radius/crypto.FuzzAccountingRequestAuthenticator
       - bench:internal/radius/crypto.BenchmarkAccountingRequestAuthenticator

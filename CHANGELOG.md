@@ -8,6 +8,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - In-tree RADIUS packet and raw-attribute framing (`internal/radius/codec`, `internal/radius/attribute`). One datagram, 20..4096 octets, ordered TLV / VSA preservation. Named dictionary and UDP listener are not in this tree yet. Not advertised.
 - RADIUS authenticators, User-Password hide/unhide, and Message-Authenticator HMAC-MD5 primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Response MA-first insertion and require-versus-allow policy are later. Not advertised.
+- Independent RADIUS testclient codec (`internal/radius/testclient`). Separate encode/decode, authenticators, User-Password, and Message-Authenticator. Production tests compare bytes, not types. Isolation tests forbid production `codec`/`crypto`/`attribute`. Not advertised.
 
 ### Security
 

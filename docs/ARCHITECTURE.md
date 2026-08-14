@@ -180,7 +180,7 @@ The codec is independent of network I/O and can be tested using byte slices and 
 
 ### 4.7b `internal/radius/codec` and `internal/radius/attribute`
 
-In-tree RADIUS framing and crypto primitives only ([ADR 0015](decisions/0015-radius-codec-attribute-and-dictionary-boundary.md), [ADR 0016](decisions/0016-radius-udp-security-retransmission-and-scope.md)). `codec` encodes and decodes one datagram (20..4096 octets, both access and accounting). `attribute` stores ordered, duplicate-preserving raw TLVs and Vendor-Specific (type 26) vendor-id plus opaque payload. `crypto` provides Access-Request nonce generation, Response / Accounting-Request authenticators, User-Password hide/unhide, Message-Authenticator HMAC-MD5 (value zeroed during compute), and constant-time `Equal`. MD5/HMAC-MD5 exist only because RADIUS/UDP requires them. There is no named dictionary, require-versus-allow MA policy, response MA-first insertion, or UDP listener in these packages. Access-Challenge (11) is decoded so a later adapter can discard it; it is not advertised. Independent `internal/radius/testclient` evidence is still required before any RADIUS conformance row is `PASS`.
+In-tree RADIUS framing and crypto primitives only ([ADR 0015](decisions/0015-radius-codec-attribute-and-dictionary-boundary.md), [ADR 0016](decisions/0016-radius-udp-security-retransmission-and-scope.md)). `codec` encodes and decodes one datagram (20..4096 octets, both access and accounting). `attribute` stores ordered, duplicate-preserving raw TLVs and Vendor-Specific (type 26) vendor-id plus opaque payload. `crypto` provides Access-Request nonce generation, Response / Accounting-Request authenticators, User-Password hide/unhide, Message-Authenticator HMAC-MD5 (value zeroed during compute), and constant-time `Equal`. MD5/HMAC-MD5 exist only because RADIUS/UDP requires them. There is no named dictionary, require-versus-allow MA policy, response MA-first insertion, or UDP listener in these packages. Access-Challenge (11) is decoded so a later adapter can discard it; it is not advertised. Independent `internal/radius/testclient` encode/decode exists; UDP listener and remaining row evidence are still required before any RADIUS conformance row is `PASS`.
 
 ### 4.8 `internal/tacacs/server`
 
@@ -238,6 +238,10 @@ Independent TACACS+ test client. Encode/decode uses `internal/tacacs/testclient/
 - Send no 0-RTT and include no `early_data` extension (`ClientSessionCache` is unset).
 
 T98-ROLE evidence uses independent `crypto/tls` peers and raw 12-byte header fixtures. Shared-codec loopback against the production listener is not T98-ROLE evidence.
+
+### 4.10.2 `internal/radius/testclient`
+
+Independent RADIUS test client. Encode/decode, authenticators, User-Password hide/unhide, and Message-Authenticator use `internal/radius/testclient/codec` only. The package must not import production `internal/radius/codec`, `crypto`, `attribute`, `server`, or `udp`. Production tests may compare encoded bytes with the testclient; they must not share types as evidence. Shared-codec loopback is not RADIUS conformance evidence. There is no UDP exchange helper until a production listener exists. This package does not advertise complete RADIUS.
 
 ### 4.11 `internal/api/operations`
 

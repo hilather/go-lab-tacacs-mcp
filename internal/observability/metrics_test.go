@@ -22,6 +22,10 @@ func TestRequiredSeriesPresent(t *testing.T) {
 		MetricSecretLifecycle, MetricSecretWarnings, MetricEventSubscribers,
 		MetricEventOverwritten, MetricEventSubscriberResets,
 		MetricGoGoroutines, MetricGoMemAllocBytes,
+		MetricProtocolRequests, MetricProtocolDiscards, MetricProtocolDuration,
+		MetricRADIUSQueueDepth, MetricRADIUSInflight, MetricRADIUSRetransmission,
+		MetricRADIUSCacheEntries, MetricRADIUSCacheSaturations,
+		MetricRADIUSJournalSaturations, MetricRADIUSAuthenticatorFail,
 	}
 	for _, name := range required {
 		if !strings.Contains(text, name) {
@@ -77,6 +81,80 @@ func TestForbiddenLabelsDropped(t *testing.T) {
 	}
 }
 
+func TestRADIUSSeriesRejectClientIDUsernameAndIP(t *testing.T) {
+	t.Parallel()
+	reg := NewRegistry()
+	reg.Inc(MetricProtocolRequests, Labels{
+		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccess,
+		LabelPacketCode: CodeAccessRequest, LabelOutcome: OutcomeAccessReject,
+		LabelClientID: "lab-switches",
+	}, 1)
+	reg.Inc(MetricProtocolDiscards, Labels{
+		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccess,
+		LabelReasonCode: "discard_unknown_client", "username": "alice",
+	}, 1)
+	reg.Inc(MetricProtocolDiscards, Labels{
+		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccounting,
+		LabelReasonCode: "discard_unknown_client", "ip": "192.0.2.10",
+	}, 1)
+	reg.Inc(MetricRADIUSRetransmission, Labels{
+		LabelRole: RoleAccess, LabelResult: RetransmitMiss, "nas_identifier": "edge-1",
+	}, 1)
+	if reg.DroppedLabels() < 4 {
+		t.Fatalf("dropped=%d", reg.DroppedLabels())
+	}
+	rec := NewRecorder(reg)
+	rec.ProtocolDiscard(ProtocolRADIUS, TransportUDP, RoleAccess, "discard_unknown_client")
+	rec.ProtocolRequest(ProtocolRADIUS, TransportUDP, RoleAccess, CodeAccessReject, OutcomeAccessReject, 0.001)
+	rec.RADIUSRetransmission(RoleAccess, RetransmitMiss)
+	rec.RADIUSCacheSaturation(RoleAccess)
+	rec.RADIUSJournalSaturation(RoleAccounting)
+	rec.RADIUSAuthenticatorFailure(RoleAccess, AuthTypeMessageAuthenticator)
+	rec.RADIUSQueueDepth(RoleAccess, 3)
+	rec.RADIUSInflight(RoleAccounting, 1)
+	var buf bytes.Buffer
+	if err := reg.WritePrometheus(&buf); err != nil {
+		t.Fatal(err)
+	}
+	text := buf.String()
+	for _, leak := range []string{"client_id", "alice", "192.0.2.10", "lab-switches", "nas_identifier", "edge-1"} {
+		if strings.Contains(text, leak) {
+			t.Fatalf("forbidden RADIUS label leaked %q:\n%s", leak, text)
+		}
+	}
+	for _, want := range []string{
+		`taclab_protocol_discards_total{protocol="radius",reason_code="discard_unknown_client",role="access",transport="udp"} 1`,
+		`taclab_protocol_requests_total{code="access_reject",outcome="access_reject",protocol="radius",role="access",transport="udp"} 1`,
+		`taclab_radius_retransmission_total{result="miss",role="access"} 1`,
+		`taclab_radius_cache_saturations_total{role="access"} 1`,
+		`taclab_radius_journal_saturations_total{role="accounting"} 1`,
+		`taclab_radius_authenticator_failures_total{role="access",type="message_authenticator"} 1`,
+		`taclab_radius_queue_depth{role="access"} 3`,
+		`taclab_radius_inflight{role="accounting"} 1`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %s\n%s", want, text)
+		}
+	}
+}
+
+func TestRADIUSUnknownReasonDropped(t *testing.T) {
+	t.Parallel()
+	reg := NewRegistry()
+	reg.Inc(MetricProtocolDiscards, Labels{
+		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccess,
+		LabelReasonCode: "user-alice-bad-password",
+	}, 1)
+	if reg.DroppedLabels() < 1 {
+		t.Fatal("unbounded reason_code must drop")
+	}
+	var buf bytes.Buffer
+	_ = reg.WritePrometheus(&buf)
+	if strings.Contains(buf.String(), "user-alice") {
+		t.Fatalf("unbounded reason leaked:\n%s", buf.String())
+	}
+}
+
 func TestRecorderEmitsBoundedLabels(t *testing.T) {
 	t.Parallel()
 	reg := NewRegistry()
@@ -128,6 +206,8 @@ func TestNilRecorderIsSafe(t *testing.T) {
 	rec.Authen(TransportLegacy, "ascii", "pass")
 	rec.SetRevision(1)
 	rec.SetSecretLifecycle(nil)
+	rec.ProtocolDiscard(ProtocolRADIUS, TransportUDP, RoleAccess, "discard_unknown_client")
+	rec.RADIUSRetransmission(RoleAccess, RetransmitMiss)
 }
 
 func TestClientIDBound(t *testing.T) {

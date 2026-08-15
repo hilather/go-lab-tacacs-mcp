@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
@@ -14,10 +15,11 @@ import (
 )
 
 const (
-	reasonUnknownClient   = server.ReasonUnknownClient
-	reasonAmbiguousClient = server.ReasonAmbiguousClient
-	reasonOverload        = server.ReasonOverload
-	reasonSecretMissing   = "secret_unavailable"
+	reasonUnknownClient    = server.ReasonUnknownClient
+	reasonAmbiguousClient  = server.ReasonAmbiguousClient
+	reasonOverload         = server.ReasonOverload
+	reasonSecretMissing    = "secret_unavailable"
+	reasonJournalSaturated = "journal_saturated"
 )
 
 // serverReasonOverload is used by the receive loop (no process import cycle).
@@ -80,6 +82,14 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		l.note(server.ReasonInvalidCode)
 		return
 	}
+	// Accounting integrity before any cache mutation. Invalid MA or
+	// Request Authenticator must not read, insert, or purge a slot.
+	if l.role == domain.RoleAccounting {
+		if reason := server.CheckAccountingIntegrity(secret, body, pkt); reason != "" {
+			l.note(reason)
+			return
+		}
+	}
 
 	requireMA, limitPS, methods := endpointAccessPolicy(client, endpointID)
 	req := server.Request{
@@ -112,24 +122,49 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 	fp := fingerprintOf(body)
 	switch got, cached := l.cache.Begin(key, fp); got {
 	case LookupHit:
+		l.observeRetransmit(observability.RetransmitHitCompleted)
 		l.writeTo(src, cached)
 		return
 	case LookupPending:
+		l.observeRetransmit(observability.RetransmitHitPending)
 		return
 	case LookupSaturated:
+		l.observeCacheSaturation()
 		l.note(reasonOverload)
 		return
+	case LookupPurged:
+		l.observeRetransmit(observability.RetransmitPurge)
+	default:
+		l.observeRetransmit(observability.RetransmitMiss)
 	}
 
+	req.Peer = peerAddrPort(src)
+	req.AcceptStatusTypes = radiusAcceptStatusTypes(client, endpointID)
+	req.Journal = l.journal
+	req.Sampler = l.sampler
+	start := l.now()
 	res := l.handler.Handle(ctx, req)
+	elapsed := l.now().Sub(start).Seconds()
+	if res.JournalSaturated {
+		l.setError(reasonJournalSaturated)
+		if l.opts.Metrics != nil {
+			l.opts.Metrics.RADIUSJournalSaturation(observability.RoleAccounting)
+		}
+	}
 	if res.Action != server.ActionReply || len(res.Response) == 0 {
 		l.cache.Abandon(key, fp)
 		if res.Reason != "" {
 			l.note(res.Reason)
 		}
+		l.observeCacheEntries()
 		return
 	}
+	if res.Reason == server.ReasonAmbiguousIdentity {
+		l.note(res.Reason)
+	}
 	l.cache.Complete(key, fp, res.Response)
+	l.observeCacheEntries()
+	l.observeRequest(pkt.Code, res, elapsed)
 	l.writeTo(src, res.Response)
 }
 
@@ -159,6 +194,36 @@ func endpointAccessPolicy(client state.EffectiveClient, endpointID string) (requ
 		return ep.RADIUS.RequireMessageAuthenticator, ep.RADIUS.LimitProxyState, append([]string(nil), ep.RADIUS.AllowedAuthenticationMethods...)
 	}
 	return requireMA, limitPS, nil
+}
+
+func radiusAcceptStatusTypes(client state.EffectiveClient, endpointID string) []string {
+	for _, ep := range client.Client.Endpoints {
+		if ep.ID == endpointID && ep.RADIUS != nil {
+			return append([]string(nil), ep.RADIUS.AcceptStatusTypes...)
+		}
+	}
+	return nil
+}
+
+func peerAddrPort(addr net.Addr) netip.AddrPort {
+	if addr == nil {
+		return netip.AddrPort{}
+	}
+	if a, ok := addr.(*net.UDPAddr); ok && a.IP != nil {
+		ip, ok := netip.AddrFromSlice(a.IP)
+		if !ok {
+			return netip.AddrPort{}
+		}
+		if v4 := a.IP.To4(); v4 != nil {
+			ip = netip.AddrFrom4([4]byte{v4[0], v4[1], v4[2], v4[3]})
+		}
+		return netip.AddrPortFrom(ip, uint16(a.Port))
+	}
+	ap, err := netip.ParseAddrPort(addr.String())
+	if err != nil {
+		return netip.AddrPort{}
+	}
+	return ap
 }
 
 func lookupRADIUSSecret(lookup config.SecretLookup, client state.EffectiveClient, endpointID string) ([]byte, error) {
@@ -210,29 +275,78 @@ func (l *Listener) note(reason string) {
 	}
 	l.setError(reason)
 	l.opts.Logger.Debug("radius discard", "listener", l.id, "reason", reason)
-	if l.opts.Metrics != nil {
-		l.opts.Metrics.ProtocolError(metricListener(l.id), observability.TransportUDP, metricCode(reason))
+	if l.opts.Metrics == nil {
+		return
 	}
-}
-
-func metricListener(id string) string {
-	if id == observability.ListenerRADIUSAccounting {
-		return observability.ListenerRADIUSAccounting
-	}
-	return observability.ListenerRADIUSAccess
-}
-
-func metricCode(reason string) string {
+	l.opts.Metrics.ProtocolDiscard(observability.ProtocolRADIUS, observability.TransportUDP, l.metricRole(), reason)
 	switch reason {
-	case reasonUnknownClient, reasonAmbiguousClient:
-		return "unknown_client"
-	case reasonSecretMissing:
-		return "secret_unavailable"
-	case reasonOverload:
-		return "rate_limited"
-	default:
-		return "protocol"
+	case server.ReasonInvalidMA, server.ReasonMissingMA, server.ReasonEAPWithoutMA, server.ReasonProxyStateWithoutMA:
+		l.opts.Metrics.RADIUSAuthenticatorFailure(l.metricRole(), observability.AuthTypeMessageAuthenticator)
+	case server.ReasonInvalidAcctAuth:
+		l.opts.Metrics.RADIUSAuthenticatorFailure(l.metricRole(), observability.AuthTypeAccountingRequest)
 	}
+}
+
+func (l *Listener) observeRetransmit(result string) {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSRetransmission(l.metricRole(), result)
+	}
+}
+
+func (l *Listener) observeCacheSaturation() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSCacheSaturation(l.metricRole())
+	}
+}
+
+func (l *Listener) observeCacheEntries() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSCacheEntries(l.metricRole(), l.cache.len())
+	}
+}
+
+func (l *Listener) observeQueue() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSQueueDepth(l.metricRole(), int(l.queued.Load()))
+	}
+}
+
+func (l *Listener) observeInflight() {
+	if l.opts.Metrics != nil {
+		l.opts.Metrics.RADIUSInflight(l.metricRole(), int(l.inflight.Load()))
+	}
+}
+
+func (l *Listener) observeRequest(reqCode codec.Code, res server.Result, seconds float64) {
+	if l.opts.Metrics == nil {
+		return
+	}
+	code, outcome := replyLabels(reqCode, res)
+	l.opts.Metrics.ProtocolRequest(observability.ProtocolRADIUS, observability.TransportUDP, l.metricRole(), code, outcome, seconds)
+}
+
+func (l *Listener) metricRole() string {
+	if l.role == domain.RoleAccounting {
+		return observability.RoleAccounting
+	}
+	return observability.RoleAccess
+}
+
+func (l *Listener) now() time.Time {
+	if l.opts.Now != nil {
+		return l.opts.Now()
+	}
+	return time.Now()
+}
+
+func replyLabels(req codec.Code, res server.Result) (code, outcome string) {
+	if req == codec.CodeAccountingRequest {
+		return observability.CodeAccountingResponse, observability.OutcomeOK
+	}
+	if res.Reason == server.ReasonOK {
+		return observability.CodeAccessAccept, observability.OutcomeAccessAccept
+	}
+	return observability.CodeAccessReject, observability.OutcomeAccessReject
 }
 
 func wipe(b []byte) {

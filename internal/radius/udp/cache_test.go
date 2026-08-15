@@ -37,7 +37,7 @@ func TestCacheHitPendingPurge(t *testing.T) {
 		t.Fatalf("hit=%v cached=%q", got, cached)
 	}
 
-	if got, _ = c.Begin(key, b); got != LookupMiss {
+	if got, _ = c.Begin(key, b); got != LookupPurged {
 		t.Fatalf("purge then miss=%v", got)
 	}
 	c.Complete(key, b, []byte("reply-b"))

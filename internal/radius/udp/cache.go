@@ -21,6 +21,9 @@ const (
 	LookupPending
 	// LookupSaturated: no room for a new pending slot; drop_overload.
 	LookupSaturated
+	// LookupPurged: same slot, different Request Authenticator; caller owns
+	// a new pending entry (treat as miss after recording a purge).
+	LookupPurged
 )
 
 type slotKey struct {
@@ -103,6 +106,7 @@ func (c *Cache) Begin(key slotKey, fp fingerprint) (Lookup, []byte) {
 	defer c.mu.Unlock()
 	c.expireLocked(now)
 
+	purged := false
 	if e, ok := c.entries[key]; ok {
 		if sameFP(e.fp, fp) {
 			if e.pending {
@@ -112,6 +116,7 @@ func (c *Cache) Begin(key slotKey, fp fingerprint) (Lookup, []byte) {
 			return LookupHit, out
 		}
 		c.removeLocked(key)
+		purged = true
 	}
 	if len(c.entries) >= c.maxEntries {
 		return LookupSaturated, nil
@@ -120,6 +125,9 @@ func (c *Cache) Begin(key slotKey, fp fingerprint) (Lookup, []byte) {
 		pending: true,
 		fp:      fp,
 		expires: now.Add(c.ttl),
+	}
+	if purged {
+		return LookupPurged, nil
 	}
 	return LookupMiss, nil
 }

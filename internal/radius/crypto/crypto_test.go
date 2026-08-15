@@ -233,6 +233,44 @@ func TestAccountingAuthenticatorIgnoresOnWireField(t *testing.T) {
 	}
 }
 
+func TestAccountingAuthenticatorZerosPresentMA(t *testing.T) {
+	t.Parallel()
+	secret := testSecret(t)
+	attrs := attribute.RawSet{
+		{Type: attribute.TypeAcctStatusType, Value: []byte{0, 0, 0, 1}},
+		{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)},
+	}
+	pkt := codec.Packet{Code: codec.CodeAccountingRequest, Identifier: 9, Attributes: attrs}
+	raw, err := codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth, err := AccountingRequestAuthenticator(secret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt.Authenticator = auth
+	raw, err = codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac, err := MessageAuthenticator(secret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt.Attributes[1].Value = append([]byte(nil), mac[:]...)
+	signed, err := codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateAccountingRequestAuthenticator(secret, signed); err != nil {
+		t.Fatalf("authenticator must ignore MA value: %v", err)
+	}
+	if err := ValidateMessageAuthenticator(secret, signed); err != nil {
+		t.Fatalf("ma: %v", err)
+	}
+}
+
 func TestAccountingAuthenticatorShortPacket(t *testing.T) {
 	t.Parallel()
 	_, err := AccountingRequestAuthenticator(testSecret(t), make([]byte, 19))

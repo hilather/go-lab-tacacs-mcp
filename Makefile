@@ -29,7 +29,7 @@ help:
 	@echo "  make fmt              gofmt -w"
 	@echo "  make lint             gofmt check + go vet (+ staticcheck if installed)"
 	@echo "  make fuzz-smoke       fuzz seed corpus as unit tests"
-	@echo "  make bench            header, body, and 64B/1KiB obfuscate benches under internal/tacacs (not credentials KDF)"
+	@echo "  make bench            TACACS + RADIUS codec/crypto/cache benches (not credentials KDF)"
 	@echo "  make web-install      npm ci in web/"
 	@echo "  make web-test         npm test (Vitest component suite)"
 	@echo "  make web-typecheck    tsc --noEmit"

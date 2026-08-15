@@ -74,6 +74,7 @@ func (l *Listener) receiveLoop() error {
 		select {
 		case l.queue <- item:
 			l.queued.Add(1)
+			l.observeQueue()
 		default:
 			wipe(buf)
 			l.note(serverReasonOverload)

@@ -100,6 +100,16 @@ func (r *Registry) declare() {
 	r.mustGauge(MetricGoMemHeapObjects, "Number of allocated heap objects.")
 	r.mustGauge(MetricGoGCPauseSeconds, "Most recent GC pause in seconds.")
 	r.mustCounter(MetricGoNumGC, "Number of completed GC cycles.")
+	r.mustCounter(MetricProtocolRequests, "Protocol request outcomes (RADIUS and future carriers).")
+	r.mustCounter(MetricProtocolDiscards, "Silent protocol discards by closed reason_code.")
+	r.mustHistogram(MetricProtocolDuration, "Protocol request duration in seconds.")
+	r.mustGauge(MetricRADIUSQueueDepth, "RADIUS worker-queue depth by role.")
+	r.mustGauge(MetricRADIUSInflight, "RADIUS in-flight datagrams by role.")
+	r.mustCounter(MetricRADIUSRetransmission, "RADIUS retransmission-cache lookups.")
+	r.mustGauge(MetricRADIUSCacheEntries, "RADIUS retransmission-cache occupancy.")
+	r.mustCounter(MetricRADIUSCacheSaturations, "RADIUS retransmission-cache saturation drops.")
+	r.mustCounter(MetricRADIUSJournalSaturations, "RADIUS accounting journal saturations.")
+	r.mustCounter(MetricRADIUSAuthenticatorFail, "RADIUS authenticator validation failures.")
 
 	// Always publish the closed lifecycle set so scrapes do not invent status.
 	for _, st := range SecretLifecycleStatuses {
@@ -365,6 +375,20 @@ func validLabelValue(name, key, value string) bool {
 		return knownOperationID(value)
 	case LabelClientID:
 		return true
+	case LabelProtocol:
+		return knownProtocol(value)
+	case LabelRole:
+		return knownRole(value)
+	case LabelReasonCode:
+		return knownReasonCode(value)
+	case LabelOutcome:
+		return knownOutcome(value)
+	case LabelPacketCode:
+		return knownPacketCode(value)
+	case LabelResult:
+		return knownRetransmitResult(value)
+	case LabelType:
+		return knownAuthenticatorType(value)
 	default:
 		_ = name
 		return false

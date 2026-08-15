@@ -16,6 +16,8 @@ const (
 	CanaryTLSKey       = "unit-test-obs-tls-private-key-canary-aa06"
 	CanaryCookie       = "unit-test-obs-session-cookie-canary-aa07"
 	CanaryPassword     = "unit-test-obs-password-plain-canary-aa08"
+	CanaryRADIUSShared = "unit-test-obs-radius-shared-canary-aa09"
+	CanaryUserPassword = "unit-test-obs-user-password-canary-aa10"
 )
 
 // AllCanaries is every secret class planted in the matrix.
@@ -23,6 +25,7 @@ func AllCanaries() []string {
 	return []string{
 		CanaryLegacyShared, CanaryLogin, CanaryChallenge, CanaryEnable,
 		CanaryToken, CanaryTLSKey, CanaryCookie, CanaryPassword,
+		CanaryRADIUSShared, CanaryUserPassword,
 	}
 }
 

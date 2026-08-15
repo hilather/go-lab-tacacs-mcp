@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
@@ -28,16 +29,21 @@ type Request struct {
 	EndpointID                  string
 	ListenerID                  string
 	Revision                    domain.Revision
+	Peer                        netip.AddrPort
 	RequireMessageAuthenticator bool
 	LimitProxyState             bool
 	AllowedMethods              []string
+	AcceptStatusTypes           []string
+	Journal                     SemanticJournal
+	Sampler                     AmbiguousSampler
 }
 
 // Result is discard or a fully signed reply.
 type Result struct {
-	Action   Action
-	Reason   string
-	Response []byte
+	Action           Action
+	Reason           string
+	Response         []byte
+	JournalSaturated bool
 }
 
 // Handler turns one request into a discard or signed reply.

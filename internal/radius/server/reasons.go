@@ -12,6 +12,8 @@ const (
 	ReasonMissingMA           = "discard_missing_message_authenticator"
 	ReasonEAPWithoutMA        = "discard_eap_without_ma"
 	ReasonProxyStateWithoutMA = "discard_proxy_state_without_ma"
+	ReasonUnknownAcctStatus   = "discard_unknown_acct_status"
+	ReasonAmbiguousIdentity   = "ambiguous_identity"
 	ReasonOverload            = "drop_overload"
 	ReasonMissingUsername     = "reject_missing_username"
 	ReasonConflictingAuth     = "reject_conflicting_auth"

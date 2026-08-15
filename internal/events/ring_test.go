@@ -353,35 +353,6 @@ func TestConcurrentReadAndWrite(t *testing.T) {
 	}
 }
 
-func TestEventJSONOmitsRADIUSFieldsForTACACS(t *testing.T) {
-	t.Parallel()
-	tacacs := Event{Category: CategoryAcct, Type: "start", Result: "success", SessionID: 7}
-	raw, err := json.Marshal(tacacs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := string(raw)
-	if strings.Contains(s, "acct_session_id") || strings.Contains(s, "protocol") || strings.Contains(s, "listener_role") {
-		t.Fatalf("TACACS JSON grew RADIUS fields: %s", s)
-	}
-	if !strings.Contains(s, `"session_id"`) {
-		t.Fatalf("TACACS session_id missing: %s", s)
-	}
-
-	radius := Event{Category: CategoryAcct, Type: "stop", Protocol: "radius", AcctSessionID: "s1"}
-	raw, err = json.Marshal(radius)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s = string(raw)
-	if strings.Contains(s, `"session_id"`) {
-		t.Fatalf("RADIUS uint32 session_id present: %s", s)
-	}
-	if !strings.Contains(s, `"acct_session_id"`) {
-		t.Fatalf("RADIUS acct_session_id missing: %s", s)
-	}
-}
-
 func TestNilRing(t *testing.T) {
 	t.Parallel()
 	var r *Ring

@@ -15,6 +15,8 @@ rows:
       - unit:internal/radius/crypto.TestMessageAuthenticatorVectors
       - unit:internal/radius/crypto.TestMessageAuthenticatorZerosValueDuringCompute
       - unit:internal/radius/crypto.TestValidateMessageAuthenticatorTamper
+      - unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors
+      - unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes
       - golden:testdata/protocol/radius/crypto/vectors.json
       - fuzz:internal/radius/crypto.FuzzValidateMessageAuthenticator
   - id: R69-MA-002

@@ -211,7 +211,7 @@ func renderRADIUSQualificationSummary(tables ...*ConformanceRegistry) string {
 		b.WriteString(") |\n")
 	}
 	b.WriteString("| Advertised completeness | **Do not claim complete RADIUS** while any MVP row is `NOT_STARTED` or lacks evidence |\n")
-	b.WriteString("| Independent software peer | `internal/radius/testclient` (separate codec; not yet required while rows are `NOT_STARTED`) |\n\n")
+	b.WriteString("| Independent software peer | `internal/radius/testclient` (separate codec; required evidence before any RADIUS row is `PASS`) |\n\n")
 	b.WriteString("RADIUS registries are skeletons until implementation PRs attach evidence. TACACS 1.0 `-release` still gates only RFC 8907/9887.\n\n")
 	return b.String()
 }

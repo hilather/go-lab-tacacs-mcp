@@ -2,7 +2,7 @@
 
 Status: executable implementation plan  
 Architecture: all-in-one Go backend with React and TypeScript frontend  
-Last updated: 2026-08-14
+Last updated: 2026-08-15
 
 ## 1. How agents must use this backlog
 
@@ -1614,6 +1614,21 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-REL-002` v1/v2 migration and `config.export` `normalize=true` documented in `docs/CONFIGURATION.md` and `docs/OPERATOR.md` §13. Source files are never rewritten.
 - [x] `RAD-REL-003` RADIUS operator/troubleshooting guide in `docs/OPERATOR.md` (ports, MA, PAP/CHAP, silent discard, memory-only accounting, residual limits).
 - [x] `RAD-REL-004` README catalog, RADIUS feature table, ADRs 0013–0018, and `docs/RADIUS_CONFORMANCE.md` residual/advertisement section. Interop skip honesty stays in `docs/INTEROP.md`.
-- [x] `RAD-REL-005` `CHANGELOG.md` `[Unreleased]` operator-facing closeout. **No release tag** in this change. Limitations are prominent. `system.build.get` RADIUS stays `partial`.
+- [x] `RAD-REL-005` `CHANGELOG.md` operator-facing RADIUS delta. Limitations are prominent. `system.build.get` RADIUS stays `partial`.
 - [x] `RAD-REL-006` Upgrade/rollback/reset documented (keep v1 file; old binaries cannot parse v2; overlay/cache/journal/ring lost on restart). Lab scenarios remain `make lab-test`.
-- [ ] `RAD-REL-007` Tag/release workflow. **Out of this PR.** Do not tag from the operator-docs closeout.
+- [~] `RAD-REL-007` Tag/release `v1.1.0` after CHANGELOG `## [1.1.0]` and green `ci` + `release` workflows.
+
+### 22.4 Deferred RADIUS extensions (post-1.1.0)
+
+Each item needs its own ADR before implementation. Do not fold them into the UDP lab profile opportunistically. Do not advertise complete RADIUS until the declared MVP plus these rows are dispositioned.
+
+- [ ] `RAD-EXT-001` Access-Challenge with complete state gate (endpoint binding, expiry, replay, capacity, provider tests). Types may exist; do not advertise until the gate is green.
+- [ ] `RAD-EXT-002` EAP method termination and/or pass-through (EAP-Message + MA, method state). Challenge path is a prerequisite.
+- [ ] `RAD-EXT-003` RADIUS MS-CHAPv1/v2 (VSA framing + independent interop vectors). TACACS MS-CHAP is not RADIUS evidence.
+- [ ] `RAD-EXT-004` CoA / Disconnect (RFC 5176) as a separate listener role.
+- [ ] `RAD-EXT-005` Secure RADIUS transport (re-evaluate RadSec / DTLS / RADIUS/1.1). Do not assume a simple TLS wrapper is sufficient.
+- [ ] `RAD-EXT-006` Custom/operator dictionary files and named vendor dictionaries beyond raw VSA framing.
+- [ ] `RAD-EXT-007` Named `Cisco-AVPair` (vendor 9) after independent Cisco IOL vectors. MVP stays raw VSA only.
+- [ ] `RAD-EXT-008` RADIUS proxying / realm routing (second hop; not a lab-appliance default).
+- [ ] `RAD-EXT-009` Persistent accounting (opt-in; requires ADR vs memory-only ring/journal).
+- [ ] `RAD-EXT-010` User- and group-attached RADIUS rules (MVP is client `access_policy_id` + fallback + default deny).

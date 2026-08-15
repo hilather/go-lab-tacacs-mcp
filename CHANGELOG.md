@@ -4,7 +4,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
-Operator-facing closeout of the in-process RADIUS/UDP **lab profile** since 1.0.0. This is **not** a RADIUS completeness release and **does not** cut a tag. Product, module, binary, and image names are unchanged ([ADR 0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)).
+## [1.1.0] — 2026-08-15
+
+RADIUS/UDP **lab profile** in the existing `taclabd` process. This is **not** a RADIUS completeness release. Product, module, binary, and image names are unchanged ([ADR 0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)).
 
 ### Residual limits (prominent)
 

@@ -1,9 +1,45 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { APIError, getBuild, getStatus, hashPrefix, listEvents, listTokens } from "../api/client";
+import { APIError, getBuild, getStatus, hashPrefix, listClients, listEvents, listTokens } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { InsecureRadiusBadge, ProtocolBadge, RoleBadge, UDPWarningBadge } from "../components/ProtocolBadge";
 import { parseObjectSource, SourceBadge, SourceKey } from "../components/SourceBadge";
+import type { BuildInfo, Client, ListenerStatus, Status } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
+import {
+  isRadiusUDPListener,
+  listenerState,
+  listenerStateLabel,
+  radiusInsecureCompatibility,
+  UDP_RADIUS_HINT,
+  warningLooksInsecureRADIUS,
+} from "../ui/radius";
+
+function listenerStateClass(state: ReturnType<typeof listenerState>): string {
+  switch (state) {
+    case "ready":
+      return "state state--on";
+    case "degraded":
+      return "state state--warn";
+    default:
+      return "state state--off";
+  }
+}
+
+function hasUDPRadiusListener(status: Status): boolean {
+  return status.listeners.some((l) => l.enabled && isRadiusUDPListener(l));
+}
+
+function hasInsecureRadius(status: Status, clients: Client[]): boolean {
+  if ((status.warnings ?? []).some(warningLooksInsecureRADIUS)) {
+    return true;
+  }
+  return clients.some(radiusInsecureCompatibility);
+}
+
+function protocolEntries(build: BuildInfo): Array<[string, BuildInfo["protocols"][string]]> {
+  return Object.entries(build.protocols ?? {}).sort(([a], [b]) => a.localeCompare(b));
+}
 
 export function DashboardPage() {
   useEventStream();
@@ -26,6 +62,12 @@ export function DashboardPage() {
     queryKey: ["tokens"],
     queryFn: () => listTokens(),
     enabled: hasScope("tokens:manage"),
+    retry: false,
+  });
+  const clientsQuery = useQuery({
+    queryKey: ["clients"],
+    queryFn: () => listClients({ limit: 200 }),
+    enabled: hasScope("state:read"),
     retry: false,
   });
 
@@ -63,6 +105,9 @@ export function DashboardPage() {
   const build = buildQuery.data?.data;
   const overwritten = eventsQuery.data?.data.overwritten ?? 0;
   const tokens = tokensQuery.data?.data.items ?? [];
+  const clients = clientsQuery.data?.data.items ?? [];
+  const udpEnabled = hasUDPRadiusListener(status);
+  const insecureRadius = hasInsecureRadius(status, clients);
 
   return (
     <main className="page">
@@ -86,6 +131,27 @@ export function DashboardPage() {
         </section>
       ) : null}
 
+      {udpEnabled ? (
+        <section className="banner banner--warn" role="status" aria-labelledby="udp-heading">
+          <h2 id="udp-heading">
+            RADIUS UDP <UDPWarningBadge />
+          </h2>
+          <p>{UDP_RADIUS_HINT}</p>
+        </section>
+      ) : null}
+
+      {insecureRadius ? (
+        <section className="banner banner--warn" role="status" aria-labelledby="insecure-radius-heading">
+          <h2 id="insecure-radius-heading">
+            <InsecureRadiusBadge />
+          </h2>
+          <p>
+            At least one RADIUS endpoint has Message-Authenticator optional. This compatibility mode is
+            for lab interop only and is not a secure RADIUS configuration.
+          </p>
+        </section>
+      ) : null}
+
       {status.warnings && status.warnings.length > 0 ? (
         <section className="banner banner--warn" aria-labelledby="warn-heading">
           <h2 id="warn-heading">Snapshot warnings</h2>
@@ -100,10 +166,12 @@ export function DashboardPage() {
       <section className="panel" aria-labelledby="listeners-heading">
         <h2 id="listeners-heading">Listeners</h2>
         <table className="data">
-          <caption>Configured listener identity from the published snapshot</caption>
+          <caption>Configured listener identity from the published snapshot, with live ready state</caption>
           <thead>
             <tr>
               <th scope="col">ID</th>
+              <th scope="col">Protocol</th>
+              <th scope="col">Roles</th>
               <th scope="col">Transport</th>
               <th scope="col">Bind</th>
               <th scope="col">State</th>
@@ -111,19 +179,7 @@ export function DashboardPage() {
           </thead>
           <tbody>
             {status.listeners.map((l) => (
-              <tr key={l.id}>
-                <th scope="row">{l.id}</th>
-                <td>{l.transport}</td>
-                <td>
-                  {l.bind}
-                  {l.advertised_port !== undefined ? ` (advertised ${String(l.advertised_port)})` : ""}
-                </td>
-                <td>
-                  <span className={l.enabled ? "state state--on" : "state state--off"}>
-                    {l.enabled ? "Enabled" : "Disabled"}
-                  </span>
-                </td>
-              </tr>
+              <ListenerRow key={l.id} listener={l} />
             ))}
           </tbody>
         </table>
@@ -213,6 +269,17 @@ export function DashboardPage() {
               <dt>MCP</dt>
               <dd>{build.mcp_specification}</dd>
             </div>
+            {protocolEntries(build).map(([name, proto]) => (
+              <div key={name}>
+                <dt>
+                  <ProtocolBadge protocol={name} /> conformance
+                </dt>
+                <dd>
+                  {(proto.standards ?? []).join("; ") || "—"} — {proto.conformance_status}
+                  {name === "radius" ? " (not complete RADIUS)" : ""}
+                </dd>
+              </div>
+            ))}
           </dl>
         ) : null}
       </section>
@@ -235,5 +302,39 @@ export function DashboardPage() {
         </section>
       ) : null}
     </main>
+  );
+}
+
+function ListenerRow({ listener }: { listener: ListenerStatus }) {
+  const state = listenerState(listener);
+  const roles = listener.roles ?? [];
+  return (
+    <tr>
+      <th scope="row">{listener.id}</th>
+      <td>
+        {listener.protocol ? <ProtocolBadge protocol={listener.protocol} /> : "—"}
+        {isRadiusUDPListener(listener) ? <UDPWarningBadge /> : null}
+      </td>
+      <td>
+        {roles.length > 0
+          ? roles.map((role) => <RoleBadge key={role} role={role} />)
+          : "—"}
+      </td>
+      <td>{listener.transport}</td>
+      <td>
+        {listener.bind}
+        {listener.advertised_port !== undefined ? ` (advertised ${String(listener.advertised_port)})` : ""}
+      </td>
+      <td>
+        <span className={listenerStateClass(state)}>{listenerStateLabel(state)}</span>
+        {listener.enabled && (listener.inflight > 0 || listener.queue_depth > 0) ? (
+          <span className="hint-inline">
+            {" "}
+            inflight {String(listener.inflight)} queue {String(listener.queue_depth)}
+          </span>
+        ) : null}
+        {listener.last_error_code ? <span className="hint-inline"> {listener.last_error_code}</span> : null}
+      </td>
+    </tr>
   );
 }

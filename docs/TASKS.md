@@ -1606,7 +1606,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-API-005` `radius.attributes.list` returns dictionary metadata only (no values/secrets).
 - [x] `RAD-API-006` Same-change generate (OpenAPI, MCP, frontend types, api-parity matrix).
 - [ ] Remaining `RAD-API-*` UI-adjacent admin surfaces (if any) stay with later PRs.
-- [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
+- [x] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
 - [x] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, distinct RADIUS secret, combined + RADIUS-only + TACACS-only readiness. Not advertised as complete RADIUS.
 - [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
 - [x] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance evidence attached to `testdata/conformance/rfc*.yaml` and `project-radius.yaml`. Independent testclient UDP e2e is PASS. External `radclient` is SKIP when absent (`docs/INTEROP.md`). Fuzz seeds, race tests, and RADIUS benches recorded. Access-Challenge stays `DEFERRED_MAY`. Do not advertise complete RADIUS.

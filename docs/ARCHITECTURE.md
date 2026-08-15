@@ -338,6 +338,7 @@ React/TypeScript responsibilities:
 - consume SSE for live events and state-change invalidation.
 - show source and revision metadata.
 - provide accessible forms and conflict handling.
+- show protocol/role listener state, client RADIUS endpoints, RADIUS test/explain pages, and event protocol/role filters without claiming complete RADIUS.
 - never reproduce credential verification or authorization policy on the client.
 
 The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`.

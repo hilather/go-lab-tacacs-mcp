@@ -325,6 +325,46 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 	if _, ok := scEv["items"]; !ok {
 		t.Fatalf("events.list=%v", listedEvents.Result)
 	}
+
+	if h.Ring.Accept(events.Event{Category: events.CategoryAuthen, Type: "ascii_login"}).ID == 0 {
+		t.Fatal("accept")
+	}
+	if h.Ring.Accept(events.Event{
+		Category: events.CategoryAuthen, Type: "radius.access", Protocol: "radius",
+		ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject",
+	}).ID == 0 {
+		t.Fatal("accept radius")
+	}
+	filtered := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name": "taclab.events.list",
+		"arguments": map[string]any{
+			"protocol":      "radius",
+			"listener_role": "access",
+		},
+	}, nil)
+	if filtered.Err != nil {
+		t.Fatalf("filtered events.list err=%+v", filtered.Err)
+	}
+	scF, _ := filtered.Result["structuredContent"].(map[string]any)
+	items, _ := scF["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("filtered items=%v", scF)
+	}
+	item, _ := items[0].(map[string]any)
+	if item["type"] != "radius.access" || item["protocol"] != "radius" {
+		t.Fatalf("filtered item=%v", item)
+	}
+
+	bld := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name":      "taclab.system.build.get",
+		"arguments": map[string]any{},
+	}, nil)
+	scB, _ := bld.Result["structuredContent"].(map[string]any)
+	protos, _ := scB["protocols"].(map[string]any)
+	rad, _ := protos["radius"].(map[string]any)
+	if rad["conformance_status"] != operations.ConformanceStatusPartial {
+		t.Fatalf("radius build=%v", scB)
+	}
 }
 
 func TestScopeFilteredTools(t *testing.T) {

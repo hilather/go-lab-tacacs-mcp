@@ -113,9 +113,10 @@ type EffectiveGroup struct {
 
 // EffectiveClient is a complete client plus administrative metadata.
 type EffectiveClient struct {
-	Meta      domain.ObjectMeta
-	Client    config.Client
-	Lifecycle domain.SecretLifecycle
+	Meta            domain.ObjectMeta
+	Client          config.Client
+	Lifecycle       domain.SecretLifecycle
+	RADIUSLifecycle domain.SecretLifecycle
 }
 
 // EffectiveToken is a non-secret token descriptor.
@@ -239,9 +240,10 @@ func (s *Snapshot) Client(id string) (EffectiveClient, bool) {
 		return EffectiveClient{}, false
 	}
 	return EffectiveClient{
-		Meta:      cloneMeta(c.Meta),
-		Client:    cloneClient(c.Client),
-		Lifecycle: c.Lifecycle,
+		Meta:            cloneMeta(c.Meta),
+		Client:          cloneClient(c.Client),
+		Lifecycle:       c.Lifecycle,
+		RADIUSLifecycle: c.RADIUSLifecycle,
 	}, true
 }
 

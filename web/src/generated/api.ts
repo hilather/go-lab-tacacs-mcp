@@ -43,6 +43,7 @@ export interface BuildInfo {
   schema_version: number;
   tacacs_conformance: string;
   mcp_specification: string;
+  protocols: { [key: string]: ProtocolConformance };
 }
 
 export interface CertMatchView {
@@ -68,6 +69,8 @@ export interface Client {
   authentication: ClientAuthView;
   authorization: ClientAuthzView;
   accounting: ClientAcctView;
+  protocols?: ClientProtocolsView;
+  endpoints?: ClientEndpointView[];
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +91,24 @@ export interface ClientAuthzView {
   default_group_ids?: string[];
 }
 
+export interface ClientEndpointView {
+  id: string;
+  protocol: string;
+  transport: string;
+  roles?: string[];
+  tacacs?: ClientTACACSEndpointView;
+  radius?: ClientRADIUSProtocolView;
+}
+
+export interface ClientEndpointWrite {
+  id: string;
+  protocol: string;
+  transport: string;
+  roles?: string[];
+  tacacs?: ClientTACACSEndpointWrite;
+  radius?: ClientRADIUSWrite;
+}
+
 export interface ClientList {
   revision: number;
   items: Client[];
@@ -99,6 +120,58 @@ export interface ClientMatchView {
   transports?: string[];
   mode?: string;
   certificate: CertMatchView;
+}
+
+export interface ClientProtocolsView {
+  tacacs: ClientTACACSProtocolView;
+  radius: ClientRADIUSProtocolView;
+}
+
+export interface ClientRADIUSProtocolView {
+  enabled: boolean;
+  roles?: string[];
+  shared_secret_configured: boolean;
+  secret_lifecycle?: string;
+  require_message_authenticator: boolean;
+  limit_proxy_state: boolean;
+  allowed_methods?: string[];
+  access_policy_id?: string;
+  accept_status_types?: string[];
+}
+
+export interface ClientRADIUSWrite {
+  shared_secret?: OptionalSecret;
+  shared_secret_lifecycle?: LifecycleWrite;
+  enabled?: boolean;
+  roles?: string[];
+  require_message_authenticator?: boolean;
+  limit_proxy_state?: boolean;
+  allowed_methods?: string[];
+  access_policy_id?: string;
+  accept_status_types?: string[];
+}
+
+export interface ClientTACACSEndpointView {
+  shared_secret_configured: boolean;
+  allowed_methods?: string[];
+  default_service?: string;
+  default_group_ids?: string[];
+  accounting: ClientAcctView;
+}
+
+export interface ClientTACACSEndpointWrite {
+  shared_secret?: OptionalSecret;
+  shared_secret_lifecycle?: LifecycleWrite;
+  allowed_methods?: string[];
+  default_service?: string;
+  default_group_ids?: string[];
+  accounting?: ClientAcctView;
+}
+
+export interface ClientTACACSProtocolView {
+  legacy_enabled: boolean;
+  tls_enabled: boolean;
+  shared_secret_configured: boolean;
 }
 
 export interface CommandRuleView {
@@ -122,6 +195,8 @@ export interface CreateClientRequest {
   authentication?: ClientAuthView;
   authorization?: ClientAuthzView;
   accounting?: ClientAcctView;
+  endpoints?: ClientEndpointWrite[];
+  radius?: ClientRADIUSWrite;
   override?: boolean;
 }
 
@@ -214,6 +289,8 @@ export interface EffectiveConfig {
   overlay_hash: string;
   compiled_at: string;
   instance_id: string;
+  source_schema_version: number;
+  effective_schema_version: number;
   users: User[];
   groups: Group[];
   clients: Client[];
@@ -273,10 +350,20 @@ export interface EventView {
   privilege: number;
   port?: string;
   remote?: string;
+  protocol?: string;
+  carrier?: string;
+  listener_role?: string;
+  listener_id?: string;
+  packet_code?: string;
+  outcome?: string;
+  reason_code?: string;
+  endpoint_id?: string;
+  acct_session_id?: string;
 }
 
 export interface ExportConfigRequest {
   view?: string;
+  normalize?: boolean;
 }
 
 export interface ExportConfigResult {
@@ -284,6 +371,9 @@ export interface ExportConfigResult {
   view: string;
   format: string;
   yaml: string;
+  source_schema_version: number;
+  effective_schema_version: number;
+  normalized: boolean;
 }
 
 export interface GetClientRequest {
@@ -345,6 +435,10 @@ export interface ListEventsRequest {
   cursor?: string;
   limit?: number;
   categories?: string[];
+  protocol?: string;
+  listener_role?: string;
+  packet_code?: string;
+  outcome?: string;
 }
 
 export interface ListGroupsRequest {
@@ -370,6 +464,14 @@ export interface ListenerStatus {
   bind: string;
   advertised_port?: number;
   transport: string;
+  protocol: string;
+  carrier: string;
+  roles: string[];
+  ready: boolean;
+  required: boolean;
+  inflight: number;
+  queue_depth: number;
+  last_error_code?: string;
 }
 
 export interface MatchView {
@@ -426,6 +528,11 @@ export interface PolicyTraceWinner {
   source: string;
   rule_id: string;
   action: string;
+}
+
+export interface ProtocolConformance {
+  standards: string[];
+  conformance_status: string;
 }
 
 export interface ReloadConfigRequest {
@@ -543,6 +650,8 @@ export interface UpdateClientRequest {
   authentication?: ClientAuthView;
   authorization?: ClientAuthzView;
   accounting?: ClientAcctView;
+  endpoints?: ClientEndpointWrite[];
+  radius?: ClientRADIUSWrite;
 }
 
 export interface UpdateGroupRequest {

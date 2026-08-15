@@ -27,7 +27,21 @@ func handleBuild(meta BuildMeta) handleFunc {
 			SchemaVersion:     schema,
 			TACACSConformance: TACACSConformance,
 			MCPSpecification:  MCPSpecification,
+			Protocols:         protocolConformance(),
 		}, nil
+	}
+}
+
+func protocolConformance() map[string]ProtocolConformance {
+	return map[string]ProtocolConformance{
+		string(domain.ProtocolTACACS): {
+			Standards:         []string{"RFC 8907", "RFC 9887"},
+			ConformanceStatus: ConformanceStatusPass,
+		},
+		string(domain.ProtocolRADIUS): {
+			Standards:         []string{"RFC 2865", "RFC 2866", "RFC 2869", "RFC 3579", "RFC 5080"},
+			ConformanceStatus: ConformanceStatusPartial,
+		},
 	}
 }
 

@@ -72,6 +72,17 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 		writeProblemID(w, http.StatusBadRequest, domain.NewError(domain.CodeInvalidArgument, "invalid Last-Event-ID"), rid)
 		return
 	}
+	req, err := listEventsRequest(r.URL.Query())
+	if err != nil {
+		writeDomainID(w, err, rid)
+		return
+	}
+	filter, err := req.RingQuery(after)
+	if err != nil {
+		writeDomainID(w, err, rid)
+		return
+	}
+	filter.Limit = events.MaxLimit
 	if err := ClearWriteDeadline(w); err != nil && s.Logger != nil {
 		s.Logger.Info("rest sse deadline", "err", err, "request_id", rid)
 	}
@@ -85,8 +96,6 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
-
-	want := categorySet(r.URL.Query()["category"])
 	sensitive := auth.Has(actor.Scopes, "events:sensitive")
 
 	var sub <-chan events.Event
@@ -103,15 +112,12 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 
 	last := after
 	if s.Events != nil && lastEventHdr != "" {
-		page := s.Events.Read(events.Query{AfterID: after, Limit: events.MaxLimit, Categories: r.URL.Query()["category"]})
+		page := s.Events.Read(filter)
 		if page.Reset {
 			writeSSE(w, "0", "reset", map[string]any{"reset": true, "overwritten": page.Overwritten})
 			flush()
 		}
 		for _, ev := range page.Items {
-			if !categoryOK(want, ev.Category) {
-				continue
-			}
 			writeSSE(w, strconv.FormatUint(ev.ID, 10), "", operations.ViewEvent(ev, sensitive))
 			last = ev.ID
 		}
@@ -140,7 +146,7 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 				sub = nil
 				continue
 			}
-			if ev.ID <= last || !categoryOK(want, ev.Category) {
+			if ev.ID <= last || !events.Match(filter, ev) {
 				continue
 			}
 			writeSSE(w, strconv.FormatUint(ev.ID, 10), "", operations.ViewEvent(ev, sensitive))
@@ -192,28 +198,4 @@ func decodeLastEventID(raw string) (uint64, error) {
 		return n, nil
 	}
 	return strconv.ParseUint(raw, 10, 64)
-}
-
-func categorySet(in []string) map[string]struct{} {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]struct{}, len(in))
-	for _, c := range in {
-		if c != "" {
-			out[c] = struct{}{}
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func categoryOK(want map[string]struct{}, got string) bool {
-	if want == nil {
-		return true
-	}
-	_, ok := want[got]
-	return ok
 }

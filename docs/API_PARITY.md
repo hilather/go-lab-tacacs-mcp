@@ -2,7 +2,7 @@
 
 Status: mandatory  
 MCP baseline: 2026-07-28  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. Objective
 
@@ -172,6 +172,8 @@ Names are proposed stable contracts. A naming change requires migration notes an
 
 `config.validate` accepts a candidate configuration document or a request to validate the mounted source. It never publishes state.
 
+`config.effective.get` and `config.export` label `source_schema_version` (the loaded file) and `effective_schema_version` (the compiled normalized model, currently 2). `config.export` never emits v2 YAML for a v1 source unless the explicit convert flag `normalize=true` is set (default false; REST query `normalize=true`, MCP argument `normalize`). A v2 source exports as v2. Flatten TACACS client fields stay on both shapes; `endpoints` and `protocols` appear only on v2-shaped export YAML.
+
 ### 9.2 Users
 
 | Operation ID | Scope | REST | MCP | Disposition |
@@ -208,6 +210,8 @@ Authorization rules are part of user/group resources for 1.0 unless implementati
 
 Shared-secret values and certificate private material are write-only references and never appear in outputs. Non-secret shared-secret lifecycle metadata, `current`/`due_soon`/`overdue`/`unknown` status, validation warnings, and reuse-warning client IDs must be equivalent on REST and MCP. A secret fingerprint is never part of either public contract.
 
+Client objects are additive: existing TACACS flatten fields stay. `endpoints` is the canonical protocol model. `protocols.tacacs` and `protocols.radius` are sanitized views of those endpoints (RADIUS includes `enabled`, `roles`, `shared_secret_configured`, `secret_lifecycle`, Message-Authenticator flags, `allowed_methods`, `access_policy_id`). Create/update accept optional `endpoints[]` and/or a flattened `radius` object with write-only `shared_secret`. Sending both that disagree is `invalid_argument`. Omitted RADIUS secret retains previous material. Explicit null while a RADIUS endpoint remains enabled is `RADIUS_SECRET_MISSING`.
+
 ### 9.5 API tokens
 
 | Operation ID | Scope | REST | MCP | Disposition |
@@ -227,7 +231,13 @@ The token value appears exactly once in the successful create response on both s
 | `events.list` | `events:read` | `GET /api/v1/events` | tool `taclab.events.list`; resource `taclab://events/recent` | PARITY_REQUIRED |
 | `events.subscribe` | `events:read` | `GET /api/v1/events/stream` using SSE | MCP resource/subscription/listen mechanism | PARITY_DIFFERENT_BINDING |
 
-Sensitive event fields require `events:sensitive` in addition to `events:read`. Redaction is performed in the operation layer before adapter encoding.
+`system.status.get` listeners are additive: existing `id`/`enabled`/`bind`/`transport` stay. New fields are `protocol`, `carrier`, `roles`, `ready`, `required`, `inflight`, `queue_depth`, and `last_error_code`. RADIUS listeners appear after the three TACACS/HTTP sockets when configured. `transport` for RADIUS is `udp` and is not a `domain.Transport` value.
+
+`system.build.get` keeps `tacacs_conformance` and adds `protocols` (`tacacs` / `radius` → `standards` + `conformance_status`). RADIUS stays `partial` until MVP rows have evidence.
+
+`events.list` optional filters `protocol`, `listener_role`, `packet_code`, and `outcome` AND with `categories`. REST SSE accepts the same query parameters. MCP listen stays URI-only; clients pull filtered bodies through `events.list`.
+
+Sensitive event fields require `events:sensitive` in addition to `events:read`. Redaction is performed in the operation layer before adapter encoding. `acct_session_id` is sensitive.
 
 ### 9.7 Protocol-only exceptions
 

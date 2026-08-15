@@ -109,6 +109,81 @@ func TestSubscribeRequiresEventsRead(t *testing.T) {
 	}
 }
 
+func TestListEventsProtocolFilters(t *testing.T) {
+	t.Parallel()
+	ring := events.New(16, nil)
+	ring.Accept(events.Event{Category: events.CategoryAuthen, Type: "ascii_login", Result: "pass"})
+	ring.Accept(events.Event{
+		Category: events.CategoryAuthen, Type: "radius.access", Protocol: "radius",
+		ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject",
+		AcctSessionID: "should-redact",
+	})
+	ring.Accept(events.Event{
+		Category: events.CategoryAcct, Type: "start", Protocol: "radius",
+		ListenerRole: "accounting", PacketCode: "accounting-request", Outcome: "ok",
+	})
+	reg, err := New(mustSpec(t), Deps{Events: ring})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := Actor{ID: "r", Scopes: []string{"events:read"}}
+	res, err := reg.Invoke(context.Background(), IDEventsList, mustSnap(t, smallYAML), Input{
+		Actor:   reader,
+		Request: ListEventsRequest{Protocol: "radius", ListenerRole: "access"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := res.Data.(EventList)
+	if len(page.Items) != 1 || page.Items[0].Type != "radius.access" {
+		t.Fatalf("filter=%+v", page.Items)
+	}
+	if page.Items[0].Protocol != "radius" || page.Items[0].PacketCode != "access-request" {
+		t.Fatalf("view=%+v", page.Items[0])
+	}
+	if page.Items[0].AcctSessionID != "" {
+		t.Fatalf("acct_session_id leaked without events:sensitive: %+v", page.Items[0])
+	}
+
+	tacacs, err := reg.Invoke(context.Background(), IDEventsList, mustSnap(t, smallYAML), Input{
+		Actor:   reader,
+		Request: ListEventsRequest{Protocol: "tacacs"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := tacacs.Data.(EventList)
+	if len(got.Items) != 1 || got.Items[0].Type != "ascii_login" {
+		t.Fatalf("omitted protocol should match tacacs: %+v", got.Items)
+	}
+	if got.Items[0].Protocol != "" {
+		t.Fatalf("TACACS view should omit protocol: %+v", got.Items[0])
+	}
+
+	mixed, err := reg.Invoke(context.Background(), IDEventsList, mustSnap(t, smallYAML), Input{
+		Actor:   reader,
+		Request: ListEventsRequest{Protocol: "RADIUS", ListenerRole: "ACCESS"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mixedPage := mixed.Data.(EventList)
+	if len(mixedPage.Items) != 1 || mixedPage.Items[0].Type != page.Items[0].Type {
+		t.Fatalf("protocol=RADIUS should match protocol=radius: %+v vs %+v", mixedPage.Items, page.Items)
+	}
+	if mixedPage.Items[0].ID != page.Items[0].ID || mixedPage.Items[0].Protocol != "radius" {
+		t.Fatalf("mixed-case filter page=%+v want=%+v", mixedPage.Items[0], page.Items[0])
+	}
+
+	_, err = reg.Invoke(context.Background(), IDEventsList, mustSnap(t, smallYAML), Input{
+		Actor:   reader,
+		Request: ListEventsRequest{Protocol: "passwd"},
+	})
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("invalid protocol err=%v", err)
+	}
+}
+
 func TestListEventsRequiresScope(t *testing.T) {
 	t.Parallel()
 	reg, err := New(mustSpec(t), Deps{Events: events.New(4, nil)})

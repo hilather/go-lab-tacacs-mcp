@@ -43,8 +43,8 @@ One `taclabd` process hosts:
 | Legacy TACACS+ | `0.0.0.0:4949` | `49/tcp` | RFC 8907 legacy transport with per-client shared-secret obfuscation |
 | Secure TACACS+ | `0.0.0.0:4300` | `300/tcp` | RFC 9887 TACACS+ over TLS 1.3 |
 | HTTP admin | `0.0.0.0:8080` | `8080/tcp` or reverse proxy | UI, REST, MCP, events, health, metrics when enabled |
-| RADIUS access (planned) | `0.0.0.0:1812` | `1812/udp` | RFC 2865 Access-Request/Accept/Reject over UDP. Default `enabled: false` until a later PR registers the listener |
-| RADIUS accounting (planned) | `0.0.0.0:1813` | `1813/udp` | RFC 2866 Accounting-Request/Response over UDP. Default `enabled: false` until a later PR registers the listener |
+| RADIUS access | `0.0.0.0:1812` | `1812/udp` | RFC 2865 Access-Request/Accept/Reject over UDP. Registers when `enabled: true`; default remains off. Not advertised as complete RADIUS. |
+| RADIUS accounting | `0.0.0.0:1813` | `1813/udp` | RFC 2866 Accounting-Request/Response over UDP. Registers when `enabled: true`; default remains off. Not advertised as complete RADIUS. |
 
 The listeners have independent enablement, connection limits, timeouts, and shutdown deadlines. A failure to bind a configured required listener makes readiness fail and normally terminates startup. An explicitly optional listener may fail only when configuration defines the degraded behavior.
 
@@ -267,7 +267,7 @@ The canonical administrative application API. Each operation has:
 
 Operation handlers invoke state, AAA, event, and token services. REST and MCP register adapters from this registry or are verified against it by generated tests.
 
-The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. Implemented handlers are `system.status.get`, `system.build.get`, `policy.evaluate`, `tokens.list` / `tokens.create` / `tokens.revoke`, and `session.create` / `session.delete`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
+The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. `system.status.get` merges snapshot listener config with live `Deps.Runtime` stats and appends configured RADIUS sockets. `system.build.get` reports per-protocol conformance (RADIUS stays `partial`). `events.list` ANDs optional protocol/role/code/outcome filters with categories. There is no HTTP in this package.
 
 ### 4.11b `internal/api/auth`
 

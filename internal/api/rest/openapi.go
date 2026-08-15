@@ -197,6 +197,14 @@ func frozenSchemaTypes() []any {
 		operations.ClientAuthView{},
 		operations.ClientAuthzView{},
 		operations.ClientAcctView{},
+		operations.ClientProtocolsView{},
+		operations.ClientTACACSProtocolView{},
+		operations.ClientRADIUSProtocolView{},
+		operations.ClientEndpointView{},
+		operations.ClientTACACSEndpointView{},
+		operations.ClientEndpointWrite{},
+		operations.ClientTACACSEndpointWrite{},
+		operations.ClientRADIUSWrite{},
 		operations.LifecycleWrite{},
 		operations.OptionalSecret{},
 		operations.TestAuthenticationRequest{},
@@ -371,6 +379,10 @@ func listEventsPath() map[string]any {
 		map[string]any{"name": "cursor", "in": "query", "schema": map[string]any{"type": "string"}},
 		map[string]any{"name": "limit", "in": "query", "schema": map[string]any{"type": "integer"}},
 		map[string]any{"name": "category", "in": "query", "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "style": "form", "explode": true},
+		map[string]any{"name": "protocol", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "listener_role", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "packet_code", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "outcome", "in": "query", "schema": map[string]any{"type": "string"}},
 	}
 	return op
 }
@@ -385,6 +397,10 @@ func streamPath() map[string]any {
 			"parameters": []any{
 				map[string]any{"name": "Last-Event-ID", "in": "header", "schema": map[string]any{"type": "string"}},
 				map[string]any{"name": "category", "in": "query", "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "style": "form", "explode": true},
+				map[string]any{"name": "protocol", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "listener_role", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "packet_code", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "outcome", "in": "query", "schema": map[string]any{"type": "string"}},
 			},
 			"responses": map[string]any{
 				"200": map[string]any{
@@ -465,8 +481,17 @@ func effectiveConfigPath() map[string]any {
 func exportConfigPath() map[string]any {
 	op := getPath(operations.IDConfigExport, "Redacted configuration YAML", []string{"config:export"}, envelopeRef("ExportConfigResult"), true)
 	get := op["get"].(map[string]any)
-	get["parameters"] = []any{viewParam()}
+	get["parameters"] = []any{viewParam(), normalizeParam()}
 	return op
+}
+
+func normalizeParam() map[string]any {
+	return map[string]any{
+		"name":        "normalize",
+		"in":          "query",
+		"description": "Explicit v1→v2 convert flag. Default false. A v1 source stays v1-shaped unless true.",
+		"schema":      map[string]any{"type": "boolean", "default": false},
+	}
 }
 
 func mutatingPostPath(id, desc string, scopes []string, req, resp map[string]any) map[string]any {

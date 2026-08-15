@@ -51,6 +51,12 @@
           "mcp_specification": {
             "type": "string"
           },
+          "protocols": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProtocolConformance"
+            },
+            "type": "object"
+          },
           "schema_version": {
             "type": "integer"
           },
@@ -72,7 +78,8 @@
           "ui_version",
           "schema_version",
           "tacacs_conformance",
-          "mcp_specification"
+          "mcp_specification",
+          "protocols"
         ],
         "type": "object"
       },
@@ -122,6 +129,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/ClientEndpointView"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -136,6 +149,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "protocols": {
+            "$ref": "#/components/schemas/ClientProtocolsView"
           },
           "revision_created": {
             "type": "integer"
@@ -230,6 +246,70 @@
         },
         "type": "object"
       },
+      "ClientEndpointView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSProtocolView"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tacacs": {
+            "$ref": "#/components/schemas/ClientTACACSEndpointView"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "protocol",
+          "transport"
+        ],
+        "type": "object"
+      },
+      "ClientEndpointWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSWrite"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tacacs": {
+            "$ref": "#/components/schemas/ClientTACACSEndpointWrite"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "protocol",
+          "transport"
+        ],
+        "type": "object"
+      },
       "ClientList": {
         "additionalProperties": false,
         "properties": {
@@ -277,6 +357,195 @@
         },
         "required": [
           "certificate"
+        ],
+        "type": "object"
+      },
+      "ClientProtocolsView": {
+        "additionalProperties": false,
+        "properties": {
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSProtocolView"
+          },
+          "tacacs": {
+            "$ref": "#/components/schemas/ClientTACACSProtocolView"
+          }
+        },
+        "required": [
+          "tacacs",
+          "radius"
+        ],
+        "type": "object"
+      },
+      "ClientRADIUSProtocolView": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_status_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "access_policy_id": {
+            "type": "string"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "limit_proxy_state": {
+            "type": "boolean"
+          },
+          "require_message_authenticator": {
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "secret_lifecycle": {
+            "type": "string"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "shared_secret_configured",
+          "require_message_authenticator",
+          "limit_proxy_state"
+        ],
+        "type": "object"
+      },
+      "ClientRADIUSWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_status_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "access_policy_id": {
+            "type": "string"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "limit_proxy_state": {
+            "type": "boolean"
+          },
+          "require_message_authenticator": {
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "shared_secret": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "shared_secret_lifecycle": {
+            "$ref": "#/components/schemas/LifecycleWrite"
+          }
+        },
+        "type": "object"
+      },
+      "ClientTACACSEndpointView": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_service": {
+            "type": "string"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shared_secret_configured",
+          "accounting"
+        ],
+        "type": "object"
+      },
+      "ClientTACACSEndpointWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_service": {
+            "type": "string"
+          },
+          "shared_secret": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "shared_secret_lifecycle": {
+            "$ref": "#/components/schemas/LifecycleWrite"
+          }
+        },
+        "type": "object"
+      },
+      "ClientTACACSProtocolView": {
+        "additionalProperties": false,
+        "properties": {
+          "legacy_enabled": {
+            "type": "boolean"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          },
+          "tls_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "legacy_enabled",
+          "tls_enabled",
+          "shared_secret_configured"
         ],
         "type": "object"
       },
@@ -329,6 +598,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/ClientEndpointWrite"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -346,6 +621,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSWrite"
           },
           "shared_secret": {
             "$ref": "#/components/schemas/OptionalSecret",
@@ -656,6 +934,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "effective_schema_version": {
+            "type": "integer"
+          },
           "groups": {
             "items": {
               "$ref": "#/components/schemas/Group"
@@ -669,6 +950,9 @@
             "type": "string"
           },
           "revision": {
+            "type": "integer"
+          },
+          "source_schema_version": {
             "type": "integer"
           },
           "tokens": {
@@ -700,6 +984,8 @@
           "overlay_hash",
           "compiled_at",
           "instance_id",
+          "source_schema_version",
+          "effective_schema_version",
           "users",
           "groups",
           "clients",
@@ -829,6 +1115,9 @@
       "EventView": {
         "additionalProperties": false,
         "properties": {
+          "acct_session_id": {
+            "type": "string"
+          },
           "arguments": {
             "items": {
               "$ref": "#/components/schemas/EventAV"
@@ -841,6 +1130,9 @@
           "authen_type": {
             "type": "string"
           },
+          "carrier": {
+            "type": "string"
+          },
           "category": {
             "type": "string"
           },
@@ -850,14 +1142,35 @@
           "command": {
             "type": "string"
           },
+          "endpoint_id": {
+            "type": "string"
+          },
           "id": {
             "type": "integer"
+          },
+          "listener_id": {
+            "type": "string"
+          },
+          "listener_role": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "packet_code": {
+            "type": "string"
           },
           "port": {
             "type": "string"
           },
           "privilege": {
             "type": "integer"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string"
           },
           "remote": {
             "type": "string"
@@ -916,6 +1229,9 @@
       "ExportConfigRequest": {
         "additionalProperties": false,
         "properties": {
+          "normalize": {
+            "type": "boolean"
+          },
           "view": {
             "type": "string"
           }
@@ -925,10 +1241,19 @@
       "ExportConfigResult": {
         "additionalProperties": false,
         "properties": {
+          "effective_schema_version": {
+            "type": "integer"
+          },
           "format": {
             "type": "string"
           },
+          "normalized": {
+            "type": "boolean"
+          },
           "revision": {
+            "type": "integer"
+          },
+          "source_schema_version": {
             "type": "integer"
           },
           "view": {
@@ -942,7 +1267,10 @@
           "revision",
           "view",
           "format",
-          "yaml"
+          "yaml",
+          "source_schema_version",
+          "effective_schema_version",
+          "normalized"
         ],
         "type": "object"
       },
@@ -1153,6 +1481,18 @@
           },
           "limit": {
             "type": "integer"
+          },
+          "listener_role": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "packet_code": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -1208,11 +1548,38 @@
           "bind": {
             "type": "string"
           },
+          "carrier": {
+            "type": "string"
+          },
           "enabled": {
             "type": "boolean"
           },
           "id": {
             "type": "string"
+          },
+          "inflight": {
+            "type": "integer"
+          },
+          "last_error_code": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "queue_depth": {
+            "type": "integer"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "transport": {
             "type": "string"
@@ -1222,7 +1589,14 @@
           "id",
           "enabled",
           "bind",
-          "transport"
+          "transport",
+          "protocol",
+          "carrier",
+          "roles",
+          "ready",
+          "required",
+          "inflight",
+          "queue_depth"
         ],
         "type": "object"
       },
@@ -1459,6 +1833,25 @@
           "status",
           "detail",
           "code"
+        ],
+        "type": "object"
+      },
+      "ProtocolConformance": {
+        "additionalProperties": false,
+        "properties": {
+          "conformance_status": {
+            "type": "string"
+          },
+          "standards": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "standards",
+          "conformance_status"
         ],
         "type": "object"
       },
@@ -1853,6 +2246,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/ClientEndpointWrite"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -1867,6 +2266,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSWrite"
           },
           "shared_secret": {
             "$ref": "#/components/schemas/OptionalSecret",
@@ -2998,6 +3400,15 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "description": "Explicit v1→v2 convert flag. Default false. A v1 source stays v1-shaped unless true.",
+            "in": "query",
+            "name": "normalize",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -3321,6 +3732,34 @@
               "type": "array"
             },
             "style": "form"
+          },
+          {
+            "in": "query",
+            "name": "protocol",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "listener_role",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "packet_code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3411,6 +3850,34 @@
               "type": "array"
             },
             "style": "form"
+          },
+          {
+            "in": "query",
+            "name": "protocol",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "listener_role",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "packet_code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

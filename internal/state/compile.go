@@ -203,6 +203,16 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 		if c.Lifecycle == "" {
 			c.Lifecycle = domain.LifecycleUnknown
 		}
+		if life != nil {
+			if ep := radiusEndpointPtr(&c.Client); ep != nil {
+				if st, ok := life[c.Client.ID+"/"+ep.ID]; ok {
+					c.RADIUSLifecycle = st
+				}
+			}
+		}
+		if c.RADIUSLifecycle == "" {
+			c.RADIUSLifecycle = domain.LifecycleUnknown
+		}
 		snap.clients[c.Client.ID] = c
 		snap.clientIDs = append(snap.clientIDs, c.Client.ID)
 	}

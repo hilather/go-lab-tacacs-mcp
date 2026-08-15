@@ -519,6 +519,11 @@ func RedactedAV(name string) EventAV {
 	return EventAV{Name: name, Separator: "", Value: RedactedValue}
 }
 
+// Match reports whether ev satisfies q, including category and additive filters.
+func Match(q Query, ev Event) bool {
+	return queryMatch(q, categorySet(q.Categories), ev)
+}
+
 // CloneEvent copies e including argument slices.
 func CloneEvent(e Event) Event {
 	if len(e.Arguments) > 0 {

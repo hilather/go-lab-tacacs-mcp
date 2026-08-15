@@ -38,7 +38,8 @@ Agents must read these files before modifying implementation code:
 13. [TASKS.md](TASKS.md) - phased implementation backlog and acceptance gates.
 14. [REFERENCES.md](REFERENCES.md) - normative and implementation references.
 15. [THREAT_MODEL.md](THREAT_MODEL.md) - trust boundaries, abuse cases, and test links.
-16. [OPERATOR.md](OPERATOR.md) - 1.0 operator guide.
+16. [OPERATOR.md](OPERATOR.md) - 1.0 operator guide (TACACS plus RADIUS/UDP lab profile; residual limits).
+16a. [RADIUS_CONFORMANCE.md](RADIUS_CONFORMANCE.md) - RADIUS lab-profile checklist (not advertised as complete RADIUS).
 17. [QUICKSTART.md](QUICKSTART.md) - clone, generate, Compose, first REST/MCP call.
 18. [MCP.md](MCP.md) - MCP Streamable HTTP: local client setup and remote/hosted setup.
 19. [BASELINE.md](BASELINE.md) - configure users, groups, clients, tokens, and secret files.

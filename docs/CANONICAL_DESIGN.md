@@ -4,7 +4,7 @@
 |---|---|
 | Document title | TacLab Canonical Implementation Design |
 | Author | Design synthesis (from TacLab source packet) |
-| Date | 2026-08-12 |
+| Date | 2026-08-14 |
 | Status | Approved |
 | Product | TacLab — all-in-one Go TACACS+ / RADIUS / MCP lab appliance |
 | Binary | `taclabd` |
@@ -15,7 +15,7 @@
 | Implementation workspace | `/home/mbrewer/projects/go-lab-tacacs-mcp` (empty; no commits) |
 | Source packet | `/home/mbrewer/Downloads/tacacs-mcp` |
 | Specification baseline | RFC 8907, RFC 9887, MCP 2026-07-28; RADIUS MVP RFCs 2865/2866/2869/3579 (MA only)/5080 |
-| Target release | 1.0 lab appliance (TACACS complete; RADIUS not advertised until MVP rows pass) |
+| Target release | 1.0 lab appliance (TACACS complete). RADIUS/UDP is a controlled-network lab profile — **not advertised as complete RADIUS**. |
 | RADIUS design | [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) |
 | RADIUS ADRs | [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) |
 | Source pin for RADIUS adoption | `3322c26bd78969498e6fa0cd6e4b30902d5c8a94` |
@@ -36,11 +36,11 @@ TacLab is **one Go process** (`taclabd`) with these externally visible surfaces:
 2. Secure TACACS+ over TLS 1.3 (RFC 9887, host port 300 → container 4300).
 3. Versioned REST API + embedded React/TypeScript UI on the HTTP admin listener (host/container 8080).
 4. MCP Streamable HTTP on the same HTTP listener (`/mcp`), calling the same operation registry as REST.
-5. RADIUS/UDP access and accounting (host 1812/1813) — adopted by [ADR 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md). Default YAML stays `enabled: false`. Enabled sockets use a stub reject/response path. Do not advertise complete RADIUS until [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) MVP rows pass.
+5. RADIUS/UDP access and accounting (host 1812/1813) — adopted by [ADR 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md). Default YAML stays `enabled: false`. When enabled, PAP/CHAP Access-Accept/Reject and memory-only accounting run on a **controlled-network** UDP profile. Do **not** advertise complete RADIUS. `system.build.get` RADIUS status stays `partial`. Residual limits are in §Residual limits below and [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1.
 
-The source YAML is an immutable baseline. Runtime mutations live in a memory-only overlay, compile into an immutable effective snapshot, and vanish on restart. REST and MCP are adapters over one typed operation layer. TACACS and future RADIUS listeners are adapters over one AAA/policy/credential core. The UI consumes only public REST.
+The source YAML is an immutable baseline. Runtime mutations live in a memory-only overlay, compile into an immutable effective snapshot, and vanish on restart. REST and MCP are adapters over one typed operation layer. TACACS and RADIUS listeners are adapters over one AAA/policy/credential core. The UI consumes only public REST.
 
-Multi-protocol configuration uses schema version 2 with a deterministic in-memory v1 migrator ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). Current binaries accept `schema_version: 1` and `schema_version: 2` for listener syntax. Existing v1 files keep loading unchanged and compile to the same TACACS effective fields; RADIUS listeners are synthesized `enabled: false`. Enabled v2 RADIUS/UDP sockets start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. v2 clients accept `endpoints[]`; flatten TACACS fields are a projection of TACACS endpoints. Role-specific RADIUS LPM indexes compile at validate time. v2 `radius_policies` / `radius_reply_profiles` compile into a snapshot-held access-policy engine (client policy, optional fallback, default deny). User/group RADIUS fields are not accepted. This is not advertised RADIUS completeness. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; not implemented on export yet).
+Multi-protocol configuration uses schema version 2 with a deterministic in-memory v1 migrator ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)). Current binaries accept `schema_version: 1` and `schema_version: 2` for listener syntax. Existing v1 files keep loading unchanged and compile to the same TACACS effective fields; RADIUS listeners are synthesized `enabled: false`. Enabled v2 RADIUS/UDP sockets start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. v2 clients accept `endpoints[]`; flatten TACACS fields are a projection of TACACS endpoints. Role-specific RADIUS LPM indexes compile at validate time. v2 `radius_policies` / `radius_reply_profiles` compile into a snapshot-held access-policy engine (client policy, optional fallback, default deny). User/group RADIUS fields are not accepted. This is not advertised RADIUS completeness. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; default false). A v2 source exports as v2. Source files are never rewritten.
 
 ---
 
@@ -75,7 +75,28 @@ Pain points this design removes for implementers:
 - Ship a React UI that uses only the public REST API.
 - Run as one non-root, read-only-root OCI image via Docker Compose.
 - Treat tests, fuzz seeds, race coverage, secret canaries, and benchmarks as product contract.
-- Add RADIUS/UDP access and accounting in the same `taclabd` process, same snapshot, and same operation registry, behind schema version 2. Do not advertise RADIUS completeness until MVP conformance rows have evidence.
+- Add RADIUS/UDP access and accounting in the same `taclabd` process, same snapshot, and same operation registry, behind schema version 2. Do not advertise RADIUS completeness. Operator residual limits stay honest even after MVP rows have executable evidence.
+
+### Residual limits (RADIUS lab profile)
+
+These limits are product contract, not temporary stubs. Operator text lives in [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1.
+
+| Residual | Binding |
+|---|---|
+| Lab appliance | Single replica. Overlay, RADIUS cache, accounting journal, and event ring are process memory. Restart or `runtime.reset` restores the YAML baseline. |
+| UDP controlled-network only | RADIUS/UDP is MD5-era, spoofable, and mostly cleartext ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)). Keep 1812/1813 off the public internet. RadSec/DTLS/RADIUS/TCP/1.1 require a later ADR. |
+| Access-Challenge | `R65-ACCESS-004` is `DEFERRED_MAY`. Types may exist; no provider ships. |
+| EAP | Validate/reject EAP-Message + Message-Authenticator only. No method termination or pass-through. |
+| CoA / Disconnect | RFC 5176 out of this profile. |
+| RADIUS MS-CHAP | Deferred. Existing TACACS MS-CHAP is not RADIUS VSA evidence. |
+| Named `Cisco-AVPair` | Deferred until independent Cisco IOL vectors. Raw VSA framing is required. |
+| Custom dictionaries | Built-in IETF MVP only (`builtin-mvp-1`). |
+| Persistent accounting | Deferred. Wire SUCCESS only after the in-process ring accepts the record. |
+| User/group RADIUS rules | Deferred. Client policy, optional fallback, default deny. |
+| External interop skip | `radclient` / IOL skip is not RADIUS PASS. |
+| Advertisement | `system.build.get` RADIUS `conformance_status` stays `partial`. Do not market “complete RADIUS.” |
+| Export | `config.export` never emits v2 for a v1 source without `normalize=true`. |
+| Naming | Product/module/binary/image names unchanged ([ADR 0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)). |
 
 ### Non-goals for 1.0
 
@@ -562,7 +583,7 @@ Rules:
 - Trim at most one trailing LF/CRLF unless `preserve_trailing_newline: true`.
 - Reject directories, world-writable files, oversized files; reject symlinks when `security.strict_secret_files: true` (default true in the reference container).
 
-Typed secret purposes: `legacy_shared_secret`, `login_verifier`, `challenge_secret`, `enable_verifier`, `api_bearer_token`, `tls_private_key`, `tls_psk` (deferred). Cross-purpose assignment is a validation error.
+Typed secret purposes: `legacy_shared_secret`, `radius_shared_secret`, `login_verifier`, `challenge_secret`, `enable_verifier`, `api_bearer_token`, `tls_private_key`, `tls_psk` (deferred). Cross-purpose assignment is a validation error. Cross-purpose reuse (same value as TACACS legacy and RADIUS) is a warning via process-local HMAC.
 
 ### `internal/state`
 
@@ -925,7 +946,7 @@ Root: current binaries accept `schema_version: 1` and `schema_version: 2`. v1 re
 | `server` | no | `instance_id`, `shutdown_grace`, `startup_failure_mode`, `log_level`; v2 `admin_only` (default false; only way to start without an AAA listener) |
 | `runtime` | no | `persistence: memory` only; `allow_shadowing`; `delete_baseline_behavior: tombstone`; `reload_overlay_behavior: rebase\|reset`; object caps |
 | `security` | no | shared-secret policy; `allow_environment_secrets`; `strict_secret_files` |
-| `listeners` | no | v1: `legacy_tacacs` / `secure_tacacs` / `http`. v2: `tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. Distinct TACACS binds when both enabled. RADIUS UDP defaults `enabled: false`; when enabled, stub Access-Reject / Accounting-Response. HTTP `write_timeout` / `idle_timeout` do **not** apply raw to SSE / `subscriptions/listen` (see REST timeouts) |
+| `listeners` | no | v1: `legacy_tacacs` / `secure_tacacs` / `http`. v2: `tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. Distinct TACACS binds when both enabled. RADIUS UDP defaults `enabled: false`; when enabled, PAP/CHAP Access-Accept/Reject and memory-only accounting (not complete RADIUS). HTTP `write_timeout` / `idle_timeout` do **not** apply raw to SSE / `subscriptions/listen` (see REST timeouts) |
 | `api` | tokens overlay yes | bootstrap tokens from files; UI session; rate limits; `api.mcp.allowed_origins` (string list; default empty, plus the same-host UI origin when the UI is served); `api.mcp.require_origin` (bool; default `false`) |
 | `limits` | no | security bounds |
 | `clients` | overlay yes | transport + match + secrets + methods |
@@ -1017,7 +1038,7 @@ No existing database. 1.0 state is process memory.
 
 ### Migration
 
-Current binaries accept `schema_version: 1` and `schema_version: 2`. The loader deterministically migrates v1 **in memory** to the normalized v2 model ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)); schema version 2 is required for RADIUS listeners; mixed v1/v2 syntax is a fatal load error. Source files are never rewritten automatically. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; default false; export convert is not implemented yet). Golden tests compare v1 and equivalent v2 effective TACACS snapshots. Runtime overlay is not migrated across process restart (it is discarded). RADIUS listeners compile with `enabled: false` by default; when enabled they bind UDP and use a stub handler. v2 client `endpoints[]` are accepted; flatten TACACS fields are a projection of TACACS endpoints.
+Current binaries accept `schema_version: 1` and `schema_version: 2`. The loader deterministically migrates v1 **in memory** to the normalized v2 model ([ADR 0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md)); schema version 2 is required for RADIUS listeners; mixed v1/v2 syntax is a fatal load error. Source files are never rewritten automatically. `config.export` never emits v2 YAML for a v1 source without the explicit convert flag (`normalize=true`; default false). A v2 source exports as v2. Golden tests compare v1 and equivalent v2 effective TACACS snapshots. Runtime overlay is not migrated across process restart (it is discarded). RADIUS listeners compile with `enabled: false` by default; when enabled they bind UDP and run the PAP/CHAP access path plus memory-only accounting. That is a lab profile, not complete RADIUS. v2 client `endpoints[]` are accepted; flatten TACACS fields are a projection of TACACS endpoints. Rollback is “keep the v1 file”; old binaries cannot parse v2.
 
 ---
 

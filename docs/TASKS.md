@@ -1610,4 +1610,10 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, distinct RADIUS secret, combined + RADIUS-only + TACACS-only readiness. Not advertised as complete RADIUS.
 - [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
 - [x] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance evidence attached to `testdata/conformance/rfc*.yaml` and `project-radius.yaml`. Independent testclient UDP e2e is PASS. External `radclient` is SKIP when absent (`docs/INTEROP.md`). Fuzz seeds, race tests, and RADIUS benches recorded. Access-Challenge stays `DEFERRED_MAY`. Do not advertise complete RADIUS.
-- [ ] `RAD-REL-001` … `RAD-REL-007` Documentation, migration, operations, and release.
+- [x] `RAD-REL-001` Canonical residual limits match shipped RADIUS/UDP (no stub-path wording). Operator residual table in `docs/CANONICAL_DESIGN.md`.
+- [x] `RAD-REL-002` v1/v2 migration and `config.export` `normalize=true` documented in `docs/CONFIGURATION.md` and `docs/OPERATOR.md` §13. Source files are never rewritten.
+- [x] `RAD-REL-003` RADIUS operator/troubleshooting guide in `docs/OPERATOR.md` (ports, MA, PAP/CHAP, silent discard, memory-only accounting, residual limits).
+- [x] `RAD-REL-004` README catalog, RADIUS feature table, ADRs 0013–0018, and `docs/RADIUS_CONFORMANCE.md` residual/advertisement section. Interop skip honesty stays in `docs/INTEROP.md`.
+- [x] `RAD-REL-005` `CHANGELOG.md` `[Unreleased]` operator-facing closeout. **No release tag** in this change. Limitations are prominent. `system.build.get` RADIUS stays `partial`.
+- [x] `RAD-REL-006` Upgrade/rollback/reset documented (keep v1 file; old binaries cannot parse v2; overlay/cache/journal/ring lost on restart). Lab scenarios remain `make lab-test`.
+- [ ] `RAD-REL-007` Tag/release workflow. **Out of this PR.** Do not tag from the operator-docs closeout.

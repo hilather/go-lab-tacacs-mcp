@@ -22,7 +22,7 @@ validated defaults
 = immutable compiled snapshot
 ```
 
-The compiled snapshot is the only state consumed by TACACS request processing. It also carries RADIUS access/accounting LPM indexes and an empty dictionary placeholder. Enabled RADIUS/UDP listeners use those indexes for source match; default example YAML stays `enabled: false`. A failed startup, reload, or runtime mutation must never partially publish state.
+The compiled snapshot is the only state consumed by TACACS and RADIUS request processing. It carries TACACS indexes plus RADIUS access/accounting LPM indexes, the built-in MVP dictionary (`builtin-mvp-1`), and the compiled RADIUS access-policy engine. Default example YAML keeps RADIUS listeners `enabled: false`. Enabling them is a **controlled-network lab profile**, not complete RADIUS. A failed startup, reload, or runtime mutation must never partially publish state.
 
 ## 2. Non-negotiable rules
 
@@ -124,9 +124,9 @@ Mixed keys fail closed with a path and remediation:
 - v1 document with `listeners.radius` or `listeners.tacacs` → use `schema_version: 2` (or remove the v2 key).
 - v2 document with `listeners.legacy_tacacs` or `listeners.secure_tacacs` → use `listeners.tacacs.legacy` / `listeners.tacacs.tls`.
 
-`Document.SchemaVersion` records the **source** version. `config.export` still emits `schema_version: 1` for the sanitized object view and does **not** convert a v1 source to v2 YAML (that convert flag is a later change).
+`Document.SchemaVersion` records the **source** version. `config.export` **never** emits v2 YAML for a v1 source unless the explicit convert flag `normalize=true` is set (REST query `normalize=true`, MCP argument `normalize`; default false). A v1 source exports as v1. A v2 source exports as v2. The server never rewrites the operator file. Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §13.
 
-RADIUS listeners default `enabled: false`. When enabled they bind UDP. Access-Request is PAP/CHAP plus compiled-policy Access-Accept/Reject (Message-Authenticator first). Accounting is still a stub response. TACACS and RADIUS listeners start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. Do not advertise RADIUS completeness. The checked-in combined example is [configs/lab.example.v2.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.v2.yaml).
+RADIUS listeners default `enabled: false`. When enabled they bind UDP on a controlled lab network. Access-Request is PAP/CHAP plus compiled-policy Access-Accept/Reject (Message-Authenticator first). Accounting Start/Stop/Interim/On/Off writes the memory ring and replies Accounting-Response only after the ring accepts the record. TACACS and RADIUS listeners start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. Do not advertise RADIUS completeness. Residual limits (no EAP termination, Access-Challenge, CoA, RadSec, RADIUS MS-CHAP, named `Cisco-AVPair`, or persistent accounting) are in [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1 and [CANONICAL_DESIGN.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md) residual limits. The checked-in combined example is [configs/lab.example.v2.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.v2.yaml).
 
 Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
 
@@ -568,7 +568,7 @@ A future persistence adapter requires a separate design approval and must not ch
 
 The `legacy_shared_secrets` policy is a server-management control required for safe RFC 8907 operation. It applies whenever a legacy secret is resolved from baseline or runtime input.
 
-`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. RADIUS endpoint secrets are resolved as `radius_shared_secret` through `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`. Enabled RADIUS/UDP listeners use the compiled role index and that secret to sign stub replies.
+`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. RADIUS endpoint secrets are resolved as `radius_shared_secret` through `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`. Enabled RADIUS/UDP listeners use the compiled role index and that secret to unhide User-Password, validate Accounting-Request authenticators and Message-Authenticator, and sign responses. Cross-purpose reuse with a TACACS legacy secret is a warning.
 
 - `minimum_length_characters` is enforceable and defaults to at least 16. The implementation must accept shared keys of 32 or more characters without truncation.
 - `minimum_character_classes` is an integer from 0 through 4 and counts ASCII lowercase, uppercase, digit, and symbol classes. A value of 0 disables the class-count rule without disabling the length rule.
@@ -604,7 +604,7 @@ listeners:
       # tls: same mapping as v1 listeners.secure_tacacs.tls
   radius:
     access:
-      enabled: false          # default; set true to bind UDP 1812 (stub reject path)
+      enabled: false          # default; set true to bind UDP 1812 (PAP/CHAP lab profile)
       required: false
       bind: 0.0.0.0:1812
       transport: udp
@@ -620,7 +620,7 @@ listeners:
       message_authenticator: required   # or allow_missing
       limit_proxy_state: true
     accounting:
-      enabled: false          # default; set true to bind UDP 1813 (stub response path)
+      enabled: false          # default; set true to bind UDP 1813 (memory-only accounting)
       required: false
       bind: 0.0.0.0:1813
       transport: udp
@@ -828,7 +828,7 @@ A separate `validate_candidate` operation can preview errors before reload.
 
 ### 11.1 Sanitized effective export
 
-The default export contains effective non-secret data and secret placeholders. Export of a v1 source remains v1-shaped (`schema_version: 1` on the sanitized object view). There is no implicit v1→v2 YAML rewrite.
+The default export contains effective non-secret data and secret placeholders. Export of a v1 source remains v1-shaped (`schema_version: 1` on the sanitized object view) unless `normalize=true` is set. There is no implicit v1→v2 YAML rewrite and the baseline file is never rewritten. Operators who want v2 YAML from a v1 source must pass that flag and copy the redacted output themselves.
 
 ```yaml
 credentials:

@@ -38,7 +38,7 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
 
   await page.getByRole("link", { name: "Clients" }).click();
   await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
-  await expect(page.getByText("lab-switch")).toBeVisible();
+  await expect(page.getByText("lab-switch", { exact: true })).toBeVisible();
   await expect(page.getByText("Overdue", { exact: true })).toBeVisible();
   await expect(page.getByText("insecure RADIUS compatibility")).toBeVisible();
   await expect(page.getByText("radius-udp radius/udp")).toBeVisible();

@@ -21,8 +21,14 @@ func TestJournalSeenRememberExpirySaturation(t *testing.T) {
 	if !j.Remember(k1) || !j.Seen(k1) {
 		t.Fatal("remember k1")
 	}
+	if got := j.len(); got != 1 {
+		t.Fatalf("len after k1=%d", got)
+	}
 	if !j.Remember(k2) {
 		t.Fatal("remember k2")
+	}
+	if got := j.len(); got != 2 {
+		t.Fatalf("len after k2=%d", got)
 	}
 	if j.Remember(k3) {
 		t.Fatal("third entry must saturate")
@@ -33,13 +39,24 @@ func TestJournalSeenRememberExpirySaturation(t *testing.T) {
 	if j.Seen(k3) {
 		t.Fatal("saturated key must not be stored")
 	}
+	if got := j.len(); got != 2 {
+		t.Fatalf("sat must not store k3, len=%d", got)
+	}
 
 	now = now.Add(6 * time.Second)
-	if j.Seen(k1) || j.Seen(k2) {
+	seenK1 := j.Seen(k1)
+	seenK2 := j.Seen(k2)
+	if seenK1 || seenK2 {
 		t.Fatal("expired keys still visible")
+	}
+	if got := j.len(); got != 0 {
+		t.Fatalf("expired entries must be dropped, len=%d", got)
 	}
 	if !j.Remember(k3) {
 		t.Fatal("after expiry must accept")
+	}
+	if got := j.len(); got != 1 {
+		t.Fatalf("len after k3=%d", got)
 	}
 }
 
@@ -60,7 +77,10 @@ func TestMinuteSamplerWindow(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 14, 18, 0, 30, 0, time.UTC)
 	s := newMinuteSampler(2, func() time.Time { return now })
-	if !s.Allow() || !s.Allow() || s.Allow() {
+	first := s.Allow()
+	second := s.Allow()
+	third := s.Allow()
+	if !first || !second || third {
 		t.Fatal("limit 2")
 	}
 	now = now.Add(time.Minute)

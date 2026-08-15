@@ -9,7 +9,9 @@ func TestSourceLimiterBurstThenRefill(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
 	l := newSourceLimiter(100, 2, func() time.Time { return now })
-	if !l.Allow("127.0.0.1") || !l.Allow("127.0.0.1") {
+	first := l.Allow("127.0.0.1")
+	second := l.Allow("127.0.0.1")
+	if !first || !second {
 		t.Fatal("burst")
 	}
 	if l.Allow("127.0.0.1") {

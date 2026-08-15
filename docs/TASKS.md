@@ -1616,7 +1616,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-REL-004` README catalog, RADIUS feature table, ADRs 0013–0018, and `docs/RADIUS_CONFORMANCE.md` residual/advertisement section. Interop skip honesty stays in `docs/INTEROP.md`.
 - [x] `RAD-REL-005` `CHANGELOG.md` operator-facing RADIUS delta. Limitations are prominent. `system.build.get` RADIUS stays `partial`.
 - [x] `RAD-REL-006` Upgrade/rollback/reset documented (keep v1 file; old binaries cannot parse v2; overlay/cache/journal/ring lost on restart). Lab scenarios remain `make lab-test`.
-- [~] `RAD-REL-007` Tag/release `v1.1.0` after CHANGELOG `## [1.1.0]` and green `ci` + `release` workflows.
+- [x] `RAD-REL-007` Tag/release `v1.1.0` after CHANGELOG `## [1.1.0]` and green `ci` + `release` workflows.
 
 ### 22.4 Deferred RADIUS extensions (post-1.1.0)
 

@@ -553,6 +553,24 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 	return false
 }
 
+// ParseRADIUSAuthMethods accepts pap/chap only. Used by overlay writes.
+func ParseRADIUSAuthMethods(raw []string) ([]string, error) {
+	out, err := normalizeRADIUSAuthMethods(raw, "radius.allowed_methods")
+	if err != nil {
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap or chap").WithPath("radius.allowed_methods")
+	}
+	return out, nil
+}
+
+// ParseRADIUSStatusTypes accepts the MVP accounting status allowlist.
+func ParseRADIUSStatusTypes(raw []string) ([]string, error) {
+	out, err := normalizeRADIUSStatusTypes(raw, "radius.accept_status_types")
+	if err != nil {
+		return nil, domain.NewError(domain.CodeInvalidArgument, "unknown RADIUS accounting status type").WithPath("radius.accept_status_types")
+	}
+	return out, nil
+}
+
 func normalizeRADIUSAuthMethods(raw []string, path string) ([]string, error) {
 	if raw == nil {
 		return nil, nil

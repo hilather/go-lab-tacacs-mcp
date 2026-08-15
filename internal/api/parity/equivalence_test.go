@@ -32,6 +32,7 @@ func parityCases() []parityCase {
 		{id: operations.IDConfigValidate, req: operations.ValidateConfigRequest{YAML: "schema_version: 2\n"}},
 		{id: operations.IDConfigReload, req: operations.ReloadConfigRequest{}},
 		{id: operations.IDConfigExport, req: operations.ExportConfigRequest{}},
+		{id: operations.IDConfigExport, req: operations.ExportConfigRequest{Normalize: true}},
 		{
 			id:  operations.IDRuntimeReset,
 			req: operations.ResetRuntimeRequest{},
@@ -112,6 +113,28 @@ func parityCases() []parityCase {
 		{
 			id:  operations.IDClientsUpdate,
 			req: operations.UpdateClientRequest{ID: "sw", DisplayName: strPtr("Core Switches")},
+		},
+		{
+			id: operations.IDClientsCreate,
+			req: operations.CreateClientRequest{
+				ID: "rad",
+				Match: &operations.ClientMatchView{
+					SourceCIDRs: []string{"10.8.0.0/16"},
+					Transports:  []string{"legacy"},
+				},
+				SharedSecret: operations.OptionalSecret{Present: true, File: "/run/secrets/rad-tacacs"},
+				RADIUS: &operations.ClientRADIUSWrite{
+					SharedSecret: operations.OptionalSecret{Present: true, File: "/run/secrets/rad-radius"},
+					Roles:        []string{"access", "accounting"},
+				},
+			},
+			check: func(t *testing.T, _ *world, out callOut) {
+				t.Helper()
+				raw := canonicalJSON(out.Data)
+				if strings.Contains(raw, "/run/secrets/rad-radius") || strings.Contains(raw, "/run/secrets/rad-tacacs") {
+					t.Fatalf("secret path leaked: %s", raw)
+				}
+			},
 		},
 		{
 			id:  operations.IDClientsDelete,

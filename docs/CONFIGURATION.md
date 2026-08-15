@@ -126,7 +126,7 @@ Mixed keys fail closed with a path and remediation:
 
 `Document.SchemaVersion` records the **source** version. `config.export` still emits `schema_version: 1` for the sanitized object view and does **not** convert a v1 source to v2 YAML (that convert flag is a later change).
 
-RADIUS listeners default `enabled: false`. When enabled they bind UDP. Access-Request is PAP/CHAP plus compiled-policy Access-Accept/Reject (Message-Authenticator first). Accounting is still a stub response. TACACS and RADIUS listeners start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. Do not advertise RADIUS completeness.
+RADIUS listeners default `enabled: false`. When enabled they bind UDP. Access-Request is PAP/CHAP plus compiled-policy Access-Accept/Reject (Message-Authenticator first). Accounting is still a stub response. TACACS and RADIUS listeners start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. Do not advertise RADIUS completeness. The checked-in combined example is [configs/lab.example.v2.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.v2.yaml).
 
 Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
 

@@ -45,6 +45,7 @@ func TestGenerateWritesRestrictedSecretsAndValidYAML(t *testing.T) {
 	secretFiles := []string{
 		"api_admin_token",
 		"lab_switches_tacacs_secret",
+		"lab_switches_radius_secret",
 		"lab_admin_argon2id",
 		"lab_admin_enable_argon2id",
 		"lab_readonly_argon2id",
@@ -79,6 +80,23 @@ func TestGenerateWritesRestrictedSecretsAndValidYAML(t *testing.T) {
 	}, credentials.NewSharedSecret(shared), "legacy"); err != nil {
 		t.Fatalf("shared secret policy: %v", err)
 	}
+	radiusShared, err := os.ReadFile(filepath.Join(dir, "secrets", "lab_switches_radius_secret"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := config.CheckSharedSecret(config.SharedSecretPolicy{
+		MinimumLengthCharacters: 16,
+		MinimumCharacterClasses: 3,
+		RejectKnownWeakValues:   true,
+	}, credentials.NewSharedSecret(radiusShared), "radius"); err != nil {
+		t.Fatalf("radius shared secret policy: %v", err)
+	}
+	if string(radiusShared) == string(shared) {
+		t.Fatal("RADIUS secret must be distinct from TACACS secret")
+	}
+	if len(radiusShared) < 32 {
+		t.Fatalf("radius shared secret length %d", len(radiusShared))
+	}
 
 	manRaw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
@@ -86,6 +104,9 @@ func TestGenerateWritesRestrictedSecretsAndValidYAML(t *testing.T) {
 	}
 	if bytes.Contains(manRaw, shared) {
 		t.Fatal("manifest contains shared secret")
+	}
+	if bytes.Contains(manRaw, radiusShared) {
+		t.Fatal("manifest contains RADIUS shared secret")
 	}
 	pw, err := os.ReadFile(filepath.Join(dir, "secrets", "PASSWORDS.txt"))
 	if err != nil {
@@ -160,6 +181,60 @@ func TestGenerateWritesRestrictedSecretsAndValidYAML(t *testing.T) {
 	}
 	if tlsDoc.Listeners.LegacyTACACS.Enabled {
 		t.Fatal("tls-only legacy enabled")
+	}
+
+	combined, err := os.ReadFile(filepath.Join(dir, "config", "taclab.combined.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(combined, []byte("schema_version: 2")) {
+		t.Fatal("combined is not schema v2")
+	}
+	if !bytes.Contains(combined, []byte("lab_switches_radius_secret")) {
+		t.Fatal("combined missing RADIUS secret ref")
+	}
+	if bytes.Contains(combined, radiusShared) || bytes.Contains(combined, shared) {
+		t.Fatal("combined leaked a secret")
+	}
+	combDoc, err := config.Load(filepath.Join(dir, "config", "taclab.combined.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Validate(combDoc); err != nil {
+		t.Fatal(err)
+	}
+	if combDoc.SchemaVersion != 2 {
+		t.Fatalf("combined schema=%d", combDoc.SchemaVersion)
+	}
+	if !combDoc.Listeners.LegacyTACACS.Enabled || !combDoc.Listeners.SecureTACACS.Enabled {
+		t.Fatal("combined TACACS listeners")
+	}
+	if !combDoc.Listeners.RADIUSAccess.Enabled || !combDoc.Listeners.RADIUSAccounting.Enabled {
+		t.Fatal("combined RADIUS listeners")
+	}
+
+	radOnly, err := os.ReadFile(filepath.Join(dir, "config", "taclab.radius-only.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(radOnly, []byte("schema_version: 2")) {
+		t.Fatal("radius-only is not schema v2")
+	}
+	radDoc, err := config.Load(filepath.Join(dir, "config", "taclab.radius-only.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Validate(radDoc); err != nil {
+		t.Fatal(err)
+	}
+	if radDoc.Listeners.LegacyTACACS.Enabled || radDoc.Listeners.SecureTACACS.Enabled {
+		t.Fatal("radius-only TACACS still enabled")
+	}
+	if !radDoc.Listeners.RADIUSAccess.Enabled || !radDoc.Listeners.RADIUSAccess.Required {
+		t.Fatal("radius-only access listener")
+	}
+	if !radDoc.Listeners.RADIUSAccounting.Enabled {
+		t.Fatal("radius-only accounting listener")
 	}
 
 	if _, err := Generate(Options{Dir: dir, Params: credentials.TestParams, Entropy: bytes.NewReader(bytes.Repeat([]byte("x"), 256))}); err == nil {

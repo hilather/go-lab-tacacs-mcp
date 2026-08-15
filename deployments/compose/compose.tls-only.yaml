@@ -1,4 +1,5 @@
-# Overlay: TLS-only profile (no legacy listener, no host port 49).
+# Overlay: TLS-only TACACS profile (no legacy listener, no host port 49).
+# RADIUS/UDP host maps stay published so a later combined TLS+RADIUS YAML can bind.
 # docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d
 services:
   taclab:
@@ -9,6 +10,12 @@ services:
       - target: 8080
         published: ${TACLAB_HTTP_PORT:-8080}
         protocol: tcp
+      - target: 1812
+        published: ${TACLAB_RADIUS_ACCESS_PORT:-1812}
+        protocol: udp
+      - target: 1813
+        published: ${TACLAB_RADIUS_ACCT_PORT:-1813}
+        protocol: udp
     volumes: !override
       - type: bind
         source: ./config/taclab.tls-only.yaml

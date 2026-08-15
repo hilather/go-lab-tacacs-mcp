@@ -1,6 +1,10 @@
-# Reference dual-listener lab. High container ports; host maps 49/300/8080.
+# Reference dual-listener lab. High container TACACS ports; host maps 49/300/8080
+# and RADIUS/UDP 1812/1813 (same numbers; unprivileged). Combined/RADIUS-only
+# profiles use the v2 overlays. Do not advertise complete RADIUS.
 # Generate secrets/certs first: go run ./tools/labgen deployments/compose
 # TLS-only: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d
+# Combined: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.combined.yaml up -d
+# RADIUS-only: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radius-only.yaml up -d
 # File-watch reload is off. Reload is SIGHUP or POST /api/v1/config/reload.
 name: taclab
 
@@ -28,6 +32,12 @@ services:
       - target: 8080
         published: ${TACLAB_HTTP_PORT:-8080}
         protocol: tcp
+      - target: 1812
+        published: ${TACLAB_RADIUS_ACCESS_PORT:-1812}
+        protocol: udp
+      - target: 1813
+        published: ${TACLAB_RADIUS_ACCT_PORT:-1813}
+        protocol: udp
     command:
       - serve
       - --config=/etc/taclab/taclab.yaml
@@ -44,6 +54,7 @@ services:
       - api_admin_token
       - tacacs_server_key
       - lab_switches_tacacs_secret
+      - lab_switches_radius_secret
       - lab_admin_argon2id
       - lab_admin_challenge_secret
       - lab_admin_enable_argon2id
@@ -73,6 +84,8 @@ secrets:
     file: ./secrets/tacacs_server_key.pem
   lab_switches_tacacs_secret:
     file: ./secrets/lab_switches_tacacs_secret
+  lab_switches_radius_secret:
+    file: ./secrets/lab_switches_radius_secret
   lab_admin_argon2id:
     file: ./secrets/lab_admin_argon2id
   lab_admin_challenge_secret:

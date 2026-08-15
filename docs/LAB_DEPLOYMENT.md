@@ -3,7 +3,7 @@
 Status: implementation and release contract  
 Deployment: single OCI image, single process, single replica  
 Primary orchestration: Docker Compose on a Linux host  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. Purpose
 
@@ -18,6 +18,7 @@ The reference lab must support all of the following without rebuilding the image
 - Load predefined clients, users, groups, credentials, command permissions, listener settings, and API tokens from a mounted configuration file and secret files.
 - Accept legacy TACACS+ on host TCP port 49.
 - Accept secure TACACS+ over TLS 1.3 on host TCP port 300.
+- Accept RADIUS/UDP access and accounting on host UDP ports 1812 and 1813 when the v2 combined or RADIUS-only profile is mounted. This is a lab profile, not complete RADIUS.
 - Expose the React UI, REST API, MCP endpoint, health checks, and optional metrics endpoint.
 - Create, update, shadow, and delete runtime-only users, groups, clients, policies, and API tokens.
 - Restore the declared baseline after process restart.
@@ -41,6 +42,7 @@ Browser / REST / MCP client ----------+--> 8080/tcp                 |
 Legacy network devices ---------------+--> 49 -> 4949           |   |
                                       |      |                  |   |
 TLS network devices ------------------+--> 300 -> 4300         |   |
+RADIUS NAS (combined / RADIUS-only) --+--> 1812/udp + 1813/udp  |   |
                                       |      |  taclab process  |   |
 Optional Prometheus ------------------+--> loopback 9090        |   |
                                       |      |                  |   |
@@ -50,7 +52,7 @@ Optional Prometheus ------------------+--> loopback 9090        |   |
                                       +-----------------------------+
 ```
 
-The initial product intentionally places legacy and TLS listeners in one process to satisfy the all-in-one lab-appliance goal. They remain separate listeners on distinct TCP ports and share no protocol upgrade or fallback path. This is a documented lab convenience, not a recommended production security topology. Production-like evaluations should run a TLS-only instance or separate legacy and TLS instances on different hosts.
+The initial product intentionally places legacy and TLS listeners in one process to satisfy the all-in-one lab-appliance goal. They remain separate listeners on distinct TCP ports and share no protocol upgrade or fallback path. RADIUS/UDP access and accounting are additional sockets in the same process when the schema v2 combined or RADIUS-only profile is enabled. This is a documented lab convenience, not a recommended production security topology. Production-like evaluations should run a TLS-only instance or separate legacy and TLS instances on different hosts. Do not advertise complete RADIUS.
 
 ## 4. Host requirements
 
@@ -58,7 +60,7 @@ The initial product intentionally places legacy and TLS listeners in one process
 
 - Linux host capable of running OCI containers.
 - Docker Engine and Docker Compose v2, or a compatible runtime that preserves TCP source addresses as documented for the selected network mode.
-- Access to host TCP ports 49, 300, and 8080.
+- Access to host TCP ports 49, 300, and 8080. Combined/RADIUS-only profiles also need UDP 1812 and 1813. Keep 49, 300, 1812, and 1813 off the public internet.
 - A filesystem location for configuration, public certificates, and secret files.
 - Accurate host time for certificate validation, token expiry, events, and accounting timestamps.
 
@@ -112,8 +114,8 @@ Node.js, npm/pnpm build caches, Go toolchains, compilers, shells, package manage
 The release image must:
 
 - Run as a fixed non-root UID/GID.
-- Listen on unprivileged container ports `4949`, `4300`, and `8080`.
-- Rely on host port mapping for TCP 49 and 300.
+- Listen on unprivileged container ports `4949`, `4300`, `8080`, and (when enabled) UDP `1812` / `1813`.
+- Rely on host port mapping for TCP 49 and 300. RADIUS/UDP uses the same unprivileged numbers on the host unless the operator overrides them.
 - Support a read-only root filesystem.
 - Use `/tmp` and `/run/taclab` only through bounded tmpfs mounts when needed.
 - Write application logs to stdout/stderr.
@@ -136,7 +138,7 @@ The 1.0 image is `ghcr.io/hilather/go-lab-tacacs-mcp`. Pin a version tag or dige
 | `:<tag>-ubuntu` | Ubuntu 24.04 |
 | `:<tag>-rocky` | Rocky Linux 9 |
 
-A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test`.
+A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test` and maps RADIUS/UDP to host `11812` / `11813`. Combined, RADIUS-only, and TACACS-only readiness are exercised by `tools/labtest` (`-phase=combined` / `-phase=radius-only` / default). Do not treat a green ready check as complete RADIUS.
 
 ### 5.4 Optional Cisco IOL lab (Containerlab)
 
@@ -159,6 +161,7 @@ taclab-lab/
 │   ├── api_admin_token
 │   ├── tacacs_server_key.pem
 │   ├── lab_switches_tacacs_secret
+│   ├── lab_switches_radius_secret
 │   ├── lab_admin_argon2id
 │   ├── lab_admin_challenge_secret
 │   ├── lab_admin_enable_argon2id
@@ -195,6 +198,12 @@ services:
       - target: 8080
         published: 8080
         protocol: tcp
+      - target: 1812
+        published: 1812
+        protocol: udp
+      - target: 1813
+        published: 1813
+        protocol: udp
 
     command:
       - serve
@@ -214,6 +223,7 @@ services:
       - api_admin_token
       - tacacs_server_key
       - lab_switches_tacacs_secret
+      - lab_switches_radius_secret
       - lab_admin_argon2id
       - lab_admin_challenge_secret
       - lab_admin_enable_argon2id
@@ -247,6 +257,8 @@ secrets:
     file: ./secrets/tacacs_server_key.pem
   lab_switches_tacacs_secret:
     file: ./secrets/lab_switches_tacacs_secret
+  lab_switches_radius_secret:
+    file: ./secrets/lab_switches_radius_secret
   lab_admin_argon2id:
     file: ./secrets/lab_admin_argon2id
   lab_admin_challenge_secret:
@@ -271,7 +283,7 @@ The config validator must fail readiness when a required secret cannot be loaded
 
 ### 8.1 Legacy shared-secret lifecycle
 
-The reference generator creates a unique legacy TACACS shared secret of at least 32 characters and writes it only to the Docker secret file. The baseline YAML stores only its reference plus non-secret `last_rotated_at` and `rotation_interval` metadata.
+The reference generator creates a unique legacy TACACS shared secret of at least 32 characters and writes it only to the Docker secret file. It also writes a **distinct** RADIUS shared secret (`lab_switches_radius_secret`, also ≥32 characters). The two files must not be the same value; cross-purpose reuse is a warning. The baseline YAML stores only file references plus non-secret `last_rotated_at` and `rotation_interval` metadata. Secrets are never baked into images.
 
 The reference lab must demonstrate:
 
@@ -549,6 +561,16 @@ Tests must not depend on a developer's existing containers, ports, Docker networ
 - The operation registry and REST/MCP schemas passed startup consistency checks.
 
 A later failure of one listener must update readiness and emit an event.
+
+`make lab-test` proves three ready profiles:
+
+| Profile | Compose overlay | Ready when |
+|---|---|---|
+| TACACS-only | default `taclab.yaml` (schema v1) | Snapshot + TACACS listener; RADIUS sockets stay off |
+| Combined | `compose.combined.yaml` (`taclab.combined.yaml`) | TACACS + RADIUS/UDP access and accounting |
+| RADIUS-only | `compose.radius-only.yaml` (`taclab.radius-only.yaml`) | RADIUS/UDP only; TACACS ports refuse |
+
+RADIUS-only is legal because readiness is snapshot + required listeners + at least one AAA listener. Ready does **not** mean complete RADIUS.
 
 Health responses expose no credentials or full configuration.
 

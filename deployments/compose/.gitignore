@@ -4,4 +4,6 @@
 /evidence/
 /config/taclab.yaml
 /config/taclab.tls-only.yaml
+/config/taclab.combined.yaml
+/config/taclab.radius-only.yaml
 .env

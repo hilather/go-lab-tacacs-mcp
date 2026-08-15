@@ -24,8 +24,11 @@ func run(args []string) int {
 	httpBase := fs.String("http", envOr("TACLAB_HTTP", "http://127.0.0.1:8080"), "admin HTTP base URL")
 	legacy := fs.String("legacy", envOr("TACLAB_LEGACY", "127.0.0.1:4949"), "legacy TACACS host:port")
 	tlsAddr := fs.String("tls", envOr("TACLAB_TLS", "127.0.0.1:4300"), "secure TACACS host:port")
+	radiusAccess := fs.String("radius-access", envOr("TACLAB_RADIUS_ACCESS", "127.0.0.1:1812"), "RADIUS access host:port")
+	radiusAcct := fs.String("radius-acct", envOr("TACLAB_RADIUS_ACCT", "127.0.0.1:1813"), "RADIUS accounting host:port")
 	tokenFile := fs.String("token-file", envOr("TACLAB_TOKEN_FILE", ""), "bootstrap bearer file")
 	secretFile := fs.String("secret-file", envOr("TACLAB_SHARED_SECRET_FILE", ""), "legacy shared-secret file")
+	radiusSecretFile := fs.String("radius-secret-file", envOr("TACLAB_RADIUS_SECRET_FILE", ""), "RADIUS shared-secret file")
 	pkiDir := fs.String("pki", envOr("TACLAB_PKI", ""), "GenerateLabPKI directory")
 	pwFile := fs.String("passwords", envOr("TACLAB_PASSWORDS", ""), "labgen PASSWORDS.txt")
 	writeTO := fs.Duration("write-timeout", 2*time.Second, "configured listeners.http.write_timeout")
@@ -36,14 +39,16 @@ func run(args []string) int {
 		return 2
 	}
 	cfg := harness{
-		HTTP:       strings.TrimRight(*httpBase, "/"),
-		Legacy:     *legacy,
-		TLS:        *tlsAddr,
-		PKI:        *pkiDir,
-		WriteTO:    *writeTO,
-		Phase:      *phase,
-		ServerName: *serverName,
-		Started:    time.Now().UTC(),
+		HTTP:         strings.TrimRight(*httpBase, "/"),
+		Legacy:       *legacy,
+		TLS:          *tlsAddr,
+		RadiusAccess: *radiusAccess,
+		RadiusAcct:   *radiusAcct,
+		PKI:          *pkiDir,
+		WriteTO:      *writeTO,
+		Phase:        *phase,
+		ServerName:   *serverName,
+		Started:      time.Now().UTC(),
 	}
 	var err error
 	if *tokenFile != "" {
@@ -62,6 +67,15 @@ func run(args []string) int {
 		}
 		cfg.Secret = trimNL(cfg.Secret)
 		cfg.canaries = append(cfg.canaries, string(cfg.Secret))
+	}
+	if *radiusSecretFile != "" {
+		cfg.RadiusSecret, err = os.ReadFile(*radiusSecretFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "labtest: radius secret: %v\n", err)
+			return 2
+		}
+		cfg.RadiusSecret = trimNL(cfg.RadiusSecret)
+		cfg.canaries = append(cfg.canaries, string(cfg.RadiusSecret))
 	}
 	if *pwFile != "" {
 		cfg.Passwords, err = parsePasswords(*pwFile)
@@ -87,6 +101,10 @@ func run(args []string) int {
 		scenarios = []scenario{{ID: "LAB-STATE-001-SETUP", Fn: cfg.labAPICreate}}
 	case "tls-only":
 		scenarios = []scenario{{ID: "LAB-TLS-ONLY", Fn: cfg.labTLSOnlyProfile}}
+	case "combined":
+		scenarios = combinedScenarios(&cfg)
+	case "radius-only":
+		scenarios = radiusOnlyScenarios(&cfg)
 	default:
 		scenarios = defaultScenarios(&cfg)
 	}

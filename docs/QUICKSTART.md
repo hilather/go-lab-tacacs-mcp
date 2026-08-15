@@ -1,7 +1,7 @@
 # TacLab quick start
 
 Status: operator onboarding  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 Get a lab appliance running, log into the UI, and make one REST call and one MCP call. Protocol and schema details stay in [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) and [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). Users, groups, clients, and secret files: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md). MCP depth is in [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
 
@@ -16,7 +16,7 @@ TacLab is a **single-replica lab**. Runtime changes vanish on restart.
 | Linux host (or Linux VM) | Docker Engine + Compose v2 |
 | Go (to run `labgen`) | **1.25.13** |
 | Optional: Node | **22.14.0** if you rebuild the SPA |
-| Host ports | 49, 300, 8080 — or use the high-port smoke overlay |
+| Host ports | 49, 300, 8080 — plus UDP 1812/1813 for combined/RADIUS-only — or use the high-port smoke overlay |
 
 ```bash
 git clone https://github.com/hilather/go-lab-tacacs-mcp.git
@@ -50,10 +50,24 @@ Regenerate: `go run ./tools/labgen -force deployments/compose`.
 
 ## 3. Start
 
-**Reference lab** (legacy 49 + TLS 300 + HTTP 8080):
+**Reference lab** (legacy 49 + TLS 300 + HTTP 8080; RADIUS/UDP ports mapped, listeners off in v1 YAML):
 
 ```bash
 docker compose -f deployments/compose/compose.yaml up -d --build
+```
+
+**Combined TACACS + RADIUS/UDP** (also host 1812/1813):
+
+```bash
+docker compose -f deployments/compose/compose.yaml \
+  -f deployments/compose/compose.combined.yaml up -d --build
+```
+
+**RADIUS-only** (host 1812/1813/8080; no 49/300):
+
+```bash
+docker compose -f deployments/compose/compose.yaml \
+  -f deployments/compose/compose.radius-only.yaml up -d --build
 ```
 
 **TLS-only TACACS** (no host 49):
@@ -62,6 +76,8 @@ docker compose -f deployments/compose/compose.yaml up -d --build
 docker compose -f deployments/compose/compose.yaml \
   -f deployments/compose/compose.tls-only.yaml up -d --build
 ```
+
+RADIUS/UDP is a lab profile, not complete RADIUS. Keep 1812/1813 off the public internet.
 
 **No privileged ports:**
 
@@ -140,6 +156,8 @@ There is **no** OAuth discovery document. Clients that require PRM will fail clo
 |---|---|---|
 | Legacy TACACS+ | 49 | Per-client shared secret file |
 | Secure TACACS+ | 300 | Client cert from the lab client CA |
+| RADIUS/UDP access | 1812 | Distinct RADIUS shared secret (`lab_switches_radius_secret`) |
+| RADIUS/UDP accounting | 1813 | Same RADIUS secret as access |
 
 The TCP peer TacLab sees must match `clients[].match.source_cidrs`. Docker published ports often SNAT; generated YAML uses `0.0.0.0/0`. Narrow CIDRs belong on host-network or macvlan labs. Details: [LAB_DEPLOYMENT.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/LAB_DEPLOYMENT.md) §4.3.
 
@@ -172,7 +190,7 @@ The lab you just started is defined by files, not a database. After `labgen`:
 | Path | Holds |
 |---|---|
 | `deployments/compose/config/taclab.yaml` | Users, groups, clients, tokens, listeners, policy |
-| `deployments/compose/secrets/` | PHC verifiers, challenge secrets, legacy shared secret, API bearer |
+| `deployments/compose/secrets/` | PHC verifiers, challenge secrets, TACACS and RADIUS shared secrets, API bearer |
 | `deployments/compose/secrets/PASSWORDS.txt` | Human crib for `lab-admin` / `lab-readonly` (not read by `taclabd`) |
 
 Stock accounts: TACACS user `lab-admin` (priv-lvl 15) and `lab-readonly` (priv-lvl 1). User `id` is the login name.

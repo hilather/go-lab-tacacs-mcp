@@ -1,0 +1,14 @@
+# Overlay: combined TACACS + RADIUS/UDP (schema v2). Host 49/300/8080 + 1812/1813.
+# docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.combined.yaml up -d
+# Do not advertise complete RADIUS.
+services:
+  taclab:
+    volumes: !override
+      - type: bind
+        source: ./config/taclab.combined.yaml
+        target: /etc/taclab/taclab.yaml
+        read_only: true
+      - type: bind
+        source: ./certs-public
+        target: /etc/taclab/certs-public
+        read_only: true

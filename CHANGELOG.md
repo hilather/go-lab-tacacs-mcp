@@ -23,6 +23,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Added
 
+- Compose maps RADIUS/UDP host ports 1812/1813 and a distinct `lab_switches_radius_secret`. `labgen` writes combined and RADIUS-only schema v2 profiles (`configs/lab.example.v2.yaml` is the checked-in template). `labtest` proves combined, RADIUS-only, and TACACS-only readiness. Secrets stay on the host; they are not baked into images. Not advertised as complete RADIUS.
 - RADIUS diagnostic operations (`radius.access.test`, `radius.policy.evaluate`, `radius.attributes.list`) with REST/MCP parity. Access test uses the same `AuthenticateAccess` path as UDP and wipes passwords. Policy evaluate uses the compiled RADIUS engine. Attribute list is dictionary metadata only. Not advertised as complete RADIUS.
 - RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter.
 

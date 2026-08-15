@@ -17,6 +17,7 @@ The source configuration is a read-only baseline. Runtime mutations form an in-m
 flowchart LR
     D1[Legacy TACACS+ device] -->|TCP, legacy TACACS+| L1[Legacy TACACS listener]
     D2[Secure TACACS+ device] -->|TCP plus TLS 1.3| L2[Secure TACACS listener]
+    D3[RADIUS NAS] -->|UDP 1812 / 1813| L3[RADIUS access / accounting]
     B[Browser] -->|HTTPS, REST and SSE| H[HTTP server]
     M[MCP client] -->|MCP Streamable HTTP| H
     O[Operator or CI] -->|Config file and secret files| C[Configuration loader]

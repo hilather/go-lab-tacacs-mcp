@@ -1607,7 +1607,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-API-006` Same-change generate (OpenAPI, MCP, frontend types, api-parity matrix).
 - [ ] Remaining `RAD-API-*` UI-adjacent admin surfaces (if any) stay with later PRs.
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
-- [ ] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, secrets, smoke.
+- [x] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, distinct RADIUS secret, combined + RADIUS-only + TACACS-only readiness. Not advertised as complete RADIUS.
 - [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
 - [ ] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance, independent evidence, interop, fuzz, race, benches.
 - [ ] `RAD-REL-001` … `RAD-REL-007` Documentation, migration, operations, and release.

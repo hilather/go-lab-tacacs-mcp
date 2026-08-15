@@ -95,7 +95,8 @@ A release may not be described as complete unless all of the following are true:
 │   ├── openapi.yaml
 │   └── operations.yaml
 ├── configs/
-│   └── lab.example.yaml
+│   ├── lab.example.yaml
+│   └── lab.example.v2.yaml
 ├── testdata/
 │   ├── protocol/
 │   ├── policies/

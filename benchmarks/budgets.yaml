@@ -16,7 +16,7 @@ reference_hardware:
   note: >
     First freeze. TLS handshake benches are noisy (post-handshake tickets, scheduler).
     Use max_ns_per_op as the CI tripwire; use ns_per_op_median as the benchstat baseline.
-command: "go test -count=6 -bench=. -benchmem ./internal/tacacs/... ./internal/policy/... ./internal/state/... ./internal/aaa"
+command: "go test -count=6 -bench=. -benchmem ./internal/tacacs/... ./internal/policy/... ./internal/state/... ./internal/aaa ./internal/radius/..."
 excluded_from_make_bench:
   - internal/credentials.BenchmarkArgon2idVerify
   - internal/credentials.BenchmarkArgon2idVerifyParallel
@@ -186,3 +186,80 @@ benches:
     ns_per_op_median: 318
     max_ns_per_op: 700
     in_make_bench: false
+  - name: BenchmarkRadiusHeaderDecode
+    pkg: internal/radius/codec
+    ns_per_op_median: 17
+    max_ns_per_op: 40
+    allocs_per_op: 0
+    bytes_per_op: 0
+  - name: BenchmarkRadiusPacketDecode_8Attrs
+    pkg: internal/radius/codec
+    ns_per_op_median: 330
+    max_ns_per_op: 700
+    allocs_per_op: 10
+  - name: BenchmarkRadiusPacketDecode_64Attrs
+    pkg: internal/radius/codec
+    ns_per_op_median: 2500
+    max_ns_per_op: 5000
+    allocs_per_op: 69
+  - name: BenchmarkRadiusPacketEncode
+    pkg: internal/radius/codec
+    ns_per_op_median: 155
+    max_ns_per_op: 350
+    allocs_per_op: 2
+  - name: BenchmarkResponseAuthenticator
+    pkg: internal/radius/crypto
+    ns_per_op_median: 250
+    max_ns_per_op: 500
+    allocs_per_op: 1
+  - name: BenchmarkAccountingRequestAuthenticator
+    pkg: internal/radius/crypto
+    ns_per_op_median: 295
+    max_ns_per_op: 600
+    allocs_per_op: 1
+  - name: BenchmarkUnhideUserPassword
+    pkg: internal/radius/crypto
+    ns_per_op_median: 310
+    max_ns_per_op: 650
+    allocs_per_op: 1
+  - name: BenchmarkMessageAuthenticator
+    pkg: internal/radius/crypto
+    ns_per_op_median: 940
+    max_ns_per_op: 2000
+    allocs_per_op: 10
+  - name: BenchmarkRadiusAccessPAP_NoKDF
+    pkg: internal/radius/server
+    ns_per_op_median: 3350
+    max_ns_per_op: 7000
+    allocs_per_op: 37
+    note: scripted AAA; Argon2id excluded
+  - name: BenchmarkRadiusAccountingRequest
+    pkg: internal/radius/server
+    ns_per_op_median: 2290
+    max_ns_per_op: 5000
+    allocs_per_op: 19
+  - name: BenchmarkRadiusRetransmissionCacheHit
+    pkg: internal/radius/udp
+    ns_per_op_median: 8500
+    max_ns_per_op: 18000
+    allocs_per_op: 1
+  - name: BenchmarkRadiusUDPDispatch_Parallel
+    pkg: internal/radius/udp
+    ns_per_op_median: 24500
+    max_ns_per_op: 80000
+    note: noisy; first-freeze tripwire only
+  - name: BenchmarkRadiusPolicyEvaluate
+    pkg: internal/policy/radius
+    ns_per_op_median: 6200
+    max_ns_per_op: 13000
+    allocs_per_op: 10
+  - name: BenchmarkRADIUSLookup_IPv4
+    pkg: internal/state
+    ns_per_op_median: 800
+    max_ns_per_op: 1600
+    allocs_per_op: 7
+  - name: BenchmarkRADIUSLookup_IPv6
+    pkg: internal/state
+    ns_per_op_median: 780
+    max_ns_per_op: 1600
+    allocs_per_op: 7

@@ -11,85 +11,130 @@ rows:
     level: PROJECT MUST
     requirement: Missing/invalid required Message-Authenticator silently discards with bounded diagnostics
     evidence_required: discard_missing_message_authenticator / discard_invalid_message_authenticator
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState
+      - unit:internal/radius/udp.TestUDPIntegrityDiscardsDoNotMutateCache
+      - unit:internal/radius/server.TestAccessDiscardsInvalidMA
   - id: PRJ-SEC-002
     section: authentication-and-integrity
     section_title: Authentication and integrity
     level: PROJECT MUST
     requirement: Unknown/ambiguous clients and invalid authenticators receive no useful response
     evidence_required: Silent discard; no oracular errors
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestUnknownClientDiscardUsesCompiledRADIUSIndex
+      - unit:internal/radius/udp.TestUnknownAccountingClientUsesCompiledRADIUSIndex
+      - unit:internal/radius/server.TestAccountingValidatesRequestAuthenticator
+      - unit:internal/config.TestRADIUSIndexUnknownSource
   - id: PRJ-POL-001
     section: access-behavior
     section_title: Access behavior
     level: PROJECT MUST
     requirement: Policy result is deterministic and reply attributes are role/type validated
     evidence_required: Default deny; compile-time packet-role legality
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/policy/radius.TestEvaluateDefaultDenyUnknownClient
+      - unit:internal/policy/radius.TestCompileRejectsIllegalReplyRole
+      - unit:internal/policy/radius.TestGoldenTraces
+      - unit:internal/radius/server.TestAccessIllegalAcceptAttrsFailClosed
+      - unit:internal/aaa.TestAuthenticateAccessPermitFromCompiledPolicy
+      - race:internal/policy/radius.TestEvaluateConcurrent
   - id: PRJ-ERR-001
     section: access-behavior
     section_title: Access behavior
     level: PROJECT MUST
     requirement: Discard/reject/internal/overload mapping is stable and non-oracular
     evidence_required: Frozen reason_code to wire/cache table
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestReasonTableStable
+      - unit:internal/radius/server.TestAccessExtractRejects
+      - unit:internal/radius/udp.TestInvalidCodeAndShortDatagramDiscard
   - id: PRJ-ACCT-001
     section: accounting-behavior
     section_title: Accounting behavior
     level: PROJECT MUST
     requirement: Retransmission replays exact response and emits one accounting event
     evidence_required: Exact cache plus semantic journal excluding Acct-Delay-Time
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccountingJournalHitDoesNotRerecord
+      - unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim
+      - unit:internal/radius/server.TestAccountingInterimNotCollapsed
   - id: PRJ-ACCT-002
     section: accounting-behavior
     section_title: Accounting behavior
     level: PROJECT MUST
     requirement: Accounting/event storage is bounded, redacted, and documented as memory-only
     evidence_required: Journal/ring caps; ambiguous-identity sample budget
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestJournalSeenRememberExpirySaturation
+      - unit:internal/radius/udp.TestJournalByteSaturation
+      - unit:internal/radius/server.TestAccountingAmbiguousIdentitySampled
+      - unit:internal/aaa.TestRecordRADIUSAccountingRedactsSensitiveAttributes
+      - race:internal/aaa.TestRecordRADIUSAccountingRace
   - id: PRJ-RUN-001
     section: runtime-and-compatibility
     section_title: Runtime and compatibility
     level: PROJECT MUST
     requirement: Listener queues/workers/cache/state/output have hard limits and recover after overload
     evidence_required: drop_overload; cache/journal saturation metrics
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestCacheAbandonAndExpiryAndSaturation
+      - unit:internal/radius/udp.TestJournalSeenRememberExpirySaturation
+      - unit:internal/radius/udp.TestSourceLimiterBurstThenRefill
+      - unit:internal/radius/server.TestAccountingJournalSaturatedStillRecords
+      - bench:internal/radius/udp.BenchmarkRadiusUDPDispatch_Parallel
   - id: PRJ-RUN-002
     section: runtime-and-compatibility
     section_title: Runtime and compatibility
     level: PROJECT MUST
     requirement: One datagram binds to one endpoint, secret handle, snapshot revision, and policy view
     evidence_required: Role-specific LPM; no secret selection by NAS-IP claim
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/config.TestRADIUSIndexRoleSeparation
+      - unit:internal/config.TestRADIUSIndexLongestPrefix
+      - unit:internal/state.TestSnapshotCompilesRADIUSIndexes
+      - unit:internal/radius/udp.TestUnknownClientDiscardUsesCompiledRADIUSIndex
+      - bench:internal/state.BenchmarkRADIUSLookup_IPv4
   - id: PRJ-CFG-001
     section: runtime-and-compatibility
     section_title: Runtime and compatibility
     level: PROJECT MUST
     requirement: Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax
     evidence_required: v1 goldens unchanged; mixed keys fail closed
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/config.TestV1AndV2TACACSEquivalent
+      - unit:internal/config.TestV1FixturesKeepTACACSAndDisableRADIUS
+      - unit:internal/config.TestRejectFixtures
+      - unit:internal/state.TestV1TACACSSnapshotEquivalent
   - id: PRJ-TAC-001
     section: runtime-and-compatibility
     section_title: Runtime and compatibility
     level: PROJECT MUST
     requirement: Existing TACACS legacy/TLS conformance remains green
     evidence_required: TACACS registries stay PASS on shared-package PRs
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:tools/registry.TestReleaseValidationPassesQualifiedRegistries
+      - unit:tools/registry.TestReleaseGateExcludesRADIUSSkeletons
+      - docs:docs/generated/conformance.md
   - id: PRJ-PAR-001
     section: runtime-and-compatibility
     section_title: Runtime and compatibility
     level: PROJECT MUST
     requirement: REST/MCP/UI generated parity remains green
     evidence_required: Same-change api/operations.yaml + generate for new RADIUS ops
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/api/parity.TestParityRequiredEquivalence
+      - unit:internal/api/parity.TestEveryParityRequiredHasCase
+      - unit:internal/api/operations.TestRadiusAccessTestPAPAcceptAndWipe
+      - lab:LAB-RADIUS-002

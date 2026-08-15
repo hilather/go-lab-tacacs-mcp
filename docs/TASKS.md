@@ -1609,5 +1609,5 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
 - [x] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, distinct RADIUS secret, combined + RADIUS-only + TACACS-only readiness. Not advertised as complete RADIUS.
 - [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
-- [ ] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance, independent evidence, interop, fuzz, race, benches.
+- [x] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance evidence attached to `testdata/conformance/rfc*.yaml` and `project-radius.yaml`. Independent testclient UDP e2e is PASS. External `radclient` is SKIP when absent (`docs/INTEROP.md`). Fuzz seeds, race tests, and RADIUS benches recorded. Access-Challenge stays `DEFERRED_MAY`. Do not advertise complete RADIUS.
 - [ ] `RAD-REL-001` … `RAD-REL-007` Documentation, migration, operations, and release.

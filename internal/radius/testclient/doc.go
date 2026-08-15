@@ -5,5 +5,5 @@
 // or udp. Shared-codec loopback is not conformance evidence.
 //
 // This package does not advertise complete RADIUS. UDP exchange helpers
-// come after a production listener exists.
+// encode and decode against a live listener from internal/radius/udp tests.
 package testclient

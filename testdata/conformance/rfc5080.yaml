@@ -10,5 +10,10 @@ rows:
     level: MUST
     requirement: Duplicate/retransmission behavior is deterministic and bounded
     evidence_required: Exact-response cache; pending discard; changed-RA purge; invalid-MA non-mutation
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestCacheHitPendingPurge
+      - unit:internal/radius/udp.TestAccessRejectAndCacheHitPendingPurgeOnUDP
+      - unit:internal/radius/udp.TestUDPIntegrityDiscardsDoNotMutateCache
+      - unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim
+      - bench:internal/radius/udp.BenchmarkRadiusRetransmissionCacheHit

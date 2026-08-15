@@ -10,11 +10,12 @@ rows:
     level: MUST
     requirement: Validate Message-Authenticator on Access-Request whenever present
     evidence_required: Attribute 80 framing, zeroing, HMAC-MD5; not a substitute for R79-MA-001
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/crypto.TestMessageAuthenticatorVectors
       - unit:internal/radius/crypto.TestMessageAuthenticatorZerosValueDuringCompute
       - unit:internal/radius/crypto.TestValidateMessageAuthenticatorTamper
+      - unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState
       - unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors
       - unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes
       - golden:testdata/protocol/radius/crypto/vectors.json
@@ -25,13 +26,21 @@ rows:
     level: MUST
     requirement: Insert Message-Authenticator on Access responses before Response Authenticator
     evidence_required: Independent testclient validates response MA
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestSignResponseMAFirstThenResponseAuthenticator
+      - unit:internal/radius/testclient.TestAccessReplyRequiresMessageAuthenticator
+      - unit:internal/radius/testclient.TestAccessReplyRejectsMAOverResponseAuthenticator
+      - unit:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP
   - id: R69-ACCT-002
     section: accounting-extensions
     section_title: Accounting extensions
     level: MUST
     requirement: Interim accounting, gigaword counters, Event-Timestamp, and Acct-Interim-Interval
     evidence_required: Semantic journal includes Event-Timestamp and counters; delay-time excluded
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccountingInterimNotCollapsed
+      - unit:internal/radius/server.TestAccountingGigawordFoldAndTerminateCause
+      - unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim
+      - unit:internal/radius/server.TestAccountingJournalHitDoesNotRerecord

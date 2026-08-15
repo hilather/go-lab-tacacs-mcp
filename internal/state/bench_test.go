@@ -111,7 +111,24 @@ func BenchmarkClientLookup_IPv6(b *testing.B) {
 }
 
 func BenchmarkRADIUSLookup_IPv4(b *testing.B) {
-	doc, err := config.Parse([]byte(mixedRADIUSYAML))
+	benchmarkRADIUSLookup(b, "192.0.2.10")
+}
+
+func BenchmarkRADIUSLookup_IPv6(b *testing.B) {
+	benchmarkRADIUSLookup(b, "2001:db8:2::10")
+}
+
+func BenchmarkRadiusClientLookup_IPv4(b *testing.B) {
+	BenchmarkRADIUSLookup_IPv4(b)
+}
+
+func BenchmarkRadiusClientLookup_IPv6(b *testing.B) {
+	BenchmarkRADIUSLookup_IPv6(b)
+}
+
+func benchmarkRADIUSLookup(b *testing.B, addr string) {
+	b.Helper()
+	doc, err := config.Parse([]byte(radiusLookupYAML))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -120,7 +137,10 @@ func BenchmarkRADIUSLookup_IPv4(b *testing.B) {
 		b.Fatal(err)
 	}
 	s := m.Snapshot()
-	ip := net.ParseIP("192.0.2.10")
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		b.Fatalf("parse %s", addr)
+	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -129,6 +149,29 @@ func BenchmarkRADIUSLookup_IPv4(b *testing.B) {
 		}
 	}
 }
+
+const radiusLookupYAML = `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    access: {enabled: true, bind: 0.0.0.0:1812}
+    accounting: {enabled: true, bind: 0.0.0.0:1813}
+clients:
+  - id: lab-switches
+    priority: 100
+    match:
+      source_cidrs: ["192.0.2.0/24", "2001:db8:2::/48"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access, accounting]
+        radius:
+          shared_secret: {file: /run/secrets/lab_switches_radius_secret}
+          require_message_authenticator: true
+`
 
 func benchYAML(clients, users, groups int) []byte {
 	var b strings.Builder

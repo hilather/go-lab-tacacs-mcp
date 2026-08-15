@@ -35,9 +35,13 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - GitHub Pages deploy no longer tries to create the site with `GITHUB_TOKEN` (`configure-pages` `enablement: true` fails with `Resource not accessible by integration`). The site is enabled once by a repo admin; `make docs-check` rejects the forbidden enablement input.
 
+### Tests
+
+- RADIUS conformance registries attach executable evidence. MVP MUST rows are `PASS` except Access-Challenge (`DEFERRED_MAY`). Independent `internal/radius/testclient` talks to a live UDP listener. External `radclient` is documented as SKIP when the peer is not installed. RADIUS benches are recorded in `benchmarks/budgets.yaml`. Not advertised as complete RADIUS.
+
 ### Documentation
 
-- [ADRs 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) accepted: RADIUS is in-process in `taclabd` but **not advertised**. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) and `testdata/conformance/rfc2865.yaml` (plus rfc2866/2869/3579/5080 and `project-radius.yaml`) are `NOT_STARTED` / `DEFERRED_MAY` skeletons. TACACS `make check-registries -release` is unchanged.
+- [ADRs 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) accepted: RADIUS is in-process in `taclabd` but **not advertised**. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) and `testdata/conformance/rfc*.yaml` attach executable evidence (`PASS` except Access-Challenge `DEFERRED_MAY`). External `radclient` is SKIP when absent. TACACS `make check-registries -release` is unchanged.
 - Operator-facing README with feature catalog, REST/MCP matrix, and a documentation map for every contract linked from the root page.
 - [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md) — clone, `labgen`, Compose, UI, first REST and MCP calls.
 - [docs/BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md) — first-setup of YAML users, groups, clients, tokens, secret files, and Compose wiring.

@@ -386,15 +386,18 @@ func TestReleaseGateExcludesRADIUSSkeletons(t *testing.T) {
 	}
 	radiusIssues := CheckReleaseStatuses(rep.RADIUSTables()...)
 	if len(radiusIssues) == 0 {
-		t.Fatal("RADIUS NOT_STARTED MUST rows must fail CheckReleaseStatuses")
+		t.Fatal("R65-ACCESS-004 DEFERRED_MAY must fail CheckReleaseStatuses")
 	}
 	have := map[string]struct{}{}
 	for _, issue := range radiusIssues {
 		have[issue.ID] = struct{}{}
 	}
-	for _, id := range []string{"R65-PKT-001", "R65-ACCESS-004", "PRJ-SEC-001"} {
-		if _, ok := have[id]; !ok {
-			t.Errorf("expected %s in RADIUS CheckReleaseStatuses issues", id)
+	if _, ok := have["R65-ACCESS-004"]; !ok {
+		t.Error("expected R65-ACCESS-004 (DEFERRED_MAY) in RADIUS CheckReleaseStatuses issues")
+	}
+	for _, id := range []string{"R65-PKT-001", "PRJ-SEC-001"} {
+		if _, ok := have[id]; ok {
+			t.Errorf("%s is evidenced PASS and must not fail CheckReleaseStatuses", id)
 		}
 	}
 	if issues := CheckReleaseStatuses(ReleaseConformanceTables(rep)...); len(issues) != 0 {
@@ -471,6 +474,7 @@ func TestGenerateDocs(t *testing.T) {
 		"PRJ-SEC-001",
 		"RADIUS qualification summary",
 		"Do not claim complete RADIUS",
+		"External radclient / Cisco IOL",
 	} {
 		if !strings.Contains(string(conf), needle) {
 			t.Errorf("conformance.md missing %q", needle)
@@ -478,7 +482,7 @@ func TestGenerateDocs(t *testing.T) {
 	}
 }
 
-const expectedOperationCount = 38
+const expectedOperationCount = 41
 
 var protocolOnlyOperationIDs = []string{
 	"health.live",

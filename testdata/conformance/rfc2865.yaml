@@ -12,10 +12,11 @@ rows:
     level: MUST
     requirement: Enforce packet length/header bounds
     evidence_required: Minimum 20, maximum 4096, padding and short-packet handling
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/codec.TestDecodeHeaderTruncation
       - unit:internal/radius/codec.TestDecodeIgnoresTrailingPadding
+      - unit:internal/radius/codec.TestDecodeRejectsDeclaredOverRFCMax
       - unit:internal/radius/codec.TestRadiusCatalog
       - unit:internal/radius/testclient/codec.TestIndependentCatalogBytes
       - unit:internal/radius/codec.TestPeerEncodeDecodeCatalogBytes
@@ -28,11 +29,13 @@ rows:
     level: MUST
     requirement: Handle supported/unsupported Codes deterministically
     evidence_required: Invalid code silently discarded; supported codes decoded
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/codec.TestCodeClassification
       - unit:internal/radius/codec.TestDecodeUnknownCodePreserved
       - unit:internal/radius/codec.TestDecodeAccessChallenge
+      - unit:internal/radius/udp.TestInvalidCodeAndShortDatagramDiscard
+      - unit:internal/radius/server.TestStubDiscardsWrongCode
       - unit:internal/radius/testclient/codec.TestIndependentCatalogBytes
       - golden:testdata/protocol/radius/packets/access-challenge-min.bin
   - id: R65-ATTR-001
@@ -41,7 +44,7 @@ rows:
     level: MUST
     requirement: Validate Type/Length/Value framing
     evidence_required: Length >= 2 and within remaining declared payload; overflow discards
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/attribute.TestDecodeRejectsShortLength
       - unit:internal/radius/attribute.TestDecodeRejectsOverflow
@@ -54,7 +57,7 @@ rows:
     level: MUST
     requirement: Preserve ordered duplicate attributes
     evidence_required: Order and duplicates survive decode/encode
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/attribute.TestDecodePreservesOrderAndDuplicates
       - unit:internal/radius/codec.TestRoundTripWithAttributes
@@ -66,7 +69,7 @@ rows:
     level: MUST
     requirement: Parse/encode VSA framing and preserve unknown vendor data safely
     evidence_required: Vendor-Specific (26) framing; unknown VSA payloads preserved raw
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/attribute.TestParseVSARoundTrip
       - unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved
@@ -81,15 +84,18 @@ rows:
     level: MUST
     requirement: Preserve Proxy-State order/value in responses
     evidence_required: Unmodified Proxy-State copied in order after Message-Authenticator
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestSignResponseMAFirstThenResponseAuthenticator
+      - unit:internal/radius/server.TestAccessPermitEmitsAcceptWithProfileAttrs
+      - golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin
   - id: R65-RAUTH-001
     section: authentication-and-integrity
     section_title: Authentication and integrity
     level: MUST
     requirement: Validate/generate request and response authenticators
     evidence_required: Response Authenticator vectors; Access-Request authenticator is a nonce
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/crypto.TestNewRequestAuthenticatorIsNonce
       - unit:internal/radius/crypto.TestResponseAuthenticatorVectors
@@ -103,7 +109,7 @@ rows:
     level: MUST
     requirement: Correct User-Password hide/unhide and block/length checks
     evidence_required: Independent hide/unhide vectors; wipe plaintext
-    status: IN_PROGRESS
+    status: PASS
     evidence:
       - unit:internal/radius/crypto.TestUserPasswordVectors
       - unit:internal/radius/crypto.TestHideUnhideRoundTrip
@@ -119,32 +125,48 @@ rows:
     level: MUST
     requirement: Validate CHAP evidence/challenge selection
     evidence_required: CHAP-Password length 17; CHAP-Challenge else Request Authenticator
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccessCHAPUsesChallengeOrRequestAuthenticator
+      - unit:internal/radius/server.TestAccessExtractRejects
+      - unit:internal/radius/udp.TestUDPPAPAndCHAPRejectPaths
   - id: R65-ACCESS-001
     section: access-behavior
     section_title: Access behavior
     level: MUST
     requirement: Parse and validate Access-Request
     evidence_required: Required identity/evidence rules; conflicting methods reject
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccessExtractRejects
+      - unit:internal/radius/udp.TestUDPPAPAndCHAPRejectPaths
+      - unit:internal/radius/testclient.TestEncodeAccessRequestRejectsConflict
+      - unit:internal/aaa.TestAuthenticateAccessDefaultDenyAndRejects
   - id: R65-ACCESS-002
     section: access-behavior
     section_title: Access behavior
     level: MUST
     requirement: Construct valid Access-Accept
     evidence_required: Identifier, Response Authenticator, Message-Authenticator first, reply attributes
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccessPermitEmitsAcceptWithProfileAttrs
+      - unit:internal/radius/udp.TestUDPPAPAcceptFromCompiledPolicy
+      - unit:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP
+      - unit:internal/radius/testclient.TestAccessReplyRequiresMessageAuthenticator
+      - interop:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP
   - id: R65-ACCESS-003
     section: access-behavior
     section_title: Access behavior
     level: MUST
     requirement: Construct valid Access-Reject
     evidence_required: Correct response and permitted reject attributes
-    status: NOT_STARTED
-    evidence: []
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccessExtractRejects
+      - unit:internal/radius/server.TestStubAccessRejectsAfterDecode
+      - unit:internal/radius/testclient.TestAccessReplyRequiresMessageAuthenticator
+      - unit:internal/aaa.TestAuthenticateAccessDefaultDenyAndRejects
   - id: R65-ACCESS-004
     section: access-behavior
     section_title: Access behavior

@@ -79,7 +79,7 @@ RADIUS fixtures live under `testdata/protocol/radius/`:
 | `vectors.json` | Packet catalog (header fields, expected disposition) |
 | `crypto/vectors.json` | Independent authenticator / User-Password / Message-Authenticator vectors |
 
-These fixtures are **not** complete RADIUS conformance evidence. Independent `internal/radius/testclient` and external `radclient` vectors are still required before any RADIUS row is advertised `PASS`.
+Independent `internal/radius/testclient` UDP exchange is required software-peer evidence (`TestIndependentTestclientPAPAndAccountingOnUDP`). External FreeRADIUS `radclient` is recorded in [docs/INTEROP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md); a skip is not RADIUS PASS and is not advertised completeness.
 
 ### 3.3 Domain integration tests
 
@@ -442,7 +442,7 @@ under `internal/radius/...` and `internal/config`. They are not a claim of
 complete RADIUS. Password KDF remains in `internal/credentials` and is not
 weakened for these numbers.
 
-Landed:
+First-freeze medians live in [`benchmarks/budgets.yaml`](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/benchmarks/budgets.yaml). Landed:
 
 ```text
 internal/radius/codec.BenchmarkRadiusHeaderDecode
@@ -459,16 +459,18 @@ internal/radius/attribute.BenchmarkDictionaryLookup_Name
 internal/radius/attribute.BenchmarkDictionaryLookup_Code
 internal/radius/attribute.BenchmarkDictionaryCheckSet_8Attrs
 internal/radius/udp.BenchmarkCacheHit
+internal/radius/udp.BenchmarkRadiusRetransmissionCacheHit
 internal/radius/udp.BenchmarkJournalRemember
+internal/radius/udp.BenchmarkRadiusUDPDispatch_Parallel
 internal/radius/server.BenchmarkAccountingHandle
-internal/config.BenchmarkRADIUSClientLookupIPv4
+internal/radius/server.BenchmarkRadiusAccessPAP_NoKDF
+internal/radius/server.BenchmarkRadiusAccountingRequest
+internal/policy/radius.BenchmarkRadiusPolicyEvaluate
+internal/state.BenchmarkRADIUSLookup_IPv4
+internal/state.BenchmarkRADIUSLookup_IPv6
 ```
 
-Still required before a RADIUS release advertisement (design names):
-`BenchmarkRadiusClientLookup_IPv6`, `BenchmarkRadiusPolicyEvaluate`,
-`BenchmarkRadiusAccessPAP_NoKDF`, `BenchmarkRadiusUDPDispatch_Parallel`.
-Record medians in [`benchmarks/budgets.yaml`](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/benchmarks/budgets.yaml)
-when those paths freeze.
+These numbers are not a claim of complete RADIUS.
 
 `make bench` compiles/runs TACACS plus `./internal/radius/...` (KDF still excluded).
 

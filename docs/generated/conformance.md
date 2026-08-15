@@ -19,11 +19,12 @@ Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Devi
 
 | Gate | Result |
 |---|---|
-| RADIUS / project MVP rows | **OPEN** (31 unresolved: R65-PKT-001=IN_PROGRESS, R65-PKT-002=IN_PROGRESS, R65-ATTR-001=IN_PROGRESS, R65-ATTR-002=IN_PROGRESS, R65-VSA-001=IN_PROGRESS, R65-PROXY-001=NOT_STARTED, R65-RAUTH-001=IN_PROGRESS, R65-PAP-001=IN_PROGRESS, R65-CHAP-001=NOT_STARTED, R65-ACCESS-001=NOT_STARTED, R65-ACCESS-002=NOT_STARTED, R65-ACCESS-003=NOT_STARTED, R66-PKT-001=IN_PROGRESS, R66-RESP-001=NOT_STARTED, R66-STAT-001=NOT_STARTED, R69-MA-001=IN_PROGRESS, R69-MA-002=NOT_STARTED, R69-ACCT-002=NOT_STARTED, R79-MA-001=IN_PROGRESS, R80-DUP-001=NOT_STARTED, PRJ-SEC-001=NOT_STARTED, PRJ-SEC-002=NOT_STARTED, PRJ-POL-001=NOT_STARTED, PRJ-ERR-001=NOT_STARTED, PRJ-ACCT-001=NOT_STARTED, PRJ-ACCT-002=NOT_STARTED, PRJ-RUN-001=NOT_STARTED, PRJ-RUN-002=NOT_STARTED, PRJ-CFG-001=NOT_STARTED, PRJ-TAC-001=NOT_STARTED, PRJ-PAR-001=NOT_STARTED) |
-| Advertised completeness | **Do not claim complete RADIUS** while any MVP row is `NOT_STARTED` or lacks evidence |
-| Independent software peer | `internal/radius/testclient` (separate codec; required evidence before any RADIUS row is `PASS`) |
+| RADIUS / project MVP rows | **PASS** (32/32 mandatory rows `PASS` or deferred with ADR evidence) |
+| Advertised completeness | **Do not claim complete RADIUS** while Access-Challenge is deferred, external radclient is skipped, or any MVP row lacks evidence |
+| Independent software peer | `internal/radius/testclient` (separate codec) |
+| External radclient / Cisco IOL | **SKIP** unless recorded in `docs/INTEROP.md`; a skip is not RADIUS PASS |
 
-RADIUS registries are skeletons until implementation PRs attach evidence. TACACS 1.0 `-release` still gates only RFC 8907/9887.
+RADIUS MVP MUST rows are evidenced or deferred with an ADR. Access-Challenge stays `DEFERRED_MAY`. External radclient/device interop is not claimed. Do **not** advertise complete RADIUS. TACACS 1.0 `-release` still gates only RFC 8907/9887.
 
 ## RFC 8907
 
@@ -264,18 +265,18 @@ RFC 2865 RADIUS
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R65-PKT-001 | MUST | IN_PROGRESS | Enforce packet length/header bounds | unit:internal/radius/codec.TestDecodeHeaderTruncation; unit:internal/radius/codec.TestDecodeIgnoresTrailingPadding; unit:internal/radius/codec.TestRadiusCatalog; unit:internal/radius/testclient/codec.TestIndependentCatalogBytes; unit:internal/radius/codec.TestPeerEncodeDecodeCatalogBytes; golden:testdata/protocol/radius/vectors.json; fuzz:internal/radius/codec.FuzzRadiusPacketDecode; bench:internal/radius/codec.BenchmarkRadiusPacketDecode_8Attrs |
-| R65-PKT-002 | MUST | IN_PROGRESS | Handle supported/unsupported Codes deterministically | unit:internal/radius/codec.TestCodeClassification; unit:internal/radius/codec.TestDecodeUnknownCodePreserved; unit:internal/radius/codec.TestDecodeAccessChallenge; unit:internal/radius/testclient/codec.TestIndependentCatalogBytes; golden:testdata/protocol/radius/packets/access-challenge-min.bin |
-| R65-ATTR-001 | MUST | IN_PROGRESS | Validate Type/Length/Value framing | unit:internal/radius/attribute.TestDecodeRejectsShortLength; unit:internal/radius/attribute.TestDecodeRejectsOverflow; unit:internal/radius/codec.TestDecodeAttributeOverflow; unit:internal/radius/testclient/codec.TestIndependentCatalogBytes; fuzz:internal/radius/attribute.FuzzRadiusAttributeDecode |
-| R65-ATTR-002 | MUST | IN_PROGRESS | Preserve ordered duplicate attributes | unit:internal/radius/attribute.TestDecodePreservesOrderAndDuplicates; unit:internal/radius/codec.TestRoundTripWithAttributes; unit:internal/radius/codec.TestPeerConstructedPacketBytes; golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin |
-| R65-VSA-001 | MUST | IN_PROGRESS | Parse/encode VSA framing and preserve unknown vendor data safely | unit:internal/radius/attribute.TestParseVSARoundTrip; unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved; unit:internal/radius/attribute.TestPacketKeepsMalformedVSARaw; unit:internal/radius/codec.TestVSAGoldenFraming; unit:internal/radius/testclient/codec.TestIndependentVSAFraming; fuzz:internal/radius/attribute.FuzzRadiusVSA; golden:testdata/protocol/radius/packets/access-request-vsa.bin |
-| R65-PROXY-001 | MUST | NOT_STARTED | Preserve Proxy-State order/value in responses |  |
-| R65-RAUTH-001 | MUST | IN_PROGRESS | Validate/generate request and response authenticators | unit:internal/radius/crypto.TestNewRequestAuthenticatorIsNonce; unit:internal/radius/crypto.TestResponseAuthenticatorVectors; unit:internal/radius/testclient/codec.TestIndependentResponseAuthenticatorVectors; unit:internal/radius/crypto.TestPeerResponseAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; bench:internal/radius/crypto.BenchmarkResponseAuthenticator |
-| R65-PAP-001 | MUST | IN_PROGRESS | Correct User-Password hide/unhide and block/length checks | unit:internal/radius/crypto.TestUserPasswordVectors; unit:internal/radius/crypto.TestHideUnhideRoundTrip; unit:internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors; unit:internal/radius/testclient/codec.TestIndependentUserPasswordVectors; unit:internal/radius/crypto.TestPeerUserPasswordHideBytes; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzUnhideUserPassword; bench:internal/radius/crypto.BenchmarkUnhideUserPassword |
-| R65-CHAP-001 | MUST | NOT_STARTED | Validate CHAP evidence/challenge selection |  |
-| R65-ACCESS-001 | MUST | NOT_STARTED | Parse and validate Access-Request |  |
-| R65-ACCESS-002 | MUST | NOT_STARTED | Construct valid Access-Accept |  |
-| R65-ACCESS-003 | MUST | NOT_STARTED | Construct valid Access-Reject |  |
+| R65-PKT-001 | MUST | PASS | Enforce packet length/header bounds | unit:internal/radius/codec.TestDecodeHeaderTruncation; unit:internal/radius/codec.TestDecodeIgnoresTrailingPadding; unit:internal/radius/codec.TestDecodeRejectsDeclaredOverRFCMax; unit:internal/radius/codec.TestRadiusCatalog; unit:internal/radius/testclient/codec.TestIndependentCatalogBytes; unit:internal/radius/codec.TestPeerEncodeDecodeCatalogBytes; golden:testdata/protocol/radius/vectors.json; fuzz:internal/radius/codec.FuzzRadiusPacketDecode; bench:internal/radius/codec.BenchmarkRadiusPacketDecode_8Attrs |
+| R65-PKT-002 | MUST | PASS | Handle supported/unsupported Codes deterministically | unit:internal/radius/codec.TestCodeClassification; unit:internal/radius/codec.TestDecodeUnknownCodePreserved; unit:internal/radius/codec.TestDecodeAccessChallenge; unit:internal/radius/udp.TestInvalidCodeAndShortDatagramDiscard; unit:internal/radius/server.TestStubDiscardsWrongCode; unit:internal/radius/testclient/codec.TestIndependentCatalogBytes; golden:testdata/protocol/radius/packets/access-challenge-min.bin |
+| R65-ATTR-001 | MUST | PASS | Validate Type/Length/Value framing | unit:internal/radius/attribute.TestDecodeRejectsShortLength; unit:internal/radius/attribute.TestDecodeRejectsOverflow; unit:internal/radius/codec.TestDecodeAttributeOverflow; unit:internal/radius/testclient/codec.TestIndependentCatalogBytes; fuzz:internal/radius/attribute.FuzzRadiusAttributeDecode |
+| R65-ATTR-002 | MUST | PASS | Preserve ordered duplicate attributes | unit:internal/radius/attribute.TestDecodePreservesOrderAndDuplicates; unit:internal/radius/codec.TestRoundTripWithAttributes; unit:internal/radius/codec.TestPeerConstructedPacketBytes; golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin |
+| R65-VSA-001 | MUST | PASS | Parse/encode VSA framing and preserve unknown vendor data safely | unit:internal/radius/attribute.TestParseVSARoundTrip; unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved; unit:internal/radius/attribute.TestPacketKeepsMalformedVSARaw; unit:internal/radius/codec.TestVSAGoldenFraming; unit:internal/radius/testclient/codec.TestIndependentVSAFraming; fuzz:internal/radius/attribute.FuzzRadiusVSA; golden:testdata/protocol/radius/packets/access-request-vsa.bin |
+| R65-PROXY-001 | MUST | PASS | Preserve Proxy-State order/value in responses | unit:internal/radius/server.TestSignResponseMAFirstThenResponseAuthenticator; unit:internal/radius/server.TestAccessPermitEmitsAcceptWithProfileAttrs; golden:testdata/protocol/radius/packets/access-request-dup-proxy-state.bin |
+| R65-RAUTH-001 | MUST | PASS | Validate/generate request and response authenticators | unit:internal/radius/crypto.TestNewRequestAuthenticatorIsNonce; unit:internal/radius/crypto.TestResponseAuthenticatorVectors; unit:internal/radius/testclient/codec.TestIndependentResponseAuthenticatorVectors; unit:internal/radius/crypto.TestPeerResponseAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; bench:internal/radius/crypto.BenchmarkResponseAuthenticator |
+| R65-PAP-001 | MUST | PASS | Correct User-Password hide/unhide and block/length checks | unit:internal/radius/crypto.TestUserPasswordVectors; unit:internal/radius/crypto.TestHideUnhideRoundTrip; unit:internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors; unit:internal/radius/testclient/codec.TestIndependentUserPasswordVectors; unit:internal/radius/crypto.TestPeerUserPasswordHideBytes; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzUnhideUserPassword; bench:internal/radius/crypto.BenchmarkUnhideUserPassword |
+| R65-CHAP-001 | MUST | PASS | Validate CHAP evidence/challenge selection | unit:internal/radius/server.TestAccessCHAPUsesChallengeOrRequestAuthenticator; unit:internal/radius/server.TestAccessExtractRejects; unit:internal/radius/udp.TestUDPPAPAndCHAPRejectPaths |
+| R65-ACCESS-001 | MUST | PASS | Parse and validate Access-Request | unit:internal/radius/server.TestAccessExtractRejects; unit:internal/radius/udp.TestUDPPAPAndCHAPRejectPaths; unit:internal/radius/testclient.TestEncodeAccessRequestRejectsConflict; unit:internal/aaa.TestAuthenticateAccessDefaultDenyAndRejects |
+| R65-ACCESS-002 | MUST | PASS | Construct valid Access-Accept | unit:internal/radius/server.TestAccessPermitEmitsAcceptWithProfileAttrs; unit:internal/radius/udp.TestUDPPAPAcceptFromCompiledPolicy; unit:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP; unit:internal/radius/testclient.TestAccessReplyRequiresMessageAuthenticator; interop:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP |
+| R65-ACCESS-003 | MUST | PASS | Construct valid Access-Reject | unit:internal/radius/server.TestAccessExtractRejects; unit:internal/radius/server.TestStubAccessRejectsAfterDecode; unit:internal/radius/testclient.TestAccessReplyRequiresMessageAuthenticator; unit:internal/aaa.TestAuthenticateAccessDefaultDenyAndRejects |
 | R65-ACCESS-004 | MUST | DEFERRED_MAY | Access-Challenge only under complete state/security gate | adr:docs/decisions/0016-radius-udp-security-retransmission-and-scope.md |
 
 ## RFC 2866
@@ -284,9 +285,9 @@ RFC 2866 RADIUS Accounting
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R66-PKT-001 | MUST | IN_PROGRESS | Validate Accounting-Request and its authenticator | unit:internal/radius/crypto.TestAccountingRequestAuthenticatorVectors; unit:internal/radius/crypto.TestAccountingAuthenticatorIgnoresOnWireField; unit:internal/radius/testclient/codec.TestIndependentAccountingRequestAuthenticatorVectors; unit:internal/radius/crypto.TestPeerAccountingRequestAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzAccountingRequestAuthenticator; bench:internal/radius/crypto.BenchmarkAccountingRequestAuthenticator |
-| R66-RESP-001 | MUST | NOT_STARTED | Construct exact Accounting-Response |  |
-| R66-STAT-001 | MUST | NOT_STARTED | Map declared Acct-Status-Type values |  |
+| R66-PKT-001 | MUST | PASS | Validate Accounting-Request and its authenticator | unit:internal/radius/crypto.TestAccountingRequestAuthenticatorVectors; unit:internal/radius/crypto.TestAccountingAuthenticatorIgnoresOnWireField; unit:internal/radius/server.TestAccountingValidatesRequestAuthenticator; unit:internal/radius/testclient/codec.TestIndependentAccountingRequestAuthenticatorVectors; unit:internal/radius/crypto.TestPeerAccountingRequestAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzAccountingRequestAuthenticator; bench:internal/radius/crypto.BenchmarkAccountingRequestAuthenticator |
+| R66-RESP-001 | MUST | PASS | Construct exact Accounting-Response | unit:internal/radius/udp.TestAccountingResponseOnUDP; unit:internal/radius/server.TestAccountingFiveStatusTypes; unit:internal/radius/testclient.TestAccountingResponseRequiresMA; unit:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP; interop:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP |
+| R66-STAT-001 | MUST | PASS | Map declared Acct-Status-Type values | unit:internal/radius/server.TestAccountingFiveStatusTypes; unit:internal/radius/server.TestAccountingUnknownAndAllowlistedStatus; unit:internal/aaa.TestRecordRADIUSAccountingAllKinds |
 
 ## RFC 2869
 
@@ -294,9 +295,9 @@ RFC 2869 RADIUS Extensions
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R69-MA-001 | MUST | IN_PROGRESS | Validate Message-Authenticator on Access-Request whenever present | unit:internal/radius/crypto.TestMessageAuthenticatorVectors; unit:internal/radius/crypto.TestMessageAuthenticatorZerosValueDuringCompute; unit:internal/radius/crypto.TestValidateMessageAuthenticatorTamper; unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors; unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzValidateMessageAuthenticator |
-| R69-MA-002 | MUST | NOT_STARTED | Insert Message-Authenticator on Access responses before Response Authenticator |  |
-| R69-ACCT-002 | MUST | NOT_STARTED | Interim accounting, gigaword counters, Event-Timestamp, and Acct-Interim-Interval |  |
+| R69-MA-001 | MUST | PASS | Validate Message-Authenticator on Access-Request whenever present | unit:internal/radius/crypto.TestMessageAuthenticatorVectors; unit:internal/radius/crypto.TestMessageAuthenticatorZerosValueDuringCompute; unit:internal/radius/crypto.TestValidateMessageAuthenticatorTamper; unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState; unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors; unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; fuzz:internal/radius/crypto.FuzzValidateMessageAuthenticator |
+| R69-MA-002 | MUST | PASS | Insert Message-Authenticator on Access responses before Response Authenticator | unit:internal/radius/server.TestSignResponseMAFirstThenResponseAuthenticator; unit:internal/radius/testclient.TestAccessReplyRequiresMessageAuthenticator; unit:internal/radius/testclient.TestAccessReplyRejectsMAOverResponseAuthenticator; unit:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP |
+| R69-ACCT-002 | MUST | PASS | Interim accounting, gigaword counters, Event-Timestamp, and Acct-Interim-Interval | unit:internal/radius/server.TestAccountingInterimNotCollapsed; unit:internal/radius/server.TestAccountingGigawordFoldAndTerminateCause; unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim; unit:internal/radius/server.TestAccountingJournalHitDoesNotRerecord |
 
 ## RFC 3579
 
@@ -304,7 +305,7 @@ RFC 3579 RADIUS Support For Extensible Authentication Protocol (EAP)
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R79-MA-001 | MUST | IN_PROGRESS | Validate/calculate Message-Authenticator | unit:internal/radius/crypto.TestMessageAuthenticatorVectors; unit:internal/radius/crypto.TestMessageAuthenticatorMissingDuplicateWrongLength; unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors; unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; bench:internal/radius/crypto.BenchmarkMessageAuthenticator |
+| R79-MA-001 | MUST | PASS | Validate/calculate Message-Authenticator | unit:internal/radius/crypto.TestMessageAuthenticatorVectors; unit:internal/radius/crypto.TestMessageAuthenticatorMissingDuplicateWrongLength; unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState; unit:internal/radius/server.TestSignResponseMAFirstThenResponseAuthenticator; unit:internal/radius/testclient/codec.TestIndependentMessageAuthenticatorVectors; unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes; golden:testdata/protocol/radius/crypto/vectors.json; bench:internal/radius/crypto.BenchmarkMessageAuthenticator |
 
 ## RFC 5080
 
@@ -312,7 +313,7 @@ RFC 5080 Common RADIUS Implementation Issues and Suggested Fixes
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| R80-DUP-001 | MUST | NOT_STARTED | Duplicate/retransmission behavior is deterministic and bounded |  |
+| R80-DUP-001 | MUST | PASS | Duplicate/retransmission behavior is deterministic and bounded | unit:internal/radius/udp.TestCacheHitPendingPurge; unit:internal/radius/udp.TestAccessRejectAndCacheHitPendingPurgeOnUDP; unit:internal/radius/udp.TestUDPIntegrityDiscardsDoNotMutateCache; unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim; bench:internal/radius/udp.BenchmarkRadiusRetransmissionCacheHit |
 
 ## Project RADIUS
 
@@ -320,15 +321,15 @@ Project RADIUS completeness
 
 | ID | Level | Status | Requirement | Evidence |
 |---|---|---|---|---|
-| PRJ-SEC-001 | PROJECT MUST | NOT_STARTED | Missing/invalid required Message-Authenticator silently discards with bounded diagnostics |  |
-| PRJ-SEC-002 | PROJECT MUST | NOT_STARTED | Unknown/ambiguous clients and invalid authenticators receive no useful response |  |
-| PRJ-POL-001 | PROJECT MUST | NOT_STARTED | Policy result is deterministic and reply attributes are role/type validated |  |
-| PRJ-ERR-001 | PROJECT MUST | NOT_STARTED | Discard/reject/internal/overload mapping is stable and non-oracular |  |
-| PRJ-ACCT-001 | PROJECT MUST | NOT_STARTED | Retransmission replays exact response and emits one accounting event |  |
-| PRJ-ACCT-002 | PROJECT MUST | NOT_STARTED | Accounting/event storage is bounded, redacted, and documented as memory-only |  |
-| PRJ-RUN-001 | PROJECT MUST | NOT_STARTED | Listener queues/workers/cache/state/output have hard limits and recover after overload |  |
-| PRJ-RUN-002 | PROJECT MUST | NOT_STARTED | One datagram binds to one endpoint, secret handle, snapshot revision, and policy view |  |
-| PRJ-CFG-001 | PROJECT MUST | NOT_STARTED | Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax |  |
-| PRJ-TAC-001 | PROJECT MUST | NOT_STARTED | Existing TACACS legacy/TLS conformance remains green |  |
-| PRJ-PAR-001 | PROJECT MUST | NOT_STARTED | REST/MCP/UI generated parity remains green |  |
+| PRJ-SEC-001 | PROJECT MUST | PASS | Missing/invalid required Message-Authenticator silently discards with bounded diagnostics | unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState; unit:internal/radius/udp.TestUDPIntegrityDiscardsDoNotMutateCache; unit:internal/radius/server.TestAccessDiscardsInvalidMA |
+| PRJ-SEC-002 | PROJECT MUST | PASS | Unknown/ambiguous clients and invalid authenticators receive no useful response | unit:internal/radius/udp.TestUnknownClientDiscardUsesCompiledRADIUSIndex; unit:internal/radius/udp.TestUnknownAccountingClientUsesCompiledRADIUSIndex; unit:internal/radius/server.TestAccountingValidatesRequestAuthenticator; unit:internal/config.TestRADIUSIndexUnknownSource |
+| PRJ-POL-001 | PROJECT MUST | PASS | Policy result is deterministic and reply attributes are role/type validated | unit:internal/policy/radius.TestEvaluateDefaultDenyUnknownClient; unit:internal/policy/radius.TestCompileRejectsIllegalReplyRole; unit:internal/policy/radius.TestGoldenTraces; unit:internal/radius/server.TestAccessIllegalAcceptAttrsFailClosed; unit:internal/aaa.TestAuthenticateAccessPermitFromCompiledPolicy; race:internal/policy/radius.TestEvaluateConcurrent |
+| PRJ-ERR-001 | PROJECT MUST | PASS | Discard/reject/internal/overload mapping is stable and non-oracular | unit:internal/radius/server.TestReasonTableStable; unit:internal/radius/server.TestAccessExtractRejects; unit:internal/radius/udp.TestInvalidCodeAndShortDatagramDiscard |
+| PRJ-ACCT-001 | PROJECT MUST | PASS | Retransmission replays exact response and emits one accounting event | unit:internal/radius/server.TestAccountingJournalHitDoesNotRerecord; unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim; unit:internal/radius/server.TestAccountingInterimNotCollapsed |
+| PRJ-ACCT-002 | PROJECT MUST | PASS | Accounting/event storage is bounded, redacted, and documented as memory-only | unit:internal/radius/udp.TestJournalSeenRememberExpirySaturation; unit:internal/radius/udp.TestJournalByteSaturation; unit:internal/radius/server.TestAccountingAmbiguousIdentitySampled; unit:internal/aaa.TestRecordRADIUSAccountingRedactsSensitiveAttributes; race:internal/aaa.TestRecordRADIUSAccountingRace |
+| PRJ-RUN-001 | PROJECT MUST | PASS | Listener queues/workers/cache/state/output have hard limits and recover after overload | unit:internal/radius/udp.TestCacheAbandonAndExpiryAndSaturation; unit:internal/radius/udp.TestJournalSeenRememberExpirySaturation; unit:internal/radius/udp.TestSourceLimiterBurstThenRefill; unit:internal/radius/server.TestAccountingJournalSaturatedStillRecords; bench:internal/radius/udp.BenchmarkRadiusUDPDispatch_Parallel |
+| PRJ-RUN-002 | PROJECT MUST | PASS | One datagram binds to one endpoint, secret handle, snapshot revision, and policy view | unit:internal/config.TestRADIUSIndexRoleSeparation; unit:internal/config.TestRADIUSIndexLongestPrefix; unit:internal/state.TestSnapshotCompilesRADIUSIndexes; unit:internal/radius/udp.TestUnknownClientDiscardUsesCompiledRADIUSIndex; bench:internal/state.BenchmarkRADIUSLookup_IPv4 |
+| PRJ-CFG-001 | PROJECT MUST | PASS | Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax | unit:internal/config.TestV1AndV2TACACSEquivalent; unit:internal/config.TestV1FixturesKeepTACACSAndDisableRADIUS; unit:internal/config.TestRejectFixtures; unit:internal/state.TestV1TACACSSnapshotEquivalent |
+| PRJ-TAC-001 | PROJECT MUST | PASS | Existing TACACS legacy/TLS conformance remains green | unit:tools/registry.TestReleaseValidationPassesQualifiedRegistries; unit:tools/registry.TestReleaseGateExcludesRADIUSSkeletons; docs:docs/generated/conformance.md |
+| PRJ-PAR-001 | PROJECT MUST | PASS | REST/MCP/UI generated parity remains green | unit:internal/api/parity.TestParityRequiredEquivalence; unit:internal/api/parity.TestEveryParityRequiredHasCase; unit:internal/api/operations.TestRadiusAccessTestPAPAcceptAndWipe; lab:LAB-RADIUS-002 |
 

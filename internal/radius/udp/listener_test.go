@@ -417,7 +417,7 @@ func waitReady(t *testing.T, ln *Listener) {
 	t.Fatal("listener not ready")
 }
 
-func writeSecret(t *testing.T, dir string) string {
+func writeSecret(t testing.TB, dir string) string {
 	t.Helper()
 	p := filepath.Join(dir, "radius")
 	if err := os.WriteFile(p, []byte(labSecret), 0o600); err != nil {
@@ -506,7 +506,7 @@ func accessRequest(t *testing.T, id uint8, ra [16]byte) []byte {
 	})
 }
 
-func signAccessRequest(t *testing.T, secret []byte, pkt codec.Packet) []byte {
+func signAccessRequest(t testing.TB, secret []byte, pkt codec.Packet) []byte {
 	t.Helper()
 	attrs := append(attribute.RawSet(nil), pkt.Attributes...)
 	attrs = append(attrs, attribute.Raw{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)})

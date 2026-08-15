@@ -183,6 +183,13 @@ func authzRequests() map[string]any {
 			UserID: "alice", ClientID: "sw", Service: "shell", Cmd: "show",
 		},
 		operations.IDAuthenticationTest: operations.TestAuthenticationRequest{UserID: "alice", Method: "ascii"},
-		operations.IDEventsList:         operations.ListEventsRequest{Limit: 5},
+		operations.IDRadiusAccessTest: operations.RadiusAccessTestRequest{
+			UserID: "alice", Method: operations.RadiusAuthMethod{Type: "pap"},
+		},
+		operations.IDRadiusPolicyEvaluate: operations.RadiusPolicyEvaluateRequest{
+			UserID: "alice", ClientID: "sw", Method: "pap",
+		},
+		operations.IDRadiusAttributesList: operations.ListRadiusAttributesRequest{},
+		operations.IDEventsList:           operations.ListEventsRequest{Limit: 5},
 	}
 }

@@ -228,12 +228,17 @@ The token value appears exactly once in the successful create response on both s
 |---|---|---|---|---|
 | `policy.evaluate` | `policy:test` | `POST /api/v1/policy/evaluate` | tool `taclab.policy.evaluate` | PARITY_REQUIRED |
 | `authentication.test` | `policy:test` | `POST /api/v1/authentication/test` | tool `taclab.authentication.test` | PARITY_REQUIRED |
+| `radius.access.test` | `policy:test` | `POST /api/v1/radius/access:test` | tool `taclab.radius.access.test` | PARITY_REQUIRED |
+| `radius.policy.evaluate` | `policy:test` | `POST /api/v1/radius/policy:evaluate` | tool `taclab.radius.policy.evaluate` | PARITY_REQUIRED |
+| `radius.attributes.list` | `state:read` | `GET /api/v1/radius/attributes` | tool `taclab.radius.attributes.list`; resource `taclab://radius/attributes` | PARITY_REQUIRED |
 | `events.list` | `events:read` | `GET /api/v1/events` | tool `taclab.events.list`; resource `taclab://events/recent` | PARITY_REQUIRED |
 | `events.subscribe` | `events:read` | `GET /api/v1/events/stream` using SSE | MCP resource/subscription/listen mechanism | PARITY_DIFFERENT_BINDING |
 
 `system.status.get` listeners are additive: existing `id`/`enabled`/`bind`/`transport` stay. New fields are `protocol`, `carrier`, `roles`, `ready`, `required`, `inflight`, `queue_depth`, and `last_error_code`. RADIUS listeners appear after the three TACACS/HTTP sockets when configured. `transport` for RADIUS is `udp` and is not a `domain.Transport` value.
 
 `system.build.get` keeps `tacacs_conformance` and adds `protocols` (`tacacs` / `radius` → `standards` + `conformance_status`). RADIUS stays `partial` until MVP rows have evidence.
+
+RADIUS diagnostics are distinct from the TACACS `authentication.test` / `policy.evaluate` ops (KD-14). `radius.access.test` calls the same `AuthenticateAccess` path as UDP (`method.type` is `pap` or `chap`; passwords are write-only and wiped). `radius.policy.evaluate` uses the compiled RADIUS engine. `radius.attributes.list` returns dictionary metadata only (name/code/vendor/value_kind/allowed_in/sensitivity). These do not advertise complete RADIUS.
 
 `events.list` optional filters `protocol`, `listener_role`, `packet_code`, and `outcome` AND with `categories`. REST SSE accepts the same query parameters. MCP listen stays URI-only; clients pull filtered bodies through `events.list`.
 

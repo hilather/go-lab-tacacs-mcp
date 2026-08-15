@@ -460,6 +460,57 @@ operations:
     audit_event: api.authentication.tested
     status: PASS
 
+  - id: radius.access.test
+    description: Simulate a RADIUS Access-Request against the current snapshot without UDP. Uses the same AuthenticateAccess path as the wire. Passwords are wiped. Not complete RADIUS.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [policy:test]
+    request_type: RadiusAccessTestRequest
+    response_type: RadiusAccessTestResult
+    rest:
+      method: POST
+      path: /api/v1/radius/access:test
+    mcp:
+      kind: tool
+      name: taclab.radius.access.test
+    audit_event: api.radius.access.tested
+    status: PASS
+
+  - id: radius.policy.evaluate
+    description: Explain a RADIUS access-policy decision against the current snapshot using the same engine as the wire path. Not complete RADIUS.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [policy:test]
+    request_type: RadiusPolicyEvaluateRequest
+    response_type: RadiusPolicyEvaluateResult
+    rest:
+      method: POST
+      path: /api/v1/radius/policy:evaluate
+    mcp:
+      kind: tool
+      name: taclab.radius.policy.evaluate
+    audit_event: api.radius.policy.evaluated
+    status: PASS
+
+  - id: radius.attributes.list
+    description: List built-in RADIUS dictionary metadata. Values and secrets are omitted.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: ListRadiusAttributesRequest
+    response_type: RadiusAttributeList
+    rest:
+      method: GET
+      path: /api/v1/radius/attributes
+    mcp:
+      kind: tool
+      name: taclab.radius.attributes.list
+      resource: taclab://radius/attributes
+    status: PASS
+
   - id: events.list
     description: Read a cursor page of redacted events from the ring. Optional filters protocol, listener_role, packet_code, and outcome AND with categories.
     parity: PARITY_REQUIRED

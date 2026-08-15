@@ -1596,9 +1596,16 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [ ] `RAD-ACCESS-003` … `RAD-ACCESS-007` Remaining access reply orchestration (challenge, remaining methods).
 - [x] `RAD-POL-001` RADIUS access policy dialect compiler (client + fallback; `groups_any` / `method` / typed `equals|present|absent`; default deny). `pap` stores `password`. No user/group RADIUS fields. Snapshot compile fails closed on illegal reply roles.
 - [x] `RAD-POL-002` Policy evaluation on the access path; runtime reply-role legality; golden traces unchanged for TACACS.
-- [ ] `RAD-POL-003` … `RAD-POL-007` Remaining policy explain/API surfaces.
+- [x] `RAD-POL-003` `radius.policy.evaluate` explains the compiled RADIUS engine (same walk as Access after credential pass).
+- [ ] `RAD-POL-004` … `RAD-POL-007` Remaining policy explain/API surfaces.
 - [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.
-- [ ] `RAD-API-001` … `RAD-API-006` Administrative operations and REST/MCP parity.
+- [x] `RAD-API-001` Protocol-aware status, build, and event filters.
+- [x] `RAD-API-002` Client RADIUS endpoints and v2 config views.
+- [x] `RAD-API-003` `radius.access.test` (`policy:test`) calls `AuthenticateAccess`; passwords wiped; REST/MCP parity.
+- [x] `RAD-API-004` `radius.policy.evaluate` uses the same compiled RADIUS engine as the wire path.
+- [x] `RAD-API-005` `radius.attributes.list` returns dictionary metadata only (no values/secrets).
+- [x] `RAD-API-006` Same-change generate (OpenAPI, MCP, frontend types, api-parity matrix).
+- [ ] Remaining `RAD-API-*` UI-adjacent admin surfaces (if any) stay with later PRs.
 - [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
 - [ ] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, secrets, smoke.
 - [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.

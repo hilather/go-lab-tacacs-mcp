@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -77,6 +78,10 @@ users:
 	if err != nil {
 		t.Fatal(err)
 	}
+	aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Events: ring})
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg, err := operations.NewFromRepo(".", operations.Deps{
 		Build:    operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-12T00:00:00Z"},
 		State:    mgr,
@@ -84,6 +89,7 @@ users:
 		Usage:    svc,
 		Events:   ring,
 		Creds:    creds,
+		AAA:      aaaSvc,
 		LoadBaseline: func() (*config.Document, error) {
 			return config.Parse([]byte(yamlSrc))
 		},

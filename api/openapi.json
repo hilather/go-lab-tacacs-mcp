@@ -1512,6 +1512,11 @@
         },
         "type": "object"
       },
+      "ListRadiusAttributesRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
       "ListTokensRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1852,6 +1857,309 @@
         "required": [
           "standards",
           "conformance_status"
+        ],
+        "type": "object"
+      },
+      "RadiusAccessTestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "explain": {
+            "type": "boolean"
+          },
+          "method": {
+            "$ref": "#/components/schemas/RadiusAuthMethod"
+          },
+          "request_attributes": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusAttributeValue"
+            },
+            "type": "array"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "method"
+        ],
+        "type": "object"
+      },
+      "RadiusAccessTestResult": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "reply_attributes": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusAttributeValue"
+            },
+            "type": "array"
+          },
+          "trace": {
+            "$ref": "#/components/schemas/RadiusPolicyTrace"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason_code",
+          "reply_attributes"
+        ],
+        "type": "object"
+      },
+      "RadiusAttributeList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusAttributeMetadata"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "items"
+        ],
+        "type": "object"
+      },
+      "RadiusAttributeMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_in": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "code": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sensitivity": {
+            "type": "string"
+          },
+          "value_kind": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "code",
+          "vendor",
+          "value_kind",
+          "allowed_in",
+          "sensitivity"
+        ],
+        "type": "object"
+      },
+      "RadiusAttributeValue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "value_hex": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RadiusAuthMethod": {
+        "additionalProperties": false,
+        "properties": {
+          "challenge": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "response": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "RadiusPolicyEvaluateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "endpoint_id": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "request_attributes": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusAttributeValue"
+            },
+            "type": "array"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "RadiusPolicyEvaluateResult": {
+        "additionalProperties": false,
+        "properties": {
+          "effect": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "reply_attributes": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusAttributeValue"
+            },
+            "type": "array"
+          },
+          "trace": {
+            "$ref": "#/components/schemas/RadiusPolicyTrace"
+          }
+        },
+        "required": [
+          "effect",
+          "reason_code",
+          "reply_attributes",
+          "trace"
+        ],
+        "type": "object"
+      },
+      "RadiusPolicyTrace": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "default_deny": {
+            "type": "string"
+          },
+          "effect": {
+            "type": "string"
+          },
+          "endpoint_id": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "evaluator": {
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "method": {
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusPolicyTraceStep"
+            },
+            "type": "array"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "winner": {
+            "$ref": "#/components/schemas/RadiusPolicyTraceWinner"
+          }
+        },
+        "required": [
+          "evaluator",
+          "user_id",
+          "client_id",
+          "steps"
+        ],
+        "type": "object"
+      },
+      "RadiusPolicyTraceStep": {
+        "additionalProperties": false,
+        "properties": {
+          "matched": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "rule_id",
+          "matched",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RadiusPolicyTraceWinner": {
+        "additionalProperties": false,
+        "properties": {
+          "effect": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "rule_id",
+          "effect"
         ],
         "type": "object"
       },
@@ -4560,6 +4868,273 @@
           }
         ],
         "summary": "Explain an authorization decision"
+      }
+    },
+    "/api/v1/radius/access:test": {
+      "post": {
+        "description": "Scopes: policy:test",
+        "operationId": "radius.access.test",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadiusAccessTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RadiusAccessTestResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Simulate a RADIUS Access-Request without UDP"
+      }
+    },
+    "/api/v1/radius/attributes": {
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "radius.attributes.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RadiusAttributeList"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "List built-in RADIUS dictionary metadata"
+      }
+    },
+    "/api/v1/radius/policy:evaluate": {
+      "post": {
+        "description": "Scopes: policy:test",
+        "operationId": "radius.policy.evaluate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadiusPolicyEvaluateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RadiusPolicyEvaluateResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Explain a RADIUS access-policy decision"
       }
     },
     "/api/v1/runtime/reset": {

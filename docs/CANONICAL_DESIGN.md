@@ -971,6 +971,9 @@ There is no prior implementation. The public 1.0 surface is:
 | `tokens.list/create/revoke` | `tokens:manage` | `/tokens`, `/tokens/{id}` |
 | `policy.evaluate` | `policy:test` | `POST /policy/evaluate` |
 | `authentication.test` | `policy:test` | `POST /authentication/test` |
+| `radius.access.test` | `policy:test` | `POST /radius/access:test` |
+| `radius.policy.evaluate` | `policy:test` | `POST /radius/policy:evaluate` |
+| `radius.attributes.list` | `state:read` | `GET /radius/attributes` |
 | `events.list` | `events:read` | `GET /events` |
 | `events.subscribe` | `events:read` | `GET /events/stream` (SSE) |
 

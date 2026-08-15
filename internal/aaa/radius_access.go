@@ -99,6 +99,15 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 	}
 }
 
+// ExplainRADIUSAccess evaluates the compiled RADIUS engine without verifying
+// credentials. It is the same walk AuthenticateAccess uses after a pass.
+func ExplainRADIUSAccess(snap *state.Snapshot, userID, clientID, endpointID string, method domain.AuthMethod, attrs attribute.RawSet) RadiusAccessDecision {
+	user := canonUser(userID)
+	reqAttrs := policyRequestAttrs(attrs)
+	wipeSecretAttrs(attrs)
+	return evaluateAccess(snap, user, clientID, endpointID, method, reqAttrs)
+}
+
 func evaluateAccess(snap *state.Snapshot, user, clientID, endpointID string, method domain.AuthMethod, attrs policyradius.TypedSet) RadiusAccessDecision {
 	if snap == nil {
 		return rejectAccess(user, AccessReasonInternal)

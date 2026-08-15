@@ -211,6 +211,20 @@ func parityCases() []parityCase {
 				t.Fatal("password leaked from authentication.test")
 			}
 		}},
+		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{
+			UserID: "alice", Method: operations.RadiusAuthMethod{Type: "pap", Password: "parity-radius-canary-not-a-secret"},
+		}, check: func(t *testing.T, _ *world, out callOut) {
+			t.Helper()
+			if strings.Contains(canonicalJSON(out.Data), "parity-radius-canary-not-a-secret") {
+				t.Fatal("password leaked from radius.access.test")
+			}
+		}},
+		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{Method: operations.RadiusAuthMethod{Type: "pap"}}, wantCode: string(domain.CodeInvalidArgument)},
+		{id: operations.IDRadiusPolicyEvaluate, req: operations.RadiusPolicyEvaluateRequest{
+			UserID: "alice", ClientID: "sw", Method: "pap",
+		}},
+		{id: operations.IDRadiusPolicyEvaluate, req: operations.RadiusPolicyEvaluateRequest{Method: "pap"}, wantCode: string(domain.CodeInvalidArgument)},
+		{id: operations.IDRadiusAttributesList, req: operations.ListRadiusAttributesRequest{}},
 		{id: operations.IDEventsList, req: operations.ListEventsRequest{Limit: 10}},
 		{
 			id:  operations.IDEventsList,

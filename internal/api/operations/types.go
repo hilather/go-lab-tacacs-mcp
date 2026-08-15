@@ -9,37 +9,40 @@ import (
 
 // Stable IDs of the handlers implemented in this package.
 const (
-	IDSystemStatusGet    = "system.status.get"
-	IDSystemBuildGet     = "system.build.get"
-	IDConfigEffectiveGet = "config.effective.get"
-	IDConfigValidate     = "config.validate"
-	IDConfigReload       = "config.reload"
-	IDConfigExport       = "config.export"
-	IDRuntimeReset       = "runtime.reset"
-	IDUsersList          = "users.list"
-	IDUsersGet           = "users.get"
-	IDUsersCreate        = "users.create"
-	IDUsersUpdate        = "users.update"
-	IDUsersDelete        = "users.delete"
-	IDGroupsList         = "groups.list"
-	IDGroupsGet          = "groups.get"
-	IDGroupsCreate       = "groups.create"
-	IDGroupsUpdate       = "groups.update"
-	IDGroupsDelete       = "groups.delete"
-	IDClientsList        = "clients.list"
-	IDClientsGet         = "clients.get"
-	IDClientsCreate      = "clients.create"
-	IDClientsUpdate      = "clients.update"
-	IDClientsDelete      = "clients.delete"
-	IDTokensList         = "tokens.list"
-	IDTokensCreate       = "tokens.create"
-	IDTokensRevoke       = "tokens.revoke"
-	IDSessionCreate      = "session.create"
-	IDSessionDelete      = "session.delete"
-	IDPolicyEvaluate     = "policy.evaluate"
-	IDAuthenticationTest = "authentication.test"
-	IDEventsList         = "events.list"
-	IDEventsSubscribe    = "events.subscribe"
+	IDSystemStatusGet      = "system.status.get"
+	IDSystemBuildGet       = "system.build.get"
+	IDConfigEffectiveGet   = "config.effective.get"
+	IDConfigValidate       = "config.validate"
+	IDConfigReload         = "config.reload"
+	IDConfigExport         = "config.export"
+	IDRuntimeReset         = "runtime.reset"
+	IDUsersList            = "users.list"
+	IDUsersGet             = "users.get"
+	IDUsersCreate          = "users.create"
+	IDUsersUpdate          = "users.update"
+	IDUsersDelete          = "users.delete"
+	IDGroupsList           = "groups.list"
+	IDGroupsGet            = "groups.get"
+	IDGroupsCreate         = "groups.create"
+	IDGroupsUpdate         = "groups.update"
+	IDGroupsDelete         = "groups.delete"
+	IDClientsList          = "clients.list"
+	IDClientsGet           = "clients.get"
+	IDClientsCreate        = "clients.create"
+	IDClientsUpdate        = "clients.update"
+	IDClientsDelete        = "clients.delete"
+	IDTokensList           = "tokens.list"
+	IDTokensCreate         = "tokens.create"
+	IDTokensRevoke         = "tokens.revoke"
+	IDSessionCreate        = "session.create"
+	IDSessionDelete        = "session.delete"
+	IDPolicyEvaluate       = "policy.evaluate"
+	IDAuthenticationTest   = "authentication.test"
+	IDRadiusAccessTest     = "radius.access.test"
+	IDRadiusPolicyEvaluate = "radius.policy.evaluate"
+	IDRadiusAttributesList = "radius.attributes.list"
+	IDEventsList           = "events.list"
+	IDEventsSubscribe      = "events.subscribe"
 )
 
 // Specification versions reported by system.build.get.
@@ -308,6 +311,11 @@ func defaultCatalog() map[string]reflect.Type {
 		TokenList{}, CreatedToken{},
 		EvaluatePolicyRequest{}, PolicyTrace{},
 		TestAuthenticationRequest{}, AuthenticationTestResult{},
+		RadiusAccessTestRequest{}, RadiusAccessTestResult{},
+		RadiusPolicyEvaluateRequest{}, RadiusPolicyEvaluateResult{},
+		RadiusAuthMethod{}, RadiusAttributeValue{}, RadiusPolicyTrace{},
+		RadiusPolicyTraceStep{}, RadiusPolicyTraceWinner{},
+		ListRadiusAttributesRequest{}, RadiusAttributeList{}, RadiusAttributeMetadata{},
 		ListEventsRequest{}, EventList{},
 		SubscribeEventsRequest{}, EventStream{},
 		HealthRequest{}, HealthResult{},

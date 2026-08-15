@@ -146,6 +146,22 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 		t.Fatal("password leaked from authentication.test")
 	}
 
+	rad := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/radius/access:test", h.Token, []byte(`{"user_id":"alice","method":{"type":"pap","password":"unit-test-rest-radius-canary-zz8"}}`), nil)
+	defer rad.Body.Close()
+	radBody, _ := io.ReadAll(rad.Body)
+	if rad.StatusCode != http.StatusOK {
+		t.Fatalf("radius access test=%d %s", rad.StatusCode, radBody)
+	}
+	if strings.Contains(string(radBody), "unit-test-rest-radius-canary-zz8") {
+		t.Fatal("password leaked from radius.access.test")
+	}
+	attrs := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/radius/attributes", h.Token, nil, nil)
+	defer attrs.Body.Close()
+	if attrs.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(attrs.Body)
+		t.Fatalf("radius attributes=%d %s", attrs.StatusCode, b)
+	}
+
 	reload := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/config/reload", h.Token, nil, nil)
 	defer reload.Body.Close()
 	if reload.StatusCode != http.StatusOK {

@@ -447,6 +447,9 @@ export interface ListGroupsRequest {
   include_deleted?: boolean;
 }
 
+export interface ListRadiusAttributesRequest {
+}
+
 export interface ListTokensRequest {
   cursor?: string;
   limit?: number;
@@ -533,6 +536,93 @@ export interface PolicyTraceWinner {
 export interface ProtocolConformance {
   standards: string[];
   conformance_status: string;
+}
+
+export interface RadiusAccessTestRequest {
+  client_id?: string;
+  user_id: string;
+  method: RadiusAuthMethod;
+  request_attributes?: RadiusAttributeValue[];
+  explain?: boolean;
+}
+
+export interface RadiusAccessTestResult {
+  outcome: string;
+  reason_code: string;
+  reply_attributes: RadiusAttributeValue[];
+  trace?: RadiusPolicyTrace;
+}
+
+export interface RadiusAttributeList {
+  version: string;
+  items: RadiusAttributeMetadata[];
+}
+
+export interface RadiusAttributeMetadata {
+  name: string;
+  code: number;
+  vendor: number;
+  value_kind: string;
+  allowed_in: string[];
+  sensitivity: string;
+}
+
+export interface RadiusAttributeValue {
+  name?: string;
+  vendor?: number;
+  code?: number;
+  value?: string;
+  value_hex?: string;
+}
+
+export interface RadiusAuthMethod {
+  type: string;
+  password?: string;
+  id?: number;
+  challenge?: string;
+  response?: string;
+}
+
+export interface RadiusPolicyEvaluateRequest {
+  client_id?: string;
+  user_id: string;
+  method?: string;
+  endpoint_id?: string;
+  request_attributes?: RadiusAttributeValue[];
+}
+
+export interface RadiusPolicyEvaluateResult {
+  effect: string;
+  reason_code: string;
+  reply_attributes: RadiusAttributeValue[];
+  trace: RadiusPolicyTrace;
+}
+
+export interface RadiusPolicyTrace {
+  evaluator: string;
+  user_id: string;
+  client_id: string;
+  endpoint_id?: string;
+  method?: string;
+  groups?: string[];
+  steps: RadiusPolicyTraceStep[];
+  winner?: RadiusPolicyTraceWinner;
+  effect?: string;
+  default_deny?: string;
+  error?: string;
+}
+
+export interface RadiusPolicyTraceStep {
+  source: string;
+  rule_id: string;
+  matched: boolean;
+  reason: string;
+}
+
+export interface RadiusPolicyTraceWinner {
+  source: string;
+  rule_id: string;
+  effect: string;
 }
 
 export interface ReloadConfigRequest {

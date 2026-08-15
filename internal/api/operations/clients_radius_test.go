@@ -101,21 +101,21 @@ func TestClientRADIUSFlattenCreateUpdate(t *testing.T) {
 		t.Fatal("TACACS secret dropped on RADIUS create")
 	}
 	rev := created.Revision
-	policy := "default-radius-access"
+	reqMA := true
 	updated, err := reg.Invoke(context.Background(), IDClientsUpdate, m.Snapshot(), Input{
 		Actor:            writer,
 		ExpectedRevision: &rev,
 		Request: UpdateClientRequest{
 			ID:     "rad",
-			RADIUS: &ClientRADIUSWrite{AccessPolicyID: &policy},
+			RADIUS: &ClientRADIUSWrite{RequireMessageAuthenticator: &reqMA},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := updated.Data.(Client)
-	if got.Protocols.RADIUS.AccessPolicyID != policy {
-		t.Fatalf("policy=%q", got.Protocols.RADIUS.AccessPolicyID)
+	if !got.Protocols.RADIUS.RequireMessageAuthenticator {
+		t.Fatalf("require_ma=%+v", got.Protocols.RADIUS)
 	}
 	if !got.Protocols.RADIUS.SharedSecretConfigured {
 		t.Fatal("omitted RADIUS secret dropped")

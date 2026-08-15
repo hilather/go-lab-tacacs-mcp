@@ -240,6 +240,9 @@ Every `PARITY_REQUIRED` operation is the same handler. Live inventory: [docs/gen
 | Tokens | `tokens:manage` | `/api/v1/tokens` | `taclab.tokens.*` | — |
 | Policy explain | `policy:test` | `POST /api/v1/policy/evaluate` | `taclab.policy.evaluate` | — |
 | Auth test | `policy:test` | `POST /api/v1/authentication/test` | `taclab.authentication.test` | — |
+| RADIUS access test | `policy:test` | `POST /api/v1/radius/access:test` | `taclab.radius.access.test` | — |
+| RADIUS policy explain | `policy:test` | `POST /api/v1/radius/policy:evaluate` | `taclab.radius.policy.evaluate` | — |
+| RADIUS attributes | `state:read` | `GET /api/v1/radius/attributes` | `taclab.radius.attributes.list` | `taclab://radius/attributes` |
 | Events page | `events:read` | `GET /api/v1/events` | `taclab.events.list` | `taclab://events/recent` |
 | Event stream | `events:read` | `GET /api/v1/events/stream` (SSE) | `subscriptions/listen` | notify URI only |
 

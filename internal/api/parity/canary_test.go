@@ -34,6 +34,12 @@ func TestRedactionEquivalence(t *testing.T) {
 		if authn.Code != "" {
 			t.Fatalf("%s authentication.test: %s %s", w.Name, authn.Code, authn.Raw)
 		}
+		rad := invoke(t, w, operations.IDRadiusAccessTest, operations.RadiusAccessTestRequest{
+			UserID: "alice", Method: operations.RadiusAuthMethod{Type: "pap", Password: passCanary},
+		}, callOpts{})
+		if rad.Code != "" {
+			t.Fatalf("%s radius.access.test: %s %s", w.Name, rad.Code, rad.Raw)
+		}
 		created := invoke(t, w, operations.IDTokensCreate, operations.CreateTokenRequest{
 			ID: "canary", Name: "canary", Scopes: []string{"state:read"},
 		}, callOpts{})

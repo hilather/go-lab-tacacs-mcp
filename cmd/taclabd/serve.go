@@ -283,7 +283,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, logger, obs)
+		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, aaaSvc, logger, obs)
 		if err != nil {
 			_ = listeners.Drain(context.Background())
 			return err
@@ -341,7 +341,7 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, logger *slog.Logger, obs *observability.Server) (*http.Server, net.Listener, error) {
+func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, aaaSvc *aaa.Service, logger *slog.Logger, obs *observability.Server) (*http.Server, net.Listener, error) {
 	if obs == nil {
 		obs = observability.New(observability.Options{})
 	}
@@ -361,6 +361,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		Events:   ring,
 		Secrets:  lookup,
 		Creds:    creds,
+		AAA:      aaaSvc,
 		Runtime:  listeners,
 		LoadBaseline: func() (*config.Document, error) {
 			next, err := config.Load(configPath)

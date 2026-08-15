@@ -172,6 +172,8 @@ Names are proposed stable contracts. A naming change requires migration notes an
 
 `config.validate` accepts a candidate configuration document or a request to validate the mounted source. It never publishes state.
 
+`config.effective.get` and `config.export` label `source_schema_version` (the loaded file) and `effective_schema_version` (the compiled normalized model, currently 2). `config.export` never emits v2 YAML for a v1 source unless the explicit convert flag `normalize=true` is set (default false; REST query `normalize=true`, MCP argument `normalize`). A v2 source exports as v2. Flatten TACACS client fields stay on both shapes; `endpoints` and `protocols` appear only on v2-shaped export YAML.
+
 ### 9.2 Users
 
 | Operation ID | Scope | REST | MCP | Disposition |
@@ -207,6 +209,8 @@ Authorization rules are part of user/group resources for 1.0 unless implementati
 | `clients.delete` | `state:write` | `DELETE /api/v1/clients/{name}` | tool `taclab.clients.delete` | PARITY_REQUIRED |
 
 Shared-secret values and certificate private material are write-only references and never appear in outputs. Non-secret shared-secret lifecycle metadata, `current`/`due_soon`/`overdue`/`unknown` status, validation warnings, and reuse-warning client IDs must be equivalent on REST and MCP. A secret fingerprint is never part of either public contract.
+
+Client objects are additive: existing TACACS flatten fields stay. `endpoints` is the canonical protocol model. `protocols.tacacs` and `protocols.radius` are sanitized views of those endpoints (RADIUS includes `enabled`, `roles`, `shared_secret_configured`, `secret_lifecycle`, Message-Authenticator flags, `allowed_methods`, `access_policy_id`). Create/update accept optional `endpoints[]` and/or a flattened `radius` object with write-only `shared_secret`. Sending both that disagree is `invalid_argument`. Omitted RADIUS secret retains previous material. Explicit null while a RADIUS endpoint remains enabled is `RADIUS_SECRET_MISSING`.
 
 ### 9.5 API tokens
 

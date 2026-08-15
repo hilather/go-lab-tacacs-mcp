@@ -109,6 +109,25 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 	if !strings.Contains(env.Data.YAML, "redacted: true") {
 		t.Fatalf("export yaml=%s", env.Data.YAML)
 	}
+	if !strings.HasPrefix(env.Data.YAML, "schema_version: 1\n") || env.Data.Normalized {
+		t.Fatalf("v1 source exported as v2 without normalize: %+v\n%s", env.Data, env.Data.YAML)
+	}
+
+	norm := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/config/export?normalize=true", h.Token, nil, nil)
+	defer norm.Body.Close()
+	if norm.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(norm.Body)
+		t.Fatalf("export normalize=%d %s", norm.StatusCode, b)
+	}
+	var normEnv struct {
+		Data operations.ExportConfigResult `json:"data"`
+	}
+	if err := json.NewDecoder(norm.Body).Decode(&normEnv); err != nil {
+		t.Fatal(err)
+	}
+	if !normEnv.Data.Normalized || !strings.HasPrefix(normEnv.Data.YAML, "schema_version: 2\n") {
+		t.Fatalf("normalize export=%+v", normEnv.Data)
+	}
 
 	val := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/config/validate", h.Token, []byte(`{"yaml":"schema_version: 1\n"}`), nil)
 	defer val.Body.Close()

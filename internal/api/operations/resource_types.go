@@ -187,33 +187,37 @@ type GetClientRequest struct {
 
 // CreateClientRequest creates a runtime client or an explicit baseline override.
 type CreateClientRequest struct {
-	ID                    string             `json:"id"`
-	DisplayName           *string            `json:"display_name,omitempty"`
-	Enabled               *bool              `json:"enabled,omitempty"`
-	Priority              *int               `json:"priority,omitempty"`
-	Labels                *map[string]string `json:"labels,omitempty"`
-	Match                 *ClientMatchView   `json:"match,omitempty"`
-	SharedSecret          OptionalSecret     `json:"shared_secret,omitempty"`
-	SharedSecretLifecycle *LifecycleWrite    `json:"shared_secret_lifecycle,omitempty"`
-	Authentication        *ClientAuthView    `json:"authentication,omitempty"`
-	Authorization         *ClientAuthzView   `json:"authorization,omitempty"`
-	Accounting            *ClientAcctView    `json:"accounting,omitempty"`
-	Override              bool               `json:"override,omitempty"`
+	ID                    string                 `json:"id"`
+	DisplayName           *string                `json:"display_name,omitempty"`
+	Enabled               *bool                  `json:"enabled,omitempty"`
+	Priority              *int                   `json:"priority,omitempty"`
+	Labels                *map[string]string     `json:"labels,omitempty"`
+	Match                 *ClientMatchView       `json:"match,omitempty"`
+	SharedSecret          OptionalSecret         `json:"shared_secret,omitempty"`
+	SharedSecretLifecycle *LifecycleWrite        `json:"shared_secret_lifecycle,omitempty"`
+	Authentication        *ClientAuthView        `json:"authentication,omitempty"`
+	Authorization         *ClientAuthzView       `json:"authorization,omitempty"`
+	Accounting            *ClientAcctView        `json:"accounting,omitempty"`
+	Endpoints             *[]ClientEndpointWrite `json:"endpoints,omitempty"`
+	RADIUS                *ClientRADIUSWrite     `json:"radius,omitempty"`
+	Override              bool                   `json:"override,omitempty"`
 }
 
 // UpdateClientRequest is a typed client patch.
 type UpdateClientRequest struct {
-	ID                    string             `json:"id"`
-	DisplayName           *string            `json:"display_name,omitempty"`
-	Enabled               *bool              `json:"enabled,omitempty"`
-	Priority              *int               `json:"priority,omitempty"`
-	Labels                *map[string]string `json:"labels,omitempty"`
-	Match                 *ClientMatchView   `json:"match,omitempty"`
-	SharedSecret          OptionalSecret     `json:"shared_secret,omitempty"`
-	SharedSecretLifecycle *LifecycleWrite    `json:"shared_secret_lifecycle,omitempty"`
-	Authentication        *ClientAuthView    `json:"authentication,omitempty"`
-	Authorization         *ClientAuthzView   `json:"authorization,omitempty"`
-	Accounting            *ClientAcctView    `json:"accounting,omitempty"`
+	ID                    string                 `json:"id"`
+	DisplayName           *string                `json:"display_name,omitempty"`
+	Enabled               *bool                  `json:"enabled,omitempty"`
+	Priority              *int                   `json:"priority,omitempty"`
+	Labels                *map[string]string     `json:"labels,omitempty"`
+	Match                 *ClientMatchView       `json:"match,omitempty"`
+	SharedSecret          OptionalSecret         `json:"shared_secret,omitempty"`
+	SharedSecretLifecycle *LifecycleWrite        `json:"shared_secret_lifecycle,omitempty"`
+	Authentication        *ClientAuthView        `json:"authentication,omitempty"`
+	Authorization         *ClientAuthzView       `json:"authorization,omitempty"`
+	Accounting            *ClientAcctView        `json:"accounting,omitempty"`
+	Endpoints             *[]ClientEndpointWrite `json:"endpoints,omitempty"`
+	RADIUS                *ClientRADIUSWrite     `json:"radius,omitempty"`
 }
 
 // DeleteClientRequest deletes a runtime client or tombstones a baseline client.
@@ -224,25 +228,27 @@ type DeleteClientRequest struct {
 
 // Client is the secret-free administrative view.
 type Client struct {
-	ID                     string              `json:"id"`
-	DisplayName            string              `json:"display_name,omitempty"`
-	Enabled                bool                `json:"enabled"`
-	Priority               int                 `json:"priority"`
-	Source                 domain.ObjectSource `json:"source"`
-	ShadowsSource          domain.ObjectSource `json:"shadows_source,omitempty"`
-	Deleted                bool                `json:"deleted,omitempty"`
-	RevisionCreated        domain.Revision     `json:"revision_created"`
-	RevisionUpdated        domain.Revision     `json:"revision_updated"`
-	EffectiveRevision      domain.Revision     `json:"effective_revision"`
-	Labels                 map[string]string   `json:"labels,omitempty"`
-	Match                  ClientMatchView     `json:"match"`
-	SharedSecretConfigured bool                `json:"shared_secret_configured"`
-	SharedSecretLifecycle  string              `json:"shared_secret_lifecycle"`
-	Authentication         ClientAuthView      `json:"authentication"`
-	Authorization          ClientAuthzView     `json:"authorization"`
-	Accounting             ClientAcctView      `json:"accounting"`
-	CreatedAt              time.Time           `json:"created_at"`
-	UpdatedAt              time.Time           `json:"updated_at"`
+	ID                     string               `json:"id"`
+	DisplayName            string               `json:"display_name,omitempty"`
+	Enabled                bool                 `json:"enabled"`
+	Priority               int                  `json:"priority"`
+	Source                 domain.ObjectSource  `json:"source"`
+	ShadowsSource          domain.ObjectSource  `json:"shadows_source,omitempty"`
+	Deleted                bool                 `json:"deleted,omitempty"`
+	RevisionCreated        domain.Revision      `json:"revision_created"`
+	RevisionUpdated        domain.Revision      `json:"revision_updated"`
+	EffectiveRevision      domain.Revision      `json:"effective_revision"`
+	Labels                 map[string]string    `json:"labels,omitempty"`
+	Match                  ClientMatchView      `json:"match"`
+	SharedSecretConfigured bool                 `json:"shared_secret_configured"`
+	SharedSecretLifecycle  string               `json:"shared_secret_lifecycle"`
+	Authentication         ClientAuthView       `json:"authentication"`
+	Authorization          ClientAuthzView      `json:"authorization"`
+	Accounting             ClientAcctView       `json:"accounting"`
+	Protocols              ClientProtocolsView  `json:"protocols,omitempty"`
+	Endpoints              []ClientEndpointView `json:"endpoints,omitempty"`
+	CreatedAt              time.Time            `json:"created_at"`
+	UpdatedAt              time.Time            `json:"updated_at"`
 }
 
 func (c Client) envelopeRevision() domain.Revision { return c.EffectiveRevision }
@@ -324,6 +330,85 @@ type ClientAcctView struct {
 	AcceptStart    bool `json:"accept_start" yaml:"accept_start"`
 	AcceptStop     bool `json:"accept_stop" yaml:"accept_stop"`
 	AcceptWatchdog bool `json:"accept_watchdog" yaml:"accept_watchdog"`
+}
+
+// ClientProtocolsView is the sanitized TACACS + RADIUS summary. Endpoints
+// remain canonical; this block is a view of those endpoints.
+type ClientProtocolsView struct {
+	TACACS ClientTACACSProtocolView `json:"tacacs" yaml:"tacacs"`
+	RADIUS ClientRADIUSProtocolView `json:"radius" yaml:"radius"`
+}
+
+// ClientTACACSProtocolView is the flattened TACACS capability summary.
+type ClientTACACSProtocolView struct {
+	LegacyEnabled          bool `json:"legacy_enabled" yaml:"legacy_enabled"`
+	TLSEnabled             bool `json:"tls_enabled" yaml:"tls_enabled"`
+	SharedSecretConfigured bool `json:"shared_secret_configured" yaml:"shared_secret_configured"`
+}
+
+// ClientRADIUSProtocolView is the flattened protocols.radius view.
+type ClientRADIUSProtocolView struct {
+	Enabled                     bool     `json:"enabled" yaml:"enabled"`
+	Roles                       []string `json:"roles,omitempty" yaml:"roles,omitempty"`
+	SharedSecretConfigured      bool     `json:"shared_secret_configured" yaml:"shared_secret_configured"`
+	SecretLifecycle             string   `json:"secret_lifecycle,omitempty" yaml:"secret_lifecycle,omitempty"`
+	RequireMessageAuthenticator bool     `json:"require_message_authenticator" yaml:"require_message_authenticator"`
+	LimitProxyState             bool     `json:"limit_proxy_state" yaml:"limit_proxy_state"`
+	AllowedMethods              []string `json:"allowed_methods,omitempty" yaml:"allowed_methods,omitempty"`
+	AccessPolicyID              string   `json:"access_policy_id,omitempty" yaml:"access_policy_id,omitempty"`
+	AcceptStatusTypes           []string `json:"accept_status_types,omitempty" yaml:"accept_status_types,omitempty"`
+}
+
+// ClientEndpointView is one canonical protocol binding without secret values.
+type ClientEndpointView struct {
+	ID        string                    `json:"id" yaml:"id"`
+	Protocol  string                    `json:"protocol" yaml:"protocol"`
+	Transport string                    `json:"transport" yaml:"transport"`
+	Roles     []string                  `json:"roles,omitempty" yaml:"roles,omitempty"`
+	TACACS    *ClientTACACSEndpointView `json:"tacacs,omitempty" yaml:"tacacs,omitempty"`
+	RADIUS    *ClientRADIUSProtocolView `json:"radius,omitempty" yaml:"radius,omitempty"`
+}
+
+// ClientTACACSEndpointView is the sanitized TACACS endpoint policy.
+type ClientTACACSEndpointView struct {
+	SharedSecretConfigured bool           `json:"shared_secret_configured" yaml:"shared_secret_configured"`
+	AllowedMethods         []string       `json:"allowed_methods,omitempty" yaml:"allowed_methods,omitempty"`
+	DefaultService         string         `json:"default_service,omitempty" yaml:"default_service,omitempty"`
+	DefaultGroupIDs        []string       `json:"default_group_ids,omitempty" yaml:"default_group_ids,omitempty"`
+	Accounting             ClientAcctView `json:"accounting" yaml:"accounting"`
+}
+
+// ClientEndpointWrite is the create/update form of one endpoint.
+type ClientEndpointWrite struct {
+	ID        string                     `json:"id"`
+	Protocol  string                     `json:"protocol"`
+	Transport string                     `json:"transport"`
+	Roles     []string                   `json:"roles,omitempty"`
+	TACACS    *ClientTACACSEndpointWrite `json:"tacacs,omitempty"`
+	RADIUS    *ClientRADIUSWrite         `json:"radius,omitempty"`
+}
+
+// ClientTACACSEndpointWrite is the writable TACACS endpoint block.
+type ClientTACACSEndpointWrite struct {
+	SharedSecret          OptionalSecret  `json:"shared_secret,omitempty"`
+	SharedSecretLifecycle *LifecycleWrite `json:"shared_secret_lifecycle,omitempty"`
+	AllowedMethods        []string        `json:"allowed_methods,omitempty"`
+	DefaultService        string          `json:"default_service,omitempty"`
+	DefaultGroupIDs       []string        `json:"default_group_ids,omitempty"`
+	Accounting            *ClientAcctView `json:"accounting,omitempty"`
+}
+
+// ClientRADIUSWrite is the flattened RADIUS create/update object.
+type ClientRADIUSWrite struct {
+	SharedSecret                OptionalSecret  `json:"shared_secret,omitempty"`
+	SharedSecretLifecycle       *LifecycleWrite `json:"shared_secret_lifecycle,omitempty"`
+	Enabled                     *bool           `json:"enabled,omitempty"`
+	Roles                       []string        `json:"roles,omitempty"`
+	RequireMessageAuthenticator *bool           `json:"require_message_authenticator,omitempty"`
+	LimitProxyState             *bool           `json:"limit_proxy_state,omitempty"`
+	AllowedMethods              []string        `json:"allowed_methods,omitempty"`
+	AccessPolicyID              *string         `json:"access_policy_id,omitempty"`
+	AcceptStatusTypes           []string        `json:"accept_status_types,omitempty"`
 }
 
 // LifecycleWrite is non-secret rotation metadata on create/update.

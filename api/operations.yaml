@@ -40,7 +40,7 @@ operations:
     status: PASS
 
   - id: config.effective.get
-    description: Read the redacted effective configuration
+    description: Read the redacted effective configuration. Includes source_schema_version and effective_schema_version. Client objects expose canonical endpoints plus a flattened protocols.radius view.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -91,7 +91,7 @@ operations:
     status: PASS
 
   - id: config.export
-    description: Export a redacted effective configuration document
+    description: Export a redacted effective configuration document. v1 sources stay v1-shaped unless normalize=true. Labels source_schema_version and effective_schema_version.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -293,7 +293,7 @@ operations:
     status: PASS
 
   - id: clients.list
-    description: List TACACS clients in deterministic id order
+    description: List clients in deterministic id order. Additive protocols.radius and endpoints views; TACACS flatten fields stay.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -310,7 +310,7 @@ operations:
     status: PASS
 
   - id: clients.get
-    description: Get one client by id
+    description: Get one client by id. Includes canonical endpoints and flattened protocols.radius.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -326,7 +326,7 @@ operations:
     status: PASS
 
   - id: clients.create
-    description: Create a runtime client or override a baseline client
+    description: Create a runtime client or override a baseline client. Optional endpoints[] or flattened radius object. Endpoints are canonical.
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -343,7 +343,7 @@ operations:
     status: PASS
 
   - id: clients.update
-    description: Apply a typed patch to a client
+    description: Apply a typed patch to a client. Optional endpoints[] or flattened radius. Omitted RADIUS secret is retained.
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional

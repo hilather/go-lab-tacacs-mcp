@@ -80,6 +80,14 @@ func handleClientsCreate(deps Deps) handleFunc {
 		if err != nil {
 			return nil, err
 		}
+		endpoints, err := clientEndpointsFromView(req.Endpoints)
+		if err != nil {
+			return nil, err
+		}
+		radius, err := radiusPatchFromView(req.RADIUS)
+		if err != nil {
+			return nil, err
+		}
 		published, err := deps.State.CreateClient(state.CreateClient{
 			ID:                    req.ID,
 			DisplayName:           req.DisplayName,
@@ -92,6 +100,8 @@ func handleClientsCreate(deps Deps) handleFunc {
 			Authentication:        authn,
 			Authorization:         clientAuthzFromView(req.Authorization),
 			Accounting:            clientAcctFromView(req.Accounting),
+			Endpoints:             endpoints,
+			RADIUS:                radius,
 			Override:              req.Override,
 		}, in.ExpectedRevision)
 		if err != nil {
@@ -127,6 +137,14 @@ func handleClientsUpdate(deps Deps) handleFunc {
 		if err != nil {
 			return nil, err
 		}
+		endpoints, err := clientEndpointsFromView(req.Endpoints)
+		if err != nil {
+			return nil, err
+		}
+		radius, err := radiusPatchFromView(req.RADIUS)
+		if err != nil {
+			return nil, err
+		}
 		published, err := deps.State.UpdateClient(req.ID, state.UpdateClient{
 			DisplayName:           req.DisplayName,
 			Enabled:               req.Enabled,
@@ -138,6 +156,8 @@ func handleClientsUpdate(deps Deps) handleFunc {
 			Authentication:        authn,
 			Authorization:         clientAuthzFromView(req.Authorization),
 			Accounting:            clientAcctFromView(req.Accounting),
+			Endpoints:             endpoints,
+			RADIUS:                radius,
 		}, in.ExpectedRevision)
 		if err != nil {
 			return nil, err

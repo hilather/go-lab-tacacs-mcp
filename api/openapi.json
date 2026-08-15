@@ -129,6 +129,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/ClientEndpointView"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -143,6 +149,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "protocols": {
+            "$ref": "#/components/schemas/ClientProtocolsView"
           },
           "revision_created": {
             "type": "integer"
@@ -237,6 +246,70 @@
         },
         "type": "object"
       },
+      "ClientEndpointView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSProtocolView"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tacacs": {
+            "$ref": "#/components/schemas/ClientTACACSEndpointView"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "protocol",
+          "transport"
+        ],
+        "type": "object"
+      },
+      "ClientEndpointWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSWrite"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tacacs": {
+            "$ref": "#/components/schemas/ClientTACACSEndpointWrite"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "protocol",
+          "transport"
+        ],
+        "type": "object"
+      },
       "ClientList": {
         "additionalProperties": false,
         "properties": {
@@ -284,6 +357,195 @@
         },
         "required": [
           "certificate"
+        ],
+        "type": "object"
+      },
+      "ClientProtocolsView": {
+        "additionalProperties": false,
+        "properties": {
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSProtocolView"
+          },
+          "tacacs": {
+            "$ref": "#/components/schemas/ClientTACACSProtocolView"
+          }
+        },
+        "required": [
+          "tacacs",
+          "radius"
+        ],
+        "type": "object"
+      },
+      "ClientRADIUSProtocolView": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_status_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "access_policy_id": {
+            "type": "string"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "limit_proxy_state": {
+            "type": "boolean"
+          },
+          "require_message_authenticator": {
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "secret_lifecycle": {
+            "type": "string"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "shared_secret_configured",
+          "require_message_authenticator",
+          "limit_proxy_state"
+        ],
+        "type": "object"
+      },
+      "ClientRADIUSWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_status_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "access_policy_id": {
+            "type": "string"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "limit_proxy_state": {
+            "type": "boolean"
+          },
+          "require_message_authenticator": {
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "shared_secret": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "shared_secret_lifecycle": {
+            "$ref": "#/components/schemas/LifecycleWrite"
+          }
+        },
+        "type": "object"
+      },
+      "ClientTACACSEndpointView": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_service": {
+            "type": "string"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shared_secret_configured",
+          "accounting"
+        ],
+        "type": "object"
+      },
+      "ClientTACACSEndpointWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "$ref": "#/components/schemas/ClientAcctView"
+          },
+          "allowed_methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_service": {
+            "type": "string"
+          },
+          "shared_secret": {
+            "$ref": "#/components/schemas/OptionalSecret",
+            "writeOnly": true
+          },
+          "shared_secret_lifecycle": {
+            "$ref": "#/components/schemas/LifecycleWrite"
+          }
+        },
+        "type": "object"
+      },
+      "ClientTACACSProtocolView": {
+        "additionalProperties": false,
+        "properties": {
+          "legacy_enabled": {
+            "type": "boolean"
+          },
+          "shared_secret_configured": {
+            "type": "boolean"
+          },
+          "tls_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "legacy_enabled",
+          "tls_enabled",
+          "shared_secret_configured"
         ],
         "type": "object"
       },
@@ -336,6 +598,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/ClientEndpointWrite"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -353,6 +621,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSWrite"
           },
           "shared_secret": {
             "$ref": "#/components/schemas/OptionalSecret",
@@ -663,6 +934,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "effective_schema_version": {
+            "type": "integer"
+          },
           "groups": {
             "items": {
               "$ref": "#/components/schemas/Group"
@@ -676,6 +950,9 @@
             "type": "string"
           },
           "revision": {
+            "type": "integer"
+          },
+          "source_schema_version": {
             "type": "integer"
           },
           "tokens": {
@@ -707,6 +984,8 @@
           "overlay_hash",
           "compiled_at",
           "instance_id",
+          "source_schema_version",
+          "effective_schema_version",
           "users",
           "groups",
           "clients",
@@ -950,6 +1229,9 @@
       "ExportConfigRequest": {
         "additionalProperties": false,
         "properties": {
+          "normalize": {
+            "type": "boolean"
+          },
           "view": {
             "type": "string"
           }
@@ -959,10 +1241,19 @@
       "ExportConfigResult": {
         "additionalProperties": false,
         "properties": {
+          "effective_schema_version": {
+            "type": "integer"
+          },
           "format": {
             "type": "string"
           },
+          "normalized": {
+            "type": "boolean"
+          },
           "revision": {
+            "type": "integer"
+          },
+          "source_schema_version": {
             "type": "integer"
           },
           "view": {
@@ -976,7 +1267,10 @@
           "revision",
           "view",
           "format",
-          "yaml"
+          "yaml",
+          "source_schema_version",
+          "effective_schema_version",
+          "normalized"
         ],
         "type": "object"
       },
@@ -1952,6 +2246,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/ClientEndpointWrite"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -1966,6 +2266,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "radius": {
+            "$ref": "#/components/schemas/ClientRADIUSWrite"
           },
           "shared_secret": {
             "$ref": "#/components/schemas/OptionalSecret",
@@ -3096,6 +3399,15 @@
                 "overlay"
               ],
               "type": "string"
+            }
+          },
+          {
+            "description": "Explicit v1→v2 convert flag. Default false. A v1 source stays v1-shaped unless true.",
+            "in": "query",
+            "name": "normalize",
+            "schema": {
+              "default": false,
+              "type": "boolean"
             }
           }
         ],

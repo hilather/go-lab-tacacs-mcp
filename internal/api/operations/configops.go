@@ -34,12 +34,21 @@ func handleExportConfig(deps Deps) handleFunc {
 			return nil, err
 		}
 		eff := buildEffective(snap, view)
-		raw, err := marshalExportYAML(eff)
+		emitV2 := shouldExportV2(eff.SourceSchemaVersion, req.Normalize)
+		raw, err := marshalExportYAML(eff, emitV2)
 		if err != nil {
 			return nil, domain.NewError(domain.CodeInternal, "cannot encode export")
 		}
 		audit(deps, "api.config.exported", "ok", snap.Revision)
-		return ExportConfigResult{Revision: snap.Revision, View: view, Format: "yaml", YAML: string(raw)}, nil
+		return ExportConfigResult{
+			Revision:               snap.Revision,
+			View:                   view,
+			Format:                 "yaml",
+			YAML:                   string(raw),
+			SourceSchemaVersion:    eff.SourceSchemaVersion,
+			EffectiveSchemaVersion: eff.EffectiveSchemaVersion,
+			Normalized:             emitV2,
+		}, nil
 	}
 }
 
@@ -135,17 +144,37 @@ func normalizeConfigView(view string) (string, error) {
 	}
 }
 
+func schemaVersions(snap *state.Snapshot) (source, effective int) {
+	source = config.SchemaVersionV1
+	if snap != nil && snap.Settings() != nil && snap.Settings().SchemaVersion != 0 {
+		source = snap.Settings().SchemaVersion
+	}
+	// Compiled snapshots are the normalized v2 model even when the source is v1.
+	effective = config.SchemaVersionV2
+	return source, effective
+}
+
+func shouldExportV2(source int, normalize bool) bool {
+	if source >= config.SchemaVersionV2 {
+		return true
+	}
+	return normalize
+}
+
 func buildEffective(snap *state.Snapshot, view string) EffectiveConfig {
+	source, effective := schemaVersions(snap)
 	out := EffectiveConfig{
-		Revision:     snap.Revision,
-		View:         view,
-		BaselineHash: snap.BaselineHash,
-		OverlayHash:  snap.OverlayHash,
-		CompiledAt:   snap.CompiledAt,
-		Users:        []User{},
-		Groups:       []Group{},
-		Clients:      []Client{},
-		Tokens:       []TokenView{},
+		Revision:               snap.Revision,
+		View:                   view,
+		BaselineHash:           snap.BaselineHash,
+		OverlayHash:            snap.OverlayHash,
+		CompiledAt:             snap.CompiledAt,
+		SourceSchemaVersion:    source,
+		EffectiveSchemaVersion: effective,
+		Users:                  []User{},
+		Groups:                 []Group{},
+		Clients:                []Client{},
+		Tokens:                 []TokenView{},
 	}
 	if settings := snap.Settings(); settings != nil {
 		out.InstanceID = settings.Server.InstanceID
@@ -265,34 +294,29 @@ func baselineObjects(snap *state.Snapshot) ([]User, []Group, []Client) {
 			clients = append(clients, clientView(live, snap.Revision))
 			continue
 		}
-		clients = append(clients, Client{
-			ID:                     c.ID,
-			DisplayName:            c.DisplayName,
-			Enabled:                c.Enabled,
-			Priority:               c.Priority,
-			Source:                 domain.SourceConfig,
-			EffectiveRevision:      snap.Revision,
-			Labels:                 cloneLabels(c.Labels),
-			Match:                  clientMatchView(c.Match),
-			SharedSecretConfigured: c.Legacy.SharedSecret.Set(),
-			SharedSecretLifecycle:  string(domain.LifecycleUnknown),
-			Authentication:         clientAuthView(c.Authentication),
-			Authorization:          clientAuthzView(c.Authorization),
-			Accounting:             clientAcctView(c.Accounting),
-		})
+		viewed := clientView(state.EffectiveClient{
+			Client:          c,
+			Lifecycle:       domain.LifecycleUnknown,
+			RADIUSLifecycle: domain.LifecycleUnknown,
+		}, snap.Revision)
+		viewed.Source = domain.SourceConfig
+		viewed.EffectiveRevision = snap.Revision
+		clients = append(clients, viewed)
 	}
 	return users, groups, clients
 }
 
 type exportDoc struct {
-	SchemaVersion int            `yaml:"schema_version"`
-	View          string         `yaml:"view"`
-	Revision      uint64         `yaml:"revision"`
-	InstanceID    string         `yaml:"instance_id,omitempty"`
-	Users         []exportUser   `yaml:"users"`
-	Groups        []exportGroup  `yaml:"groups"`
-	Clients       []exportClient `yaml:"clients"`
-	Tokens        []exportToken  `yaml:"tokens,omitempty"`
+	SchemaVersion          int            `yaml:"schema_version"`
+	SourceSchemaVersion    int            `yaml:"source_schema_version"`
+	EffectiveSchemaVersion int            `yaml:"effective_schema_version"`
+	View                   string         `yaml:"view"`
+	Revision               uint64         `yaml:"revision"`
+	InstanceID             string         `yaml:"instance_id,omitempty"`
+	Users                  []exportUser   `yaml:"users"`
+	Groups                 []exportGroup  `yaml:"groups"`
+	Clients                []exportClient `yaml:"clients"`
+	Tokens                 []exportToken  `yaml:"tokens,omitempty"`
 }
 
 type exportUser struct {
@@ -327,20 +351,22 @@ type exportGroup struct {
 }
 
 type exportClient struct {
-	ID                     string            `yaml:"id"`
-	DisplayName            string            `yaml:"display_name,omitempty"`
-	Enabled                bool              `yaml:"enabled"`
-	Priority               int               `yaml:"priority"`
-	Source                 string            `yaml:"source"`
-	Deleted                bool              `yaml:"deleted,omitempty"`
-	Labels                 map[string]string `yaml:"labels,omitempty"`
-	Match                  ClientMatchView   `yaml:"match"`
-	SharedSecretConfigured bool              `yaml:"shared_secret_configured"`
-	SharedSecretLifecycle  string            `yaml:"shared_secret_lifecycle"`
-	SharedSecret           exportSecret      `yaml:"shared_secret,omitempty"`
-	Authentication         ClientAuthView    `yaml:"authentication"`
-	Authorization          ClientAuthzView   `yaml:"authorization"`
-	Accounting             ClientAcctView    `yaml:"accounting"`
+	ID                     string               `yaml:"id"`
+	DisplayName            string               `yaml:"display_name,omitempty"`
+	Enabled                bool                 `yaml:"enabled"`
+	Priority               int                  `yaml:"priority"`
+	Source                 string               `yaml:"source"`
+	Deleted                bool                 `yaml:"deleted,omitempty"`
+	Labels                 map[string]string    `yaml:"labels,omitempty"`
+	Match                  ClientMatchView      `yaml:"match"`
+	SharedSecretConfigured bool                 `yaml:"shared_secret_configured"`
+	SharedSecretLifecycle  string               `yaml:"shared_secret_lifecycle"`
+	SharedSecret           exportSecret         `yaml:"shared_secret,omitempty"`
+	Authentication         ClientAuthView       `yaml:"authentication"`
+	Authorization          ClientAuthzView      `yaml:"authorization"`
+	Accounting             ClientAcctView       `yaml:"accounting"`
+	Protocols              *ClientProtocolsView `yaml:"protocols,omitempty"`
+	Endpoints              []ClientEndpointView `yaml:"endpoints,omitempty"`
 }
 
 type exportToken struct {
@@ -356,15 +382,21 @@ type exportSecret struct {
 	Source   string `yaml:"source,omitempty"`
 }
 
-func marshalExportYAML(eff EffectiveConfig) ([]byte, error) {
+func marshalExportYAML(eff EffectiveConfig, emitV2 bool) ([]byte, error) {
+	schema := config.SchemaVersionV1
+	if emitV2 {
+		schema = config.SchemaVersionV2
+	}
 	doc := exportDoc{
-		SchemaVersion: config.SchemaVersion,
-		View:          eff.View,
-		Revision:      uint64(eff.Revision),
-		InstanceID:    eff.InstanceID,
-		Users:         make([]exportUser, 0, len(eff.Users)),
-		Groups:        make([]exportGroup, 0, len(eff.Groups)),
-		Clients:       make([]exportClient, 0, len(eff.Clients)),
+		SchemaVersion:          schema,
+		SourceSchemaVersion:    eff.SourceSchemaVersion,
+		EffectiveSchemaVersion: eff.EffectiveSchemaVersion,
+		View:                   eff.View,
+		Revision:               uint64(eff.Revision),
+		InstanceID:             eff.InstanceID,
+		Users:                  make([]exportUser, 0, len(eff.Users)),
+		Groups:                 make([]exportGroup, 0, len(eff.Groups)),
+		Clients:                make([]exportClient, 0, len(eff.Clients)),
 	}
 	for _, u := range eff.Users {
 		eu := exportUser{
@@ -400,6 +432,11 @@ func marshalExportYAML(eff EffectiveConfig) ([]byte, error) {
 		}
 		if c.SharedSecretConfigured {
 			ec.SharedSecret = exportSecret{Redacted: true, Source: "file"}
+		}
+		if emitV2 {
+			proto := c.Protocols
+			ec.Protocols = &proto
+			ec.Endpoints = c.Endpoints
 		}
 		doc.Clients = append(doc.Clients, ec)
 	}

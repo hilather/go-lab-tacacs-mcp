@@ -8,6 +8,28 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
+// SynthesizeTACACSEndpoints builds endpoints from flatten TACACS fields.
+// Overlay apply uses this when a RADIUS endpoint is added to a flatten-only client.
+func SynthesizeTACACSEndpoints(c Client) []ClientEndpoint {
+	return synthesizeTACACSEndpoints(c)
+}
+
+// ApplyTACACSProjection rebuilds flatten TACACS fields from endpoints.
+func ApplyTACACSProjection(c *Client) {
+	if c == nil {
+		return
+	}
+	applyTACACSProjection(c)
+}
+
+// TACACSProjectionMatches reports whether flatten TACACS fields match endpoints.
+func TACACSProjectionMatches(c Client) bool {
+	if len(c.Endpoints) == 0 {
+		return true
+	}
+	return projectionMatchesClient(c, projectTACACS(c.Endpoints))
+}
+
 // synthesizeTACACSEndpoints builds endpoints from flatten TACACS fields.
 // v1 and v2 documents without endpoints[] use this so Endpoints is canonical.
 func synthesizeTACACSEndpoints(c Client) []ClientEndpoint {

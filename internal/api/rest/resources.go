@@ -181,7 +181,15 @@ func (s *Server) reloadConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) exportConfig(w http.ResponseWriter, r *http.Request) {
-	s.invoke(w, r, operations.IDConfigExport, operations.ExportConfigRequest{View: r.URL.Query().Get("view")}, false)
+	normalize, err := parseBoolQuery(r, "normalize")
+	if err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDConfigExport, operations.ExportConfigRequest{
+		View:      r.URL.Query().Get("view"),
+		Normalize: normalize,
+	}, false)
 }
 
 func (s *Server) resetRuntime(w http.ResponseWriter, r *http.Request) {

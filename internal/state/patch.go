@@ -80,10 +80,30 @@ type UpdateClient struct {
 	Authentication        *config.ClientAuth
 	Authorization         *config.ClientAuthz
 	Accounting            *config.ClientAcct
+	// Endpoints replaces the canonical endpoint slice. Nil keeps the
+	// current slice. Flatten TACACS/RADIUS fields sent with a
+	// disagreeing slice are invalid_argument.
+	Endpoints *[]config.ClientEndpoint
+	// RADIUS is the flattened protocols.radius view. Nil keeps the
+	// current RADIUS endpoint.
+	RADIUS *RADIUSPatch
 	// RADIUSSharedSecret is the RADIUS endpoint secret. Nil retains the
 	// current material. Clear while a RADIUS endpoint remains is
 	// RADIUS_SECRET_MISSING.
 	RADIUSSharedSecret *SecretPatch
+}
+
+// RADIUSPatch is the flattened RADIUS view applied onto Endpoints.
+type RADIUSPatch struct {
+	SharedSecret                *SecretPatch
+	SharedSecretLifecycle       *config.SecretLifecycleMeta
+	Enabled                     *bool
+	Roles                       []domain.ListenerRole
+	RequireMessageAuthenticator *bool
+	LimitProxyState             *bool
+	AllowedMethods              []string
+	AccessPolicyID              *string
+	AcceptStatusTypes           []string
 }
 
 // CreateClient creates a runtime client or an explicit baseline override.
@@ -99,6 +119,8 @@ type CreateClient struct {
 	Authentication        *config.ClientAuth
 	Authorization         *config.ClientAuthz
 	Accounting            *config.ClientAcct
+	Endpoints             *[]config.ClientEndpoint
+	RADIUS                *RADIUSPatch
 	RADIUSSharedSecret    *SecretPatch
 	Override              bool
 }
@@ -243,10 +265,32 @@ func applyClientPatch(cur config.Client, p UpdateClient) (config.Client, error) 
 	if out.Legacy.SharedSecret, err = applySecret(out.Legacy.SharedSecret, p.SharedSecret, legacyOn, "legacy.shared_secret"); err != nil {
 		return config.Client{}, err
 	}
-	if err = applyRADIUSSecretPatch(&out, p.RADIUSSharedSecret); err != nil {
+	radiusSecret := p.RADIUSSharedSecret
+	if radiusSecret == nil && p.RADIUS != nil {
+		radiusSecret = p.RADIUS.SharedSecret
+	}
+	if p.Endpoints != nil {
+		replaced := cloneEndpointSlice(*p.Endpoints)
+		retainOmittedEndpointSecrets(cur, replaced)
+		out.Endpoints = replaced
+		if tacacsFlattenSpecified(p) && !config.TACACSProjectionMatches(out) {
+			return config.Client{}, domain.NewError(domain.CodeInvalidArgument, "endpoints and flattened TACACS fields disagree").WithPath("endpoints")
+		}
+		if radiusFlattenDisagrees(out, p.RADIUS) {
+			return config.Client{}, domain.NewError(domain.CodeInvalidArgument, "endpoints and flattened RADIUS fields disagree").WithPath("endpoints")
+		}
+		config.ApplyTACACSProjection(&out)
+	} else if p.RADIUS != nil {
+		if err = applyRADIUSFlatten(&out, p.RADIUS); err != nil {
+			return config.Client{}, err
+		}
+	}
+	if err = applyRADIUSSecretPatch(&out, radiusSecret); err != nil {
 		return config.Client{}, err
 	}
-	syncTACACSEndpointsFromFlatten(&out)
+	if radiusEndpointPtr(&out) != nil {
+		syncTACACSEndpointsFromFlatten(&out)
+	}
 	return out, nil
 }
 
@@ -315,6 +359,254 @@ func hasLegacyTransport(ts []domain.Transport) bool {
 		}
 	}
 	return false
+}
+
+func tacacsFlattenSpecified(p UpdateClient) bool {
+	return p.Match != nil || p.SharedSecret != nil || p.SharedSecretLifecycle != nil ||
+		p.Authentication != nil || p.Authorization != nil || p.Accounting != nil
+}
+
+func radiusFlattenDisagrees(c config.Client, p *RADIUSPatch) bool {
+	if p == nil {
+		return false
+	}
+	ep := radiusEndpointPtr(&c)
+	if p.Enabled != nil && !*p.Enabled {
+		return ep != nil
+	}
+	if ep == nil || ep.RADIUS == nil {
+		return true
+	}
+	r := ep.RADIUS
+	if len(p.Roles) > 0 && !sameRoles(ep.Roles, p.Roles) {
+		return true
+	}
+	if p.RequireMessageAuthenticator != nil && r.RequireMessageAuthenticator != *p.RequireMessageAuthenticator {
+		return true
+	}
+	if p.LimitProxyState != nil && r.LimitProxyState != *p.LimitProxyState {
+		return true
+	}
+	if p.AllowedMethods != nil && !sameStrings(r.AllowedAuthenticationMethods, p.AllowedMethods) {
+		return true
+	}
+	if p.AccessPolicyID != nil && r.AccessPolicyID != *p.AccessPolicyID {
+		return true
+	}
+	if p.AcceptStatusTypes != nil && !sameStrings(r.AcceptStatusTypes, p.AcceptStatusTypes) {
+		return true
+	}
+	if p.SharedSecret != nil && !p.SharedSecret.Clear && p.SharedSecret.Ref.Set() {
+		want := p.SharedSecret.Ref
+		if want.Purpose == "" {
+			want.Purpose = credentials.PurposeRADIUSSharedSecret
+		}
+		if r.SharedSecret.File != want.File || r.SharedSecret.Environment != want.Environment {
+			return true
+		}
+	}
+	return false
+}
+
+func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
+	if p == nil {
+		return nil
+	}
+	if p.Enabled != nil && !*p.Enabled {
+		c.Endpoints = removeRADIUSEndpoints(c.Endpoints)
+		return nil
+	}
+	roles := p.Roles
+	if len(roles) == 0 {
+		if ep := radiusEndpointPtr(c); ep != nil && len(ep.Roles) > 0 {
+			roles = append([]domain.ListenerRole(nil), ep.Roles...)
+		} else {
+			roles = []domain.ListenerRole{domain.RoleAccess, domain.RoleAccounting}
+		}
+	}
+	if err := validateRADIUSRoles(roles); err != nil {
+		return err
+	}
+	ep := radiusEndpointPtr(c)
+	if ep == nil {
+		if len(c.Endpoints) == 0 {
+			c.Endpoints = config.SynthesizeTACACSEndpoints(*c)
+		}
+		rad := defaultRADIUSEndpoint(roles)
+		applyRADIUSFields(&rad, p)
+		c.Endpoints = append(c.Endpoints, config.ClientEndpoint{
+			ID:        "radius-udp",
+			Protocol:  domain.ProtocolRADIUS,
+			Transport: config.EndpointTransportUDP,
+			Roles:     append([]domain.ListenerRole(nil), roles...),
+			RADIUS:    &rad,
+		})
+		return nil
+	}
+	ep.Roles = append([]domain.ListenerRole(nil), roles...)
+	applyRADIUSFields(ep.RADIUS, p)
+	return nil
+}
+
+func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch) {
+	if rad == nil || p == nil {
+		return
+	}
+	if p.SharedSecretLifecycle != nil {
+		rad.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(p.SharedSecretLifecycle.LastRotatedAt)
+		rad.SharedSecretLifecycle.RotationInterval = p.SharedSecretLifecycle.RotationInterval
+	}
+	if p.RequireMessageAuthenticator != nil {
+		rad.RequireMessageAuthenticator = *p.RequireMessageAuthenticator
+	}
+	if p.LimitProxyState != nil {
+		rad.LimitProxyState = *p.LimitProxyState
+	}
+	if p.AllowedMethods != nil {
+		rad.AllowedAuthenticationMethods = cloneStrings(p.AllowedMethods)
+	}
+	if p.AccessPolicyID != nil {
+		rad.AccessPolicyID = *p.AccessPolicyID
+	}
+	if p.AcceptStatusTypes != nil {
+		rad.AcceptStatusTypes = cloneStrings(p.AcceptStatusTypes)
+	}
+}
+
+func defaultRADIUSEndpoint(roles []domain.ListenerRole) config.RADIUSEndpoint {
+	rad := config.RADIUSEndpoint{
+		RequireMessageAuthenticator: true,
+		LimitProxyState:             true,
+	}
+	if endpointHasRole(roles, domain.RoleAccess) {
+		rad.AllowedAuthenticationMethods = []string{config.RADIUSAuthMethodPAP, config.RADIUSAuthMethodCHAP}
+	}
+	if endpointHasRole(roles, domain.RoleAccounting) {
+		rad.AcceptStatusTypes = []string{
+			config.RADIUSAcctStart,
+			config.RADIUSAcctStop,
+			config.RADIUSAcctInterimUpdate,
+			config.RADIUSAcctAccountingOn,
+			config.RADIUSAcctAccountingOff,
+		}
+	}
+	return rad
+}
+
+func validateRADIUSRoles(roles []domain.ListenerRole) error {
+	if len(roles) == 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "RADIUS endpoint requires at least one role").WithPath("radius.roles")
+	}
+	for i, r := range roles {
+		switch r {
+		case domain.RoleAccess, domain.RoleAccounting:
+		default:
+			return domain.NewError(domain.CodeInvalidArgument, "RADIUS role must be access or accounting").WithPath("radius.roles").WithDetail("index", i)
+		}
+	}
+	return nil
+}
+
+func endpointHasRole(roles []domain.ListenerRole, want domain.ListenerRole) bool {
+	for _, r := range roles {
+		if r == want {
+			return true
+		}
+	}
+	return false
+}
+
+func removeRADIUSEndpoints(in []config.ClientEndpoint) []config.ClientEndpoint {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]config.ClientEndpoint, 0, len(in))
+	for _, ep := range in {
+		if ep.Protocol == domain.ProtocolRADIUS {
+			continue
+		}
+		out = append(out, ep)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func cloneEndpointSlice(in []config.ClientEndpoint) []config.ClientEndpoint {
+	if in == nil {
+		return []config.ClientEndpoint{}
+	}
+	out := make([]config.ClientEndpoint, len(in))
+	for i, ep := range in {
+		out[i] = cloneClientEndpoint(ep)
+	}
+	return out
+}
+
+func retainOmittedEndpointSecrets(prev config.Client, next []config.ClientEndpoint) {
+	oldByID := map[string]config.ClientEndpoint{}
+	var oldRADIUS *config.RADIUSEndpoint
+	var oldLegacy *config.TACACSEndpoint
+	for i := range prev.Endpoints {
+		ep := prev.Endpoints[i]
+		oldByID[ep.ID] = ep
+		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil {
+			oldRADIUS = ep.RADIUS
+		}
+		if ep.Protocol == domain.ProtocolTACACS && ep.Transport == config.EndpointTransportTCP && ep.TACACS != nil {
+			oldLegacy = ep.TACACS
+		}
+	}
+	for i := range next {
+		ep := &next[i]
+		if old, ok := oldByID[ep.ID]; ok {
+			retainOneEndpointSecret(ep, &old)
+			continue
+		}
+		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil && !ep.RADIUS.SharedSecret.Set() && oldRADIUS != nil {
+			ep.RADIUS.SharedSecret = cloneSecretRef(oldRADIUS.SharedSecret)
+		}
+		if ep.Protocol == domain.ProtocolTACACS && ep.Transport == config.EndpointTransportTCP && ep.TACACS != nil && !ep.TACACS.SharedSecret.Set() && oldLegacy != nil {
+			ep.TACACS.SharedSecret = cloneSecretRef(oldLegacy.SharedSecret)
+		}
+	}
+}
+
+func retainOneEndpointSecret(dst, src *config.ClientEndpoint) {
+	if dst == nil || src == nil {
+		return
+	}
+	if dst.RADIUS != nil && !dst.RADIUS.SharedSecret.Set() && src.RADIUS != nil {
+		dst.RADIUS.SharedSecret = cloneSecretRef(src.RADIUS.SharedSecret)
+	}
+	if dst.TACACS != nil && !dst.TACACS.SharedSecret.Set() && src.TACACS != nil {
+		dst.TACACS.SharedSecret = cloneSecretRef(src.TACACS.SharedSecret)
+	}
+}
+
+func sameRoles(a, b []domain.ListenerRole) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func userFromCreate(base *config.User, req CreateUser) (config.User, error) {
@@ -386,6 +678,8 @@ func clientFromCreate(base *config.Client, req CreateClient) (config.Client, err
 		Authentication:        req.Authentication,
 		Authorization:         req.Authorization,
 		Accounting:            req.Accounting,
+		Endpoints:             req.Endpoints,
+		RADIUS:                req.RADIUS,
 		RADIUSSharedSecret:    req.RADIUSSharedSecret,
 	})
 }

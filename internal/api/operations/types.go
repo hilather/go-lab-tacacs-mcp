@@ -303,7 +303,7 @@ func defaultCatalog() map[string]reflect.Type {
 		ListGroupsRequest{}, GetGroupRequest{}, CreateGroupRequest{}, UpdateGroupRequest{}, DeleteGroupRequest{},
 		GroupList{}, Group{},
 		ListClientsRequest{}, GetClientRequest{}, CreateClientRequest{}, UpdateClientRequest{}, DeleteClientRequest{},
-		ClientList{}, Client{},
+		ClientList{}, Client{}, ClientProtocolsView{}, ClientRADIUSWrite{}, ClientEndpointWrite{}, ClientEndpointView{},
 		ListTokensRequest{}, CreateTokenRequest{}, RevokeTokenRequest{},
 		TokenList{}, CreatedToken{},
 		EvaluatePolicyRequest{}, PolicyTrace{},

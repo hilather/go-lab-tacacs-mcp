@@ -122,6 +122,82 @@ func TestClientRADIUSFlattenCreateUpdate(t *testing.T) {
 	}
 }
 
+func TestClientFlattenPatchResynthesizesEndpoints(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	rev := m.Revision()
+	updated, err := reg.Invoke(context.Background(), IDClientsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateClientRequest{
+			ID:             "sw",
+			Authentication: &ClientAuthView{AllowedMethods: []string{"ascii"}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := updated.Data.(Client)
+	if len(c.Authentication.AllowedMethods) != 1 || c.Authentication.AllowedMethods[0] != "ascii" {
+		t.Fatalf("flatten auth=%+v", c.Authentication)
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0].ID != "tacacs-legacy" || c.Endpoints[0].TACACS == nil {
+		t.Fatalf("endpoints=%+v", c.Endpoints)
+	}
+	if len(c.Endpoints[0].TACACS.AllowedMethods) != 1 || c.Endpoints[0].TACACS.AllowedMethods[0] != "ascii" {
+		t.Fatalf("endpoint methods=%v", c.Endpoints[0].TACACS.AllowedMethods)
+	}
+
+	rev = updated.Revision
+	switched, err := reg.Invoke(context.Background(), IDClientsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateClientRequest{
+			ID: "sw",
+			Match: &ClientMatchView{
+				SourceCIDRs: []string{"10.20.0.0/16", "2001:db8:20::/48"},
+				Transports:  []string{"tls"},
+			},
+			SharedSecret: OptionalSecret{Present: true, Clear: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := switched.Data.(Client)
+	if len(got.Endpoints) != 1 || got.Endpoints[0].ID != "tacacs-tls" || got.Endpoints[0].Transport != "tls" {
+		t.Fatalf("tls endpoints=%+v", got.Endpoints)
+	}
+	if got.Protocols.TACACS.LegacyEnabled || !got.Protocols.TACACS.TLSEnabled {
+		t.Fatalf("protocols=%+v", got.Protocols.TACACS)
+	}
+}
+
+func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	_, err := reg.Invoke(context.Background(), IDClientsCreate, m.Snapshot(), Input{
+		Actor: writer,
+		Request: CreateClientRequest{
+			ID: "bad-rad",
+			Match: &ClientMatchView{
+				SourceCIDRs: []string{"10.9.0.0/16"},
+			},
+			RADIUS: &ClientRADIUSWrite{
+				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
+				AllowedMethods: []string{"mschapv2"},
+			},
+		},
+	})
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("err=%v", err)
+	}
+}
+
 func TestClientRADIUSSecretNullRejected(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, mixedRADIUSClientYAML)

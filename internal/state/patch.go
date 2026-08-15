@@ -280,16 +280,18 @@ func applyClientPatch(cur config.Client, p UpdateClient) (config.Client, error) 
 			return config.Client{}, domain.NewError(domain.CodeInvalidArgument, "endpoints and flattened RADIUS fields disagree").WithPath("endpoints")
 		}
 		config.ApplyTACACSProjection(&out)
-	} else if p.RADIUS != nil {
-		if err = applyRADIUSFlatten(&out, p.RADIUS); err != nil {
-			return config.Client{}, err
+	} else {
+		if p.RADIUS != nil {
+			if err = applyRADIUSFlatten(&out, p.RADIUS); err != nil {
+				return config.Client{}, err
+			}
 		}
+		// Validate only re-synthesizes a throwaway compile document.
+		// Persist the projection so GET/list/export endpoints stay live.
+		rebuildTACACSEndpointsFromFlatten(&out)
 	}
 	if err = applyRADIUSSecretPatch(&out, radiusSecret); err != nil {
 		return config.Client{}, err
-	}
-	if radiusEndpointPtr(&out) != nil {
-		syncTACACSEndpointsFromFlatten(&out)
 	}
 	return out, nil
 }
@@ -328,28 +330,20 @@ func radiusEndpointPtr(c *config.Client) *config.ClientEndpoint {
 	return nil
 }
 
-// syncTACACSEndpointsFromFlatten pushes flatten TACACS fields onto existing
-// TACACS endpoints so mixed RADIUS clients keep the projection invariant.
-// TACACS-only clients are re-synthesized by Validate.
-func syncTACACSEndpointsFromFlatten(c *config.Client) {
-	if c == nil || radiusEndpointPtr(c) == nil {
+// rebuildTACACSEndpointsFromFlatten replaces TACACS endpoints from flatten
+// fields and keeps any RADIUS endpoint. TACACS-only overlay patches must
+// persist this slice; Validate's synth is not published.
+func rebuildTACACSEndpointsFromFlatten(c *config.Client) {
+	if c == nil {
 		return
 	}
-	for i := range c.Endpoints {
-		ep := &c.Endpoints[i]
-		if ep.Protocol != domain.ProtocolTACACS || ep.TACACS == nil {
-			continue
+	var radius []config.ClientEndpoint
+	for _, ep := range c.Endpoints {
+		if ep.Protocol == domain.ProtocolRADIUS {
+			radius = append(radius, cloneClientEndpoint(ep))
 		}
-		if ep.Transport == config.EndpointTransportTCP {
-			ep.TACACS.SharedSecret = c.Legacy.SharedSecret
-			ep.TACACS.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(c.Legacy.SharedSecretLifecycle.LastRotatedAt)
-			ep.TACACS.SharedSecretLifecycle.RotationInterval = c.Legacy.SharedSecretLifecycle.RotationInterval
-		}
-		ep.TACACS.AllowedMethods = append([]config.AuthMethod(nil), c.Authentication.AllowedMethods...)
-		ep.TACACS.DefaultService = c.Authentication.DefaultService
-		ep.TACACS.DefaultGroupIDs = cloneStrings(c.Authorization.DefaultGroupIDs)
-		ep.TACACS.Accounting = c.Accounting
 	}
+	c.Endpoints = append(config.SynthesizeTACACSEndpoints(*c), radius...)
 }
 
 func hasLegacyTransport(ts []domain.Transport) bool {
@@ -433,7 +427,9 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 			c.Endpoints = config.SynthesizeTACACSEndpoints(*c)
 		}
 		rad := defaultRADIUSEndpoint(roles)
-		applyRADIUSFields(&rad, p)
+		if err := applyRADIUSFields(&rad, p); err != nil {
+			return err
+		}
 		c.Endpoints = append(c.Endpoints, config.ClientEndpoint{
 			ID:        "radius-udp",
 			Protocol:  domain.ProtocolRADIUS,
@@ -444,13 +440,12 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 		return nil
 	}
 	ep.Roles = append([]domain.ListenerRole(nil), roles...)
-	applyRADIUSFields(ep.RADIUS, p)
-	return nil
+	return applyRADIUSFields(ep.RADIUS, p)
 }
 
-func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch) {
+func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch) error {
 	if rad == nil || p == nil {
-		return
+		return nil
 	}
 	if p.SharedSecretLifecycle != nil {
 		rad.SharedSecretLifecycle.LastRotatedAt = cloneTimePtr(p.SharedSecretLifecycle.LastRotatedAt)
@@ -463,14 +458,23 @@ func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch) {
 		rad.LimitProxyState = *p.LimitProxyState
 	}
 	if p.AllowedMethods != nil {
-		rad.AllowedAuthenticationMethods = cloneStrings(p.AllowedMethods)
+		methods, err := config.ParseRADIUSAuthMethods(p.AllowedMethods)
+		if err != nil {
+			return err
+		}
+		rad.AllowedAuthenticationMethods = methods
 	}
 	if p.AccessPolicyID != nil {
 		rad.AccessPolicyID = *p.AccessPolicyID
 	}
 	if p.AcceptStatusTypes != nil {
-		rad.AcceptStatusTypes = cloneStrings(p.AcceptStatusTypes)
+		status, err := config.ParseRADIUSStatusTypes(p.AcceptStatusTypes)
+		if err != nil {
+			return err
+		}
+		rad.AcceptStatusTypes = status
 	}
+	return nil
 }
 
 func defaultRADIUSEndpoint(roles []domain.ListenerRole) config.RADIUSEndpoint {

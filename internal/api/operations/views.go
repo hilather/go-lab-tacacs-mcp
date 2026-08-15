@@ -495,10 +495,22 @@ func clientEndpointsFromView(in *[]ClientEndpointWrite) (*[]config.ClientEndpoin
 		return nil, nil
 	}
 	out := make([]config.ClientEndpoint, 0, len(*in))
+	seen := map[string]struct{}{}
+	var radiusCount int
 	for i, raw := range *in {
 		ep, err := clientEndpointFromWrite(raw, i)
 		if err != nil {
 			return nil, err
+		}
+		if _, ok := seen[ep.ID]; ok {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "duplicate endpoint id").WithPath("endpoints").WithDetail("index", i)
+		}
+		seen[ep.ID] = struct{}{}
+		if ep.Protocol == domain.ProtocolRADIUS {
+			radiusCount++
+			if radiusCount > 1 {
+				return nil, domain.NewError(domain.CodeInvalidArgument, "a client may have at most one RADIUS UDP endpoint").WithPath("endpoints").WithDetail("index", i)
+			}
 		}
 		out = append(out, ep)
 	}
@@ -602,11 +614,19 @@ func radiusEndpointFromWrite(v *ClientRADIUSWrite) (*config.RADIUSEndpoint, erro
 			LimitProxyState:             true,
 		}, nil
 	}
+	methods, err := config.ParseRADIUSAuthMethods(v.AllowedMethods)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ParseRADIUSStatusTypes(v.AcceptStatusTypes)
+	if err != nil {
+		return nil, err
+	}
 	rad := &config.RADIUSEndpoint{
 		RequireMessageAuthenticator:  true,
 		LimitProxyState:              true,
-		AllowedAuthenticationMethods: cloneStrings(v.AllowedMethods),
-		AcceptStatusTypes:            cloneStrings(v.AcceptStatusTypes),
+		AllowedAuthenticationMethods: methods,
+		AcceptStatusTypes:            status,
 	}
 	if v.AccessPolicyID != nil {
 		rad.AccessPolicyID = *v.AccessPolicyID
@@ -645,6 +665,14 @@ func radiusPatchFromView(v *ClientRADIUSWrite) (*state.RADIUSPatch, error) {
 	if err != nil {
 		return nil, err
 	}
+	methods, err := config.ParseRADIUSAuthMethods(v.AllowedMethods)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ParseRADIUSStatusTypes(v.AcceptStatusTypes)
+	if err != nil {
+		return nil, err
+	}
 	return &state.RADIUSPatch{
 		SharedSecret:                v.SharedSecret.patch(),
 		SharedSecretLifecycle:       life,
@@ -652,9 +680,9 @@ func radiusPatchFromView(v *ClientRADIUSWrite) (*state.RADIUSPatch, error) {
 		Roles:                       roles,
 		RequireMessageAuthenticator: v.RequireMessageAuthenticator,
 		LimitProxyState:             v.LimitProxyState,
-		AllowedMethods:              cloneStrings(v.AllowedMethods),
+		AllowedMethods:              methods,
 		AccessPolicyID:              v.AccessPolicyID,
-		AcceptStatusTypes:           cloneStrings(v.AcceptStatusTypes),
+		AcceptStatusTypes:           status,
 	}, nil
 }
 

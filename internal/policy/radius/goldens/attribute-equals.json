@@ -1,0 +1,28 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "nas-user",
+  "client_id": "lab-switches",
+  "endpoint_id": "radius-udp",
+  "method": "password",
+  "groups": [],
+  "steps": [
+    {
+      "source": "client_policy:default-radius-access",
+      "rule_id": "permit-lab-admins",
+      "matched": false,
+      "reason": "groups_any mismatch"
+    },
+    {
+      "source": "client_policy:default-radius-access",
+      "rule_id": "permit-pap-nas",
+      "matched": true,
+      "reason": "matched"
+    }
+  ],
+  "winner": {
+    "source": "client_policy:default-radius-access",
+    "rule_id": "permit-pap-nas",
+    "effect": "permit"
+  },
+  "effect": "permit"
+}

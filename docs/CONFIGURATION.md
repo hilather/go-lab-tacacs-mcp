@@ -2,7 +2,7 @@
 
 Status: implementation contract  
 Applies to: config loader, validators, state compiler, REST API, MCP server, UI, export, and deployment  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First-time users/groups/clients/secrets: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
@@ -22,7 +22,7 @@ validated defaults
 = immutable compiled snapshot
 ```
 
-The compiled snapshot is the only state consumed by TACACS request processing. A failed startup, reload, or runtime mutation must never partially publish state.
+The compiled snapshot is the only state consumed by TACACS and RADIUS request processing. It carries TACACS indexes plus RADIUS access/accounting LPM indexes, the built-in MVP dictionary (`builtin-mvp-1`), and the compiled RADIUS access-policy engine. Default example YAML keeps RADIUS listeners `enabled: false`. Enabling them is a **controlled-network lab profile**, not complete RADIUS. A failed startup, reload, or runtime mutation must never partially publish state.
 
 ## 2. Non-negotiable rules
 
@@ -111,13 +111,24 @@ Mutation requests that can lose updates must support an expected revision using 
 
 ### 4.2 Schema version
 
-The root must include:
+The root must include `schema_version: 1` or `schema_version: 2`. A missing or unsupported version is a fatal validation error.
 
-```yaml
-schema_version: 1
-```
+| Source `schema_version` | Listener syntax | What happens |
+|---|---|---|
+| `1` | `listeners.legacy_tacacs`, `listeners.secure_tacacs`, `listeners.http` | Loaded unchanged for TACACS fields. Migrated **in memory** to the same named structs as v2. RADIUS listeners are synthesized as `enabled: false`. The file is never rewritten. |
+| `2` | `listeners.tacacs.legacy`, `listeners.tacacs.tls`, `listeners.radius.{access,accounting}`, `listeners.http` | Parsed directly. RADIUS listener structs are compiled (defaults `enabled: false`). |
+| other / omitted | — | Fatal (`CONFIG_YAML_INVALID`). |
 
-A missing or unsupported version is a fatal validation error. Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
+Mixed keys fail closed with a path and remediation:
+
+- v1 document with `listeners.radius` or `listeners.tacacs` → use `schema_version: 2` (or remove the v2 key).
+- v2 document with `listeners.legacy_tacacs` or `listeners.secure_tacacs` → use `listeners.tacacs.legacy` / `listeners.tacacs.tls`.
+
+`Document.SchemaVersion` records the **source** version. `config.export` **never** emits v2 YAML for a v1 source unless the explicit convert flag `normalize=true` is set (REST query `normalize=true`, MCP argument `normalize`; default false). A v1 source exports as v1. A v2 source exports as v2. The server never rewrites the operator file. Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §13.
+
+RADIUS listeners default `enabled: false`. When enabled they bind UDP on a controlled lab network. Access-Request is PAP/CHAP plus compiled-policy Access-Accept/Reject (Message-Authenticator first). Accounting Start/Stop/Interim/On/Off writes the memory ring and replies Accounting-Response only after the ring accepts the record. TACACS and RADIUS listeners start through `internal/runtime.Registry`. Process start requires at least one AAA listener unless `server.admin_only: true`. Do not advertise RADIUS completeness. Residual limits (no EAP termination, Access-Challenge, CoA, RadSec, RADIUS MS-CHAP, named `Cisco-AVPair`, or persistent accounting) are in [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1 and [CANONICAL_DESIGN.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md) residual limits. The checked-in combined example is [configs/lab.example.v2.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.v2.yaml).
+
+Schema migrations must be explicit, deterministic, documented, and covered by golden tests.
 
 ### 4.3 Unknown fields
 
@@ -172,8 +183,9 @@ Secret references are typed. A value intended for one purpose must not be reused
 | `api_bearer_token` | Bootstrap REST/MCP token input |
 | `tls_private_key` | TLS server identity key |
 | `tls_psk` | Optional RFC 9887 external TLS PSK; never shared with legacy obfuscation |
+| `radius_shared_secret` | RADIUS per-client shared secret (schema v2 `endpoints[].radius.shared_secret`). Distinct holder type; cannot be assigned to a TACACS legacy secret. |
 
-Agents must enforce separation between legacy TACACS shared secrets and TLS PSKs.
+Agents must enforce separation between legacy TACACS shared secrets, RADIUS shared secrets, and TLS PSKs. Cross-purpose reuse is a warning via process-local HMAC, never a fingerprint export.
 
 ## 6. Complete annotated baseline example
 
@@ -539,6 +551,8 @@ Metadata is descriptive and must not affect policy decisions. Labels are bounded
 
 Controls process-wide lifecycle and logging behavior. `instance_id` is stable within a deployment and appears in events and health responses. It is not an authentication credential.
 
+`server.admin_only` is accepted only on `schema_version: 2` (default `false`). It is the only way to start without an AAA listener. Otherwise the process requires at least one TACACS or RADIUS listener.
+
 ### 7.3 `runtime`
 
 Required initial behavior:
@@ -553,6 +567,8 @@ A future persistence adapter requires a separate design approval and must not ch
 ### 7.4 `security`
 
 The `legacy_shared_secrets` policy is a server-management control required for safe RFC 8907 operation. It applies whenever a legacy secret is resolved from baseline or runtime input.
+
+`security.radius_shared_secrets` is accepted only on `schema_version: 2`. It has the same shape as `legacy_shared_secrets`. When omitted, the effective RADIUS policy is a copy of the effective legacy policy. RADIUS endpoint secrets are resolved as `radius_shared_secret` through `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`. Enabled RADIUS/UDP listeners use the compiled role index and that secret to unhide User-Password, validate Accounting-Request authenticators and Message-Authenticator, and sign responses. Cross-purpose reuse with a TACACS legacy secret is a warning.
 
 - `minimum_length_characters` is enforceable and defaults to at least 16. The implementation must accept shared keys of 32 or more characters without truncation.
 - `minimum_character_classes` is an integer from 0 through 4 and counts ASCII lowercase, uppercase, digit, and symbol classes. A value of 0 disables the class-count rule without disabling the length rule.
@@ -570,6 +586,62 @@ Runtime-created or updated legacy clients must provide the same lifecycle metada
 Listener configuration is not runtime-mutable in the first release. Changing listener addresses, TLS identity, or global connection limits requires a configuration reload or process restart.
 
 Legacy and secure TACACS must have distinct bind addresses/ports. Secure TACACS begins TLS immediately and cannot share a port with the legacy listener. Secure TLS identities support SNI-based profile selection with an explicit default; every profile has its own certificate-chain and private-key references. Session-resumption settings include an enable switch, requested ticket lifetime, and revocation-recheck policy. If the selected Go TLS implementation cannot honor a configured RFC `SHOULD` exactly, configuration must reject the unsupported value and the release must carry the required ADR rather than silently approximating it.
+
+v2 named listener form (equivalent TACACS fields to the v1 example above):
+
+```yaml
+schema_version: 2
+listeners:
+  tacacs:
+    legacy:
+      enabled: true
+      bind: 0.0.0.0:4949
+      advertised_port: 49
+    tls:
+      enabled: true
+      bind: 0.0.0.0:4300
+      advertised_port: 300
+      # tls: same mapping as v1 listeners.secure_tacacs.tls
+  radius:
+    access:
+      enabled: false          # default; set true to bind UDP 1812 (PAP/CHAP lab profile)
+      required: false
+      bind: 0.0.0.0:1812
+      transport: udp
+      max_packet_bytes: 4096  # RFC maximum and lab default; not 4095
+      queue_capacity: 2048
+      workers: 32
+      worker_deadline: 5s
+      retransmission_cache_entries: 10000
+      retransmission_cache_bytes: 4MiB
+      retransmission_ttl: 15s   # clamped 5s–30s
+      per_source_rate: 100
+      per_source_burst: 200
+      message_authenticator: required   # or allow_missing
+      limit_proxy_state: true
+    accounting:
+      enabled: false          # default; set true to bind UDP 1813 (memory-only accounting)
+      required: false
+      bind: 0.0.0.0:1813
+      transport: udp
+      max_packet_bytes: 4096
+      queue_capacity: 2048
+      workers: 16
+      worker_deadline: 5s
+      retransmission_cache_entries: 20000
+      retransmission_cache_bytes: 8MiB
+      retransmission_ttl: 60s   # max 300s
+      journal_entries: 20000
+      journal_bytes: 8MiB
+      per_source_rate: 100
+      per_source_burst: 200
+      ambiguous_accounting_per_minute: 60
+  http: { enabled: true, bind: 0.0.0.0:8080 }
+```
+
+v2 clients may declare `endpoints[]` (canonical protocol model). `match.source_cidrs` stays shared. v2 does not use `match.transports`; transports live on endpoints (`tacacs`+`tcp`/`tls`, `radius`+`udp`). Flatten TACACS fields (`match.transports`, `legacy`, `authentication`, `authorization`, `accounting`) are a deterministic projection of TACACS endpoints. v1 client YAML is unchanged; after load, TACACS endpoints are synthesized so the projection invariant holds. A client may have at most one RADIUS UDP endpoint (access and accounting share the secret and compile into separate role indexes). `certificate_only` is invalid unless a TACACS TLS endpoint exists. RADIUS-only clients require `source_cidrs`.
+
+v2 may declare `radius_policies`, `radius_reply_profiles`, and optional `fallback_radius_policy_id`. These are **not** a complete RADIUS authorization surface: evaluation is client `access_policy_id`, then optional fallback, then default deny. There is no `users[].radius_policy_id` or `groups[].radius_rules`. Match operators are `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), and typed request attributes (`op: equals|present|absent`). Unknown attribute names/codes fail compile (`CONFIG_YAML_INVALID`). Reply profiles are merged in listed order; two `single` attributes of the same key is a compile error. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in MVP). Named `Cisco-AVPair` is not accepted. v1 documents still reject these keys. After a credential pass, `AuthenticateAccess` evaluates the snapshot-held engine: permit is Access-Accept with those profile attributes; deny and evaluator errors are Access-Reject.
 
 ### 7.6 `api`
 
@@ -595,13 +667,13 @@ Limits are security boundaries. Reducing a limit through reload is permitted onl
 
 A client identifies a Network Access Server or a group of devices. Matching is fail-closed and uses a deterministic order:
 
-1. Listener/transport compatibility (`legacy` vs `tls`).
-2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN).
-3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a match key.
+1. Listener/transport compatibility (`legacy` vs `tls` for TACACS; `access` vs `accounting` role indexes for RADIUS).
+2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN). Certificate match does not apply to RADIUS/UDP.
+3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a TACACS match key and requires a TACACS TLS endpoint.
 4. Lowest numeric client priority.
 5. A remaining tie is a configuration error (`CLIENT_MATCH_AMBIGUOUS`). Lexicographic client ID is not a runtime tie-breaker.
 
-Validation must reject indistinguishable client definitions. Disabled clients are not match candidates.
+RADIUS access and accounting indexes are compiled independently onto the published snapshot. The same CIDR may map to different clients per role; two access (or two accounting) clients that share an identical prefix at the same priority fail compile and leave the previous snapshot. Validation must reject indistinguishable client definitions. Disabled clients are not match candidates. `CLIENT_ENDPOINT_PROJECTION_MISMATCH` is a compile error when flatten TACACS fields disagree with `endpoints[]`. Overlay client patches that omit the RADIUS secret retain the current material; an explicit null while a RADIUS endpoint remains is `RADIUS_SECRET_MISSING`.
 
 For a legacy connection, a selected client must have a legacy shared secret. Its resolved value must satisfy the configured length/complexity policy, and its lifecycle metadata is compiled into a non-secret health status. Secret reuse produces a warning when enabled but does not reveal the shared value or fingerprint. For a TLS connection, client identity must satisfy the configured mutual-TLS policy; the legacy shared secret is not used for packet protection.
 
@@ -756,7 +828,7 @@ A separate `validate_candidate` operation can preview errors before reload.
 
 ### 11.1 Sanitized effective export
 
-The default export contains effective non-secret data and secret placeholders:
+The default export contains effective non-secret data and secret placeholders. Export of a v1 source remains v1-shaped (`schema_version: 1` on the sanitized object view) unless `normalize=true` is set. There is no implicit v1→v2 YAML rewrite and the baseline file is never rewritten. Operators who want v2 YAML from a v1 source must pass that flag and copy the redacted output themselves.
 
 ```yaml
 credentials:

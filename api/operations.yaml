@@ -6,7 +6,7 @@ schema_version: 1
 title: TacLab operation registry
 operations:
   - id: system.status.get
-    description: Read listener and snapshot status
+    description: Read listener and snapshot status. Listeners include protocol, carrier, roles, and live ready/inflight/queue_depth. RADIUS listeners appear after the TACACS/HTTP sockets when configured.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -23,7 +23,7 @@ operations:
     status: PASS
 
   - id: system.build.get
-    description: Read build and specification versions
+    description: Read build, specification versions, and per-protocol conformance. RADIUS conformance_status is partial until MVP rows have evidence.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -40,7 +40,7 @@ operations:
     status: PASS
 
   - id: config.effective.get
-    description: Read the redacted effective configuration
+    description: Read the redacted effective configuration. Includes source_schema_version and effective_schema_version. Client objects expose canonical endpoints plus a flattened protocols.radius view.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -91,7 +91,7 @@ operations:
     status: PASS
 
   - id: config.export
-    description: Export a redacted effective configuration document
+    description: Export a redacted effective configuration document. v1 sources stay v1-shaped unless normalize=true. Labels source_schema_version and effective_schema_version.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -293,7 +293,7 @@ operations:
     status: PASS
 
   - id: clients.list
-    description: List TACACS clients in deterministic id order
+    description: List clients in deterministic id order. Additive protocols.radius and endpoints views; TACACS flatten fields stay.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -310,7 +310,7 @@ operations:
     status: PASS
 
   - id: clients.get
-    description: Get one client by id
+    description: Get one client by id. Includes canonical endpoints and flattened protocols.radius.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -326,7 +326,7 @@ operations:
     status: PASS
 
   - id: clients.create
-    description: Create a runtime client or override a baseline client
+    description: Create a runtime client or override a baseline client. Optional endpoints[] or flattened radius object. Endpoints are canonical.
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -343,7 +343,7 @@ operations:
     status: PASS
 
   - id: clients.update
-    description: Apply a typed patch to a client
+    description: Apply a typed patch to a client. Optional endpoints[] or flattened radius. Omitted RADIUS secret is retained.
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -460,8 +460,59 @@ operations:
     audit_event: api.authentication.tested
     status: PASS
 
+  - id: radius.access.test
+    description: Simulate a RADIUS Access-Request against the current snapshot without UDP. Uses the same AuthenticateAccess path as the wire. Passwords are wiped. Not complete RADIUS.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [policy:test]
+    request_type: RadiusAccessTestRequest
+    response_type: RadiusAccessTestResult
+    rest:
+      method: POST
+      path: /api/v1/radius/access:test
+    mcp:
+      kind: tool
+      name: taclab.radius.access.test
+    audit_event: api.radius.access.tested
+    status: PASS
+
+  - id: radius.policy.evaluate
+    description: Explain a RADIUS access-policy decision against the current snapshot using the same engine as the wire path. Not complete RADIUS.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [policy:test]
+    request_type: RadiusPolicyEvaluateRequest
+    response_type: RadiusPolicyEvaluateResult
+    rest:
+      method: POST
+      path: /api/v1/radius/policy:evaluate
+    mcp:
+      kind: tool
+      name: taclab.radius.policy.evaluate
+    audit_event: api.radius.policy.evaluated
+    status: PASS
+
+  - id: radius.attributes.list
+    description: List built-in RADIUS dictionary metadata. Values and secrets are omitted.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: ListRadiusAttributesRequest
+    response_type: RadiusAttributeList
+    rest:
+      method: GET
+      path: /api/v1/radius/attributes
+    mcp:
+      kind: tool
+      name: taclab.radius.attributes.list
+      resource: taclab://radius/attributes
+    status: PASS
+
   - id: events.list
-    description: Read a cursor page of redacted events from the ring
+    description: Read a cursor page of redacted events from the ring. Optional filters protocol, listener_role, packet_code, and outcome AND with categories.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -478,7 +529,7 @@ operations:
     status: PASS
 
   - id: events.subscribe
-    description: Live event delivery. REST streams redacted bodies over SSE. MCP subscriptions/listen notifies taclab://events/recent with URI only; the client pulls bodies through events.list.
+    description: Live event delivery. REST streams redacted bodies over SSE and accepts the same optional filters as events.list. MCP subscriptions/listen notifies taclab://events/recent with URI only; the client pulls bodies through events.list.
     parity: PARITY_DIFFERENT_BINDING
     mutating: false
     idempotent: "false"

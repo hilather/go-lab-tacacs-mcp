@@ -25,7 +25,7 @@ var validConformanceStatuses = map[string]struct{}{
 	StatusFail:                {},
 }
 
-// ConformanceRow is one T89-* or T98-* checklist item.
+// ConformanceRow is one T89-*, T98-*, R65-*, R66-*, R69-*, R79-*, R80-*, or PRJ-* checklist item.
 type ConformanceRow struct {
 	ID               string   `yaml:"id"`
 	Section          string   `yaml:"section"`

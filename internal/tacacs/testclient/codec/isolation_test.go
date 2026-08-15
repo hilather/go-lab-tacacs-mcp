@@ -13,6 +13,7 @@ func TestIndependentOfServerCodecAndSpike(t *testing.T) {
 	t.Parallel()
 	forbidden := []string{
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/codec",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius",
 		"github.com/hilather/go-lab-tacacs-mcp/tools/spike",
 	}
 	fset := token.NewFileSet()

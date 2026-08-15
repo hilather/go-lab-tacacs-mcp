@@ -43,6 +43,27 @@ func defaultScenarios(h *harness) []scenario {
 		{ID: "LAB-SSE-001", Fn: h.labSubscriberSurvivesWriteTimeout},
 		{ID: "LAB-SOURCE-001", Fn: h.labSourceIP},
 		{ID: "LAB-NEG-001", Fn: h.labUnauth},
+		{ID: "LAB-TACACS-ONLY", Fn: h.labTACACSOnlyReady},
+	}
+}
+
+func combinedScenarios(h *harness) []scenario {
+	return []scenario{
+		{ID: "LAB-HEALTH", Fn: h.labHealth},
+		{ID: "LAB-RADIUS-001", Fn: h.labRADIUSReady},
+		{ID: "LAB-RADIUS-002", Fn: h.labRADIUSAccessTest},
+		{ID: "LAB-AUTH-001", Fn: h.labASCIISuccess},
+		{ID: "LAB-NEG-001", Fn: h.labUnauth},
+	}
+}
+
+func radiusOnlyScenarios(h *harness) []scenario {
+	return []scenario{
+		{ID: "LAB-HEALTH", Fn: h.labHealth},
+		{ID: "LAB-RADIUS-001", Fn: h.labRADIUSReady},
+		{ID: "LAB-RADIUS-002", Fn: h.labRADIUSAccessTest},
+		{ID: "LAB-RADIUS-ONLY", Fn: h.labRADIUSOnlyProfile},
+		{ID: "LAB-NEG-001", Fn: h.labUnauth},
 	}
 }
 

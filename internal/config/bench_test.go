@@ -21,6 +21,20 @@ func BenchmarkParseSmall(b *testing.B) {
 	}
 }
 
+func BenchmarkParseV2Minimal(b *testing.B) {
+	data, err := os.ReadFile("testdata/parse/v2_minimal.yaml")
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := Parse(data); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkParseLabExample(b *testing.B) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "configs", "lab.example.yaml"))
 	if err != nil {

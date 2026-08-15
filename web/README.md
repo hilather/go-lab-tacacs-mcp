@@ -4,7 +4,7 @@ React + TypeScript strict + Vite + TanStack Query + React Router. Generated type
 
 The UI talks only to public REST. Browser auth is `POST /api/v1/session` → HttpOnly `taclab_session` + CSRF cookie. The bearer token is never written to `localStorage` or `sessionStorage`. Mutations send `X-CSRF-Token` and `If-Match: "revision-N"`.
 
-Pages: sign-in, status, users, groups, clients, tokens (one-time copy/acknowledge), events, authentication test, policy explain, config/export/validate/reload/reset, about.
+Pages: sign-in, status, users, groups, clients, tokens (one-time copy/acknowledge), events, authentication test, RADIUS authentication test, policy explain, RADIUS policy explain, config/export/validate/reload/reset, about. RADIUS pages use generated REST types only and do not advertise complete RADIUS.
 
 `web/go.mod` is a nested-module fence so parent `go test ./...` does not walk `node_modules`. Do not import `github.com/hilather/go-lab-tacacs-mcp/web` from the parent module. `//go:embed` cannot leave a module, so `make web-build` copies `web/dist` into `internal/ui/dist`. The committed fallback is `internal/ui/stub`.
 

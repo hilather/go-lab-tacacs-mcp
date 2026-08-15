@@ -61,6 +61,9 @@ var FrozenREST = []string{
 	operations.IDClientsDelete,
 	operations.IDPolicyEvaluate,
 	operations.IDAuthenticationTest,
+	operations.IDRadiusAccessTest,
+	operations.IDRadiusPolicyEvaluate,
+	operations.IDRadiusAttributesList,
 	operations.IDTokensList,
 	operations.IDTokensCreate,
 	operations.IDTokensRevoke,
@@ -134,6 +137,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/clients/{id}", s.deleteClient)
 	mux.HandleFunc("POST /api/v1/policy/evaluate", s.evaluate)
 	mux.HandleFunc("POST /api/v1/authentication/test", s.testAuthentication)
+	mux.HandleFunc("POST /api/v1/radius/access:test", s.testRadiusAccess)
+	mux.HandleFunc("POST /api/v1/radius/policy:evaluate", s.evaluateRadiusPolicy)
+	mux.HandleFunc("GET /api/v1/radius/attributes", s.listRadiusAttributes)
 	mux.HandleFunc("GET /api/v1/events", s.listEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.streamEvents)
 	mux.HandleFunc("GET /api/v1/tokens", s.listTokens)
@@ -208,20 +214,39 @@ func (s *Server) evaluate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	req := operations.ListEventsRequest{
-		Cursor:     q.Get("cursor"),
-		Categories: q["category"],
+	req, err := listEventsRequest(r.URL.Query())
+	if err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
 	}
-	if raw := q.Get("limit"); raw != "" {
+	s.invoke(w, r, operations.IDEventsList, req, false)
+}
+
+func listEventsRequest(q map[string][]string) (operations.ListEventsRequest, error) {
+	req := operations.ListEventsRequest{
+		Cursor:       firstQuery(q, "cursor"),
+		Categories:   q["category"],
+		Protocol:     firstQuery(q, "protocol"),
+		ListenerRole: firstQuery(q, "listener_role"),
+		PacketCode:   firstQuery(q, "packet_code"),
+		Outcome:      firstQuery(q, "outcome"),
+	}
+	if raw := firstQuery(q, "limit"); raw != "" {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
-			writeProblemID(w, http.StatusBadRequest, domain.NewError(domain.CodeInvalidArgument, "invalid limit"), requestIDFrom(r))
-			return
+			return req, domain.NewError(domain.CodeInvalidArgument, "invalid limit")
 		}
 		req.Limit = n
 	}
-	s.invoke(w, r, operations.IDEventsList, req, false)
+	return req, nil
+}
+
+func firstQuery(q map[string][]string, key string) string {
+	vals := q[key]
+	if len(vals) == 0 {
+		return ""
+	}
+	return vals[0]
 }
 
 func (s *Server) listTokens(w http.ResponseWriter, r *http.Request) {

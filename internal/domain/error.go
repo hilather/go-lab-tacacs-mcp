@@ -25,17 +25,19 @@ const (
 
 // Config and snapshot-compile codes.
 const (
-	CodeClientMatchAmbiguous        Code = "CLIENT_MATCH_AMBIGUOUS"
-	CodeAuthMethodCredentialMissing Code = "AUTH_METHOD_CREDENTIAL_MISSING"
-	CodeConfigYAMLInvalid           Code = "CONFIG_YAML_INVALID"
-	CodeConfigUnknownField          Code = "CONFIG_UNKNOWN_FIELD"
-	CodeSecretFileUnreadable        Code = "SECRET_FILE_UNREADABLE"
-	CodeSharedSecretPolicyViolation Code = "SHARED_SECRET_POLICY_VIOLATION"
-	CodeSharedSecretRotationOverdue Code = "SHARED_SECRET_ROTATION_OVERDUE"
-	CodeGroupNotFound               Code = "GROUP_NOT_FOUND"
-	CodeTLSVersionUnsupported       Code = "TLS_VERSION_UNSUPPORTED"
-	CodeObjectLimitExceeded         Code = "OBJECT_LIMIT_EXCEEDED"
-	CodeRegexInvalid                Code = "REGEX_INVALID"
+	CodeClientMatchAmbiguous             Code = "CLIENT_MATCH_AMBIGUOUS"
+	CodeClientEndpointProjectionMismatch Code = "CLIENT_ENDPOINT_PROJECTION_MISMATCH"
+	CodeAuthMethodCredentialMissing      Code = "AUTH_METHOD_CREDENTIAL_MISSING"
+	CodeRADIUSSecretMissing              Code = "RADIUS_SECRET_MISSING"
+	CodeConfigYAMLInvalid                Code = "CONFIG_YAML_INVALID"
+	CodeConfigUnknownField               Code = "CONFIG_UNKNOWN_FIELD"
+	CodeSecretFileUnreadable             Code = "SECRET_FILE_UNREADABLE"
+	CodeSharedSecretPolicyViolation      Code = "SHARED_SECRET_POLICY_VIOLATION"
+	CodeSharedSecretRotationOverdue      Code = "SHARED_SECRET_ROTATION_OVERDUE"
+	CodeGroupNotFound                    Code = "GROUP_NOT_FOUND"
+	CodeTLSVersionUnsupported            Code = "TLS_VERSION_UNSUPPORTED"
+	CodeObjectLimitExceeded              Code = "OBJECT_LIMIT_EXCEEDED"
+	CodeRegexInvalid                     Code = "REGEX_INVALID"
 	// CodeRevisionConflict is the compile/validation spelling of a stale
 	// expected revision. Operation handlers and If-Match use CodeRevisionMismatch.
 	CodeRevisionConflict Code = "REVISION_CONFLICT"

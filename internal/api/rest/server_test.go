@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -77,6 +78,10 @@ users:
 	if err != nil {
 		t.Fatal(err)
 	}
+	aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Events: ring})
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg, err := operations.NewFromRepo(".", operations.Deps{
 		Build:    operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-12T00:00:00Z"},
 		State:    mgr,
@@ -84,6 +89,7 @@ users:
 		Usage:    svc,
 		Events:   ring,
 		Creds:    creds,
+		AAA:      aaaSvc,
 		LoadBaseline: func() (*config.Document, error) {
 			return config.Parse([]byte(yamlSrc))
 		},
@@ -223,6 +229,13 @@ func TestStatusAndEvaluate(t *testing.T) {
 	if env.Revision == 0 || env.Data.Users != 1 || env.RequestID == "" {
 		t.Fatalf("env=%+v", env)
 	}
+	if len(env.Data.Listeners) != 3 {
+		t.Fatalf("v1 listeners=%d", len(env.Data.Listeners))
+	}
+	legacy := env.Data.Listeners[0]
+	if legacy.Protocol == "" || legacy.Carrier == "" || len(legacy.Roles) == 0 {
+		t.Fatalf("additive listener fields missing: %+v", legacy)
+	}
 
 	body, _ := json.Marshal(operations.EvaluatePolicyRequest{UserID: "alice", ClientID: "sw", Service: "shell", Cmd: "show"})
 	presp := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/policy/evaluate", h.Token, body, nil)
@@ -260,6 +273,10 @@ func TestBuild(t *testing.T) {
 	if env.Data.Version != "test" || env.Data.MCPSpecification == "" {
 		t.Fatalf("build=%+v", env.Data)
 	}
+	rad := env.Data.Protocols["radius"]
+	if rad.ConformanceStatus != operations.ConformanceStatusPartial {
+		t.Fatalf("radius conformance=%+v", rad)
+	}
 }
 
 func TestListEvents(t *testing.T) {
@@ -282,6 +299,41 @@ func TestListEvents(t *testing.T) {
 	}
 	if len(env.Data.Items) != 1 {
 		t.Fatalf("items=%+v", env.Data.Items)
+	}
+}
+
+func TestListEventsProtocolFilter(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	if h.Ring.Accept(events.Event{Category: events.CategoryAuthen, Type: "ascii_login"}).ID == 0 {
+		t.Fatal("accept")
+	}
+	if h.Ring.Accept(events.Event{
+		Category: events.CategoryAuthen, Type: "radius.access", Protocol: "radius",
+		ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject",
+	}).ID == 0 {
+		t.Fatal("accept radius")
+	}
+	resp := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/events?protocol=radius&listener_role=access", h.Token, nil, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d %s", resp.StatusCode, b)
+	}
+	var env struct {
+		Data operations.EventList `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	if len(env.Data.Items) != 1 || env.Data.Items[0].Type != "radius.access" {
+		t.Fatalf("items=%+v", env.Data.Items)
+	}
+
+	bad := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/events?protocol=passwd", h.Token, nil, nil)
+	defer bad.Body.Close()
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid protocol status=%d", bad.StatusCode)
 	}
 }
 

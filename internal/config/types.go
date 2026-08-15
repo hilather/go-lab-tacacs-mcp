@@ -7,8 +7,41 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
-// SchemaVersion is the only baseline version this loader accepts.
-const SchemaVersion = 1
+const (
+	// SchemaVersionV1 is the TACACS-shaped baseline syntax.
+	SchemaVersionV1 = 1
+	// SchemaVersionV2 is the named-listener syntax (RADIUS fields optional).
+	SchemaVersionV2 = 2
+	// SchemaVersion is the v1 source version. Kept so export and existing
+	// callers continue to treat 1 as the default without emitting v2.
+	SchemaVersion = SchemaVersionV1
+)
+
+// RADIUS listener transport and Message-Authenticator inherit defaults.
+const (
+	RADIUSTransportUDP                     = "udp"
+	RADIUSMessageAuthenticatorRequired     = "required"
+	RADIUSMessageAuthenticatorAllowMissing = "allow_missing"
+	RADIUSMinPacketBytes                   = 20
+	RADIUSMaxPacketBytes                   = 4096
+	// v2 endpoint transport tokens are scoped by protocol, not domain.Transport.
+	EndpointTransportTCP                 = "tcp"
+	EndpointTransportTLS                 = "tls"
+	EndpointTransportUDP                 = "udp"
+	RADIUSAuthMethodPAP                  = "pap"
+	RADIUSAuthMethodCHAP                 = "chap"
+	RADIUSMatchOpEquals                  = "equals"
+	RADIUSMatchOpPresent                 = "present"
+	RADIUSMatchOpAbsent                  = "absent"
+	RADIUSAcctStart                      = "start"
+	RADIUSAcctStop                       = "stop"
+	RADIUSAcctInterimUpdate              = "interim_update"
+	RADIUSAcctAccountingOn               = "accounting_on"
+	RADIUSAcctAccountingOff              = "accounting_off"
+	RADIUSAccessRetransmissionTTLMin     = 5 * time.Second
+	RADIUSAccessRetransmissionTTLMax     = 30 * time.Second
+	RADIUSAccountingRetransmissionTTLMax = 300 * time.Second
+)
 
 // DefaultMaxBytes is the default maximum baseline file size (4 MiB).
 const DefaultMaxBytes = 4 << 20
@@ -36,8 +69,14 @@ type Document struct {
 	Groups        []Group
 	Users         []User
 	FallbackRules RuleSet
-	Events        Events
-	Observability Observability
+	// RADIUSPolicies, RADIUSReplyProfiles, and FallbackRADIUSPolicyID are
+	// schema v2 only. v1 documents keep them empty; the v1 raw model still
+	// rejects the YAML keys.
+	RADIUSPolicies         []RADIUSPolicy
+	RADIUSReplyProfiles    []RADIUSReplyProfile
+	FallbackRADIUSPolicyID string
+	Events                 Events
+	Observability          Observability
 }
 
 // Metadata is descriptive and must not affect policy.
@@ -52,7 +91,10 @@ type Server struct {
 	InstanceID         string
 	ShutdownGrace      time.Duration
 	StartupFailureMode string
-	LogLevel           string
+	// AdminOnly is accepted on schema v2 (default false). It is the only
+	// way to start without an AAA listener.
+	AdminOnly bool
+	LogLevel  string
 }
 
 // Runtime is overlay policy. Persistence is memory in 1.0.
@@ -73,11 +115,15 @@ type MaxObjects struct {
 	APITokens int
 }
 
-// Security holds secret-reference and legacy shared-secret policy.
+// Security holds secret-reference and shared-secret policy.
 type Security struct {
 	AllowEnvironmentSecrets bool
 	StrictSecretFiles       bool
 	LegacySharedSecrets     SharedSecretPolicy
+	// RADIUSSharedSecrets is the RADIUS secret policy. v1 documents copy
+	// the effective legacy policy. RADIUS endpoint secrets use
+	// credentials.PurposeRADIUSSharedSecret.
+	RADIUSSharedSecrets SharedSecretPolicy
 }
 
 // SharedSecretPolicy is the global legacy shared-secret policy.
@@ -90,11 +136,38 @@ type SharedSecretPolicy struct {
 	RotationWarningBefore   time.Duration
 }
 
-// Listeners is the three process sockets.
+// Listeners is the named process sockets. RADIUS fields exist after v1
+// migration and on v2 documents; both default to enabled:false. When
+// enabled, cmd/taclabd registers the UDP sockets.
 type Listeners struct {
-	LegacyTACACS TACACSListener
-	SecureTACACS SecureTACACSListener
-	HTTP         HTTPListener
+	LegacyTACACS     TACACSListener
+	SecureTACACS     SecureTACACSListener
+	HTTP             HTTPListener
+	RADIUSAccess     RADIUSListener
+	RADIUSAccounting RADIUSListener
+}
+
+// RADIUSListener is a UDP access or accounting socket. Journal and
+// ambiguous-accounting fields apply to accounting only.
+type RADIUSListener struct {
+	Enabled                      bool
+	Required                     bool
+	Bind                         string
+	Transport                    string
+	MaxPacketBytes               int
+	QueueCapacity                int
+	Workers                      int
+	WorkerDeadline               time.Duration
+	RetransmissionCacheEntries   int
+	RetransmissionCacheBytes     int
+	RetransmissionTTL            time.Duration
+	JournalEntries               int
+	JournalBytes                 int
+	PerSourceRate                float64
+	PerSourceBurst               int
+	AmbiguousAccountingPerMinute int
+	MessageAuthenticator         string
+	LimitProxyState              bool
 }
 
 // TACACSListener is shared legacy/secure socket settings.
@@ -250,6 +323,10 @@ type Limits struct {
 }
 
 // Client is a NAS or device group.
+//
+// Endpoints is the canonical protocol model after normalize. Match.Transports,
+// Legacy, Authentication, Authorization, and Accounting are a deterministic
+// projection of TACACS endpoints (v1 flatten fields, or v2 endpoints[]).
 type Client struct {
 	ID             string
 	DisplayName    string
@@ -261,6 +338,40 @@ type Client struct {
 	Authentication ClientAuth
 	Authorization  ClientAuthz
 	Accounting     ClientAcct
+	Endpoints      []ClientEndpoint
+}
+
+// ClientEndpoint is one protocol binding on a client. Exactly one of TACACS
+// or RADIUS is set and must match Protocol.
+type ClientEndpoint struct {
+	ID        string
+	Protocol  domain.Protocol
+	Transport string
+	Roles     []domain.ListenerRole
+	TACACS    *TACACSEndpoint
+	RADIUS    *RADIUSEndpoint
+}
+
+// TACACSEndpoint is the per-transport TACACS policy copied onto flatten fields.
+type TACACSEndpoint struct {
+	SharedSecret          SecretRef
+	SharedSecretLifecycle SecretLifecycleMeta
+	AllowedMethods        []AuthMethod
+	DefaultService        domain.AuthenService
+	DefaultGroupIDs       []string
+	Accounting            ClientAcct
+}
+
+// RADIUSEndpoint is the UDP access/accounting profile. Access and accounting
+// share this secret and compile into separate role indexes.
+type RADIUSEndpoint struct {
+	SharedSecret                 SecretRef
+	SharedSecretLifecycle        SecretLifecycleMeta
+	RequireMessageAuthenticator  bool
+	LimitProxyState              bool
+	AllowedAuthenticationMethods []string
+	AccessPolicyID               string
+	AcceptStatusTypes            []string
 }
 
 // ClientMatch is identity selection input.
@@ -362,6 +473,57 @@ type CommandRule struct {
 type StringMatch struct {
 	Exact   string
 	Pattern string
+}
+
+// RADIUSPolicy is a named first-match access policy (client or fallback).
+// User/group RADIUS rule attachment is not in this schema.
+type RADIUSPolicy struct {
+	ID    string
+	Rules []RADIUSRule
+}
+
+// RADIUSRule is one access decision. Enabled defaults true; false skips the rule.
+type RADIUSRule struct {
+	ID            string
+	Enabled       bool
+	Match         RADIUSMatch
+	Effect        domain.Effect
+	ReplyProfiles []string
+}
+
+// RADIUSMatch is the frozen client/fallback dialect: groups_any, method, attributes.
+// Empty GroupsAny or a nil Method is no constraint.
+type RADIUSMatch struct {
+	GroupsAny  []string
+	Method     *domain.AuthMethod
+	Attributes []RADIUSAttrMatch
+}
+
+// RADIUSAttrMatch is one typed request-attribute predicate.
+// Name is an IETF dictionary name, or Vendor+Code identify a raw VSA / type code.
+type RADIUSAttrMatch struct {
+	Name     string
+	Vendor   uint32
+	Code     uint8
+	Op       string
+	Value    string
+	ValueHex string
+}
+
+// RADIUSReplyProfile is a named ordered attribute list merged by permit rules.
+type RADIUSReplyProfile struct {
+	ID         string
+	Attributes []RADIUSReplyAttr
+}
+
+// RADIUSReplyAttr is one policy/config reply attribute. No secret-bearing values.
+// Name is an IETF dictionary name, or Vendor+Code+ValueHex emit a raw VSA.
+type RADIUSReplyAttr struct {
+	Name     string
+	Vendor   uint32
+	Code     uint8
+	Value    string
+	ValueHex string
 }
 
 // User is a TACACS identity. ID is UsernameCasePreserved.

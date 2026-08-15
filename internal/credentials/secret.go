@@ -17,6 +17,7 @@ const (
 	PurposeChallengeSecret    Purpose = "challenge_secret"
 	PurposeEnableVerifier     Purpose = "enable_verifier"
 	PurposeLegacySharedSecret Purpose = "legacy_shared_secret"
+	PurposeRADIUSSharedSecret Purpose = "radius_shared_secret"
 	PurposeAPIBearerToken     Purpose = "api_bearer_token"
 	PurposeTLSPrivateKey      Purpose = "tls_private_key"
 	PurposeTLSPSK             Purpose = "tls_psk"
@@ -102,15 +103,16 @@ func (s secret) equal(other secret) bool {
 
 // Unexported purpose tags keep holder types distinct.
 type (
-	purposeLoginVerifier   struct{}
-	purposeChallengeSecret struct{}
-	purposeEnableVerifier  struct{}
-	purposeSharedSecret    struct{}
-	purposeTokenMaterial   struct{}
-	purposeTLSPrivateKey   struct{}
-	purposeTLSPSK          struct{}
-	purposePassword        struct{}
-	purposeSessionCookie   struct{}
+	purposeLoginVerifier      struct{}
+	purposeChallengeSecret    struct{}
+	purposeEnableVerifier     struct{}
+	purposeSharedSecret       struct{}
+	purposeRADIUSSharedSecret struct{}
+	purposeTokenMaterial      struct{}
+	purposeTLSPrivateKey      struct{}
+	purposeTLSPSK             struct{}
+	purposePassword           struct{}
+	purposeSessionCookie      struct{}
 )
 
 // LoginVerifier holds a slow password-verifier encoding (ASCII/PAP).
@@ -135,6 +137,13 @@ type EnableVerifier struct {
 type SharedSecret struct {
 	secret
 	_ purposeSharedSecret
+}
+
+// RADIUSSharedSecret holds a RADIUS per-client shared secret. It cannot be
+// assigned to SharedSecret.
+type RADIUSSharedSecret struct {
+	secret
+	_ purposeRADIUSSharedSecret
 }
 
 // TokenMaterial holds a raw API bearer token value (returned once at create).
@@ -188,6 +197,11 @@ func NewSharedSecret(b []byte) SharedSecret {
 	return SharedSecret{secret: newSecret(b)}
 }
 
+// NewRADIUSSharedSecret copies b into a RADIUS shared-secret holder.
+func NewRADIUSSharedSecret(b []byte) RADIUSSharedSecret {
+	return RADIUSSharedSecret{secret: newSecret(b)}
+}
+
 // NewTokenMaterial copies b into a bearer-token holder.
 func NewTokenMaterial(b []byte) TokenMaterial {
 	return TokenMaterial{secret: newSecret(b)}
@@ -213,45 +227,49 @@ func NewSessionCookie(b []byte) SessionCookie {
 	return SessionCookie{secret: newSecret(b)}
 }
 
-func (s LoginVerifier) Purpose() Purpose   { return PurposeLoginVerifier }
-func (s ChallengeSecret) Purpose() Purpose { return PurposeChallengeSecret }
-func (s EnableVerifier) Purpose() Purpose  { return PurposeEnableVerifier }
-func (s SharedSecret) Purpose() Purpose    { return PurposeLegacySharedSecret }
-func (s TokenMaterial) Purpose() Purpose   { return PurposeAPIBearerToken }
-func (s TLSPrivateKey) Purpose() Purpose   { return PurposeTLSPrivateKey }
-func (s TLSPSK) Purpose() Purpose          { return PurposeTLSPSK }
-func (s Password) Purpose() Purpose        { return PurposePassword }
-func (s SessionCookie) Purpose() Purpose   { return PurposeSessionCookie }
+func (s LoginVerifier) Purpose() Purpose      { return PurposeLoginVerifier }
+func (s ChallengeSecret) Purpose() Purpose    { return PurposeChallengeSecret }
+func (s EnableVerifier) Purpose() Purpose     { return PurposeEnableVerifier }
+func (s SharedSecret) Purpose() Purpose       { return PurposeLegacySharedSecret }
+func (s RADIUSSharedSecret) Purpose() Purpose { return PurposeRADIUSSharedSecret }
+func (s TokenMaterial) Purpose() Purpose      { return PurposeAPIBearerToken }
+func (s TLSPrivateKey) Purpose() Purpose      { return PurposeTLSPrivateKey }
+func (s TLSPSK) Purpose() Purpose             { return PurposeTLSPSK }
+func (s Password) Purpose() Purpose           { return PurposePassword }
+func (s SessionCookie) Purpose() Purpose      { return PurposeSessionCookie }
 
-func (s LoginVerifier) Bytes() []byte   { return s.bytes() }
-func (s ChallengeSecret) Bytes() []byte { return s.bytes() }
-func (s EnableVerifier) Bytes() []byte  { return s.bytes() }
-func (s SharedSecret) Bytes() []byte    { return s.bytes() }
-func (s TokenMaterial) Bytes() []byte   { return s.bytes() }
-func (s TLSPrivateKey) Bytes() []byte   { return s.bytes() }
-func (s TLSPSK) Bytes() []byte          { return s.bytes() }
-func (s Password) Bytes() []byte        { return s.bytes() }
-func (s SessionCookie) Bytes() []byte   { return s.bytes() }
+func (s LoginVerifier) Bytes() []byte      { return s.bytes() }
+func (s ChallengeSecret) Bytes() []byte    { return s.bytes() }
+func (s EnableVerifier) Bytes() []byte     { return s.bytes() }
+func (s SharedSecret) Bytes() []byte       { return s.bytes() }
+func (s RADIUSSharedSecret) Bytes() []byte { return s.bytes() }
+func (s TokenMaterial) Bytes() []byte      { return s.bytes() }
+func (s TLSPrivateKey) Bytes() []byte      { return s.bytes() }
+func (s TLSPSK) Bytes() []byte             { return s.bytes() }
+func (s Password) Bytes() []byte           { return s.bytes() }
+func (s SessionCookie) Bytes() []byte      { return s.bytes() }
 
-func (s LoginVerifier) Empty() bool   { return s.empty() }
-func (s ChallengeSecret) Empty() bool { return s.empty() }
-func (s EnableVerifier) Empty() bool  { return s.empty() }
-func (s SharedSecret) Empty() bool    { return s.empty() }
-func (s TokenMaterial) Empty() bool   { return s.empty() }
-func (s TLSPrivateKey) Empty() bool   { return s.empty() }
-func (s TLSPSK) Empty() bool          { return s.empty() }
-func (s Password) Empty() bool        { return s.empty() }
-func (s SessionCookie) Empty() bool   { return s.empty() }
+func (s LoginVerifier) Empty() bool      { return s.empty() }
+func (s ChallengeSecret) Empty() bool    { return s.empty() }
+func (s EnableVerifier) Empty() bool     { return s.empty() }
+func (s SharedSecret) Empty() bool       { return s.empty() }
+func (s RADIUSSharedSecret) Empty() bool { return s.empty() }
+func (s TokenMaterial) Empty() bool      { return s.empty() }
+func (s TLSPrivateKey) Empty() bool      { return s.empty() }
+func (s TLSPSK) Empty() bool             { return s.empty() }
+func (s Password) Empty() bool           { return s.empty() }
+func (s SessionCookie) Empty() bool      { return s.empty() }
 
-func (s LoginVerifier) Len() int   { return s.length() }
-func (s ChallengeSecret) Len() int { return s.length() }
-func (s EnableVerifier) Len() int  { return s.length() }
-func (s SharedSecret) Len() int    { return s.length() }
-func (s TokenMaterial) Len() int   { return s.length() }
-func (s TLSPrivateKey) Len() int   { return s.length() }
-func (s TLSPSK) Len() int          { return s.length() }
-func (s Password) Len() int        { return s.length() }
-func (s SessionCookie) Len() int   { return s.length() }
+func (s LoginVerifier) Len() int      { return s.length() }
+func (s ChallengeSecret) Len() int    { return s.length() }
+func (s EnableVerifier) Len() int     { return s.length() }
+func (s SharedSecret) Len() int       { return s.length() }
+func (s RADIUSSharedSecret) Len() int { return s.length() }
+func (s TokenMaterial) Len() int      { return s.length() }
+func (s TLSPrivateKey) Len() int      { return s.length() }
+func (s TLSPSK) Len() int             { return s.length() }
+func (s Password) Len() int           { return s.length() }
+func (s SessionCookie) Len() int      { return s.length() }
 
 func (s *LoginVerifier) Wipe() {
 	if s != nil {
@@ -269,6 +287,11 @@ func (s *EnableVerifier) Wipe() {
 	}
 }
 func (s *SharedSecret) Wipe() {
+	if s != nil {
+		s.wipe()
+	}
+}
+func (s *RADIUSSharedSecret) Wipe() {
 	if s != nil {
 		s.wipe()
 	}
@@ -299,15 +322,16 @@ func (s *SessionCookie) Wipe() {
 	}
 }
 
-func (s LoginVerifier) Equal(o LoginVerifier) bool     { return s.equal(o.secret) }
-func (s ChallengeSecret) Equal(o ChallengeSecret) bool { return s.equal(o.secret) }
-func (s EnableVerifier) Equal(o EnableVerifier) bool   { return s.equal(o.secret) }
-func (s SharedSecret) Equal(o SharedSecret) bool       { return s.equal(o.secret) }
-func (s TokenMaterial) Equal(o TokenMaterial) bool     { return s.equal(o.secret) }
-func (s TLSPrivateKey) Equal(o TLSPrivateKey) bool     { return s.equal(o.secret) }
-func (s TLSPSK) Equal(o TLSPSK) bool                   { return s.equal(o.secret) }
-func (s Password) Equal(o Password) bool               { return s.equal(o.secret) }
-func (s SessionCookie) Equal(o SessionCookie) bool     { return s.equal(o.secret) }
+func (s LoginVerifier) Equal(o LoginVerifier) bool           { return s.equal(o.secret) }
+func (s ChallengeSecret) Equal(o ChallengeSecret) bool       { return s.equal(o.secret) }
+func (s EnableVerifier) Equal(o EnableVerifier) bool         { return s.equal(o.secret) }
+func (s SharedSecret) Equal(o SharedSecret) bool             { return s.equal(o.secret) }
+func (s RADIUSSharedSecret) Equal(o RADIUSSharedSecret) bool { return s.equal(o.secret) }
+func (s TokenMaterial) Equal(o TokenMaterial) bool           { return s.equal(o.secret) }
+func (s TLSPrivateKey) Equal(o TLSPrivateKey) bool           { return s.equal(o.secret) }
+func (s TLSPSK) Equal(o TLSPSK) bool                         { return s.equal(o.secret) }
+func (s Password) Equal(o Password) bool                     { return s.equal(o.secret) }
+func (s SessionCookie) Equal(o SessionCookie) bool           { return s.equal(o.secret) }
 
 var (
 	_ fmt.Stringer   = LoginVerifier{}
@@ -317,6 +341,9 @@ var (
 	_ slog.LogValuer = LoginVerifier{}
 	_ fmt.Stringer   = ChallengeSecret{}
 	_ fmt.Formatter  = SharedSecret{}
+	_ fmt.Formatter  = RADIUSSharedSecret{}
+	_ json.Marshaler = RADIUSSharedSecret{}
+	_ slog.LogValuer = RADIUSSharedSecret{}
 	_ json.Marshaler = TokenMaterial{}
 	_ slog.LogValuer = TLSPrivateKey{}
 	_ fmt.Stringer   = TokenDigest{}

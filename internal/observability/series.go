@@ -30,6 +30,19 @@ const (
 	MetricGoMemHeapObjects      = "go_memstats_heap_objects"
 	MetricGoGCPauseSeconds      = "go_gc_duration_seconds"
 	MetricGoNumGC               = "go_memstats_num_gc_total"
+
+	// RADIUS / protocol-neutral series. TACACS authen/author/acct series stay
+	// connection-oriented so historical scrapes do not mix UDP outcomes.
+	MetricProtocolRequests         = "taclab_protocol_requests_total"
+	MetricProtocolDiscards         = "taclab_protocol_discards_total"
+	MetricProtocolDuration         = "taclab_protocol_request_duration_seconds"
+	MetricRADIUSQueueDepth         = "taclab_radius_queue_depth"
+	MetricRADIUSInflight           = "taclab_radius_inflight"
+	MetricRADIUSRetransmission     = "taclab_radius_retransmission_total"
+	MetricRADIUSCacheEntries       = "taclab_radius_cache_entries"
+	MetricRADIUSCacheSaturations   = "taclab_radius_cache_saturations_total"
+	MetricRADIUSJournalSaturations = "taclab_radius_journal_saturations_total"
+	MetricRADIUSAuthenticatorFail  = "taclab_radius_authenticator_failures_total"
 )
 
 // Label names that may appear on any series.
@@ -42,27 +55,48 @@ const (
 	LabelOperationID = "operation_id"
 	LabelErrorCode   = "error_code"
 	LabelStatus      = "status"
+	LabelProtocol    = "protocol"
+	LabelRole        = "role"
+	LabelReasonCode  = "reason_code"
+	LabelOutcome     = "outcome"
+	LabelPacketCode  = "code"
+	LabelResult      = "result"
+	LabelType        = "type"
 )
 
 // Forbidden label keys: unbounded or secret-adjacent cardinality.
+// RADIUS series also omit client_id via the per-series allowlist.
 var forbiddenLabelKeys = map[string]struct{}{
-	"username":      {},
-	"user_id":       {},
-	"user":          {},
-	"token_id":      {},
-	"token":         {},
-	"command":       {},
-	"cmd":           {},
-	"fingerprint":   {},
-	"address":       {},
-	"remote":        {},
-	"peer":          {},
-	"ip":            {},
-	"client_ip":     {},
-	"raw_address":   {},
-	"password":      {},
-	"secret":        {},
-	"shared_secret": {},
+	"username":              {},
+	"user_id":               {},
+	"user":                  {},
+	"user_name":             {},
+	"token_id":              {},
+	"token":                 {},
+	"command":               {},
+	"cmd":                   {},
+	"fingerprint":           {},
+	"address":               {},
+	"remote":                {},
+	"peer":                  {},
+	"ip":                    {},
+	"client_ip":             {},
+	"source_ip":             {},
+	"nas_ip":                {},
+	"framed_ip":             {},
+	"raw_address":           {},
+	"password":              {},
+	"secret":                {},
+	"shared_secret":         {},
+	"nas_identifier":        {},
+	"calling_station_id":    {},
+	"called_station_id":     {},
+	"acct_session_id":       {},
+	"state":                 {},
+	"authenticator":         {},
+	"user_password":         {},
+	"radius_secret":         {},
+	"message_authenticator": {},
 }
 
 // lifecycleSeries reject every extra label except status.
@@ -101,6 +135,17 @@ var allowedLabels = map[string]map[string]struct{}{
 	MetricGoMemHeapObjects:      keys(),
 	MetricGoGCPauseSeconds:      keys(),
 	MetricGoNumGC:               keys(),
+	// RADIUS series never accept client_id, username, or addresses.
+	MetricProtocolRequests:         keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
+	MetricProtocolDiscards:         keys(LabelProtocol, LabelTransport, LabelRole, LabelReasonCode),
+	MetricProtocolDuration:         keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
+	MetricRADIUSQueueDepth:         keys(LabelRole),
+	MetricRADIUSInflight:           keys(LabelRole),
+	MetricRADIUSRetransmission:     keys(LabelRole, LabelResult),
+	MetricRADIUSCacheEntries:       keys(LabelRole),
+	MetricRADIUSCacheSaturations:   keys(LabelRole),
+	MetricRADIUSJournalSaturations: keys(LabelRole),
+	MetricRADIUSAuthenticatorFail:  keys(LabelRole, LabelType),
 }
 
 func keys(names ...string) map[string]struct{} {
@@ -113,14 +158,17 @@ func keys(names ...string) map[string]struct{} {
 
 // Listener and transport enums used as metric labels.
 const (
-	ListenerLegacy  = "legacy_tacacs"
-	ListenerSecure  = "secure_tacacs"
-	ListenerHTTP    = "http"
-	ListenerMetrics = "metrics"
+	ListenerLegacy           = "legacy_tacacs"
+	ListenerSecure           = "secure_tacacs"
+	ListenerHTTP             = "http"
+	ListenerMetrics          = "metrics"
+	ListenerRADIUSAccess     = "radius_access"
+	ListenerRADIUSAccounting = "radius_accounting"
 
 	TransportLegacy = "legacy"
 	TransportTLS    = "tls"
 	TransportHTTP   = "http"
+	TransportUDP    = "udp"
 
 	ResultSuccess = "success"
 	ResultError   = "error"
@@ -135,6 +183,41 @@ const (
 	StatusUnknown = "unknown"
 	// StatusReuse is warnings-only; it is not a lifecycle gauge label.
 	StatusReuse = "reuse"
+
+	ProtocolTACACS = "tacacs"
+	ProtocolRADIUS = "radius"
+	ProtocolHTTP   = "http"
+
+	RoleAccess               = "access"
+	RoleAccounting           = "accounting"
+	RoleAAA                  = "aaa"
+	RoleAuthentication       = "authentication"
+	RoleAuthorization        = "authorization"
+	RoleAdmin                = "admin"
+	RoleDynamicAuthorization = "dynamic_authorization"
+
+	OutcomeAccessAccept = "access_accept"
+	OutcomeAccessReject = "access_reject"
+	OutcomeOK           = "ok"
+	OutcomeDiscard      = "discard"
+	OutcomeDrop         = "drop"
+	OutcomeError        = "error"
+
+	CodeAccessRequest      = "access_request"
+	CodeAccessAccept       = "access_accept"
+	CodeAccessReject       = "access_reject"
+	CodeAccountingRequest  = "accounting_request"
+	CodeAccountingResponse = "accounting_response"
+	CodeAccessChallenge    = "access_challenge"
+
+	RetransmitHitCompleted = "hit_completed"
+	RetransmitHitPending   = "hit_pending"
+	RetransmitMiss         = "miss"
+	RetransmitPurge        = "purge"
+
+	AuthTypeMessageAuthenticator = "message_authenticator"
+	AuthTypeAccountingRequest    = "accounting_request"
+	AuthTypeResponse             = "response"
 )
 
 // SecretLifecycleStatuses is the closed set of lifecycle gauge labels.
@@ -142,7 +225,8 @@ var SecretLifecycleStatuses = []string{StatusCurrent, StatusDueSoon, StatusOverd
 
 func knownListener(v string) bool {
 	switch v {
-	case ListenerLegacy, ListenerSecure, ListenerHTTP, ListenerMetrics:
+	case ListenerLegacy, ListenerSecure, ListenerHTTP, ListenerMetrics,
+		ListenerRADIUSAccess, ListenerRADIUSAccounting:
 		return true
 	default:
 		return false
@@ -151,7 +235,7 @@ func knownListener(v string) bool {
 
 func knownTransport(v string) bool {
 	switch v {
-	case TransportLegacy, TransportTLS, TransportHTTP:
+	case TransportLegacy, TransportTLS, TransportHTTP, TransportUDP:
 		return true
 	default:
 		return false
@@ -169,4 +253,94 @@ func knownLifecycleStatus(v string) bool {
 
 func knownWarningStatus(v string) bool {
 	return knownLifecycleStatus(v) || v == StatusReuse
+}
+
+func knownProtocol(v string) bool {
+	switch v {
+	case ProtocolTACACS, ProtocolRADIUS, ProtocolHTTP:
+		return true
+	default:
+		return false
+	}
+}
+
+func knownRole(v string) bool {
+	switch v {
+	case RoleAccess, RoleAccounting, RoleAAA, RoleAuthentication,
+		RoleAuthorization, RoleAdmin, RoleDynamicAuthorization:
+		return true
+	default:
+		return false
+	}
+}
+
+func knownOutcome(v string) bool {
+	switch v {
+	case OutcomeAccessAccept, OutcomeAccessReject, OutcomeOK,
+		OutcomeDiscard, OutcomeDrop, OutcomeError:
+		return true
+	default:
+		return false
+	}
+}
+
+func knownPacketCode(v string) bool {
+	switch v {
+	case CodeAccessRequest, CodeAccessAccept, CodeAccessReject,
+		CodeAccountingRequest, CodeAccountingResponse, CodeAccessChallenge:
+		return true
+	default:
+		return false
+	}
+}
+
+func knownRetransmitResult(v string) bool {
+	switch v {
+	case RetransmitHitCompleted, RetransmitHitPending, RetransmitMiss, RetransmitPurge:
+		return true
+	default:
+		return false
+	}
+}
+
+func knownAuthenticatorType(v string) bool {
+	switch v {
+	case AuthTypeMessageAuthenticator, AuthTypeAccountingRequest, AuthTypeResponse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Closed §5.7 reason_code set plus documented lab extras (secret missing,
+// journal saturation sampled as a discard of a ring append, not of the ack).
+func knownReasonCode(v string) bool {
+	switch v {
+	case "ok",
+		"discard_unknown_client",
+		"discard_ambiguous_client",
+		"discard_malformed_header",
+		"discard_invalid_length",
+		"discard_invalid_code",
+		"discard_invalid_accounting_request_authenticator",
+		"discard_invalid_message_authenticator",
+		"discard_eap_without_ma",
+		"discard_missing_message_authenticator",
+		"discard_proxy_state_without_ma",
+		"discard_unknown_acct_status",
+		"drop_overload",
+		"reject_missing_username",
+		"reject_conflicting_auth",
+		"reject_chap_password_length",
+		"reject_unsupported_method",
+		"reject_bad_credentials",
+		"reject_policy",
+		"internal_error",
+		"ambiguous_identity",
+		"secret_unavailable",
+		"journal_saturated":
+		return true
+	default:
+		return false
+	}
 }

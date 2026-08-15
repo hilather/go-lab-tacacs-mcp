@@ -8,6 +8,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"github.com/hilather/go-lab-tacacs-mcp/tools/registry"
 )
@@ -31,6 +32,7 @@ func parityCases() []parityCase {
 		{id: operations.IDConfigValidate, req: operations.ValidateConfigRequest{YAML: "schema_version: 2\n"}},
 		{id: operations.IDConfigReload, req: operations.ReloadConfigRequest{}},
 		{id: operations.IDConfigExport, req: operations.ExportConfigRequest{}},
+		{id: operations.IDConfigExport, req: operations.ExportConfigRequest{Normalize: true}},
 		{
 			id:  operations.IDRuntimeReset,
 			req: operations.ResetRuntimeRequest{},
@@ -113,6 +115,28 @@ func parityCases() []parityCase {
 			req: operations.UpdateClientRequest{ID: "sw", DisplayName: strPtr("Core Switches")},
 		},
 		{
+			id: operations.IDClientsCreate,
+			req: operations.CreateClientRequest{
+				ID: "rad",
+				Match: &operations.ClientMatchView{
+					SourceCIDRs: []string{"10.8.0.0/16"},
+					Transports:  []string{"legacy"},
+				},
+				SharedSecret: operations.OptionalSecret{Present: true, File: "/run/secrets/rad-tacacs"},
+				RADIUS: &operations.ClientRADIUSWrite{
+					SharedSecret: operations.OptionalSecret{Present: true, File: "/run/secrets/rad-radius"},
+					Roles:        []string{"access", "accounting"},
+				},
+			},
+			check: func(t *testing.T, _ *world, out callOut) {
+				t.Helper()
+				raw := canonicalJSON(out.Data)
+				if strings.Contains(raw, "/run/secrets/rad-radius") || strings.Contains(raw, "/run/secrets/rad-tacacs") {
+					t.Fatalf("secret path leaked: %s", raw)
+				}
+			},
+		},
+		{
 			id:  operations.IDClientsDelete,
 			req: operations.DeleteClientRequest{ID: "ap"},
 			setup: func(t *testing.T, w *world) {
@@ -187,7 +211,33 @@ func parityCases() []parityCase {
 				t.Fatal("password leaked from authentication.test")
 			}
 		}},
+		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{
+			UserID: "alice", Method: operations.RadiusAuthMethod{Type: "pap", Password: "parity-radius-canary-not-a-secret"},
+		}, check: func(t *testing.T, _ *world, out callOut) {
+			t.Helper()
+			if strings.Contains(canonicalJSON(out.Data), "parity-radius-canary-not-a-secret") {
+				t.Fatal("password leaked from radius.access.test")
+			}
+		}},
+		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{Method: operations.RadiusAuthMethod{Type: "pap"}}, wantCode: string(domain.CodeInvalidArgument)},
+		{id: operations.IDRadiusPolicyEvaluate, req: operations.RadiusPolicyEvaluateRequest{
+			UserID: "alice", ClientID: "sw", Method: "pap",
+		}},
+		{id: operations.IDRadiusPolicyEvaluate, req: operations.RadiusPolicyEvaluateRequest{Method: "pap"}, wantCode: string(domain.CodeInvalidArgument)},
+		{id: operations.IDRadiusAttributesList, req: operations.ListRadiusAttributesRequest{}},
 		{id: operations.IDEventsList, req: operations.ListEventsRequest{Limit: 10}},
+		{
+			id:  operations.IDEventsList,
+			req: operations.ListEventsRequest{Limit: 10, Protocol: "radius", ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject"},
+			setup: func(t *testing.T, w *world) {
+				t.Helper()
+				w.Ring.Accept(events.Event{Category: events.CategoryAuthen, Type: "ascii_login"})
+				w.Ring.Accept(events.Event{
+					Category: events.CategoryAuthen, Type: "radius.access", Protocol: "radius",
+					ListenerRole: "access", PacketCode: "access-request", Outcome: "access_reject",
+				})
+			},
+		},
 	}
 }
 

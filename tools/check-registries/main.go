@@ -38,7 +38,8 @@ func main() {
 	}
 
 	if *release {
-		rep.Issues = append(rep.Issues, append(registry.CheckReleaseStatuses(rep.RFC8907, rep.RFC9887), registry.CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887)...)...)
+		releaseTables := registry.ReleaseConformanceTables(rep)
+		rep.Issues = append(rep.Issues, append(registry.CheckReleaseStatuses(releaseTables...), registry.CheckSHOULDDispositions(releaseTables...)...)...)
 		if !rep.Valid() {
 			for _, issue := range rep.Issues {
 				fmt.Fprintln(os.Stderr, issue)
@@ -49,12 +50,18 @@ func main() {
 	}
 
 	if *writeDocs {
-		if err := registry.GenerateDocs(root, rep.Operations, rep.RFC8907, rep.RFC9887); err != nil {
+		if err := registry.GenerateDocs(root, rep.Operations, rep.ConformanceTables()...); err != nil {
 			fmt.Fprintf(os.Stderr, "check-registries: write docs: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
-	fmt.Printf("check-registries: ok (%d operations, %d RFC 8907 rows, %d RFC 9887 rows)\n",
-		len(rep.Operations.Operations), len(rep.RFC8907.Rows), len(rep.RFC9887.Rows))
+	radiusRows := 0
+	for _, table := range rep.RADIUSTables() {
+		if table != nil {
+			radiusRows += len(table.Rows)
+		}
+	}
+	fmt.Printf("check-registries: ok (%d operations, %d RFC 8907 rows, %d RFC 9887 rows, %d RADIUS/PRJ rows)\n",
+		len(rep.Operations.Operations), len(rep.RFC8907.Rows), len(rep.RFC9887.Rows), radiusRows)
 }

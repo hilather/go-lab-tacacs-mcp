@@ -16,10 +16,11 @@ import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ErrorSummary } from "../components/ErrorSummary";
 import { ObjectMeta } from "../components/ObjectMeta";
+import { InsecureRadiusBadge, ProtocolBadge, RoleBadge, UDPWarningBadge } from "../components/ProtocolBadge";
 import { RequireScope } from "../components/RequireScope";
 import { RevisionConflict } from "../components/RevisionConflict";
 import { emptySecret, SecretRefFields, secretPayload, type SecretDraft } from "../components/SecretRefFields";
-import type { Client, CreateClientRequest, UpdateClientRequest } from "../generated/api";
+import type { Client, ClientRADIUSWrite, CreateClientRequest, UpdateClientRequest } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
 import { usePagedList } from "../hooks/usePagedList";
 import {
@@ -29,12 +30,74 @@ import {
   joinList,
   lifecycleLabel,
   MATCH_MODES,
+  RADIUS_ACCT_STATUS_TYPES,
+  RADIUS_AUTH_METHODS,
+  RADIUS_ROLES,
   splitList,
   TRANSPORTS,
 } from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
+import { clientHasRADIUS, clientRADIUS, radiusInsecureCompatibility } from "../ui/radius";
 
 type EditorMode = { kind: "create" } | { kind: "edit"; client: Client };
+
+function ClientProtocolCell({ client }: { client: Client }) {
+  const radius = clientRADIUS(client);
+  const tacacs = client.protocols?.tacacs;
+  const endpoints = client.endpoints ?? [];
+  const showTACACS = tacacs?.legacy_enabled || tacacs?.tls_enabled || (client.match.transports ?? []).length > 0;
+  return (
+    <div>
+      {showTACACS ? <ProtocolBadge protocol="tacacs" /> : null}
+      {clientHasRADIUS(client) ? (
+        <>
+          <ProtocolBadge protocol="radius" />
+          <UDPWarningBadge />
+          {(radius?.roles ?? []).map((role) => (
+            <RoleBadge key={role} role={role} />
+          ))}
+          {radiusInsecureCompatibility(client) ? <InsecureRadiusBadge /> : null}
+        </>
+      ) : null}
+      {endpoints.length > 0 ? (
+        <p className="hint-inline">
+          {endpoints
+            .map((ep) => `${ep.id} ${ep.protocol}/${ep.transport}`)
+            .join(" · ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function radiusWritePayload(args: {
+  enabled: boolean;
+  wasEnabled: boolean;
+  roles: string[];
+  methods: string[];
+  requireMA: boolean;
+  limitProxy: boolean;
+  accessPolicyId: string;
+  acceptStatus: string[];
+  secret: SecretDraft;
+}): ClientRADIUSWrite | undefined {
+  if (!args.enabled && !args.wasEnabled) {
+    return undefined;
+  }
+  if (!args.enabled) {
+    return { enabled: false };
+  }
+  return compact<ClientRADIUSWrite>({
+    enabled: true,
+    roles: args.roles,
+    allowed_methods: args.methods,
+    require_message_authenticator: args.requireMA,
+    limit_proxy_state: args.limitProxy,
+    access_policy_id: args.accessPolicyId.trim() !== "" ? args.accessPolicyId.trim() : undefined,
+    accept_status_types: args.acceptStatus,
+    shared_secret: secretPayload(args.secret),
+  });
+}
 
 export function ClientsPage() {
   return (
@@ -57,7 +120,15 @@ function ClientsBody() {
   const status = useQuery({ queryKey: ["status"], queryFn: getStatus });
   const warnings = status.data?.data.warnings ?? [];
   const items = list.items.filter((c) =>
-    matchesFilter(filter, [c.id, c.display_name, c.source, c.shared_secret_lifecycle, ...(c.match.source_cidrs ?? [])]),
+    matchesFilter(filter, [
+      c.id,
+      c.display_name,
+      c.source,
+      c.shared_secret_lifecycle,
+      ...(c.match.source_cidrs ?? []),
+      ...(c.protocols?.radius?.roles ?? []),
+      ...(c.endpoints ?? []).flatMap((ep) => [ep.id, ep.protocol, ep.transport]),
+    ]),
   );
   const filterId = useId();
 
@@ -66,7 +137,8 @@ function ClientsBody() {
       <h1>Clients</h1>
       <p>
         Client match is fail-closed: transport, certificate constraints, longest CIDR, then lowest priority. Ties are a
-        configuration error. Shared-secret values are never displayed.
+        configuration error. Shared-secret values are never displayed. RADIUS endpoints are UDP-only in this lab
+        profile and are not complete RADIUS.
       </p>
       {warnings.length > 0 ? (
         <section className="banner banner--warn" aria-labelledby="client-warn-heading">
@@ -109,6 +181,7 @@ function ClientsBody() {
           <tr>
             <th scope="col">ID</th>
             <th scope="col">Source</th>
+            <th scope="col">Protocols</th>
             <th scope="col">Match</th>
             <th scope="col">Secret</th>
             <th scope="col">Methods</th>
@@ -123,6 +196,9 @@ function ClientsBody() {
               </th>
               <td>
                 <ObjectMeta source={c.source} deleted={c.deleted} shadows={c.shadows_source} />
+              </td>
+              <td>
+                <ClientProtocolCell client={c} />
               </td>
               <td>
                 {(c.match.transports ?? []).join(", ") || "—"} / {c.match.mode || "address_and_certificate"} /{" "}
@@ -193,6 +269,18 @@ function ClientEditor({
   const [secret, setSecret] = useState<SecretDraft>(emptySecret());
   const [rotatedAt, setRotatedAt] = useState("");
   const [interval, setInterval] = useState("");
+  const existingRadius = existing ? clientRADIUS(existing) : undefined;
+  const wasRadiusEnabled = existingRadius?.enabled ?? false;
+  const [radiusEnabled, setRadiusEnabled] = useState(wasRadiusEnabled);
+  const [radiusRoles, setRadiusRoles] = useState<string[]>(existingRadius?.roles ?? ["access", "accounting"]);
+  const [radiusMethods, setRadiusMethods] = useState<string[]>(existingRadius?.allowed_methods ?? ["pap", "chap"]);
+  const [requireMA, setRequireMA] = useState(existingRadius?.require_message_authenticator ?? true);
+  const [limitProxy, setLimitProxy] = useState(existingRadius?.limit_proxy_state ?? true);
+  const [accessPolicyId, setAccessPolicyId] = useState(existingRadius?.access_policy_id ?? "");
+  const [acceptStatus, setAcceptStatus] = useState<string[]>(
+    existingRadius?.accept_status_types ?? ["start", "stop", "interim_update", "accounting_on", "accounting_off"],
+  );
+  const [radiusSecret, setRadiusSecret] = useState<SecretDraft>(emptySecret());
   const [loadedRevision, setLoadedRevision] = useState(existing?.effective_revision ?? revision);
   const [messages, setMessages] = useState<string[]>([]);
   const [conflict, setConflict] = useState<string | null>(null);
@@ -229,6 +317,17 @@ function ClientEditor({
             }
           : undefined;
       const prio = Number(priority);
+      const radius = radiusWritePayload({
+        enabled: radiusEnabled,
+        wasEnabled: wasRadiusEnabled,
+        roles: radiusRoles,
+        methods: radiusMethods,
+        requireMA,
+        limitProxy,
+        accessPolicyId,
+        acceptStatus,
+        secret: radiusSecret,
+      });
       if (creating) {
         const req = compact<CreateClientRequest>({
           id: id.trim(),
@@ -240,6 +339,7 @@ function ClientEditor({
           shared_secret_lifecycle: lifecycle,
           authentication,
           authorization,
+          radius,
           override,
         });
         return createClient(req, revision, newIdempotencyKey());
@@ -254,11 +354,13 @@ function ClientEditor({
         shared_secret_lifecycle: lifecycle,
         authentication,
         authorization,
+        radius,
       });
       return updateClient(existing?.id ?? id, req, revision);
     },
     onSuccess: async () => {
       setSecret(emptySecret());
+      setRadiusSecret(emptySecret());
       await queryClient.invalidateQueries({ queryKey: ["clients"] });
       onClose();
     },
@@ -335,6 +437,17 @@ function ClientEditor({
     setMethods(server.authentication.allowed_methods ?? []);
     setDefaultService(server.authentication.default_service ?? "");
     setDefaultGroups(joinList(server.authorization.default_group_ids));
+    const nextRadius = clientRADIUS(server);
+    setRadiusEnabled(nextRadius?.enabled ?? false);
+    setRadiusRoles(nextRadius?.roles ?? ["access", "accounting"]);
+    setRadiusMethods(nextRadius?.allowed_methods ?? ["pap", "chap"]);
+    setRequireMA(nextRadius?.require_message_authenticator ?? true);
+    setLimitProxy(nextRadius?.limit_proxy_state ?? true);
+    setAccessPolicyId(nextRadius?.access_policy_id ?? "");
+    setAcceptStatus(
+      nextRadius?.accept_status_types ?? ["start", "stop", "interim_update", "accounting_on", "accounting_off"],
+    );
+    setRadiusSecret(emptySecret());
     setLoadedRevision(env.revision);
     setConflict(null);
   }
@@ -487,6 +600,108 @@ function ClientEditor({
           value={secret}
           onChange={setSecret}
         />
+        <fieldset className="fieldset">
+          <legend>RADIUS endpoint</legend>
+          <p className="hint">
+            Flattened RADIUS write. Secret values are write-only and are cleared after submit. UDP is not a secure
+            transport.
+          </p>
+          <label className="check">
+            <input type="checkbox" checked={radiusEnabled} onChange={(ev) => setRadiusEnabled(ev.target.checked)} />
+            Enable RADIUS/UDP
+          </label>
+          {radiusEnabled ? (
+            <>
+              <p>
+                <UDPWarningBadge />
+                {!requireMA ? <InsecureRadiusBadge /> : null}
+              </p>
+              <fieldset className="fieldset">
+                <legend>RADIUS roles</legend>
+                {RADIUS_ROLES.map((role) => (
+                  <label key={role} className="check">
+                    <input
+                      type="checkbox"
+                      checked={radiusRoles.includes(role)}
+                      onChange={(ev) => {
+                        setRadiusRoles(
+                          ev.target.checked ? [...radiusRoles, role] : radiusRoles.filter((x) => x !== role),
+                        );
+                      }}
+                    />
+                    {role}
+                  </label>
+                ))}
+              </fieldset>
+              <fieldset className="fieldset">
+                <legend>RADIUS authentication methods</legend>
+                {RADIUS_AUTH_METHODS.map((method) => (
+                  <label key={method} className="check">
+                    <input
+                      type="checkbox"
+                      checked={radiusMethods.includes(method)}
+                      onChange={(ev) => {
+                        setRadiusMethods(
+                          ev.target.checked ? [...radiusMethods, method] : radiusMethods.filter((x) => x !== method),
+                        );
+                      }}
+                    />
+                    {method}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="check">
+                <input type="checkbox" checked={requireMA} onChange={(ev) => setRequireMA(ev.target.checked)} />
+                Require Message-Authenticator
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={limitProxy} onChange={(ev) => setLimitProxy(ev.target.checked)} />
+                Limit Proxy-State without Message-Authenticator
+              </label>
+              <div className="field">
+                <label htmlFor="client-radius-policy">Access policy ID</label>
+                <input
+                  id="client-radius-policy"
+                  type="text"
+                  value={accessPolicyId}
+                  onChange={(ev) => setAccessPolicyId(ev.target.value)}
+                />
+              </div>
+              <fieldset className="fieldset">
+                <legend>Accounting status types</legend>
+                {RADIUS_ACCT_STATUS_TYPES.map((statusType) => (
+                  <label key={statusType} className="check">
+                    <input
+                      type="checkbox"
+                      checked={acceptStatus.includes(statusType)}
+                      onChange={(ev) => {
+                        setAcceptStatus(
+                          ev.target.checked
+                            ? [...acceptStatus, statusType]
+                            : acceptStatus.filter((x) => x !== statusType),
+                        );
+                      }}
+                    />
+                    {statusType}
+                  </label>
+                ))}
+              </fieldset>
+              {existingRadius ? (
+                <p>
+                  RADIUS shared secret {existingRadius.shared_secret_configured ? "configured" : "absent"}; rotation
+                  status <strong>{lifecycleLabel(existingRadius.secret_lifecycle ?? "")}</strong>.
+                </p>
+              ) : null}
+              <SecretRefFields
+                id="client-radius-secret"
+                label="RADIUS shared secret"
+                hint="Write-only RADIUS secret file or environment reference. Distinct from the TACACS legacy secret."
+                value={radiusSecret}
+                onChange={setRadiusSecret}
+              />
+            </>
+          ) : null}
+        </fieldset>
         <div className="field">
           <label htmlFor="client-rotated">Last rotated at</label>
           <input id="client-rotated" type="datetime-local" value={rotatedAt} onChange={(ev) => setRotatedAt(ev.target.value)} />

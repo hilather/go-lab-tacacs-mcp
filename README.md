@@ -7,7 +7,7 @@
 <p align="center"><strong>The all-in-one TACACS+ lab appliance that agents can drive.</strong></p>
 
 <p align="center">
-  RFC&nbsp;8907 · RFC&nbsp;9887 TLS&nbsp;1.3 · MCP&nbsp;2026-07-28 · REST/MCP parity · embedded operator UI
+  RFC&nbsp;8907 · RFC&nbsp;9887 TLS&nbsp;1.3 · RADIUS/UDP lab profile · MCP&nbsp;2026-07-28 · REST/MCP parity · embedded operator UI
 </p>
 
 <p align="center">
@@ -32,9 +32,9 @@
 
 ---
 
-TacLab is a **single-process lab appliance** for device administration experiments. One Go binary — **`taclabd`** — speaks legacy TACACS+ and secure TACACS+ over TLS 1.3, then exposes the **same** administrative operations through REST, MCP, and an embedded React UI.
+TacLab is a **single-process lab appliance** for device administration experiments. One Go binary — **`taclabd`** — speaks legacy TACACS+, secure TACACS+ over TLS 1.3, and an optional **RADIUS/UDP lab profile**, then exposes the **same** administrative operations through REST, MCP, and an embedded React UI.
 
-The repository is `go-lab-tacacs-mcp`. The product is **TacLab**. This checkout is the **1.0 lab appliance**, not a production AAA cluster. Runtime state is memory-only: restart or `runtime.reset` restores the YAML baseline.
+The repository is `go-lab-tacacs-mcp`. The product is **TacLab**. This checkout is the **1.0 lab appliance**, not a production AAA cluster. Runtime state is memory-only: restart or `runtime.reset` restores the YAML baseline. RADIUS/UDP is a **controlled-network lab profile** — do **not** advertise complete RADIUS. Residual limits: [operator guide](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1.
 
 | | |
 |---|---|
@@ -42,7 +42,7 @@ The repository is `go-lab-tacacs-mcp`. The product is **TacLab**. This checkout 
 | Images | `ghcr.io/hilather/go-lab-tacacs-mcp` — `:<tag>` distroless, `:<tag>-ubuntu`, `:<tag>-rocky` |
 | License | Apache-2.0 |
 | Toolchain | Go **1.25.13** (module `go 1.25.0`) · Node.js **22.14.0** |
-| Protocol pins | RFC 8907 · RFC 9887 · MCP **2026-07-28** |
+| Protocol pins | RFC 8907 · RFC 9887 · RADIUS/UDP lab profile (RFC 2865/2866/2869/3579 MA / 5080) · MCP **2026-07-28** |
 | MCP SDK | `github.com/modelcontextprotocol/go-sdk` **v1.7.0** ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)) |
 | Auth | Lab static bearer on REST and MCP ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)) — **no** OAuth PRM |
 
@@ -53,6 +53,7 @@ flowchart LR
   subgraph devices [Lab devices]
     L[Legacy NAS]
     T[TLS 1.3 NAS]
+    U[RADIUS NAS]
   end
   subgraph operators [Operators and agents]
     B[Browser UI]
@@ -62,17 +63,20 @@ flowchart LR
   subgraph taclabd [taclabd]
     LEG[":49 legacy TACACS+"]
     TLS[":300 TACACS+ TLS"]
+    RAD[":1812 / :1813 RADIUS/UDP"]
     HTTP[":8080 UI / REST / MCP"]
     OPS[Operation registry]
     AAA[AAA + policy + ring]
   end
   L --> LEG
   T --> TLS
+  U --> RAD
   B --> HTTP
   R --> HTTP
   M --> HTTP
   LEG --> AAA
   TLS --> AAA
+  RAD --> AAA
   HTTP --> OPS --> AAA
 ```
 
@@ -94,6 +98,21 @@ flowchart LR
 | Dual listeners | Legacy TCP 49 and TLS 1.3 mTLS 300, no upgrade path, no fallback ([ADR 0001](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0001-all-in-one-dual-listener-lab.md)). |
 | Legacy secrets | Per-client files, ≥16-char policy (labgen uses ≥32), complexity, reuse warning, rotation status. Obfuscation is **not** confidentiality. |
 | Secure TACACS+ | TLS 1.3 only, mTLS, configured CRL, resume re-checks revocation, no 0-RTT, `UNENCRYPTED` required inside TLS. |
+
+### RADIUS/UDP lab profile (not complete RADIUS)
+
+Optional sockets. Default YAML stays `enabled: false`. Schema v2 required. Controlled lab network only ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)).
+
+| Capability | What this tree actually does |
+|---|---|
+| Access | PAP and CHAP → Access-Accept or Access-Reject. No Access-Challenge. |
+| Accounting | Start / Stop / Interim / On / Off into the **memory** ring. SUCCESS only after the ring accepts. |
+| Integrity | Message-Authenticator required on Access by default; always first on responses. |
+| Policy | Client `access_policy_id`, optional fallback, default deny. No user/group RADIUS rules. |
+| Dictionary | Built-in IETF MVP. Unknown attributes stay raw. Named `Cisco-AVPair` is not shipped. |
+| Deferred | EAP termination, CoA/Disconnect, RadSec/DTLS, RADIUS MS-CHAP, custom dictionaries, persistent accounting. |
+
+`system.build.get` RADIUS `conformance_status` stays `partial`. Matrix: [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md). Operator guide: [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md).
 
 ### Admin surfaces (one registry)
 
@@ -135,8 +154,10 @@ Then open `http://127.0.0.1:8080`. The bootstrap bearer is the file `deployments
 
 | Profile | Command |
 |---|---|
-| Dual listener (host 49 / 300 / 8080) | `docker compose -f deployments/compose/compose.yaml up -d --build` |
-| TLS-only (no legacy 49) | add `-f deployments/compose/compose.tls-only.yaml` |
+| Dual TACACS listener (host 49 / 300 / 8080; RADIUS mapped, off in v1 YAML) | `docker compose -f deployments/compose/compose.yaml up -d --build` |
+| Combined TACACS + RADIUS/UDP (also 1812/1813) | add `-f deployments/compose/compose.combined.yaml` |
+| RADIUS-only (1812/1813/8080; no 49/300) | add `-f deployments/compose/compose.radius-only.yaml` |
+| TLS-only TACACS (no legacy 49) | add `-f deployments/compose/compose.tls-only.yaml` |
 | High-port smoke (no privileged ports, no generated PKI) | `docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-container-exit --exit-code-from smoke` |
 | Container acceptance | `make lab-test` |
 | Optional Cisco IOL | `make cisco-lab` |
@@ -240,6 +261,9 @@ Every `PARITY_REQUIRED` operation is the same handler. Live inventory: [docs/gen
 | Tokens | `tokens:manage` | `/api/v1/tokens` | `taclab.tokens.*` | — |
 | Policy explain | `policy:test` | `POST /api/v1/policy/evaluate` | `taclab.policy.evaluate` | — |
 | Auth test | `policy:test` | `POST /api/v1/authentication/test` | `taclab.authentication.test` | — |
+| RADIUS access test | `policy:test` | `POST /api/v1/radius/access:test` | `taclab.radius.access.test` | — |
+| RADIUS policy explain | `policy:test` | `POST /api/v1/radius/policy:evaluate` | `taclab.radius.policy.evaluate` | — |
+| RADIUS attributes | `state:read` | `GET /api/v1/radius/attributes` | `taclab.radius.attributes.list` | `taclab://radius/attributes` |
 | Events page | `events:read` | `GET /api/v1/events` | `taclab.events.list` | `taclab://events/recent` |
 | Event stream | `events:read` | `GET /api/v1/events/stream` (SSE) | `subscriptions/listen` | notify URI only |
 
@@ -291,7 +315,7 @@ Every contract linked from this page, with what it covers.
 | [Quick start](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md) | Clone → generate → Compose → UI login → first REST and MCP calls |
 | [Baseline state](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md) | Configure users, groups, clients, tokens, secrets, listeners |
 | [MCP local & remote](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) | Streamable HTTP, client configs, hosted TLS, origins, curl |
-| [Operator guide (1.0)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) | Install, secrets, onboard clients, tokens, reload, troubleshooting |
+| [Operator guide (1.0)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) | Install, secrets, onboard TACACS and RADIUS clients, v1/v2 migration, residual limits, troubleshooting |
 | [Lab deployment](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/LAB_DEPLOYMENT.md) | Image contract, Compose, PKI, LAB-* scenarios, source-IP fidelity |
 | [Configuration](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) | YAML schema, listeners, overlay, secret refs |
 | [Project site](https://hilather.github.io/go-lab-tacacs-mcp/) | Fancy landing page for the same material |
@@ -306,6 +330,7 @@ Every contract linked from this page, with what it covers.
 | [Product design (packet)](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/DESIGN.md) | Packet product/system design |
 | [Architecture](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md) | Package boundaries and dependency direction |
 | [TACACS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) | RFC 8907 / 9887 matrix |
+| [RADIUS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) | RFC 2865/2866/2869/3579/5080 lab-profile checklist — **not** complete RADIUS |
 | [REST/MCP API parity](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md) | Parity dispositions and operation contract |
 | [Testing and benchmarks](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TESTING_AND_BENCHMARKS.md) | Race, fuzz, benches, freeze policy |
 | [Threat model](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/THREAT_MODEL.md) | Trust boundaries and abuse cases |
@@ -326,6 +351,12 @@ Every contract linked from this page, with what it covers.
 | [0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md) | Lab static bearer vs MCP OAuth PRM |
 | [0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md) | Official MCP Go SDK |
 | [0012](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md) | ASCII/PAP enablement warning |
+| [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md) | RADIUS in the existing `taclabd` process |
+| [0014](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0014-neutral-aaa-contract-and-protocol-taxonomy.md) | Neutral AAA contracts; TACACS wrappers stay |
+| [0015](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0015-radius-codec-attribute-and-dictionary-boundary.md) | RADIUS codec/attribute/dictionary boundary |
+| [0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md) | UDP controlled-network profile; Access-Challenge deferred |
+| [0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md) | Schema v2; `config.export` never emits v2 for a v1 source without `normalize=true` |
+| [0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) | Keep TacLab / `taclabd` / module / image names |
 
 ### Operator / maintainer
 
@@ -379,5 +410,5 @@ make lab-test
 ---
 
 <p align="center">
-  <em>Lab appliance. Dual listeners. One registry. Agents welcome.</em>
+  <em>Lab appliance. Dual TACACS listeners. Optional RADIUS/UDP profile. One registry. Agents welcome. Not complete RADIUS.</em>
 </p>

@@ -138,7 +138,7 @@ api:
 		PprofEnabled:   true,
 	})
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	hs, ln, err := startHTTP(filepath.Join(dir, "lab.yaml"), doc, mgr, lookup, nil, nil, ring, logger, obs)
+	hs, ln, err := startHTTP(filepath.Join(dir, "lab.yaml"), doc, mgr, lookup, nil, ring, nil, logger, obs)
 	if err != nil {
 		t.Fatal(err)
 	}

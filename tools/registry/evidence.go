@@ -29,9 +29,9 @@ func checkEvidenceIDs(rep *Report, root string, tables ...*ConformanceRegistry) 
 		if table == nil {
 			continue
 		}
-		file := RFC8907Path
-		if table.RFC == "9887" {
-			file = RFC9887Path
+		file := FileForRFC(table.RFC)
+		if file == "" {
+			file = table.RFC
 		}
 		for _, row := range table.Rows {
 			if !statusRequiresEvidence(row.Status) {

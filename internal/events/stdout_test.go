@@ -74,6 +74,73 @@ func TestWriteJSONSanitizesControlAndOversize(t *testing.T) {
 	}
 }
 
+func TestWriteJSONRedactsAcctSessionID(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	ev := Event{
+		SchemaVersion: SchemaVersion,
+		ID:            3,
+		Time:          time.Date(2026, 8, 14, 16, 0, 0, 0, time.UTC),
+		Category:      CategoryAcct,
+		Type:          "stop",
+		Result:        "success",
+		Protocol:      "radius",
+		AcctSessionID: "nas-sess-should-redact",
+		UserID:        "lab-admin",
+	}
+	if err := WriteJSON(&buf, ev, true); err != nil {
+		t.Fatal(err)
+	}
+	line := strings.TrimSpace(buf.String())
+	if strings.Contains(line, "nas-sess-should-redact") || strings.Contains(line, "lab-admin") {
+		t.Fatalf("leaked: %s", line)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(line), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["acct_session_id"] != redactedSentinel || got["user_id"] != redactedSentinel {
+		t.Fatalf("redaction: %s", line)
+	}
+	if got["protocol"] != "radius" {
+		t.Fatalf("protocol=%v", got["protocol"])
+	}
+	if _, ok := got["session_id"]; ok {
+		t.Fatalf("uint32 session_id present: %s", line)
+	}
+}
+
+func TestWriteJSONOmitsRADIUSFieldsForTACACS(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	ev := Event{
+		SchemaVersion: SchemaVersion,
+		ID:            1,
+		Time:          time.Date(2026, 8, 12, 16, 0, 0, 0, time.UTC),
+		Category:      CategoryAcct,
+		Type:          "start",
+		Result:        "success",
+		SessionID:     9,
+	}
+	if err := WriteJSON(&buf, ev, true); err != nil {
+		t.Fatal(err)
+	}
+	line := strings.TrimSpace(buf.String())
+	var got map[string]any
+	if err := json.Unmarshal([]byte(line), &got); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["acct_session_id"]; ok {
+		t.Fatalf("TACACS stdout leaked acct_session_id: %s", line)
+	}
+	if _, ok := got["protocol"]; ok {
+		t.Fatalf("TACACS stdout leaked protocol: %s", line)
+	}
+	if got["session_id"] != float64(9) {
+		t.Fatalf("TACACS session_id=%v", got["session_id"])
+	}
+}
+
 func TestWriteJSONSecretCanary(t *testing.T) {
 	t.Parallel()
 	canaries := []string{

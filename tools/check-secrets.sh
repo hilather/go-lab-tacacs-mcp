@@ -56,6 +56,28 @@ scan_tree() {
   fi
 }
 
+# RADIUS RFC/lab vectors live only under testdata/protocol/radius/ (gitleaks-allowlisted).
+# Live Compose secret files must never be allowlisted; labgen writes them untracked.
+# GITLEAKS_TOML may point at a fixture (used by tools/check-hooks.sh).
+check_gitleaks_allowlist() {
+  local cfg="${GITLEAKS_TOML:-.gitleaks.toml}"
+  if [[ ! -f "$cfg" ]]; then
+    echo "secret-scan: missing $cfg" >&2
+    fail=1
+    return
+  fi
+  if ! grep -Eq '\(\^\|/\)testdata/protocol/radius/' "$cfg"; then
+    echo "secret-scan: $cfg must allowlist testdata/protocol/radius/ (RADIUS RFC/lab vectors)" >&2
+    fail=1
+  fi
+  if grep -E 'deployments/compose/secrets' "$cfg"; then
+    echo "secret-scan: do not allowlist live Compose secret files; remove them from git instead" >&2
+    fail=1
+  fi
+}
+
+check_gitleaks_allowlist
+
 if [[ $# -gt 0 ]]; then
   for path in "$@"; do
     scan_tree "$path"

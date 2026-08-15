@@ -1,0 +1,24 @@
+# Overlay: RADIUS-only profile (no TACACS listeners, no host 49/300).
+# docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radius-only.yaml up -d
+# Do not advertise complete RADIUS.
+services:
+  taclab:
+    ports: !override
+      - target: 1812
+        published: ${TACLAB_RADIUS_ACCESS_PORT:-1812}
+        protocol: udp
+      - target: 1813
+        published: ${TACLAB_RADIUS_ACCT_PORT:-1813}
+        protocol: udp
+      - target: 8080
+        published: ${TACLAB_HTTP_PORT:-8080}
+        protocol: tcp
+    volumes: !override
+      - type: bind
+        source: ./config/taclab.radius-only.yaml
+        target: /etc/taclab/taclab.yaml
+        read_only: true
+      - type: bind
+        source: ./certs-public
+        target: /etc/taclab/certs-public
+        read_only: true

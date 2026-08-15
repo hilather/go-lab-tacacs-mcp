@@ -240,7 +240,8 @@ button:disabled {
 }
 
 .state--on::before,
-.state--off::before {
+.state--off::before,
+.state--warn::before {
   content: "";
   display: inline-block;
   width: 0.65rem;
@@ -256,6 +257,10 @@ button:disabled {
 
 .state--off::before {
   background: var(--muted);
+}
+
+.state--warn::before {
+  background: var(--override);
 }
 
 .counts {
@@ -312,6 +317,48 @@ button:disabled {
 
 .source-badge--override .source-badge__mark {
   background: var(--override);
+}
+
+.proto-badge,
+.role-badge,
+.warn-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+  margin-right: 0.25rem;
+}
+
+.proto-badge {
+  border: 1px solid currentColor;
+}
+
+.proto-badge--tacacs {
+  color: var(--config);
+}
+
+.proto-badge--radius {
+  color: var(--runtime);
+}
+
+.proto-badge--http {
+  color: var(--muted);
+}
+
+.role-badge {
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.warn-badge {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border: 1px solid var(--warn-fg);
 }
 
 .toolbar {

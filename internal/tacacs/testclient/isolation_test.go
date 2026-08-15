@@ -16,6 +16,7 @@ func TestIndependentOfServerCodec(t *testing.T) {
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/tls",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/server",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/legacy",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius",
 		"github.com/hilather/go-lab-tacacs-mcp/tools/spike",
 	}
 	fset := token.NewFileSet()

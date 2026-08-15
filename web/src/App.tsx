@@ -11,7 +11,9 @@ const ClientsPage = lazy(async () => ({ default: (await import("./pages/ClientsP
 const TokensPage = lazy(async () => ({ default: (await import("./pages/TokensPage")).TokensPage }));
 const EventsPage = lazy(async () => ({ default: (await import("./pages/EventsPage")).EventsPage }));
 const AuthTestPage = lazy(async () => ({ default: (await import("./pages/AuthTestPage")).AuthTestPage }));
+const RadiusAuthTestPage = lazy(async () => ({ default: (await import("./pages/RadiusAuthTestPage")).RadiusAuthTestPage }));
 const PolicyExplainPage = lazy(async () => ({ default: (await import("./pages/PolicyExplainPage")).PolicyExplainPage }));
+const RadiusExplainPage = lazy(async () => ({ default: (await import("./pages/RadiusExplainPage")).RadiusExplainPage }));
 const ConfigPage = lazy(async () => ({ default: (await import("./pages/ConfigPage")).ConfigPage }));
 const AboutPage = lazy(async () => ({ default: (await import("./pages/AboutPage")).AboutPage }));
 
@@ -59,7 +61,9 @@ function Shell() {
               {hasScope("tokens:manage") ? <NavItem to="/tokens">Tokens</NavItem> : null}
               {hasScope("events:read") ? <NavItem to="/events">Events</NavItem> : null}
               {hasScope("policy:test") ? <NavItem to="/auth-test">Auth test</NavItem> : null}
+              {hasScope("policy:test") ? <NavItem to="/radius-auth-test">RADIUS test</NavItem> : null}
               {hasScope("policy:test") ? <NavItem to="/explain">Explain</NavItem> : null}
+              {hasScope("policy:test") ? <NavItem to="/radius-explain">RADIUS explain</NavItem> : null}
               {hasScope("state:read") ? <NavItem to="/config">Config</NavItem> : null}
               {hasScope("state:read") ? <NavItem to="/about">About</NavItem> : null}
               <button type="button" className="linkish" onClick={() => void logout()}>
@@ -133,7 +137,9 @@ export function App() {
                 <Route path="/tokens" element={<TokensPage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/auth-test" element={<AuthTestPage />} />
+                <Route path="/radius-auth-test" element={<RadiusAuthTestPage />} />
                 <Route path="/explain" element={<PolicyExplainPage />} />
+                <Route path="/radius-explain" element={<RadiusExplainPage />} />
                 <Route path="/config" element={<ConfigPage />} />
                 <Route path="/about" element={<AboutPage />} />
               </Route>

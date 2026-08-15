@@ -109,6 +109,25 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 	if !strings.Contains(env.Data.YAML, "redacted: true") {
 		t.Fatalf("export yaml=%s", env.Data.YAML)
 	}
+	if !strings.HasPrefix(env.Data.YAML, "schema_version: 1\n") || env.Data.Normalized {
+		t.Fatalf("v1 source exported as v2 without normalize: %+v\n%s", env.Data, env.Data.YAML)
+	}
+
+	norm := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/config/export?normalize=true", h.Token, nil, nil)
+	defer norm.Body.Close()
+	if norm.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(norm.Body)
+		t.Fatalf("export normalize=%d %s", norm.StatusCode, b)
+	}
+	var normEnv struct {
+		Data operations.ExportConfigResult `json:"data"`
+	}
+	if err := json.NewDecoder(norm.Body).Decode(&normEnv); err != nil {
+		t.Fatal(err)
+	}
+	if !normEnv.Data.Normalized || !strings.HasPrefix(normEnv.Data.YAML, "schema_version: 2\n") {
+		t.Fatalf("normalize export=%+v", normEnv.Data)
+	}
 
 	val := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/config/validate", h.Token, []byte(`{"yaml":"schema_version: 1\n"}`), nil)
 	defer val.Body.Close()
@@ -125,6 +144,22 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 	}
 	if strings.Contains(string(body), "unit-test-rest-auth-canary-zz7") {
 		t.Fatal("password leaked from authentication.test")
+	}
+
+	rad := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/radius/access:test", h.Token, []byte(`{"user_id":"alice","method":{"type":"pap","password":"unit-test-rest-radius-canary-zz8"}}`), nil)
+	defer rad.Body.Close()
+	radBody, _ := io.ReadAll(rad.Body)
+	if rad.StatusCode != http.StatusOK {
+		t.Fatalf("radius access test=%d %s", rad.StatusCode, radBody)
+	}
+	if strings.Contains(string(radBody), "unit-test-rest-radius-canary-zz8") {
+		t.Fatal("password leaked from radius.access.test")
+	}
+	attrs := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/radius/attributes", h.Token, nil, nil)
+	defer attrs.Body.Close()
+	if attrs.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(attrs.Body)
+		t.Fatalf("radius attributes=%d %s", attrs.StatusCode, b)
 	}
 
 	reload := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/config/reload", h.Token, nil, nil)

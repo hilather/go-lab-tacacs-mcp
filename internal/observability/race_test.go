@@ -18,6 +18,8 @@ func TestRegistryRace(t *testing.T) {
 				rec.Authen(TransportLegacy, "ascii", "pass")
 				rec.Author(TransportTLS, "deny")
 				rec.API("system.status.get", ResultSuccess, "none", 0.001)
+				rec.ProtocolDiscard(ProtocolRADIUS, TransportUDP, RoleAccess, "discard_unknown_client")
+				rec.RADIUSRetransmission(RoleAccess, RetransmitMiss)
 				rec.SetRevision(uint64(j))
 				rec.SetSecretLifecycle(map[string]int{StatusCurrent: j % 3})
 				rec.SetEventSubscribers(j % 5)

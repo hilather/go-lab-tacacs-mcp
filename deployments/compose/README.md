@@ -4,8 +4,10 @@ Reference deployment for `ghcr.io/hilather/go-lab-tacacs-mcp`.
 
 | File | Role |
 |---|---|
-| `compose.yaml` | Dual-listener: host 49→4949, 300→4300, 8080→8080 |
-| `compose.tls-only.yaml` | Overlay: TLS-only, no host port 49 |
+| `compose.yaml` | Dual-listener: host 49→4949, 300→4300, 8080→8080, 1812/1813 UDP |
+| `compose.tls-only.yaml` | Overlay: TLS-only TACACS, no host port 49 |
+| `compose.combined.yaml` | Overlay: schema v2 TACACS + RADIUS/UDP |
+| `compose.radius-only.yaml` | Overlay: RADIUS/UDP only, no host 49/300 |
 | `compose.lab-test.yaml` | Overlay: high host ports + `integration-tests` |
 | `compose.smoke.yaml` | Pre-1.0 high-port smoke without generated PKI |
 
@@ -18,7 +20,7 @@ go run ./tools/labgen deployments/compose
 # or: make lab-gen
 ```
 
-That writes `config/taclab.yaml`, `config/taclab.tls-only.yaml`, `certs-public/`, `secrets/`, and `pki/`. Docker secret files used by UID 10001 are mode `0444` (not world-writable). `secrets/PASSWORDS.txt` and PKI private keys stay mode `0600`.
+That writes `config/taclab.yaml`, `config/taclab.tls-only.yaml`, `config/taclab.combined.yaml`, `config/taclab.radius-only.yaml`, `certs-public/`, `secrets/` (including distinct `lab_switches_radius_secret`), and `pki/`. Docker secret files used by UID 10001 are mode `0444` (not world-writable). `secrets/PASSWORDS.txt` and PKI private keys stay mode `0600`. Secrets are never baked into images.
 
 Regenerate: `go run ./tools/labgen -force deployments/compose`.
 
@@ -26,8 +28,12 @@ Regenerate: `go run ./tools/labgen -force deployments/compose`.
 
 ```bash
 docker compose -f deployments/compose/compose.yaml up -d --build
+docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.combined.yaml up -d --build
+docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radius-only.yaml up -d --build
 docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d --build
 ```
+
+RADIUS/UDP is a lab profile, not complete RADIUS. Keep 1812/1813 off the public internet.
 
 The container runs as UID/GID 10001, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`. Reload is `SIGHUP` or `POST /api/v1/config/reload`. File-watch reload is off.
 

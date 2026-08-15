@@ -67,6 +67,7 @@ func TestSecretNonSerialization(t *testing.T) {
 	chapCanary := "unit-test-challenge-secret-cc33dd44"
 	enableCanary := "unit-test-enable-verifier-ee55ff66"
 	sharedCanary := "unit-test-shared-secret-77889900"
+	radiusCanary := "unit-test-radius-secret-aabb9911"
 	tokenCanary := "unit-test-token-material-11223344"
 	tlsKeyCanary := "unit-test-tls-private-key-55667788"
 	tlsPSKCanary := "unit-test-tls-psk-99aabbcc"
@@ -77,6 +78,7 @@ func TestSecretNonSerialization(t *testing.T) {
 	chap := NewChallengeSecret([]byte(chapCanary))
 	enable := NewEnableVerifier([]byte(enableCanary))
 	shared := NewSharedSecret([]byte(sharedCanary))
+	radius := NewRADIUSSharedSecret([]byte(radiusCanary))
 	token := NewTokenMaterial([]byte(tokenCanary))
 	tlsKey := NewTLSPrivateKey([]byte(tlsKeyCanary))
 	tlsPSK := NewTLSPSK([]byte(tlsPSKCanary))
@@ -88,6 +90,7 @@ func TestSecretNonSerialization(t *testing.T) {
 		{"ChallengeSecret", chap, chapCanary},
 		{"EnableVerifier", enable, enableCanary},
 		{"SharedSecret", shared, sharedCanary},
+		{"RADIUSSharedSecret", radius, radiusCanary},
 		{"TokenMaterial", token, tokenCanary},
 		{"TLSPrivateKey", tlsKey, tlsKeyCanary},
 		{"TLSPSK", tlsPSK, tlsPSKCanary},
@@ -216,6 +219,9 @@ func TestSecretPurposes(t *testing.T) {
 	}
 	if NewSharedSecret(nil).Purpose() != PurposeLegacySharedSecret {
 		t.Fatal("shared")
+	}
+	if NewRADIUSSharedSecret(nil).Purpose() != PurposeRADIUSSharedSecret {
+		t.Fatal("radius")
 	}
 	if NewTokenMaterial(nil).Purpose() != PurposeAPIBearerToken {
 		t.Fatal("token")

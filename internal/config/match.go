@@ -53,6 +53,10 @@ func CompileClientIndex(clients []Client) (*ClientIndex, error) {
 		if !c.Enabled {
 			continue
 		}
+		if len(c.Match.Transports) == 0 {
+			// RADIUS-only clients belong in CompileRADIUSIndex, not here.
+			continue
+		}
 		ic, warn, err := indexFromClient(c, i)
 		if err != nil {
 			return nil, err

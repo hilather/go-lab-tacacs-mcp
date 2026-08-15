@@ -37,6 +37,18 @@ cleanup() {
     -f "$root/deployments/compose/compose.lab-test.yaml" \
     --project-directory "${WORKDIR:-$root}" \
     down -v --remove-orphans >/dev/null 2>&1 || true
+  docker compose -p "$PROJECT" \
+    -f "$root/deployments/compose/compose.yaml" \
+    -f "$root/deployments/compose/compose.combined.yaml" \
+    -f "$root/deployments/compose/compose.lab-test.yaml" \
+    --project-directory "${WORKDIR:-$root}" \
+    down -v --remove-orphans >/dev/null 2>&1 || true
+  docker compose -p "$PROJECT" \
+    -f "$root/deployments/compose/compose.yaml" \
+    -f "$root/deployments/compose/compose.radius-only.yaml" \
+    -f "$root/deployments/compose/compose.lab-test.yaml" \
+    --project-directory "${WORKDIR:-$root}" \
+    down -v --remove-orphans >/dev/null 2>&1 || true
   if [[ "$KEEP" != "1" && -n "${WORKDIR:-}" && -d "$WORKDIR" ]]; then
     # Evidence is copied out before this when we fail.
     rm -rf "$WORKDIR"
@@ -107,6 +119,36 @@ tls_cfg="$(docker compose -p "${PROJECT}-tls-cfg" \
   config)"
 if printf '%s\n' "$tls_cfg" | grep -E 'published:[[:space:]]*"?49"?[[:space:]]*$'; then
   echo "lab-test: tls-only overlay still publishes host port 49" >&2
+  exit 1
+fi
+
+echo "lab-test: combined compose config (UDP 1812/1813)"
+combined_cfg="$(docker compose -p "${PROJECT}-combined-cfg" \
+  -f "$root/deployments/compose/compose.yaml" \
+  -f "$root/deployments/compose/compose.combined.yaml" \
+  --project-directory "$WORKDIR" \
+  config)"
+if ! printf '%s\n' "$combined_cfg" | grep -Eq 'target:[[:space:]]*"?1812"?'; then
+  echo "lab-test: combined compose missing RADIUS access 1812" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$combined_cfg" | grep -Eq 'target:[[:space:]]*"?1813"?'; then
+  echo "lab-test: combined compose missing RADIUS accounting 1813" >&2
+  exit 1
+fi
+
+echo "lab-test: radius-only compose config (no host 49)"
+radius_cfg="$(docker compose -p "${PROJECT}-radius-cfg" \
+  -f "$root/deployments/compose/compose.yaml" \
+  -f "$root/deployments/compose/compose.radius-only.yaml" \
+  --project-directory "$WORKDIR" \
+  config)"
+if printf '%s\n' "$radius_cfg" | grep -E 'published:[[:space:]]*"?49"?[[:space:]]*$'; then
+  echo "lab-test: radius-only overlay still publishes host port 49" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$radius_cfg" | grep -Eq 'target:[[:space:]]*"?1812"?'; then
+  echo "lab-test: radius-only compose missing RADIUS access 1812" >&2
   exit 1
 fi
 
@@ -240,6 +282,82 @@ done
 
 "${tlscompose[@]}" logs --no-color taclab >"$WORKDIR/evidence/taclab.log" || true
 
+echo "lab-test: combined TACACS+RADIUS profile"
+"${tlscompose[@]}" down --remove-orphans >/dev/null 2>&1 || true
+combinedcompose=(
+  docker compose -p "$PROJECT"
+  -f "$root/deployments/compose/compose.yaml"
+  -f "$root/deployments/compose/compose.combined.yaml"
+  -f "$root/deployments/compose/compose.lab-test.yaml"
+  --project-directory "$WORKDIR"
+)
+"${combinedcompose[@]}" up -d taclab
+for i in $(seq 1 30); do
+  status="$("${combinedcompose[@]}" ps --format '{{.Health}}' taclab 2>/dev/null || true)"
+  if [[ "$status" == "healthy" ]]; then
+    break
+  fi
+  if [[ "$i" -eq 30 ]]; then
+    "${combinedcompose[@]}" logs taclab | tee -a "$WORKDIR/evidence/taclab.log" || true
+    echo "lab-test: combined taclab not healthy" >&2
+    exit 1
+  fi
+  sleep 1
+done
+"${combinedcompose[@]}" run --rm --no-deps integration-tests \
+  -http=http://taclab:8080 \
+  -legacy=taclab:4949 \
+  -tls=taclab:4300 \
+  -radius-access=taclab:1812 \
+  -radius-acct=taclab:1813 \
+  -token-file=/run/secrets/api_admin_token \
+  -secret-file=/run/secrets/lab_switches_tacacs_secret \
+  -radius-secret-file=/run/secrets/lab_switches_radius_secret \
+  -pki=/pki \
+  -passwords=/lab/secrets/PASSWORDS.txt \
+  -write-timeout="$WRITE_TIMEOUT" \
+  -report=/lab/evidence/lab-test-combined.json \
+  -phase=combined
+
+echo "lab-test: RADIUS-only profile"
+"${combinedcompose[@]}" down --remove-orphans >/dev/null 2>&1 || true
+radiuscompose=(
+  docker compose -p "$PROJECT"
+  -f "$root/deployments/compose/compose.yaml"
+  -f "$root/deployments/compose/compose.radius-only.yaml"
+  -f "$root/deployments/compose/compose.lab-test.yaml"
+  --project-directory "$WORKDIR"
+)
+"${radiuscompose[@]}" up -d taclab
+for i in $(seq 1 30); do
+  status="$("${radiuscompose[@]}" ps --format '{{.Health}}' taclab 2>/dev/null || true)"
+  if [[ "$status" == "healthy" ]]; then
+    break
+  fi
+  if [[ "$i" -eq 30 ]]; then
+    "${radiuscompose[@]}" logs taclab | tee -a "$WORKDIR/evidence/taclab.log" || true
+    echo "lab-test: radius-only taclab not healthy" >&2
+    exit 1
+  fi
+  sleep 1
+done
+"${radiuscompose[@]}" run --rm --no-deps integration-tests \
+  -http=http://taclab:8080 \
+  -legacy=taclab:4949 \
+  -tls=taclab:4300 \
+  -radius-access=taclab:1812 \
+  -radius-acct=taclab:1813 \
+  -token-file=/run/secrets/api_admin_token \
+  -secret-file=/run/secrets/lab_switches_tacacs_secret \
+  -radius-secret-file=/run/secrets/lab_switches_radius_secret \
+  -pki=/pki \
+  -passwords=/lab/secrets/PASSWORDS.txt \
+  -write-timeout="$WRITE_TIMEOUT" \
+  -report=/lab/evidence/lab-test-radius-only.json \
+  -phase=radius-only
+
+"${radiuscompose[@]}" logs --no-color taclab >>"$WORKDIR/evidence/taclab.log" || true
+
 echo "lab-test: secret canary scan of evidence"
 canaries=()
 if [[ -f "$WORKDIR/secrets/api_admin_token" ]]; then
@@ -247,6 +365,9 @@ if [[ -f "$WORKDIR/secrets/api_admin_token" ]]; then
 fi
 if [[ -f "$WORKDIR/secrets/lab_switches_tacacs_secret" ]]; then
   canaries+=("$(tr -d '\n' < "$WORKDIR/secrets/lab_switches_tacacs_secret")")
+fi
+if [[ -f "$WORKDIR/secrets/lab_switches_radius_secret" ]]; then
+  canaries+=("$(tr -d '\n' < "$WORKDIR/secrets/lab_switches_radius_secret")")
 fi
 if [[ -f "$WORKDIR/secrets/PASSWORDS.txt" ]]; then
   while IFS= read -r line; do

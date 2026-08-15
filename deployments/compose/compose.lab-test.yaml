@@ -1,5 +1,6 @@
 # Overlay for make lab-test / CI. High host ports so 49/300/8080 need not be free.
-# Integration tests talk on the compose network (taclab:4949/4300/8080).
+# RADIUS/UDP host maps are also raised (11812/11813) to avoid CI collisions.
+# Integration tests talk on the compose network (taclab:4949/4300/8080/1812/1813).
 # Source-IP on this path is the test container address — see LAB_DEPLOYMENT §4.3.
 services:
   taclab:
@@ -14,6 +15,12 @@ services:
       - target: 8080
         published: ${TACLAB_HTTP_PORT:-18080}
         protocol: tcp
+      - target: 1812
+        published: ${TACLAB_RADIUS_ACCESS_PORT:-11812}
+        protocol: udp
+      - target: 1813
+        published: ${TACLAB_RADIUS_ACCT_PORT:-11813}
+        protocol: udp
 
   integration-tests:
     image: ${TACLAB_LABTEST_IMAGE:-ghcr.io/hilather/go-lab-tacacs-mcp:labtest}
@@ -29,8 +36,11 @@ services:
       TACLAB_HTTP: http://taclab:8080
       TACLAB_LEGACY: taclab:4949
       TACLAB_TLS: taclab:4300
+      TACLAB_RADIUS_ACCESS: taclab:1812
+      TACLAB_RADIUS_ACCT: taclab:1813
       TACLAB_TOKEN_FILE: /run/secrets/api_admin_token
       TACLAB_SHARED_SECRET_FILE: /run/secrets/lab_switches_tacacs_secret
+      TACLAB_RADIUS_SECRET_FILE: /run/secrets/lab_switches_radius_secret
       TACLAB_PKI: /pki
       TACLAB_PASSWORDS: /lab/secrets/PASSWORDS.txt
       TACLAB_WRITE_TIMEOUT: ${TACLAB_WRITE_TIMEOUT:-2s}
@@ -46,6 +56,7 @@ services:
     secrets:
       - api_admin_token
       - lab_switches_tacacs_secret
+      - lab_switches_radius_secret
     user: "65532:65532"
     read_only: true
     cap_drop:
@@ -58,8 +69,11 @@ services:
       - -http=http://taclab:8080
       - -legacy=taclab:4949
       - -tls=taclab:4300
+      - -radius-access=taclab:1812
+      - -radius-acct=taclab:1813
       - -token-file=/run/secrets/api_admin_token
       - -secret-file=/run/secrets/lab_switches_tacacs_secret
+      - -radius-secret-file=/run/secrets/lab_switches_radius_secret
       - -pki=/pki
       - -passwords=/lab/secrets/PASSWORDS.txt
       - -write-timeout=2s

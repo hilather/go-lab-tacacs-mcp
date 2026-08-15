@@ -20,6 +20,8 @@ deployments/compose/pki
 deployments/compose/evidence
 deployments/compose/config/taclab.yaml
 deployments/compose/config/taclab.tls-only.yaml
+deployments/compose/config/taclab.combined.yaml
+deployments/compose/config/taclab.radius-only.yaml
 **/testdata/fuzz/*/crashers
 **/testdata/fuzz/*/suppressions
 *.log

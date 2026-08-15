@@ -20,17 +20,19 @@ type GetEffectiveConfigRequest struct {
 
 // EffectiveConfig is the redacted JSON view of configuration objects.
 type EffectiveConfig struct {
-	Revision     domain.Revision `json:"revision"`
-	View         string          `json:"view"`
-	BaselineHash string          `json:"baseline_hash"`
-	OverlayHash  string          `json:"overlay_hash"`
-	CompiledAt   time.Time       `json:"compiled_at"`
-	InstanceID   string          `json:"instance_id"`
-	Users        []User          `json:"users"`
-	Groups       []Group         `json:"groups"`
-	Clients      []Client        `json:"clients"`
-	Tokens       []TokenView     `json:"tokens"`
-	Warnings     []string        `json:"warnings,omitempty"`
+	Revision               domain.Revision `json:"revision"`
+	View                   string          `json:"view"`
+	BaselineHash           string          `json:"baseline_hash"`
+	OverlayHash            string          `json:"overlay_hash"`
+	CompiledAt             time.Time       `json:"compiled_at"`
+	InstanceID             string          `json:"instance_id"`
+	SourceSchemaVersion    int             `json:"source_schema_version"`
+	EffectiveSchemaVersion int             `json:"effective_schema_version"`
+	Users                  []User          `json:"users"`
+	Groups                 []Group         `json:"groups"`
+	Clients                []Client        `json:"clients"`
+	Tokens                 []TokenView     `json:"tokens"`
+	Warnings               []string        `json:"warnings,omitempty"`
 }
 
 func (e EffectiveConfig) envelopeRevision() domain.Revision { return e.Revision }
@@ -67,16 +69,22 @@ type ReloadConfigResult struct {
 func (r ReloadConfigResult) envelopeRevision() domain.Revision { return r.Revision }
 
 // ExportConfigRequest selects which redacted YAML view to emit.
+// Normalize is the explicit v1→v2 convert flag (KD-19). Default false:
+// a v1 source still exports as v1-shaped YAML.
 type ExportConfigRequest struct {
-	View string `json:"view,omitempty"`
+	View      string `json:"view,omitempty"`
+	Normalize bool   `json:"normalize,omitempty"`
 }
 
 // ExportConfigResult is a redacted YAML document. Secret values are placeholders.
 type ExportConfigResult struct {
-	Revision domain.Revision `json:"revision"`
-	View     string          `json:"view"`
-	Format   string          `json:"format"`
-	YAML     string          `json:"yaml"`
+	Revision               domain.Revision `json:"revision"`
+	View                   string          `json:"view"`
+	Format                 string          `json:"format"`
+	YAML                   string          `json:"yaml"`
+	SourceSchemaVersion    int             `json:"source_schema_version"`
+	EffectiveSchemaVersion int             `json:"effective_schema_version"`
+	Normalized             bool            `json:"normalized"`
 }
 
 func (e ExportConfigResult) envelopeRevision() domain.Revision { return e.Revision }

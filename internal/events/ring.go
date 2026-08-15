@@ -56,6 +56,17 @@ type Event struct {
 	Privilege     uint8           `json:"privilege,omitempty"`
 	Port          string          `json:"port,omitempty"`
 	Remote        string          `json:"remote,omitempty"`
+	// RADIUS-only additive fields. TACACS events leave them empty so JSON stays stable.
+	// AcctSessionID is RADIUS Acct-Session-Id text; do not stuff it into SessionID.
+	Protocol      string `json:"protocol,omitempty"`
+	Carrier       string `json:"carrier,omitempty"`
+	ListenerRole  string `json:"listener_role,omitempty"`
+	ListenerID    string `json:"listener_id,omitempty"`
+	PacketCode    string `json:"packet_code,omitempty"`
+	Outcome       string `json:"outcome,omitempty"`
+	ReasonCode    string `json:"reason_code,omitempty"`
+	EndpointID    string `json:"endpoint_id,omitempty"`
+	AcctSessionID string `json:"acct_session_id,omitempty"`
 	// SuppressExport keeps the record in the ring (accounting ACK) but hides
 	// it from cursor reads, stdout, and fan-out when include_accounting is off.
 	SuppressExport bool `json:"-"`
@@ -68,11 +79,18 @@ type EventAV struct {
 	Value     string `json:"value"`
 }
 
-// Query is a cursor page read.
+// Query is a cursor page read. Optional Protocol, ListenerRole, PacketCode,
+// and Outcome are ANDed with Categories. Empty strings match any value.
+// Protocol "tacacs" also matches events that omit Protocol (JSON-stable TACACS).
+// There is no filter-by-acct_session_id (cardinality / redaction).
 type Query struct {
-	AfterID    uint64
-	Limit      int
-	Categories []string
+	AfterID      uint64
+	Limit        int
+	Categories   []string
+	Protocol     string
+	ListenerRole string
+	PacketCode   string
+	Outcome      string
 }
 
 // Page is one cursor window over retained events.
@@ -299,7 +317,7 @@ func (r *Ring) Read(q Query) Page {
 		if ev.ID <= q.AfterID || ev.SuppressExport {
 			continue
 		}
-		if !categoryOK(want, ev.Category) {
+		if !queryMatch(q, want, ev) {
 			continue
 		}
 		out = append(out, ev)
@@ -317,7 +335,7 @@ func (r *Ring) Read(q Query) Page {
 		if ev.ID <= last || ev.SuppressExport {
 			continue
 		}
-		if categoryOK(want, ev.Category) {
+		if queryMatch(q, want, ev) {
 			page.HasMore = true
 			break
 		}
@@ -467,6 +485,43 @@ func categoryOK(want map[string]struct{}, got string) bool {
 	}
 	_, ok := want[got]
 	return ok
+}
+
+func queryMatch(q Query, wantCats map[string]struct{}, ev Event) bool {
+	if !categoryOK(wantCats, ev.Category) {
+		return false
+	}
+	if q.Protocol != "" {
+		got := ev.Protocol
+		if got == "" {
+			// TACACS events omit Protocol so JSON stays stable.
+			got = "tacacs"
+		}
+		if got != q.Protocol {
+			return false
+		}
+	}
+	if q.ListenerRole != "" && ev.ListenerRole != q.ListenerRole {
+		return false
+	}
+	if q.PacketCode != "" && ev.PacketCode != q.PacketCode {
+		return false
+	}
+	if q.Outcome != "" && ev.Outcome != q.Outcome {
+		return false
+	}
+	return true
+}
+
+// RedactedAV is a stored attribute whose value must never appear in list views
+// without events:sensitive (and is never a secret even then).
+func RedactedAV(name string) EventAV {
+	return EventAV{Name: name, Separator: "", Value: RedactedValue}
+}
+
+// Match reports whether ev satisfies q, including category and additive filters.
+func Match(q Query, ev Event) bool {
+	return queryMatch(q, categorySet(q.Categories), ev)
 }
 
 // CloneEvent copies e including argument slices.

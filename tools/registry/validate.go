@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	conformanceIDRe = regexp.MustCompile(`T(?:89|98)-[A-Z]+-\d+`)
+	conformanceIDRe = regexp.MustCompile(`T(?:89|98)-[A-Z]+-\d+|R(?:65|66|69|79|80)-[A-Z]+-\d+|PRJ-[A-Z]+-\d+`)
 	operationIDRe   = regexp.MustCompile(`^[a-z]+(?:\.[a-z][a-z0-9_]*)+$`)
 	firstColOpRe    = regexp.MustCompile("(?m)^\\|\\s*`([a-z]+(?:\\.[a-z][a-z0-9_]*)+)`\\s*\\|")
 	httpMethods     = map[string]struct{}{
@@ -37,10 +37,65 @@ func (i Issue) String() string {
 
 // Report is the collected result of validating the checked-in registries.
 type Report struct {
-	Operations *OperationRegistry
-	RFC8907    *ConformanceRegistry
-	RFC9887    *ConformanceRegistry
-	Issues     []Issue
+	Operations    *OperationRegistry
+	RFC8907       *ConformanceRegistry
+	RFC9887       *ConformanceRegistry
+	RFC2865       *ConformanceRegistry
+	RFC2866       *ConformanceRegistry
+	RFC2869       *ConformanceRegistry
+	RFC3579       *ConformanceRegistry
+	RFC5080       *ConformanceRegistry
+	ProjectRADIUS *ConformanceRegistry
+	Issues        []Issue
+}
+
+// ConformanceTables returns every loaded conformance registry in spec order.
+func (r *Report) ConformanceTables() []*ConformanceRegistry {
+	if r == nil {
+		return nil
+	}
+	return []*ConformanceRegistry{
+		r.RFC8907,
+		r.RFC9887,
+		r.RFC2865,
+		r.RFC2866,
+		r.RFC2869,
+		r.RFC3579,
+		r.RFC5080,
+		r.ProjectRADIUS,
+	}
+}
+
+// TACACSTables returns the RFC 8907 and RFC 9887 registries.
+func (r *Report) TACACSTables() []*ConformanceRegistry {
+	if r == nil {
+		return nil
+	}
+	return []*ConformanceRegistry{r.RFC8907, r.RFC9887}
+}
+
+// ReleaseConformanceTables returns the tables gated by `check-registries -release`.
+// RADIUS/PRJ skeletons are excluded until RADIUS is advertised.
+func ReleaseConformanceTables(rep *Report) []*ConformanceRegistry {
+	if rep == nil {
+		return nil
+	}
+	return rep.TACACSTables()
+}
+
+// RADIUSTables returns RADIUS and project-radius registries.
+func (r *Report) RADIUSTables() []*ConformanceRegistry {
+	if r == nil {
+		return nil
+	}
+	return []*ConformanceRegistry{
+		r.RFC2865,
+		r.RFC2866,
+		r.RFC2869,
+		r.RFC3579,
+		r.RFC5080,
+		r.ProjectRADIUS,
+	}
 }
 
 // Valid reports whether the report contains no issues.
@@ -60,22 +115,22 @@ func ValidateRoot(root string) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
-	r89, err := LoadConformance(filepath.Join(root, RFC8907Path))
-	if err != nil {
-		return nil, err
-	}
-	r98, err := LoadConformance(filepath.Join(root, RFC9887Path))
-	if err != nil {
-		return nil, err
-	}
 	rep.Operations = ops
-	rep.RFC8907 = r89
-	rep.RFC9887 = r98
-
 	validateOperations(rep, OperationsPath, ops)
-	validateConformance(rep, RFC8907Path, "8907", r89)
-	validateConformance(rep, RFC9887Path, "9887", r98)
-	validateConformanceIDUniqueness(rep, r89, r98)
+
+	loaded := make([]*ConformanceRegistry, 0, len(ConformanceSpecs))
+	for _, spec := range ConformanceSpecs {
+		doc, err := LoadConformance(filepath.Join(root, spec.Path))
+		if err != nil {
+			return nil, err
+		}
+		if err := assignConformance(rep, spec.RFC, doc); err != nil {
+			return nil, err
+		}
+		validateConformance(rep, spec.Path, spec.RFC, doc)
+		loaded = append(loaded, doc)
+	}
+	validateConformanceIDUniqueness(rep, loaded...)
 
 	parityDoc, err := os.ReadFile(filepath.Join(root, ParityDocPath))
 	if err != nil {
@@ -85,13 +140,42 @@ func ValidateRoot(root string) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
+	radiusDoc, err := os.ReadFile(filepath.Join(root, RadiusConformanceDocPath))
+	if err != nil {
+		return nil, err
+	}
 	checkOperationContractCoverage(rep, ExtractOperationIDs(parityDoc), ops)
-	checkConformanceContractCoverage(rep, ExtractConformanceIDs(confDoc), r89, r98)
-	checkEvidenceIDs(rep, root, r89, r98)
+	contract := append(ExtractConformanceIDs(confDoc), ExtractConformanceIDs(radiusDoc)...)
+	checkConformanceContractCoverage(rep, contract, loaded...)
+	checkEvidenceIDs(rep, root, loaded...)
 	return rep, nil
 }
 
-// ExtractConformanceIDs returns unique T89/T98 IDs in document order.
+func assignConformance(rep *Report, rfc string, doc *ConformanceRegistry) error {
+	switch rfc {
+	case "8907":
+		rep.RFC8907 = doc
+	case "9887":
+		rep.RFC9887 = doc
+	case "2865":
+		rep.RFC2865 = doc
+	case "2866":
+		rep.RFC2866 = doc
+	case "2869":
+		rep.RFC2869 = doc
+	case "3579":
+		rep.RFC3579 = doc
+	case "5080":
+		rep.RFC5080 = doc
+	case "PROJECT":
+		rep.ProjectRADIUS = doc
+	default:
+		return fmt.Errorf("unknown conformance rfc %q", rfc)
+	}
+	return nil
+}
+
+// ExtractConformanceIDs returns unique T89/T98/R65/R66/R69/R79/R80/PRJ IDs in document order.
 func ExtractConformanceIDs(markdown []byte) []string {
 	seen := map[string]struct{}{}
 	var out []string
@@ -264,17 +348,17 @@ func validateConformance(rep *Report, file, wantRFC string, doc *ConformanceRegi
 		rep.add(file, "", "conformance table is empty")
 	}
 	ids := map[string]int{}
-	prefix := "T89-"
-	if wantRFC == "9887" {
-		prefix = "T98-"
+	prefix := PrefixForRFC(wantRFC)
+	if prefix == "" {
+		rep.add(file, "", "unknown rfc %q has no row-id prefix", wantRFC)
 	}
 	for i, row := range doc.Rows {
 		if row.ID == "" {
 			rep.add(file, fmt.Sprintf("index-%d", i), "missing id")
 			continue
 		}
-		if !conformanceIDRe.MatchString(row.ID) || !strings.HasPrefix(row.ID, prefix) {
-			rep.add(file, row.ID, "id must match %s* T89/T98 form", prefix)
+		if !conformanceIDRe.MatchString(row.ID) || (prefix != "" && !strings.HasPrefix(row.ID, prefix)) {
+			rep.add(file, row.ID, "id must match %s* form", prefix)
 		}
 		if prev, ok := ids[row.ID]; ok {
 			rep.add(file, row.ID, "duplicate conformance id (first at index %d)", prev)
@@ -308,9 +392,9 @@ func validateConformanceIDUniqueness(rep *Report, tables ...*ConformanceRegistry
 		if table == nil {
 			continue
 		}
-		file := RFC8907Path
-		if table.RFC == "9887" {
-			file = RFC9887Path
+		file := FileForRFC(table.RFC)
+		if file == "" {
+			file = table.RFC
 		}
 		for _, row := range table.Rows {
 			if prev, ok := seen[row.ID]; ok {
@@ -346,11 +430,14 @@ func checkConformanceContractCoverage(rep *Report, contract []string, tables ...
 	}
 	for _, id := range contract {
 		if _, ok := have[id]; !ok {
-			file := RFC8907Path
-			if strings.HasPrefix(id, "T98-") {
-				file = RFC9887Path
+			file := FileForConformanceID(id)
+			doc := ConformanceDocPath
+			if strings.HasPrefix(id, "T") {
+				doc = ConformanceDocPath
+			} else {
+				doc = RadiusConformanceDocPath
 			}
-			rep.add(file, id, "unreferenced mandatory conformance row: present in %s but missing from the registry", ConformanceDocPath)
+			rep.add(file, id, "unreferenced mandatory conformance row: present in %s but missing from the registry", doc)
 		}
 	}
 }
@@ -372,9 +459,9 @@ func CheckSHOULDDispositions(tables ...*ConformanceRegistry) []Issue {
 		if table == nil {
 			continue
 		}
-		file := RFC8907Path
-		if table.RFC == "9887" {
-			file = RFC9887Path
+		file := FileForRFC(table.RFC)
+		if file == "" {
+			file = table.RFC
 		}
 		for _, row := range table.Rows {
 			if !strings.Contains(row.Level, "SHOULD") {
@@ -403,16 +490,18 @@ func CheckSHOULDDispositions(tables ...*ConformanceRegistry) []Issue {
 }
 
 // CheckReleaseStatuses fails MUST / MUST NOT / PROJECT MUST rows that are not PASS
-// or an allowed deprecation disposition. `check-registries -release` calls this.
+// or an allowed deprecation disposition. `check-registries -release` calls this
+// with TACACS tables only (RFC 8907/9887). RADIUS NOT_STARTED rows are not a
+// TACACS 1.0 release blocker.
 func CheckReleaseStatuses(tables ...*ConformanceRegistry) []Issue {
 	var issues []Issue
 	for _, table := range tables {
 		if table == nil {
 			continue
 		}
-		file := RFC8907Path
-		if table.RFC == "9887" {
-			file = RFC9887Path
+		file := FileForRFC(table.RFC)
+		if file == "" {
+			file = table.RFC
 		}
 		for _, row := range table.Rows {
 			if !row.Mandatory() {

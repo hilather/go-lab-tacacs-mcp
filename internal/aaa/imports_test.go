@@ -18,6 +18,8 @@ func TestNoForbiddenImports(t *testing.T) {
 		"net/http",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp",
 	}
 	for _, pkg := range pkgs {
 		for name, f := range pkg.Files {

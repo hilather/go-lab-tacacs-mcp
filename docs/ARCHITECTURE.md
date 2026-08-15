@@ -1,11 +1,13 @@
 # TacLab Architecture
 
 Status: implementation contract  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. Architectural summary
 
 TacLab is a single Go process with multiple listeners and one authoritative in-memory effective-state snapshot. The React/TypeScript application is compiled to static assets and embedded into the Go binary. REST and MCP are transport adapters over the same operation registry. TACACS+ protocol handlers are adapters over the same AAA and policy services.
+
+RADIUS is adopted as a **peer** of TACACS in this process ([ADR 0013](decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)). Target packages live under `internal/radius` and must not import `internal/tacacs` (or the reverse). Neutral AAA contracts are additive ([ADR 0014](decisions/0014-neutral-aaa-contract-and-protocol-taxonomy.md)); `domain.Transport` stays TACACS `legacy`/`tls`. Config schema version 2 plus an in-memory v1 migrator is the RADIUS configuration path ([ADR 0017](decisions/0017-config-schema-v2-with-v1-migration.md)). Enabled v2 RADIUS/UDP sockets bind and use a stub Access-Reject / Accounting-Response path. Do not advertise complete RADIUS until [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) MVP rows have evidence. Implementation names and seams are frozen in [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md).
 
 The source configuration is a read-only baseline. Runtime mutations form an in-memory overlay. A successful mutation or reload compiles a new immutable effective snapshot and swaps it atomically. Read-heavy protocol and API paths do not mutate the active snapshot.
 
@@ -15,6 +17,7 @@ The source configuration is a read-only baseline. Runtime mutations form an in-m
 flowchart LR
     D1[Legacy TACACS+ device] -->|TCP, legacy TACACS+| L1[Legacy TACACS listener]
     D2[Secure TACACS+ device] -->|TCP plus TLS 1.3| L2[Secure TACACS listener]
+    D3[RADIUS NAS] -->|UDP 1812 / 1813| L3[RADIUS access / accounting]
     B[Browser] -->|HTTPS, REST and SSE| H[HTTP server]
     M[MCP client] -->|MCP Streamable HTTP| H
     O[Operator or CI] -->|Config file and secret files| C[Configuration loader]
@@ -41,6 +44,8 @@ One `taclabd` process hosts:
 | Legacy TACACS+ | `0.0.0.0:4949` | `49/tcp` | RFC 8907 legacy transport with per-client shared-secret obfuscation |
 | Secure TACACS+ | `0.0.0.0:4300` | `300/tcp` | RFC 9887 TACACS+ over TLS 1.3 |
 | HTTP admin | `0.0.0.0:8080` | `8080/tcp` or reverse proxy | UI, REST, MCP, events, health, metrics when enabled |
+| RADIUS access | `0.0.0.0:1812` | `1812/udp` | RFC 2865 Access-Request/Accept/Reject over UDP. Registers when `enabled: true`; default remains off. Not advertised as complete RADIUS. |
+| RADIUS accounting | `0.0.0.0:1813` | `1813/udp` | RFC 2866 Accounting-Request/Response over UDP. Registers when `enabled: true`; default remains off. Not advertised as complete RADIUS. |
 
 The listeners have independent enablement, connection limits, timeouts, and shutdown deadlines. A failure to bind a configured required listener makes readiness fail and normally terminates startup. An explicitly optional listener may fail only when configuration defines the degraded behavior.
 
@@ -59,7 +64,11 @@ Responsibilities:
 - Install signal handling.
 - Coordinate readiness, reload, and graceful shutdown.
 
-It contains no protocol, policy, or storage logic.
+It contains no protocol, policy, or storage logic. Enabled TACACS and RADIUS listeners are registered in `internal/runtime.Registry`. HTTP and metrics stay outside the registry. Process start requires at least one AAA listener unless `server.admin_only: true`.
+
+### 4.1.1 `internal/runtime`
+
+Composition-root listener inventory. Protocol packages implement `runtime.Listener` (`ID`, `Protocol`, `Carrier`, `Role`, `Start`/`Ready`/`Drain`/`Close`/`Status`). The registry validates unique IDs and bind conflicts, starts in deterministic ID order, and drains in reverse. `domain.Transport` stays TACACS `legacy`/`tls`; the wire binding is `domain.Carrier`.
 
 ### 4.2 `internal/config`
 
@@ -118,6 +127,8 @@ All mutations follow:
 
 Protocol request paths load the snapshot once and retain it for the request. They never hold the state write lock.
 
+Compile attaches the TACACS `ClientIndex`, independent RADIUS access and accounting LPM indexes, and an empty dictionary placeholder (`SetDictionaryCompiler` is the later hook). v1 TACACS fields stay equivalent. Invalid RADIUS compile discards the candidate. Overlay patches retain omitted RADIUS secrets.
+
 ### 4.4 `internal/policy`
 
 Responsibilities:
@@ -129,6 +140,10 @@ Responsibilities:
 - Apply default-deny semantics.
 
 The policy package must not know about HTTP, MCP, JSON-RPC, React, TCP connection objects, or YAML syntax types.
+
+### 4.4.1 `internal/policy/radius`
+
+RADIUS access policy is a **separate dialect**. It must not import `internal/aaa` or the TACACS policy parent. Shared enums are `domain.AuthMethod` and `domain.Effect`. MVP evaluation is client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. User/group RADIUS rules are deferred. Match keys are `groups_any`, `method` (`pap` stores `password`), and typed `equals`/`present`/`absent`. Reply-profile merge and Access-Accept/Reject role legality are compile-time and re-checked at evaluate. There is no UDP in this package. Do not advertise complete RADIUS.
 
 ### 4.5 `internal/credentials`
 
@@ -152,13 +167,16 @@ type Service interface {
     BeginAuthentication(context.Context, AuthenticationStart) (AuthenticationStep, error)
     ContinueAuthentication(context.Context, AuthenticationContinue) (AuthenticationStep, error)
     AbortAuthentication(context.Context, AuthenticationAbort) error
+    VerifyCredentials(context.Context, userID, clientID string, ev CredentialEvidence) (domain.AuthOutcome, error)
+    AuthenticateAccess(context.Context, RadiusAccessAttempt) (RadiusAccessDecision, error)
     Authorize(context.Context, AuthorizationRequest) (AuthorizationDecision, error)
     RecordAccounting(context.Context, AccountingRecord) (AccountingResult, error)
+    RecordRADIUSAccounting(context.Context, RADIUSAccountingRecord) (AccountingResult, error)
     ExplainAuthorization(context.Context, AuthorizationRequest) (PolicyTrace, error)
 }
 ```
 
-The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. SUCCESS is returned only after ring accept. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates.
+`VerifyCredentials` is the shared password/CHAP verifier (`RAD-DOM-002`). TACACS one-shot PAP/CHAP call it and map `AuthPass`/`AuthReject`/`AuthError` onto existing `AuthenticationStep` statuses. `AuthenticateAccess` (`RAD-DOM-003`) verifies RADIUS PAP/CHAP and evaluates the snapshot-held RADIUS policy engine: permit is Access-Accept with legal reply-profile attributes (Message-Authenticator first on the wire); deny, default deny, and evaluator errors are Access-Reject. There are no user/group RADIUS rules. `RecordRADIUSAccounting` (`RAD-DOM-004`) maps a RADIUS record onto the same ring: `Acct-Session-Id` is `Event.AcctSessionID` (string) and is never stuffed into TACACS `Event.SessionID uint32`. SUCCESS is returned only after ring accept. The vertical skeleton implements ASCII LOGIN, `Authorize` via the two policy evaluators (a service permit never authorizes a command), and the full RFC 8907 accounting flag table accepted into the event ring. Unimplemented authentication flows return ERROR. TACACS packet structs stay in `internal/tacacs`; `server.Bridge` translates. RADIUS packets stay in `internal/radius`.
 
 ### 4.7 `internal/tacacs/codec`
 
@@ -173,6 +191,10 @@ Responsibilities:
 The codec is independent of network I/O and can be tested using byte slices and readers with deliberate short reads.
 
 1.0 implements this package in-tree ([ADR 0007](decisions/0007-codec-approach.md)). Header encode/decode, unknown-type §3.6 replies, bounded body allocation, RFC 8907 §4.5 pad, and packet-family bodies live here. Header/obfuscation experiments live under `tools/spike` and must not be imported from production packages. The independent test client keeps a separate codec copy under `internal/tacacs/testclient/codec`.
+
+### 4.7b `internal/radius/codec` and `internal/radius/attribute`
+
+In-tree RADIUS framing, dictionary, and crypto primitives only ([ADR 0015](decisions/0015-radius-codec-attribute-and-dictionary-boundary.md), [ADR 0016](decisions/0016-radius-udp-security-retransmission-and-scope.md)). `codec` encodes and decodes one datagram (20..4096 octets, both access and accounting). `attribute` stores ordered, duplicate-preserving raw TLVs, Vendor-Specific (type 26) vendor-id plus opaque payload, and the immutable IETF MVP dictionary (`DictionaryVersion` `builtin-mvp-1`: name, code, kind, sensitivity, cardinality, packet-role legality). Unknown types remain raw. Named `Cisco-AVPair` is not in the dictionary. Message-Authenticator is legal on Accounting-Request (validate-if-present is crypto/server) and required first on Access and Accounting responses; this package does not insert or HMAC-validate it. `crypto` provides Access-Request nonce generation, Response / Accounting-Request authenticators, User-Password hide/unhide, Message-Authenticator HMAC-MD5 (value zeroed during compute), and constant-time `Equal`. MD5/HMAC-MD5 exist only because RADIUS/UDP requires them. There is no require-versus-allow MA policy, response MA-first insertion, or UDP listener in these packages. Access-Challenge (11) is decoded so a later adapter can discard it; it is not advertised. Independent `internal/radius/testclient` evidence is still required before any RADIUS conformance row is `PASS`.
 
 ### 4.8 `internal/tacacs/server`
 
@@ -200,7 +222,7 @@ Responsibilities:
 - apply RFC 8907 obfuscation/de-obfuscation.
 - reject cleartext-body packets and shared-secret mismatches with correct connection handling.
 
-`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS) and, when enabled, the HTTP admin listener (REST + MCP).
+`taclabd serve --config` binds enabled TACACS listeners (legacy and/or TLS), enabled RADIUS/UDP listeners (Access-Request PAP/CHAP plus compiled-policy Access-Accept/Reject; accounting still stub), and, when enabled, the HTTP admin listener (REST + MCP). Do not advertise complete RADIUS.
 
 ### 4.10 `internal/tacacs/tls`
 
@@ -246,7 +268,7 @@ The canonical administrative application API. Each operation has:
 
 Operation handlers invoke state, AAA, event, and token services. REST and MCP register adapters from this registry or are verified against it by generated tests.
 
-The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. Implemented handlers are `system.status.get`, `system.build.get`, `policy.evaluate`, `tokens.list` / `tokens.create` / `tokens.revoke`, and `session.create` / `session.delete`. Other operations are registered as stubs that return `unavailable` until their handlers are filled. There is no HTTP in this package.
+The Go registry loads `api/operations.yaml` and requires a handler plus request/response types for every row. `system.status.get` merges snapshot listener config with live `Deps.Runtime` stats and appends configured RADIUS sockets. `system.build.get` reports per-protocol conformance (RADIUS stays `partial`). `events.list` ANDs optional protocol/role/code/outcome filters with categories. There is no HTTP in this package.
 
 ### 4.11b `internal/api/auth`
 
@@ -304,7 +326,7 @@ Responsibilities:
 - fan out live events to REST SSE and MCP subscribers.
 - emit redacted structured logs and metrics.
 
-This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. A slow subscriber is detached without closing the event channel; the ring closes a separate dropped signal and REST writes `event: reset` then ends the stream. MCP `subscriptions/listen` is C8 URI-only: `notifications/resources/updated` for `taclab://events/recent` (and list-changed on overlay revision when requested); event bodies are pulled through `taclab.events.list`. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
+This is a bounded overwrite-oldest ring with a cursor read API (`events.list`) and a non-blocking stdout JSON sink. `Query` ANDs optional `protocol`, `listener_role`, `packet_code`, and `outcome` onto the existing category filter. RADIUS `Acct-Session-Id` is stored as `Event.AcctSessionID`; TACACS `Event.SessionID` remains `uint32`. Accounting success is returned only after the accounting record has been accepted by the ring. REST SSE streams redacted event bodies from `Subscribe` plus a Last-Event-ID replay. A slow subscriber is detached without closing the event channel; the ring closes a separate dropped signal and REST writes `event: reset` then ends the stream. MCP `subscriptions/listen` is C8 URI-only: `notifications/resources/updated` for `taclab://events/recent` (and list-changed on overlay revision when requested); event bodies are pulled through `taclab.events.list`. Downstream optional exporters are asynchronous and must surface backpressure or loss metrics. The overwrite counter is observable on list responses.
 
 ### 4.15 `web`
 
@@ -316,6 +338,7 @@ React/TypeScript responsibilities:
 - consume SSE for live events and state-change invalidation.
 - show source and revision metadata.
 - provide accessible forms and conflict handling.
+- show protocol/role listener state, client RADIUS endpoints, RADIUS test/explain pages, and event protocol/role filters without claiming complete RADIUS.
 - never reproduce credential verification or authorization policy on the client.
 
 The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`.
@@ -370,7 +393,7 @@ Rules:
 
 - Domain packages may depend on small interfaces, not concrete adapters.
 - Configuration syntax types do not escape `internal/config`.
-- Protocol packet types do not escape `internal/tacacs`.
+- Protocol packet types do not escape `internal/tacacs` or `internal/radius`.
 - REST and MCP wire models do not escape their adapters unless they are generated aliases of canonical operation types.
 - The web application depends on generated public API contracts only.
 - No package may import `cmd/taclabd`.

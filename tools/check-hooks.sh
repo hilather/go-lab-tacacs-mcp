@@ -60,6 +60,32 @@ if tools/check-secrets.sh "$tmpdir/leaked.pem"; then
 fi
 echo "hook-check: secret scan rejects planted test secret"
 
+# Gitleaks allowlist must keep RADIUS RFC/lab vectors in testdata/protocol/radius/
+# and must never exempt live Compose secret files.
+: > "$tmpdir/clean.txt"
+cat > "$tmpdir/gitleaks-missing-radius.toml" <<'EOF'
+[allowlist]
+paths = [ '''(^|/)internal/credentials/testdata/''' ]
+EOF
+if GITLEAKS_TOML="$tmpdir/gitleaks-missing-radius.toml" tools/check-secrets.sh "$tmpdir/clean.txt"; then
+  echo "hook-check: secret scan accepted a gitleaks allowlist without testdata/protocol/radius/" >&2
+  exit 1
+fi
+echo "hook-check: secret scan requires testdata/protocol/radius/ gitleaks allowlist"
+
+cat > "$tmpdir/gitleaks-compose-secrets.toml" <<'EOF'
+[allowlist]
+paths = [
+  '''(^|/)testdata/protocol/radius/''',
+  '''(^|/)deployments/compose/secrets/''',
+]
+EOF
+if GITLEAKS_TOML="$tmpdir/gitleaks-compose-secrets.toml" tools/check-secrets.sh "$tmpdir/clean.txt"; then
+  echo "hook-check: secret scan accepted a live Compose secrets gitleaks allowlist" >&2
+  exit 1
+fi
+echo "hook-check: secret scan rejects Compose secrets gitleaks allowlist"
+
 # Pages workflow must reject configure-pages enablement: true.
 # GITHUB_TOKEN cannot create a Pages site (Resource not accessible by integration).
 cat > "$tmpdir/bad-pages.yml" <<'EOF'

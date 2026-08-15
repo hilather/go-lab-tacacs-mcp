@@ -1,0 +1,42 @@
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    access:
+      enabled: true
+      bind: 0.0.0.0:1812
+    accounting:
+      enabled: true
+      bind: 0.0.0.0:1813
+clients:
+  - id: lab-switches
+    priority: 100
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: tacacs-legacy
+        protocol: tacacs
+        transport: tcp
+        roles: [authentication, authorization, accounting]
+        tacacs:
+          shared_secret: {file: /run/secrets/lab_switches_tacacs_secret}
+          allowed_methods: [ascii, pap]
+          default_service: login
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access, accounting]
+        radius:
+          shared_secret: {file: /run/secrets/lab_switches_radius_secret}
+          require_message_authenticator: true
+          limit_proxy_state: true
+          allowed_authentication_methods: [pap, chap]
+          access_policy_id: default-radius-access
+          accounting:
+            accept_status_types: [start, stop, interim_update, accounting_on, accounting_off]
+radius_policies:
+  - id: default-radius-access
+    rules:
+      - id: deny-rest
+        effect: deny

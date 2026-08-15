@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -84,6 +85,8 @@ func clientView(c state.EffectiveClient, rev domain.Revision) Client {
 		Authentication:         clientAuthView(c.Client.Authentication),
 		Authorization:          clientAuthzView(c.Client.Authorization),
 		Accounting:             clientAcctView(c.Client.Accounting),
+		Protocols:              clientProtocolsView(c),
+		Endpoints:              clientEndpointViews(c.Client, c.RADIUSLifecycle),
 		CreatedAt:              meta.CreatedAt,
 		UpdatedAt:              meta.UpdatedAt,
 	}
@@ -238,6 +241,106 @@ func clientAcctView(a config.ClientAcct) ClientAcctView {
 	return ClientAcctView{Enabled: a.Enabled, AcceptStart: a.AcceptStart, AcceptStop: a.AcceptStop, AcceptWatchdog: a.AcceptWatchdog}
 }
 
+func clientProtocolsView(c state.EffectiveClient) ClientProtocolsView {
+	return ClientProtocolsView{
+		TACACS: ClientTACACSProtocolView{
+			LegacyEnabled:          hasTransport(c.Client.Match.Transports, domain.TransportLegacy),
+			TLSEnabled:             hasTransport(c.Client.Match.Transports, domain.TransportTLS),
+			SharedSecretConfigured: c.Client.Legacy.SharedSecret.Set(),
+		},
+		RADIUS: clientRADIUSView(c.Client, c.RADIUSLifecycle),
+	}
+}
+
+func clientRADIUSView(c config.Client, life domain.SecretLifecycle) ClientRADIUSProtocolView {
+	ep := radiusEndpointOf(c)
+	if ep == nil || ep.RADIUS == nil {
+		return ClientRADIUSProtocolView{}
+	}
+	st := string(life)
+	if st == "" {
+		st = string(domain.LifecycleUnknown)
+	}
+	return ClientRADIUSProtocolView{
+		Enabled:                     true,
+		Roles:                       rolesToStrings(ep.Roles),
+		SharedSecretConfigured:      ep.RADIUS.SharedSecret.Set(),
+		SecretLifecycle:             st,
+		RequireMessageAuthenticator: ep.RADIUS.RequireMessageAuthenticator,
+		LimitProxyState:             ep.RADIUS.LimitProxyState,
+		AllowedMethods:              cloneStrings(ep.RADIUS.AllowedAuthenticationMethods),
+		AccessPolicyID:              ep.RADIUS.AccessPolicyID,
+		AcceptStatusTypes:           cloneStrings(ep.RADIUS.AcceptStatusTypes),
+	}
+}
+
+func clientEndpointViews(c config.Client, radLife domain.SecretLifecycle) []ClientEndpointView {
+	if len(c.Endpoints) == 0 {
+		return nil
+	}
+	out := make([]ClientEndpointView, 0, len(c.Endpoints))
+	for _, ep := range c.Endpoints {
+		item := ClientEndpointView{
+			ID:        ep.ID,
+			Protocol:  string(ep.Protocol),
+			Transport: ep.Transport,
+			Roles:     rolesToStrings(ep.Roles),
+		}
+		if ep.TACACS != nil {
+			svc := ""
+			if ep.TACACS.DefaultService != 0 {
+				svc = ep.TACACS.DefaultService.String()
+			}
+			methods := make([]string, 0, len(ep.TACACS.AllowedMethods))
+			for _, m := range ep.TACACS.AllowedMethods {
+				methods = append(methods, string(m))
+			}
+			item.TACACS = &ClientTACACSEndpointView{
+				SharedSecretConfigured: ep.TACACS.SharedSecret.Set(),
+				AllowedMethods:         methods,
+				DefaultService:         svc,
+				DefaultGroupIDs:        cloneStrings(ep.TACACS.DefaultGroupIDs),
+				Accounting:             clientAcctView(ep.TACACS.Accounting),
+			}
+		}
+		if ep.RADIUS != nil {
+			rad := clientRADIUSView(config.Client{Endpoints: []config.ClientEndpoint{ep}}, radLife)
+			item.RADIUS = &rad
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func radiusEndpointOf(c config.Client) *config.ClientEndpoint {
+	for i := range c.Endpoints {
+		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil {
+			return &c.Endpoints[i]
+		}
+	}
+	return nil
+}
+
+func hasTransport(ts []domain.Transport, want domain.Transport) bool {
+	for _, t := range ts {
+		if t == want {
+			return true
+		}
+	}
+	return false
+}
+
+func rolesToStrings(in []domain.ListenerRole) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(in))
+	for _, r := range in {
+		out = append(out, string(r))
+	}
+	return out
+}
+
 func (s OptionalSecret) patch() *state.SecretPatch {
 	if !s.Present {
 		return nil
@@ -385,6 +488,243 @@ func clientAcctFromView(v *ClientAcctView) *config.ClientAcct {
 		return nil
 	}
 	return &config.ClientAcct{Enabled: v.Enabled, AcceptStart: v.AcceptStart, AcceptStop: v.AcceptStop, AcceptWatchdog: v.AcceptWatchdog}
+}
+
+func clientEndpointsFromView(in *[]ClientEndpointWrite) (*[]config.ClientEndpoint, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]config.ClientEndpoint, 0, len(*in))
+	seen := map[string]struct{}{}
+	var radiusCount int
+	for i, raw := range *in {
+		ep, err := clientEndpointFromWrite(raw, i)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[ep.ID]; ok {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "duplicate endpoint id").WithPath("endpoints").WithDetail("index", i)
+		}
+		seen[ep.ID] = struct{}{}
+		if ep.Protocol == domain.ProtocolRADIUS {
+			radiusCount++
+			if radiusCount > 1 {
+				return nil, domain.NewError(domain.CodeInvalidArgument, "a client may have at most one RADIUS UDP endpoint").WithPath("endpoints").WithDetail("index", i)
+			}
+		}
+		out = append(out, ep)
+	}
+	return &out, nil
+}
+
+func clientEndpointFromWrite(raw ClientEndpointWrite, index int) (config.ClientEndpoint, error) {
+	path := "endpoints"
+	if raw.ID == "" {
+		return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "id is required").WithPath(path).WithDetail("index", index)
+	}
+	proto, err := domain.ParseProtocol(raw.Protocol)
+	if err != nil || proto == domain.ProtocolHTTP {
+		return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "protocol must be tacacs or radius").WithPath(path).WithDetail("index", index)
+	}
+	transport := raw.Transport
+	switch proto {
+	case domain.ProtocolTACACS:
+		if transport != config.EndpointTransportTCP && transport != config.EndpointTransportTLS {
+			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "tacacs transport must be tcp or tls").WithPath(path).WithDetail("index", index)
+		}
+	case domain.ProtocolRADIUS:
+		if transport != config.EndpointTransportUDP {
+			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "radius transport must be udp").WithPath(path).WithDetail("index", index)
+		}
+	}
+	roles, err := listenerRolesFromView(raw.Roles, proto, path)
+	if err != nil {
+		return config.ClientEndpoint{}, wrapRoleErr(err, index)
+	}
+	if len(roles) == 0 {
+		return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "at least one role is required").WithPath(path).WithDetail("index", index)
+	}
+	if raw.TACACS != nil && raw.RADIUS != nil {
+		return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "endpoint must set exactly one of tacacs or radius").WithPath(path).WithDetail("index", index)
+	}
+	ep := config.ClientEndpoint{ID: raw.ID, Protocol: proto, Transport: transport, Roles: roles}
+	switch proto {
+	case domain.ProtocolTACACS:
+		if raw.RADIUS != nil {
+			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "radius block is not valid on a tacacs endpoint").WithPath(path).WithDetail("index", index)
+		}
+		tac, err := tacacsEndpointFromWrite(raw.TACACS)
+		if err != nil {
+			return config.ClientEndpoint{}, err
+		}
+		ep.TACACS = tac
+	case domain.ProtocolRADIUS:
+		if raw.TACACS != nil {
+			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "tacacs block is not valid on a radius endpoint").WithPath(path).WithDetail("index", index)
+		}
+		rad, err := radiusEndpointFromWrite(raw.RADIUS)
+		if err != nil {
+			return config.ClientEndpoint{}, err
+		}
+		ep.RADIUS = rad
+	}
+	return ep, nil
+}
+
+func tacacsEndpointFromWrite(v *ClientTACACSEndpointWrite) (*config.TACACSEndpoint, error) {
+	if v == nil {
+		return &config.TACACSEndpoint{}, nil
+	}
+	auth, err := clientAuthFromView(&ClientAuthView{AllowedMethods: v.AllowedMethods, DefaultService: v.DefaultService})
+	if err != nil {
+		return nil, err
+	}
+	if auth == nil {
+		auth = &config.ClientAuth{}
+	}
+	life, err := lifecycleFromView(v.SharedSecretLifecycle)
+	if err != nil {
+		return nil, err
+	}
+	if life == nil {
+		life = &config.SecretLifecycleMeta{}
+	}
+	tac := &config.TACACSEndpoint{
+		AllowedMethods:        auth.AllowedMethods,
+		DefaultService:        auth.DefaultService,
+		DefaultGroupIDs:       cloneStrings(v.DefaultGroupIDs),
+		SharedSecretLifecycle: *life,
+	}
+	if v.Accounting != nil {
+		tac.Accounting = *clientAcctFromView(v.Accounting)
+	}
+	if patch := v.SharedSecret.patch(); patch != nil && !patch.Clear && patch.Ref.Set() {
+		tac.SharedSecret = patch.Ref
+		if tac.SharedSecret.Purpose == "" {
+			tac.SharedSecret.Purpose = credentials.PurposeLegacySharedSecret
+		}
+	}
+	return tac, nil
+}
+
+func radiusEndpointFromWrite(v *ClientRADIUSWrite) (*config.RADIUSEndpoint, error) {
+	if v == nil {
+		return &config.RADIUSEndpoint{
+			RequireMessageAuthenticator: true,
+			LimitProxyState:             true,
+		}, nil
+	}
+	methods, err := config.ParseRADIUSAuthMethods(v.AllowedMethods)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ParseRADIUSStatusTypes(v.AcceptStatusTypes)
+	if err != nil {
+		return nil, err
+	}
+	rad := &config.RADIUSEndpoint{
+		RequireMessageAuthenticator:  true,
+		LimitProxyState:              true,
+		AllowedAuthenticationMethods: methods,
+		AcceptStatusTypes:            status,
+	}
+	if v.AccessPolicyID != nil {
+		rad.AccessPolicyID = *v.AccessPolicyID
+	}
+	if v.RequireMessageAuthenticator != nil {
+		rad.RequireMessageAuthenticator = *v.RequireMessageAuthenticator
+	}
+	if v.LimitProxyState != nil {
+		rad.LimitProxyState = *v.LimitProxyState
+	}
+	life, err := lifecycleFromView(v.SharedSecretLifecycle)
+	if err != nil {
+		return nil, err
+	}
+	if life != nil {
+		rad.SharedSecretLifecycle = *life
+	}
+	if patch := v.SharedSecret.patch(); patch != nil && !patch.Clear && patch.Ref.Set() {
+		rad.SharedSecret = patch.Ref
+		if rad.SharedSecret.Purpose == "" {
+			rad.SharedSecret.Purpose = credentials.PurposeRADIUSSharedSecret
+		}
+	}
+	return rad, nil
+}
+
+func radiusPatchFromView(v *ClientRADIUSWrite) (*state.RADIUSPatch, error) {
+	if v == nil {
+		return nil, nil
+	}
+	roles, err := listenerRolesFromView(v.Roles, domain.ProtocolRADIUS, "radius.roles")
+	if err != nil {
+		return nil, err
+	}
+	life, err := lifecycleFromView(v.SharedSecretLifecycle)
+	if err != nil {
+		return nil, err
+	}
+	methods, err := config.ParseRADIUSAuthMethods(v.AllowedMethods)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ParseRADIUSStatusTypes(v.AcceptStatusTypes)
+	if err != nil {
+		return nil, err
+	}
+	return &state.RADIUSPatch{
+		SharedSecret:                v.SharedSecret.patch(),
+		SharedSecretLifecycle:       life,
+		Enabled:                     v.Enabled,
+		Roles:                       roles,
+		RequireMessageAuthenticator: v.RequireMessageAuthenticator,
+		LimitProxyState:             v.LimitProxyState,
+		AllowedMethods:              methods,
+		AccessPolicyID:              v.AccessPolicyID,
+		AcceptStatusTypes:           status,
+	}, nil
+}
+
+func listenerRolesFromView(in []string, proto domain.Protocol, path string) ([]domain.ListenerRole, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]domain.ListenerRole, 0, len(in))
+	seen := map[domain.ListenerRole]struct{}{}
+	for i, raw := range in {
+		r, err := domain.ParseListenerRole(raw)
+		if err != nil {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "unknown listener role").WithPath(path).WithDetail("index", i)
+		}
+		if !roleLegalForProtocol(proto, r) {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "role is not legal for this protocol").WithPath(path).WithDetail("index", i)
+		}
+		if _, ok := seen[r]; ok {
+			continue
+		}
+		seen[r] = struct{}{}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+func wrapRoleErr(err error, index int) error {
+	if de, ok := domain.AsError(err); ok {
+		return de.WithDetail("index", index)
+	}
+	return err
+}
+
+func roleLegalForProtocol(proto domain.Protocol, role domain.ListenerRole) bool {
+	switch proto {
+	case domain.ProtocolTACACS:
+		return role == domain.RoleAuthentication || role == domain.RoleAuthorization || role == domain.RoleAccounting
+	case domain.ProtocolRADIUS:
+		return role == domain.RoleAccess || role == domain.RoleAccounting
+	default:
+		return false
+	}
 }
 
 func lifecycleFromView(v *LifecycleWrite) (*config.SecretLifecycleMeta, error) {

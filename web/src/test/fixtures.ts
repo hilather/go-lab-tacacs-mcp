@@ -53,8 +53,54 @@ export const sampleClient: Client = {
   authentication: { allowed_methods: ["ascii", "pap"], default_service: "shell" },
   authorization: { default_group_ids: ["readonly"] },
   accounting: { enabled: true, accept_start: true, accept_stop: true, accept_watchdog: true },
+  protocols: {
+    tacacs: { legacy_enabled: true, tls_enabled: false, shared_secret_configured: true },
+    radius: {
+      enabled: false,
+      roles: [],
+      shared_secret_configured: false,
+      require_message_authenticator: true,
+      limit_proxy_state: true,
+    },
+  },
   created_at: "2026-08-12T00:00:00Z",
   updated_at: "2026-08-12T00:00:00Z",
+};
+
+export const sampleRadiusClient: Client = {
+  ...sampleClient,
+  id: "lab-radius",
+  display_name: "Lab RADIUS NAS",
+  protocols: {
+    tacacs: { legacy_enabled: false, tls_enabled: false, shared_secret_configured: false },
+    radius: {
+      enabled: true,
+      roles: ["access", "accounting"],
+      shared_secret_configured: true,
+      secret_lifecycle: "current",
+      require_message_authenticator: false,
+      limit_proxy_state: true,
+      allowed_methods: ["pap", "chap"],
+      access_policy_id: "default-radius-access",
+      accept_status_types: ["start", "stop"],
+    },
+  },
+  endpoints: [
+    {
+      id: "radius-udp",
+      protocol: "radius",
+      transport: "udp",
+      roles: ["access", "accounting"],
+      radius: {
+        enabled: true,
+        roles: ["access", "accounting"],
+        shared_secret_configured: true,
+        require_message_authenticator: false,
+        limit_proxy_state: true,
+        allowed_methods: ["pap", "chap"],
+      },
+    },
+  ],
 };
 
 export const sampleToken: TokenView = {
@@ -78,6 +124,8 @@ export const sampleEvent: EventView = {
   type: "ascii.login",
   result: "fail",
   transport: "legacy",
+  protocol: "tacacs",
+  listener_role: "aaa",
   client_id: "lab-switch",
   privilege: 1,
   user_id: "alice",

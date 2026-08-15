@@ -19,6 +19,7 @@ func TestNoForbiddenImports(t *testing.T) {
 		"github.com/hilather/go-lab-tacacs-mcp/internal/policy",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/api",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/config",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius",
 		"net",
 		"net/http",
 	}

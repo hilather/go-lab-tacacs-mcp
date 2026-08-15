@@ -7,7 +7,7 @@ Last updated: 2026-08-13 (Pages enablement + release watch + Ubuntu/Rocky varian
 
 | Surface | 1.0 |
 |---|---|
-| Config schema | `schema_version: 1` |
+| Config schema | `schema_version: 1` (default) and `2` (named listeners; RADIUS UDP default off) |
 | REST | `/api/v1` |
 | MCP | `2026-07-28` only |
 | Image | `ghcr.io/hilather/go-lab-tacacs-mcp:<tag-or-digest>` (also `:<tag>-ubuntu`, `:<tag>-rocky`) |

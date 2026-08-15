@@ -1,7 +1,7 @@
 # Baseline state — users, groups, clients, and everything else
 
 Status: operator first-setup  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 This is how you configure TacLab **before** devices or agents talk to it. Schema and invariants live in [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md). Day-2 operations stay in [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First boot: [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).
 
@@ -22,9 +22,9 @@ There is **no persisted runtime database**. The durable state is files on disk. 
 | Compose wiring | `deployments/compose/compose.yaml` | Yes — mounts YAML + Docker secrets |
 | Runtime overlay | *(none)* | **No** |
 
-`taclabd` never rewrites the baseline file. Unknown YAML fields fail closed. `schema_version: 1` is required.
+`taclabd` never rewrites the baseline file. Unknown YAML fields fail closed. `schema_version: 1` remains the Compose/labgen default (TACACS-only). `schema_version: 2` is required to enable RADIUS/UDP. `labgen` also writes `taclab.combined.yaml` and `taclab.radius-only.yaml`. Do not advertise complete RADIUS.
 
-Checked-in template (no secrets): [configs/lab.example.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.yaml). `labgen` writes a Compose-ready copy with file refs that match Docker secret names.
+Checked-in templates (no secrets): [configs/lab.example.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.yaml) (v1) and [configs/lab.example.v2.yaml](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/configs/lab.example.v2.yaml) (combined TACACS + RADIUS). `labgen` writes Compose-ready copies with file refs that match Docker secret names.
 
 ---
 
@@ -36,12 +36,13 @@ cd go-lab-tacacs-mcp
 go run ./tools/labgen deployments/compose   # or: make lab-gen
 ```
 
-That materializes unique ≥32-character legacy secrets, Argon2id PHC verifiers, one API bearer, and lab PKI. It does not print secret values.
+That materializes unique ≥32-character legacy **and** RADIUS secrets, Argon2id PHC verifiers, one API bearer, and lab PKI. The RADIUS secret is distinct from the TACACS secret. It does not print secret values.
 
 | Generated secret file | Used by |
 |---|---|
 | `api_admin_token` | Bootstrap REST / MCP / UI bearer |
 | `lab_switches_tacacs_secret` | Legacy client `lab-switches` |
+| `lab_switches_radius_secret` | RADIUS/UDP endpoint on `lab-switches` (v2 combined / RADIUS-only) |
 | `lab_admin_argon2id` | User `lab-admin` ASCII/PAP |
 | `lab_admin_enable_argon2id` | User `lab-admin` ENABLE |
 | `lab_admin_challenge_secret` | User `lab-admin` CHAP / MS-CHAP |
@@ -89,7 +90,7 @@ curl -sS -X POST http://127.0.0.1:8080/api/v1/config/reload \
 | User | `lab-admin` | TACACS username `lab-admin`, group `administrators`, login + enable + challenge |
 | User | `lab-readonly` | Group `readonly`; restricted to clients `lab-switches` and `secure-routers` |
 | User | `lab-disabled` | `enabled: false` — present for negative tests |
-| Client | `lab-switches` | Legacy, host 49, shared-secret file, `0.0.0.0/0` + `::/0` |
+| Client | `lab-switches` | Legacy, host 49, TACACS shared-secret file, `0.0.0.0/0` + `::/0`. Combined/RADIUS-only profiles add a distinct RADIUS secret on UDP 1812/1813. |
 | Client | `secure-routers` | TLS 1.3 mTLS, host 300, SAN `nas.lab.example` |
 | Token | `lab-admin` | Bootstrap bearer; all lab scopes except `events:sensitive` |
 

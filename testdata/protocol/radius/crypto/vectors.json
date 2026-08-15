@@ -1,0 +1,134 @@
+{
+  "rfc": "2865 §3, §5.2, §7; 2866 §3; 2869 §5.14; 3579 §3.2",
+  "source": "RFC 2865 §7 published hex dumps, independently verified with Python hashlib.md5. Additional lab vectors computed with Python hashlib.md5 / hmac-md5 (not the production Go package). Secrets are RFC/lab fixtures, not production values.",
+  "rfc_secret_hex": "78797a7a7935343631",
+  "lab_secret_hex": "6c61622d7261646975732d746573742d7365637265742d33326f63746574732121",
+  "user_password": [
+    {
+      "name": "rfc2865-7.1-arctangent",
+      "source": "RFC 2865 §7.1",
+      "secret": "rfc",
+      "password_hex": "61726374616e67656e74",
+      "request_authenticator_hex": "0f403f9473978057bd83d5cb98f4227a",
+      "hidden_hex": "0dbe708d93d413ce3196e43f782a0aee"
+    },
+    {
+      "name": "rfc2865-7.3-challenge",
+      "source": "RFC 2865 §7.3",
+      "secret": "rfc",
+      "password_hex": "6368616c6c656e6765",
+      "request_authenticator_hex": "f3a47a1f6a6d76710b947ab93041a039",
+      "hidden_hex": "33657573778289b570885e15084825c5"
+    },
+    {
+      "name": "rfc2865-7.3-card-response",
+      "source": "RFC 2865 §7.3",
+      "secret": "rfc",
+      "password_hex": "3939313031343632",
+      "request_authenticator_hex": "b122556d428a13d0d6253807c457ecf0",
+      "hidden_hex": "692c1f205fc081b919b95195f561a581"
+    },
+    {
+      "name": "lab-empty",
+      "source": "Independent hashlib.md5; empty password pads to 16 NUL octets",
+      "secret": "lab",
+      "password_hex": "",
+      "request_authenticator_hex": "00112233445566778899aabbccddeeff",
+      "hidden_hex": "c58c877caf1fe879da863eb85b1c10b6"
+    },
+    {
+      "name": "lab-17-octet",
+      "source": "Independent hashlib.md5; two-block password",
+      "secret": "lab",
+      "password_hex": "7369787465656e2d706c75732d6f6e6558",
+      "request_authenticator_hex": "00112233445566778899aabbccddeeff",
+      "hidden_hex": "b6e5ff08ca7a8654aaea4bcb76737ed3e8fad7ed07381e0bf578811d972d917e"
+    },
+    {
+      "name": "lab-32-octet",
+      "source": "Independent hashlib.md5; exact two blocks, no NUL pad",
+      "secret": "lab",
+      "password_hex": "3031323334353637383961626364656630313233343536373839616263646566",
+      "request_authenticator_hex": "00112233445566778899aabbccddeeff",
+      "hidden_hex": "f5bdb54f9b2ade4ee2bf5fda387875d0cac308cc0be0c74445b98510a419be50"
+    }
+  ],
+  "response_authenticator": [
+    {
+      "name": "rfc2865-7.1-access-accept",
+      "source": "RFC 2865 §7.1",
+      "secret": "rfc",
+      "code": 2,
+      "id": 0,
+      "length": 38,
+      "request_authenticator_hex": "0f403f9473978057bd83d5cb98f4227a",
+      "attributes_hex": "0606000000010f06000000000e06c0a80103",
+      "response_authenticator_hex": "86fe220e7624ba2a1005f6bf9b55e0b2"
+    },
+    {
+      "name": "rfc2865-7.2-access-accept",
+      "source": "RFC 2865 §7.2",
+      "secret": "rfc",
+      "code": 2,
+      "id": 1,
+      "length": 56,
+      "request_authenticator_hex": "2aee86f08d0d55969ca5978e0d3367a2",
+      "attributes_hex": "0606000000020706000000010806fffffffe0a06000000020d06000000010c06000005dc",
+      "response_authenticator_hex": "15efbc7dab26cfa3dc34d9c03c8601a4"
+    },
+    {
+      "name": "rfc2865-7.3-access-reject",
+      "source": "RFC 2865 §7.3",
+      "secret": "rfc",
+      "code": 3,
+      "id": 3,
+      "length": 20,
+      "request_authenticator_hex": "b122556d428a13d0d6253807c457ecf0",
+      "attributes_hex": "",
+      "response_authenticator_hex": "a42f4fca45916c4e09c8340f9e746aa0"
+    },
+    {
+      "name": "lab-access-accept-with-ma",
+      "source": "Independent hashlib.md5 after HMAC-MD5 Message-Authenticator is inserted",
+      "secret": "lab",
+      "code": 2,
+      "id": 9,
+      "length": 42,
+      "request_authenticator_hex": "00112233445566778899aabbccddeeff",
+      "attributes_hex": "501208bd86b6f5af0107941253481074752b12046f6b",
+      "response_authenticator_hex": "5c946478034adb1d86e178928a952f53"
+    }
+  ],
+  "accounting_request_authenticator": [
+    {
+      "name": "lab-acct-start",
+      "source": "Independent hashlib.md5 of Code+ID+Length+16zero+Acct-Status-Type=Start+secret",
+      "secret": "lab",
+      "packet_hex": "0407001a00000000000000000000000000000000280600000001",
+      "authenticator_hex": "57f39f48345c8084dcac1eaf14768b62"
+    }
+  ],
+  "message_authenticator": [
+    {
+      "name": "lab-access-request",
+      "source": "Independent hmac.new(secret, packet_with_zero_ma, hashlib.md5)",
+      "secret": "lab",
+      "packet_hex": "0109002b00112233445566778899aabbccddeeff01056c6162501200000000000000000000000000000000",
+      "message_authenticator_hex": "16b50bc9fe4c37b7451dd7e7162da0e3"
+    },
+    {
+      "name": "lab-access-accept",
+      "source": "Independent HMAC-MD5; Authenticator field is the Request Authenticator during compute",
+      "secret": "lab",
+      "packet_hex": "0209002a00112233445566778899aabbccddeeff50120000000000000000000000000000000012046f6b",
+      "message_authenticator_hex": "08bd86b6f5af0107941253481074752b"
+    },
+    {
+      "name": "lab-accounting-response",
+      "source": "Independent HMAC-MD5; Authenticator field is the Accounting-Request Authenticator during compute",
+      "secret": "lab",
+      "packet_hex": "0507002657f39f48345c8084dcac1eaf14768b62501200000000000000000000000000000000",
+      "message_authenticator_hex": "3f8cd2dd32bc8d1936d71df0ac4f6456"
+    }
+  ]
+}

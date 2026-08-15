@@ -1,0 +1,46 @@
+# Machine-readable RFC 2866 RADIUS accounting conformance registry.
+# Status and evidence start NOT_STARTED. Edit this file; generate docs.
+schema_version: 1
+rfc: "2866"
+title: RFC 2866 RADIUS Accounting
+rows:
+  - id: R66-PKT-001
+    section: accounting-behavior
+    section_title: Accounting behavior
+    level: MUST
+    requirement: Validate Accounting-Request and its authenticator
+    evidence_required: Accounting-Request Authenticator verified before side effects
+    status: PASS
+    evidence:
+      - unit:internal/radius/crypto.TestAccountingRequestAuthenticatorVectors
+      - unit:internal/radius/crypto.TestAccountingAuthenticatorIgnoresOnWireField
+      - unit:internal/radius/server.TestAccountingValidatesRequestAuthenticator
+      - unit:internal/radius/testclient/codec.TestIndependentAccountingRequestAuthenticatorVectors
+      - unit:internal/radius/crypto.TestPeerAccountingRequestAuthenticatorBytes
+      - golden:testdata/protocol/radius/crypto/vectors.json
+      - fuzz:internal/radius/crypto.FuzzAccountingRequestAuthenticator
+      - bench:internal/radius/crypto.BenchmarkAccountingRequestAuthenticator
+  - id: R66-RESP-001
+    section: accounting-behavior
+    section_title: Accounting behavior
+    level: MUST
+    requirement: Construct exact Accounting-Response
+    evidence_required: Identifier copy, Response Authenticator, Message-Authenticator first
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestAccountingResponseOnUDP
+      - unit:internal/radius/server.TestAccountingFiveStatusTypes
+      - unit:internal/radius/testclient.TestAccountingResponseRequiresMA
+      - unit:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP
+      - interop:internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP
+  - id: R66-STAT-001
+    section: accounting-behavior
+    section_title: Accounting behavior
+    level: MUST
+    requirement: Map declared Acct-Status-Type values
+    evidence_required: Start, Stop, Interim-Update, Accounting-On, Accounting-Off
+    status: PASS
+    evidence:
+      - unit:internal/radius/server.TestAccountingFiveStatusTypes
+      - unit:internal/radius/server.TestAccountingUnknownAndAllowlistedStatus
+      - unit:internal/aaa.TestRecordRADIUSAccountingAllKinds

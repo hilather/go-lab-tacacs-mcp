@@ -181,7 +181,15 @@ func (s *Server) reloadConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) exportConfig(w http.ResponseWriter, r *http.Request) {
-	s.invoke(w, r, operations.IDConfigExport, operations.ExportConfigRequest{View: r.URL.Query().Get("view")}, false)
+	normalize, err := parseBoolQuery(r, "normalize")
+	if err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDConfigExport, operations.ExportConfigRequest{
+		View:      r.URL.Query().Get("view"),
+		Normalize: normalize,
+	}, false)
 }
 
 func (s *Server) resetRuntime(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +208,28 @@ func (s *Server) testAuthentication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.invoke(w, r, operations.IDAuthenticationTest, req, false)
+}
+
+func (s *Server) testRadiusAccess(w http.ResponseWriter, r *http.Request) {
+	var req operations.RadiusAccessTestRequest
+	if err := decodeJSON(r, &req, s.maxBody()); err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDRadiusAccessTest, req, false)
+}
+
+func (s *Server) evaluateRadiusPolicy(w http.ResponseWriter, r *http.Request) {
+	var req operations.RadiusPolicyEvaluateRequest
+	if err := decodeJSON(r, &req, s.maxBody()); err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDRadiusPolicyEvaluate, req, false)
+}
+
+func (s *Server) listRadiusAttributes(w http.ResponseWriter, r *http.Request) {
+	s.invoke(w, r, operations.IDRadiusAttributesList, operations.ListRadiusAttributesRequest{}, false)
 }
 
 func listObjectQuery[T any](r *http.Request, build func(cursor string, limit int, deleted bool) T) (T, error) {

@@ -2,11 +2,13 @@
 
 Status: executable implementation plan  
 Architecture: all-in-one Go backend with React and TypeScript frontend  
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## 1. How agents must use this backlog
 
-This file is the implementation sequence and acceptance checklist. It is not permission to ignore the contracts in `AGENTS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `TACACS_CONFORMANCE.md`, `API_PARITY.md`, `CONFIGURATION.md`, `TESTING_AND_BENCHMARKS.md`, or `LAB_DEPLOYMENT.md`.
+This file is the implementation sequence and acceptance checklist. It is not permission to ignore the contracts in `AGENTS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `TACACS_CONFORMANCE.md`, `RADIUS_CONFORMANCE.md`, `API_PARITY.md`, `CONFIGURATION.md`, `TESTING_AND_BENCHMARKS.md`, or `LAB_DEPLOYMENT.md`.
+
+RADIUS work uses stable pack task IDs `RAD-*` (section 22). Do not invent a parallel RADIUS numbering scheme.
 
 For every task:
 
@@ -1526,6 +1528,7 @@ See `docs/MAINTENANCE.md`.
 - [ ] MCP catalog.
 - [ ] API parity table.
 - [ ] TACACS conformance table.
+- [ ] RADIUS conformance table when the change touches RADIUS.
 - [ ] Testing/benchmark guidance.
 - [ ] Lab deployment/runbook.
 - [ ] Changelog/release notes.
@@ -1551,3 +1554,66 @@ The first sprint should produce a thin, testable vertical skeleton rather than U
 - [x] P14 build image and start Compose on high container ports.
 
 This sprint is not a release and must not label TACACS support complete. Its purpose is to validate architectural boundaries, parity mechanics, test scaffolding, and deployment flow before filling the conformance matrix.
+
+## 22. RADIUS implementation backlog (`RAD-*`)
+
+Pack task IDs are the backlog keys. Implementation design: [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md). Binding ADRs: [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md). Conformance: [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md). Source pin: `3322c26bd78969498e6fa0cd6e4b30902d5c8a94`.
+
+Do not advertise complete RADIUS. Do not implement production listeners in governance-only PRs.
+
+### 22.1 EPIC-00 Governance
+
+- [x] `RAD-GOV-002` Update canonical design and architecture scope (RADIUS removed from 1.0 non-goals; v2 migrator; accounting fail-open-to-ack exception).
+- [x] `RAD-GOV-003` Approve and integrate RADIUS ADRs 0013–0018.
+- [x] `RAD-GOV-004` Create RADIUS conformance registry skeleton (`R65-*`, `R66-*`, `R69-*`, `R79-*`, `R80-*`, `PRJ-*`).
+- [x] `RAD-GOV-006` Freeze naming and compatibility policy for the first RADIUS release (ADR 0018).
+- [ ] `RAD-GOV-001` Verify checkout, baseline, and source drift (pin recorded as `3322c26`; remaining baseline smoke is ongoing CI).
+- [x] `RAD-GOV-005` Add package-boundary and import guard tests.
+
+### 22.2 EPIC-01 Domain
+
+- [x] `RAD-DOM-001` Domain taxonomy: `Protocol`, `ListenerRole`, `Carrier`, `RequestContext`, and shared `AuthMethod`/`Effect`/`AuthOutcome`. `domain.Transport` remains TACACS `legacy`/`tls` only. `ParseAuthMethod` accepts `password`/`pap`/`chap`; `pap` stores `password`.
+- [x] `RAD-DOM-002` Neutral AAA `VerifyCredentials` facade over password/CHAP evidence. TACACS one-shot PAP/CHAP map `AuthPass`/`AuthReject`/`AuthError` to the same `AuthenticationStep` statuses.
+- [x] `RAD-DOM-003` `AuthenticateAccess` verifies PAP/CHAP then evaluates the snapshot-held RADIUS engine. Permit → accept + legal reply attrs; deny / default deny → `reject_policy`; evaluator error → `internal_error` Access-Reject.
+- [x] `RAD-DOM-004` Neutral `RecordRADIUSAccounting` maps onto the event ring. `Acct-Session-Id` is `Event.AcctSessionID` (string); TACACS `SessionID` stays `uint32`. Sensitive attribute summaries are stored redacted. No UDP listener.
+- [ ] `RAD-DOM-005` … `RAD-DOM-008` Remaining RADIUS access methods and TACACS Bridge adapter.
+
+### 22.3 Later epics (not started)
+
+- [x] `RAD-CFG-001` Schema v2 loader + in-memory v1 migrator. RADIUS listeners default `enabled: false`. Client endpoints and `radius_policies` are later PRs. `config.export` still emits v1.
+- [x] `RAD-CFG-002` v2 `clients[].endpoints[]`, `PurposeRADIUSSharedSecret`, `EvaluateSecrets` RADIUS policy, `certificate_only` requires TACACS TLS, projection invariant, role-specific RADIUS LPM indexes. Secrets resolved via `config.ReadSecret` / `EvaluateSecrets` and `taclabd` `secretLookup`.
+- [x] `RAD-CFG-003` Snapshot compiles RADIUS access/accounting LPM indexes and an empty dictionary placeholder. v1 TACACS snapshot fields stay equivalent. Invalid RADIUS compile keeps the previous snapshot. Overlay patches retain omitted RADIUS secrets. Listeners are not started.
+- [ ] `RAD-CFG-004` … `RAD-CFG-008` Export convert flag (`normalize=true`).
+- [ ] `RAD-CODEC-001` … `RAD-CODEC-008` RADIUS codec, attributes, dictionary, crypto. Named `Cisco-AVPair` is not MVP.
+  - [x] Bounded packet encode/decode and raw TLV / VSA framing (`internal/radius/codec`, `internal/radius/attribute`, `testdata/protocol/radius`). No UDP listener. Rows `R65-PKT-001`, `R65-PKT-002`, `R65-ATTR-001`, `R65-ATTR-002`, `R65-VSA-001` are `IN_PROGRESS` (production goldens/fuzz only; independent `testclient` is still required before PASS).
+  - [x] Authenticators, User-Password hide/unhide, Message-Authenticator primitives (`internal/radius/crypto`). Access-Request Authenticator is a nonce. Constant-time compare. Rows `R65-RAUTH-001`, `R65-PAP-001`, `R66-PKT-001`, `R69-MA-001`, `R79-MA-001` are `IN_PROGRESS` (independent vectors + canary; no UDP listener, no MA-first insertion, independent `testclient` still required).
+  - [x] Built-in IETF MVP dictionary and packet-role checks (`internal/radius/attribute` `Builtin`, `DictionaryVersion` `builtin-mvp-1`). Unknown attributes preserved raw. Message-Authenticator allowed on Accounting-Request; required first on Access and Accounting responses. Named `Cisco-AVPair` is not MVP.
+- [x] Listener registry (`internal/runtime`) wraps TACACS and RADIUS listeners. `secretLookup` handles `RADIUSSharedSecret`. HTTP/status still lists three sockets.
+- [x] `RAD-RUN-001` Bounded UDP access/accounting listeners, worker/queue/rate limits, compiled `RADIUSIndex` unknown-client discard, exact-response cache (hit/pending/purge). Stub Access-Reject / Accounting-Response (MA first). Readiness is snapshot + required listeners + at least one AAA listener, or `server.admin_only`. Not advertised; default YAML stays off.
+- [ ] `RAD-RUN-002` … `RAD-RUN-008` Remaining runtime/journal/governor work.
+- [x] `RAD-ACCESS-001` Access integrity (MA / `limit_proxy_state` / EAP-without-MA) before cache mutation. PAP/CHAP extract + `VerifyCredentials`. Unknown user, bad password, CHAP length ≠ 17, conflicting auth, default-deny → Access-Reject. No Access-Accept.
+- [x] `RAD-ACCESS-002` Access-Accept/Reject from compiled policy: permit emits Access-Accept (MA first, then Proxy-State, then legal profile attrs); deny/default-deny/evaluator error emit Access-Reject. No user/group RADIUS rules.
+- [ ] `RAD-ACCESS-003` … `RAD-ACCESS-007` Remaining access reply orchestration (challenge, remaining methods).
+- [x] `RAD-POL-001` RADIUS access policy dialect compiler (client + fallback; `groups_any` / `method` / typed `equals|present|absent`; default deny). `pap` stores `password`. No user/group RADIUS fields. Snapshot compile fails closed on illegal reply roles.
+- [x] `RAD-POL-002` Policy evaluation on the access path; runtime reply-role legality; golden traces unchanged for TACACS.
+- [x] `RAD-POL-003` `radius.policy.evaluate` explains the compiled RADIUS engine (same walk as Access after credential pass).
+- [ ] `RAD-POL-004` … `RAD-POL-007` Remaining policy explain/API surfaces.
+- [ ] `RAD-ACCT-001` … `RAD-ACCT-007` RADIUS accounting and event semantics.
+- [x] `RAD-API-001` Protocol-aware status, build, and event filters.
+- [x] `RAD-API-002` Client RADIUS endpoints and v2 config views.
+- [x] `RAD-API-003` `radius.access.test` (`policy:test`) calls `AuthenticateAccess`; passwords wiped; REST/MCP parity.
+- [x] `RAD-API-004` `radius.policy.evaluate` uses the same compiled RADIUS engine as the wire path.
+- [x] `RAD-API-005` `radius.attributes.list` returns dictionary metadata only (no values/secrets).
+- [x] `RAD-API-006` Same-change generate (OpenAPI, MCP, frontend types, api-parity matrix).
+- [ ] Remaining `RAD-API-*` UI-adjacent admin surfaces (if any) stay with later PRs.
+- [x] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
+- [x] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, distinct RADIUS secret, combined + RADIUS-only + TACACS-only readiness. Not advertised as complete RADIUS.
+- [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
+- [x] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance evidence attached to `testdata/conformance/rfc*.yaml` and `project-radius.yaml`. Independent testclient UDP e2e is PASS. External `radclient` is SKIP when absent (`docs/INTEROP.md`). Fuzz seeds, race tests, and RADIUS benches recorded. Access-Challenge stays `DEFERRED_MAY`. Do not advertise complete RADIUS.
+- [x] `RAD-REL-001` Canonical residual limits match shipped RADIUS/UDP (no stub-path wording). Operator residual table in `docs/CANONICAL_DESIGN.md`.
+- [x] `RAD-REL-002` v1/v2 migration and `config.export` `normalize=true` documented in `docs/CONFIGURATION.md` and `docs/OPERATOR.md` §13. Source files are never rewritten.
+- [x] `RAD-REL-003` RADIUS operator/troubleshooting guide in `docs/OPERATOR.md` (ports, MA, PAP/CHAP, silent discard, memory-only accounting, residual limits).
+- [x] `RAD-REL-004` README catalog, RADIUS feature table, ADRs 0013–0018, and `docs/RADIUS_CONFORMANCE.md` residual/advertisement section. Interop skip honesty stays in `docs/INTEROP.md`.
+- [x] `RAD-REL-005` `CHANGELOG.md` `[Unreleased]` operator-facing closeout. **No release tag** in this change. Limitations are prominent. `system.build.get` RADIUS stays `partial`.
+- [x] `RAD-REL-006` Upgrade/rollback/reset documented (keep v1 file; old binaries cannot parse v2; overlay/cache/journal/ring lost on restart). Lab scenarios remain `make lab-test`.
+- [ ] `RAD-REL-007` Tag/release workflow. **Out of this PR.** Do not tag from the operator-docs closeout.

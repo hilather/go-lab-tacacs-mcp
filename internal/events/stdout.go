@@ -11,32 +11,37 @@ import (
 
 const (
 	maxJSONFieldBytes = 512
-	redactedSentinel  = "<redacted>"
+	// RedactedValue is stored for restricted fields (usernames, commands,
+	// Acct-Session-Id) when events:sensitive is not granted.
+	RedactedValue    = "<redacted>"
+	redactedSentinel = RedactedValue
 )
 
 // logLine is the stable stdout JSON object. Level is always "info":
 // audit acceptance is independent of process log level.
 type logLine struct {
-	TS        string `json:"ts"`
-	Level     string `json:"level"`
-	Event     string `json:"event"`
-	Category  string `json:"category"`
-	Type      string `json:"type"`
-	Result    string `json:"result"`
-	ID        uint64 `json:"id"`
-	Revision  uint64 `json:"revision,omitempty"`
-	Transport string `json:"transport,omitempty"`
-	ClientID  string `json:"client_id,omitempty"`
-	SessionID uint32 `json:"session_id,omitempty"`
-	TaskID    string `json:"task_id,omitempty"`
-	UserID    string `json:"user_id,omitempty"`
-	Command   string `json:"command,omitempty"`
-	Schema    int    `json:"schema_version"`
+	TS            string `json:"ts"`
+	Level         string `json:"level"`
+	Event         string `json:"event"`
+	Category      string `json:"category"`
+	Type          string `json:"type"`
+	Result        string `json:"result"`
+	ID            uint64 `json:"id"`
+	Revision      uint64 `json:"revision,omitempty"`
+	Transport     string `json:"transport,omitempty"`
+	ClientID      string `json:"client_id,omitempty"`
+	SessionID     uint32 `json:"session_id,omitempty"`
+	Protocol      string `json:"protocol,omitempty"`
+	AcctSessionID string `json:"acct_session_id,omitempty"`
+	TaskID        string `json:"task_id,omitempty"`
+	UserID        string `json:"user_id,omitempty"`
+	Command       string `json:"command,omitempty"`
+	Schema        int    `json:"schema_version"`
 }
 
 // WriteJSON writes one sanitized JSON line. It never emits control characters
-// or secret-bearing fields. UserID and command text are redacted when redact
-// is true.
+// or secret-bearing fields. UserID, command text, and AcctSessionID are
+// redacted when redact is true.
 func WriteJSON(w io.Writer, e Event, redact bool) error {
 	if w == nil {
 		return nil
@@ -64,6 +69,7 @@ func WriteJSON(w io.Writer, e Event, redact bool) error {
 		Transport: sanitize(e.Transport),
 		ClientID:  sanitize(e.ClientID),
 		SessionID: e.SessionID,
+		Protocol:  sanitize(e.Protocol),
 		TaskID:    sanitize(e.TaskID),
 		Schema:    e.SchemaVersion,
 	}
@@ -77,9 +83,13 @@ func WriteJSON(w io.Writer, e Event, redact bool) error {
 		if e.Command != "" {
 			line.Command = redactedSentinel
 		}
+		if e.AcctSessionID != "" {
+			line.AcctSessionID = redactedSentinel
+		}
 	} else {
 		line.UserID = sanitize(e.UserID)
 		line.Command = sanitize(e.Command)
+		line.AcctSessionID = sanitize(e.AcctSessionID)
 	}
 	raw, err := json.Marshal(line)
 	if err != nil {

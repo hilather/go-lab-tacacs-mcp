@@ -12,6 +12,18 @@ export const SCOPES = [
 
 export const AUTH_METHODS = ["ascii", "pap", "chap", "mschapv1", "mschapv2", "enable"] as const;
 
+export const RADIUS_AUTH_METHODS = ["pap", "chap"] as const;
+
+export const RADIUS_ROLES = ["access", "accounting"] as const;
+
+export const RADIUS_ACCT_STATUS_TYPES = [
+  "start",
+  "stop",
+  "interim_update",
+  "accounting_on",
+  "accounting_off",
+] as const;
+
 export const EVENT_CATEGORIES = [
   "authen",
   "author",
@@ -22,6 +34,17 @@ export const EVENT_CATEGORIES = [
   "system",
   "api",
   "security",
+] as const;
+
+export const EVENT_PROTOCOLS = ["tacacs", "radius", "http"] as const;
+
+export const EVENT_LISTENER_ROLES = [
+  "authentication",
+  "authorization",
+  "accounting",
+  "access",
+  "admin",
+  "aaa",
 ] as const;
 
 export const RULE_ACTIONS = ["permit_add", "permit_replace", "deny"] as const;

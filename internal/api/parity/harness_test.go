@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/mcp"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
@@ -117,6 +118,10 @@ func newWorld(t testing.TB, name string, scopes []string, adapters string) *worl
 	if err != nil {
 		t.Fatal(err)
 	}
+	aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Events: ring, Clock: parityClock, Creds: credentials.Options{Clock: parityClock}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg, err := operations.NewFromRepo(".", operations.Deps{
 		Build:    operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-12T00:00:00Z"},
 		State:    mgr,
@@ -124,6 +129,7 @@ func newWorld(t testing.TB, name string, scopes []string, adapters string) *worl
 		Usage:    svc,
 		Events:   ring,
 		Creds:    creds,
+		AAA:      aaaSvc,
 		LoadBaseline: func() (*config.Document, error) {
 			return config.Parse([]byte(parityYAML))
 		},

@@ -1,0 +1,19 @@
+# Machine-readable RFC 5080 RADIUS implementation issues registry.
+# File prefix is R80-. Do not invent R5080-* row IDs.
+schema_version: 1
+rfc: "5080"
+title: RFC 5080 Common RADIUS Implementation Issues and Suggested Fixes
+rows:
+  - id: R80-DUP-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: MUST
+    requirement: Duplicate/retransmission behavior is deterministic and bounded
+    evidence_required: Exact-response cache; pending discard; changed-RA purge; invalid-MA non-mutation
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestCacheHitPendingPurge
+      - unit:internal/radius/udp.TestAccessRejectAndCacheHitPendingPurgeOnUDP
+      - unit:internal/radius/udp.TestUDPIntegrityDiscardsDoNotMutateCache
+      - unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim
+      - bench:internal/radius/udp.BenchmarkRadiusRetransmissionCacheHit

@@ -9,17 +9,21 @@ import (
 
 // Attribute keys that must never appear on a span.
 var forbiddenTraceKeys = map[string]struct{}{
-	"packet_body":   {},
-	"body":          {},
-	"password":      {},
-	"secret":        {},
-	"shared_secret": {},
-	"challenge":     {},
-	"token":         {},
-	"cookie":        {},
-	"private_key":   {},
-	"verifier":      {},
-	"raw":           {},
+	"packet_body":           {},
+	"body":                  {},
+	"password":              {},
+	"secret":                {},
+	"shared_secret":         {},
+	"challenge":             {},
+	"token":                 {},
+	"cookie":                {},
+	"private_key":           {},
+	"verifier":              {},
+	"raw":                   {},
+	"user_password":         {},
+	"radius_secret":         {},
+	"message_authenticator": {},
+	"authenticator":         {},
 }
 
 // allowedTraceKeys is the closed set of redacted attributes.
@@ -34,6 +38,10 @@ var allowedTraceKeys = map[string]struct{}{
 	"client_id":    {},
 	"session_id":   {},
 	"authen_type":  {},
+	"protocol":     {},
+	"role":         {},
+	"reason_code":  {},
+	"outcome":      {},
 }
 
 type spanCtxKey struct{}

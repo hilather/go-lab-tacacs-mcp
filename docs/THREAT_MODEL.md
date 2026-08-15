@@ -1,17 +1,21 @@
 # TacLab threat model
 
 Status: implementation contract  
-Last updated: 2026-08-12
+Last updated: 2026-08-14
 
-This document is the 1.0 security review for TacLab. It links each high-risk
-threat to tests or an explicit accepted residual. There is no pager contract;
-readiness failure, secret-canary hits, race failures, and conformance FAIL are
-blocking.
+This document is the 1.0 security review for TacLab plus the in-process
+RADIUS/UDP lab path. It links each high-risk threat to tests or an explicit
+accepted residual. There is no pager contract; readiness failure, secret-canary
+hits, race failures, and conformance FAIL are blocking.
+
+RADIUS/UDP is a **controlled-network lab profile** ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)).
+It is not advertised as complete RADIUS and is not a substitute for RadSec.
 
 ## 1. Trust boundaries
 
 ```text
 untrusted TACACS device  --TCP 49 / TLS 300-->  taclabd listeners
+untrusted RADIUS NAS     --UDP 1812 / 1813--->  taclabd RADIUS access / accounting
 untrusted browser        --HTTP 8080 REST/UI-->  admin listener
 untrusted MCP client     --POST /mcp---------->  admin listener
 operator / CI            --YAML + secret files-> config loader
@@ -27,6 +31,8 @@ types. The runtime overlay is memory-only and vanishes on restart.
 | Asset | Sensitivity | Store |
 |---|---|---|
 | Legacy TACACS shared secrets | Critical | typed `SharedSecret`; file refs |
+| RADIUS shared secrets | Critical | typed `RADIUSSharedSecret`; distinct purpose |
+| RADIUS User-Password (plain and hidden) | Critical | typed buffers; wipe after verify |
 | Login verifiers (Argon2id) | High | typed `LoginVerifier` |
 | CHAP / MS-CHAP challenge secrets | Critical | typed `ChallengeSecret` |
 | ENABLE verifiers | High | typed `EnableVerifier` |
@@ -39,6 +45,7 @@ types. The runtime overlay is memory-only and vanishes on restart.
 ## 3. Attackers
 
 - Malicious or buggy TACACS NAS on a reachable listener.
+- Spoofed or buggy RADIUS NAS on a reachable UDP socket (source-IP secret selection).
 - Unauthenticated or under-scoped admin / MCP client.
 - Browser on the lab UI (CSRF, XSS, token theft).
 - Local process observer (logs, metrics, pprof, crash output).
@@ -69,6 +76,42 @@ types. The runtime overlay is memory-only and vanishes on restart.
 | TM-19 | Parser hang / alloc blow-up | High | Fuzz time/size caps; body budget | fuzz-smoke in CI |
 | TM-20 | Timing side channel on credentials | Medium | Constant-time compare; uniform FAIL | credentials tests |
 
+### 4.1 RADIUS/UDP (controlled-network profile)
+
+UDP RADIUS is MD5-era and spoofable. These rows apply only when a RADIUS
+listener is enabled. Default example YAML keeps RADIUS `enabled: false`.
+Do not treat a green TACACS conformance matrix as RADIUS PASS.
+
+| ID | Threat | Sev | Mitigation | Evidence |
+|---|---|---|---|---|
+| RAD-TM-01 | Allocation bomb (declared length / TLV walk) | High | 20..4096 both roles; bounded attr walk; fuzz | `internal/radius/codec` Fuzz*; goldens under `testdata/protocol/radius` |
+| RAD-TM-02 | Unknown / spoofed source | High | Compiled `RADIUSIndex` LPM before secret or credential work; silent discard | `TestUnknownClientDiscardUsesCompiledRADIUSIndex` |
+| RAD-TM-03 | UDP amplification / reflection | High | Reply only after known source + integrity; no reply on MA/authenticator fail; per-source rate; queue drop | spoof + size + `drop_overload` tests |
+| RAD-TM-04 | Authenticator confusion | High | Access Request Authenticator is a nonce; Accounting-Request Authenticator is validated; responses always insert Message-Authenticator first | `internal/radius/crypto` vectors |
+| RAD-TM-05 | RADIUS secret leakage / cross-purpose reuse | Critical | `PurposeRADIUSSharedSecret`; unique canary; lifecycle without `client_id`; cross-purpose HMAC warn | `TestRADIUSCanaryMatrix`, `TestFullCanaryMatrix` |
+| RAD-TM-06 | User-Password leak (plain or hidden) | Critical | hide/unhide + wipe; never log/event/API; unique canary | `TestCanaryUnhiddenPasswordNeverInErrors`, `TestRADIUSCanaryMatrix` |
+| RAD-TM-07 | BlastRADIUS / Message-Authenticator / Proxy-State bypass | Critical | Validate every present MA (Access and Accounting); Access require-MA default; `limit_proxy_state`; MA first on every Access and Accounting response | integrity tests; ADR 0016 |
+| RAD-TM-08 | Duplicate KDF / duplicate accounting | High | pending/completed retransmission cache + semantic journal excluding Acct-Delay-Time | cache + journal tests |
+| RAD-TM-09 | Cache poisoning | High | slot + Request Authenticator + declared-packet digest; invalid MA never reads/inserts/purges | collision/purge tests |
+| RAD-TM-10 | Challenge State / Access-Challenge | High | Not advertised; types may exist; no provider ships | `R65-ACCESS-004` `DEFERRED_MAY` |
+| RAD-TM-11 | UDP queue / cache / journal exhaustion | High | hard caps; `drop_overload`; journal saturation is fail-open-to-ack | saturation/leak/race |
+| RAD-TM-12 | VSA parser confusion | High | nested length checks; unknown VSA preserved raw | VSA corpus/fuzz |
+| RAD-TM-13 | Duplicate attribute bypass | High | dictionary cardinality; conflicting auth evidence → Access-Reject | access reject tests |
+| RAD-TM-14 | Trust NAS-IP / NAS-Identifier for the secret | High | Source IP vs compiled index selects the endpoint first | spoofed NAS tests |
+| RAD-TM-15 | Accounting spoof / false dedupe / replay | High | Accounting authenticator first; journal excludes Delay-Time; interim counters not collapsed | delay-time + interim tests |
+| RAD-TM-16 | Sensitive attribute export | Critical | sensitivity metadata + canaries | REST/MCP/UI/event scans |
+| RAD-TM-17 | Metric cardinality | Medium | Closed `protocol` / `role` / `reason_code` / `outcome` (and `code` / `result` / `type`); no `client_id`, User-Name, or IPs on RADIUS series | `TestRADIUSSeriesRejectClientIDUsernameAndIP` |
+| RAD-TM-18 | Reload vs cached replies | Medium | cache stores exact bytes + originating revision | retry-across-reload (later) |
+| RAD-TM-19 | Cross-protocol secret mix | High | Distinct purposes; no implicit TACACS secret for RADIUS | negative config tests |
+| RAD-TM-20 | UDP mistaken for a secure transport | High | Validate/status/UI/docs warnings; RadSec is a later ADR | ADR 0016; this document |
+
+Replay of an exact Access or Accounting datagram hits the completed cache and
+does not re-run the password KDF or append a second event. A Delay-Time retry
+mints a new Accounting-Response for the new Identifier/Request Authenticator
+without a second ring record. Ambiguous accounting identity (no
+`Acct-Session-Id` and no NAS identity) is fail-open-to-ack and sample-capped so
+it cannot fill the shared event ring.
+
 ## 5. Accepted residual risk (1.0)
 
 | Residual | Why accepted | Follow-up |
@@ -76,10 +119,13 @@ types. The runtime overlay is memory-only and vanishes on restart.
 | Co-located legacy + TLS listeners | Lab convenience (ADR 0001); TLS-only profile required | Operator warning; PR-21 TLS-only Compose |
 | Lab static bearer (no OAuth PRM) | ADR 0010 | Document 401 without PRM |
 | Process-local overlay | Restart restores baseline by design | Persistence is post-1.0 + ADR |
-| Metrics `client_id` on connection series | Config-bounded; overflow → `other` | Never on lifecycle/warning series |
+| Metrics `client_id` on connection series | Config-bounded; overflow → `other` | Never on lifecycle/warning **or RADIUS** series |
 | Enabled tracer retains last 256 spans in process | Lab debug only; tracing default off | Do not scrape spans remotely |
+| RADIUS/UDP on a reachable socket | Lab interop (ADR 0016); MD5/HMAC-MD5, spoofable datagrams, cleartext attributes | Default `enabled: false`; require Message-Authenticator; keep 1812/1813 off the public internet; RadSec later |
+| Ambiguous accounting identity fail-open-to-ack | Avoids NAS retry-storm; ring append is sampled | Operators who need strict dedupe raise journal caps |
 
-No critical or high finding is unowned.
+No critical or high finding is unowned. RADIUS listeners being present does
+**not** mean RADIUS conformance is complete.
 
 ## 6. Operator notes
 
@@ -89,7 +135,9 @@ Example scrapes and alerts (not a pager contract):
 - `rate(taclab_event_overwritten_total[5m])` — ring loss.
 - `taclab_reload_total{result_class="error"}` — failed reload (previous snapshot retained).
 - `taclab_secret_lifecycle{status="overdue"}` — rotate legacy keys.
-- Do not alert on `client_id` cardinality; that label is bounded and omitted from lifecycle series.
+- `rate(taclab_protocol_discards_total{protocol="radius"}[5m])` — UDP integrity / unknown-client / overload.
+- `taclab_radius_cache_saturations_total` / `taclab_radius_journal_saturations_total` — raise caps or rate-limit the NAS.
+- Do not alert on `client_id` cardinality; that label is bounded and omitted from lifecycle **and RADIUS** series.
 
 Profiling (`observability.profiling.enabled`) binds only with the dedicated
 metrics socket (`127.0.0.1:6060` when metrics are off). Never enable it on a

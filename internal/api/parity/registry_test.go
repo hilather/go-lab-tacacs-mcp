@@ -109,10 +109,12 @@ func TestMissingBindingFailsClosed(t *testing.T) {
 		}
 	}
 	copyFile(t, filepath.Join(root, "tools/registry/testdata/invalid/operations-missing-rest.yaml"), filepath.Join(tmp, registry.OperationsPath))
-	copyFile(t, filepath.Join(root, registry.RFC8907Path), filepath.Join(tmp, registry.RFC8907Path))
-	copyFile(t, filepath.Join(root, registry.RFC9887Path), filepath.Join(tmp, registry.RFC9887Path))
+	for _, spec := range registry.ConformanceSpecs {
+		copyFile(t, filepath.Join(root, spec.Path), filepath.Join(tmp, spec.Path))
+	}
 	copyFile(t, filepath.Join(root, registry.ParityDocPath), filepath.Join(tmp, registry.ParityDocPath))
 	copyFile(t, filepath.Join(root, registry.ConformanceDocPath), filepath.Join(tmp, registry.ConformanceDocPath))
+	copyFile(t, filepath.Join(root, registry.RadiusConformanceDocPath), filepath.Join(tmp, registry.RadiusConformanceDocPath))
 
 	rep, err := registry.ValidateRoot(tmp)
 	if err != nil {

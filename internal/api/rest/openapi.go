@@ -51,29 +51,32 @@ func BuildOpenAPI(reg *operations.Registry) map[string]any {
 	}
 
 	paths := map[string]any{
-		"/health/live":                getPath("health.live", "Liveness probe", nil, refSchema("HealthStatus"), false),
-		"/health/ready":               getPath("health.ready", "Readiness probe", nil, refSchema("HealthStatus"), false),
-		"/api/openapi.json":           getPath("openapi.get", "OpenAPI document", nil, map[string]any{"type": "object"}, false),
-		"/api/v1/status":              getPath(operations.IDSystemStatusGet, "Listener and snapshot status", []string{"state:read"}, envelopeRef("Status"), true),
-		"/api/v1/build":               getPath(operations.IDSystemBuildGet, "Build and specification versions", []string{"state:read"}, envelopeRef("BuildInfo"), true),
-		"/api/v1/config/effective":    effectiveConfigPath(),
-		"/api/v1/config/validate":     postPath(operations.IDConfigValidate, "Validate a candidate configuration without publishing", []string{"state:write"}, refSchema("ValidateConfigRequest"), envelopeRef("ValidateConfigResult"), false),
-		"/api/v1/config/reload":       mutatingPostPath(operations.IDConfigReload, "Reload the mounted baseline", []string{"config:reload"}, refSchema("ReloadConfigRequest"), envelopeRef("ReloadConfigResult")),
-		"/api/v1/config/export":       exportConfigPath(),
-		"/api/v1/runtime/reset":       mutatingPostPath(operations.IDRuntimeReset, "Drop the runtime overlay including tombstones", []string{"runtime:reset"}, refSchema("ResetRuntimeRequest"), envelopeRef("ResetRuntimeResult")),
-		"/api/v1/users":               collectionPath(operations.IDUsersList, operations.IDUsersCreate, "users", "state:read", "state:write", "UserList", "CreateUserRequest", "User"),
-		"/api/v1/users/{id}":          itemPath(operations.IDUsersGet, operations.IDUsersUpdate, operations.IDUsersDelete, "user", "state:read", "state:write", "User", "UpdateUserRequest"),
-		"/api/v1/groups":              collectionPath(operations.IDGroupsList, operations.IDGroupsCreate, "groups", "state:read", "state:write", "GroupList", "CreateGroupRequest", "Group"),
-		"/api/v1/groups/{id}":         itemPath(operations.IDGroupsGet, operations.IDGroupsUpdate, operations.IDGroupsDelete, "group", "state:read", "state:write", "Group", "UpdateGroupRequest"),
-		"/api/v1/clients":             collectionPath(operations.IDClientsList, operations.IDClientsCreate, "clients", "state:read", "state:write", "ClientList", "CreateClientRequest", "Client"),
-		"/api/v1/clients/{id}":        itemPath(operations.IDClientsGet, operations.IDClientsUpdate, operations.IDClientsDelete, "client", "state:read", "state:write", "Client", "UpdateClientRequest"),
-		"/api/v1/policy/evaluate":     postPath(operations.IDPolicyEvaluate, "Explain an authorization decision", []string{"policy:test"}, refSchema("EvaluatePolicyRequest"), envelopeRef("PolicyTrace"), false),
-		"/api/v1/authentication/test": postPath(operations.IDAuthenticationTest, "Run an authentication test against the current snapshot", []string{"policy:test"}, refSchema("TestAuthenticationRequest"), envelopeRef("AuthenticationTestResult"), false),
-		"/api/v1/events":              listEventsPath(),
-		"/api/v1/events/stream":       streamPath(),
-		"/api/v1/tokens":              tokensCollectionPath(),
-		"/api/v1/tokens/{id}":         tokensItemPath(),
-		"/api/v1/session":             sessionPath(),
+		"/health/live":                   getPath("health.live", "Liveness probe", nil, refSchema("HealthStatus"), false),
+		"/health/ready":                  getPath("health.ready", "Readiness probe", nil, refSchema("HealthStatus"), false),
+		"/api/openapi.json":              getPath("openapi.get", "OpenAPI document", nil, map[string]any{"type": "object"}, false),
+		"/api/v1/status":                 getPath(operations.IDSystemStatusGet, "Listener and snapshot status", []string{"state:read"}, envelopeRef("Status"), true),
+		"/api/v1/build":                  getPath(operations.IDSystemBuildGet, "Build and specification versions", []string{"state:read"}, envelopeRef("BuildInfo"), true),
+		"/api/v1/config/effective":       effectiveConfigPath(),
+		"/api/v1/config/validate":        postPath(operations.IDConfigValidate, "Validate a candidate configuration without publishing", []string{"state:write"}, refSchema("ValidateConfigRequest"), envelopeRef("ValidateConfigResult"), false),
+		"/api/v1/config/reload":          mutatingPostPath(operations.IDConfigReload, "Reload the mounted baseline", []string{"config:reload"}, refSchema("ReloadConfigRequest"), envelopeRef("ReloadConfigResult")),
+		"/api/v1/config/export":          exportConfigPath(),
+		"/api/v1/runtime/reset":          mutatingPostPath(operations.IDRuntimeReset, "Drop the runtime overlay including tombstones", []string{"runtime:reset"}, refSchema("ResetRuntimeRequest"), envelopeRef("ResetRuntimeResult")),
+		"/api/v1/users":                  collectionPath(operations.IDUsersList, operations.IDUsersCreate, "users", "state:read", "state:write", "UserList", "CreateUserRequest", "User"),
+		"/api/v1/users/{id}":             itemPath(operations.IDUsersGet, operations.IDUsersUpdate, operations.IDUsersDelete, "user", "state:read", "state:write", "User", "UpdateUserRequest"),
+		"/api/v1/groups":                 collectionPath(operations.IDGroupsList, operations.IDGroupsCreate, "groups", "state:read", "state:write", "GroupList", "CreateGroupRequest", "Group"),
+		"/api/v1/groups/{id}":            itemPath(operations.IDGroupsGet, operations.IDGroupsUpdate, operations.IDGroupsDelete, "group", "state:read", "state:write", "Group", "UpdateGroupRequest"),
+		"/api/v1/clients":                collectionPath(operations.IDClientsList, operations.IDClientsCreate, "clients", "state:read", "state:write", "ClientList", "CreateClientRequest", "Client"),
+		"/api/v1/clients/{id}":           itemPath(operations.IDClientsGet, operations.IDClientsUpdate, operations.IDClientsDelete, "client", "state:read", "state:write", "Client", "UpdateClientRequest"),
+		"/api/v1/policy/evaluate":        postPath(operations.IDPolicyEvaluate, "Explain an authorization decision", []string{"policy:test"}, refSchema("EvaluatePolicyRequest"), envelopeRef("PolicyTrace"), false),
+		"/api/v1/authentication/test":    postPath(operations.IDAuthenticationTest, "Run an authentication test against the current snapshot", []string{"policy:test"}, refSchema("TestAuthenticationRequest"), envelopeRef("AuthenticationTestResult"), false),
+		"/api/v1/radius/access:test":     postPath(operations.IDRadiusAccessTest, "Simulate a RADIUS Access-Request without UDP", []string{"policy:test"}, refSchema("RadiusAccessTestRequest"), envelopeRef("RadiusAccessTestResult"), false),
+		"/api/v1/radius/policy:evaluate": postPath(operations.IDRadiusPolicyEvaluate, "Explain a RADIUS access-policy decision", []string{"policy:test"}, refSchema("RadiusPolicyEvaluateRequest"), envelopeRef("RadiusPolicyEvaluateResult"), false),
+		"/api/v1/radius/attributes":      getPath(operations.IDRadiusAttributesList, "List built-in RADIUS dictionary metadata", []string{"state:read"}, envelopeRef("RadiusAttributeList"), true),
+		"/api/v1/events":                 listEventsPath(),
+		"/api/v1/events/stream":          streamPath(),
+		"/api/v1/tokens":                 tokensCollectionPath(),
+		"/api/v1/tokens/{id}":            tokensItemPath(),
+		"/api/v1/session":                sessionPath(),
 	}
 
 	_ = reg
@@ -197,10 +200,30 @@ func frozenSchemaTypes() []any {
 		operations.ClientAuthView{},
 		operations.ClientAuthzView{},
 		operations.ClientAcctView{},
+		operations.ClientProtocolsView{},
+		operations.ClientTACACSProtocolView{},
+		operations.ClientRADIUSProtocolView{},
+		operations.ClientEndpointView{},
+		operations.ClientTACACSEndpointView{},
+		operations.ClientEndpointWrite{},
+		operations.ClientTACACSEndpointWrite{},
+		operations.ClientRADIUSWrite{},
 		operations.LifecycleWrite{},
 		operations.OptionalSecret{},
 		operations.TestAuthenticationRequest{},
 		operations.AuthenticationTestResult{},
+		operations.RadiusAccessTestRequest{},
+		operations.RadiusAccessTestResult{},
+		operations.RadiusAuthMethod{},
+		operations.RadiusAttributeValue{},
+		operations.RadiusPolicyEvaluateRequest{},
+		operations.RadiusPolicyEvaluateResult{},
+		operations.RadiusPolicyTrace{},
+		operations.RadiusPolicyTraceStep{},
+		operations.RadiusPolicyTraceWinner{},
+		operations.ListRadiusAttributesRequest{},
+		operations.RadiusAttributeList{},
+		operations.RadiusAttributeMetadata{},
 	}
 }
 
@@ -371,6 +394,10 @@ func listEventsPath() map[string]any {
 		map[string]any{"name": "cursor", "in": "query", "schema": map[string]any{"type": "string"}},
 		map[string]any{"name": "limit", "in": "query", "schema": map[string]any{"type": "integer"}},
 		map[string]any{"name": "category", "in": "query", "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "style": "form", "explode": true},
+		map[string]any{"name": "protocol", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "listener_role", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "packet_code", "in": "query", "schema": map[string]any{"type": "string"}},
+		map[string]any{"name": "outcome", "in": "query", "schema": map[string]any{"type": "string"}},
 	}
 	return op
 }
@@ -385,6 +412,10 @@ func streamPath() map[string]any {
 			"parameters": []any{
 				map[string]any{"name": "Last-Event-ID", "in": "header", "schema": map[string]any{"type": "string"}},
 				map[string]any{"name": "category", "in": "query", "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "style": "form", "explode": true},
+				map[string]any{"name": "protocol", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "listener_role", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "packet_code", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "outcome", "in": "query", "schema": map[string]any{"type": "string"}},
 			},
 			"responses": map[string]any{
 				"200": map[string]any{
@@ -465,8 +496,17 @@ func effectiveConfigPath() map[string]any {
 func exportConfigPath() map[string]any {
 	op := getPath(operations.IDConfigExport, "Redacted configuration YAML", []string{"config:export"}, envelopeRef("ExportConfigResult"), true)
 	get := op["get"].(map[string]any)
-	get["parameters"] = []any{viewParam()}
+	get["parameters"] = []any{viewParam(), normalizeParam()}
 	return op
+}
+
+func normalizeParam() map[string]any {
+	return map[string]any{
+		"name":        "normalize",
+		"in":          "query",
+		"description": "Explicit v1→v2 convert flag. Default false. A v1 source stays v1-shaped unless true.",
+		"schema":      map[string]any{"type": "boolean", "default": false},
+	}
 }
 
 func mutatingPostPath(id, desc string, scopes []string, req, resp map[string]any) map[string]any {

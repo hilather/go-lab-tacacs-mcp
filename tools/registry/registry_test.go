@@ -50,6 +50,24 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 	if got := len(rep.RFC9887.Rows); got != 51 {
 		t.Fatalf("RFC 9887 rows: got %d, want 51", got)
 	}
+	if got := len(rep.RFC2865.Rows); got != 13 {
+		t.Fatalf("RFC 2865 rows: got %d, want 13", got)
+	}
+	if got := len(rep.RFC2866.Rows); got != 3 {
+		t.Fatalf("RFC 2866 rows: got %d, want 3", got)
+	}
+	if got := len(rep.RFC2869.Rows); got != 3 {
+		t.Fatalf("RFC 2869 rows: got %d, want 3", got)
+	}
+	if got := len(rep.RFC3579.Rows); got != 1 {
+		t.Fatalf("RFC 3579 rows: got %d, want 1", got)
+	}
+	if got := len(rep.RFC5080.Rows); got != 1 {
+		t.Fatalf("RFC 5080 rows: got %d, want 1", got)
+	}
+	if got := len(rep.ProjectRADIUS.Rows); got != 11 {
+		t.Fatalf("project-radius rows: got %d, want 11", got)
+	}
 }
 
 func TestConformanceIDsUniqueAndRequired(t *testing.T) {
@@ -59,16 +77,25 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := ExtractConformanceIDs(doc)
-	if len(want) != 219 {
-		t.Fatalf("contract IDs: got %d, want 219", len(want))
+	radiusDoc, err := os.ReadFile(filepath.Join(root, RadiusConformanceDocPath))
+	if err != nil {
+		t.Fatal(err)
 	}
+	tacacsIDs := ExtractConformanceIDs(doc)
+	if len(tacacsIDs) != 219 {
+		t.Fatalf("TACACS contract IDs: got %d, want 219", len(tacacsIDs))
+	}
+	radiusIDs := ExtractConformanceIDs(radiusDoc)
+	if len(radiusIDs) != 32 {
+		t.Fatalf("RADIUS contract IDs: got %d, want 32", len(radiusIDs))
+	}
+	want := append(append([]string{}, tacacsIDs...), radiusIDs...)
 	rep, err := ValidateRoot(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	seen := map[string]struct{}{}
-	for _, table := range []*ConformanceRegistry{rep.RFC8907, rep.RFC9887} {
+	for _, table := range rep.ConformanceTables() {
 		for _, row := range table.Rows {
 			if _, ok := seen[row.ID]; ok {
 				t.Errorf("duplicate id %s", row.ID)
@@ -88,6 +115,21 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 	for _, id := range want {
 		if _, ok := seen[id]; !ok {
 			t.Errorf("missing contract id %s", id)
+		}
+	}
+	for id := range seen {
+		if strings.HasPrefix(id, "T") {
+			continue
+		}
+		found := false
+		for _, wantID := range radiusIDs {
+			if wantID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("registry id %s is missing from %s", id, RadiusConformanceDocPath)
 		}
 	}
 }
@@ -317,11 +359,49 @@ func TestReleaseValidationPassesQualifiedRegistries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if issues := CheckReleaseStatuses(rep.RFC8907, rep.RFC9887); len(issues) != 0 {
+	if issues := CheckReleaseStatuses(rep.TACACSTables()...); len(issues) != 0 {
 		t.Fatalf("qualified MUST rows still open: %v", issues)
 	}
-	if issues := CheckSHOULDDispositions(rep.RFC8907, rep.RFC9887); len(issues) != 0 {
+	if issues := CheckSHOULDDispositions(rep.TACACSTables()...); len(issues) != 0 {
 		t.Fatalf("SHOULD rows missing disposition: %v", issues)
+	}
+}
+
+func TestReleaseGateExcludesRADIUSSkeletons(t *testing.T) {
+	t.Parallel()
+	root := testRoot(t)
+	rep, err := ValidateRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range ReleaseConformanceTables(rep) {
+		if table == nil {
+			continue
+		}
+		switch table.RFC {
+		case "8907", "9887":
+		default:
+			t.Errorf("check-registries -release must not include rfc %q", table.RFC)
+		}
+	}
+	radiusIssues := CheckReleaseStatuses(rep.RADIUSTables()...)
+	if len(radiusIssues) == 0 {
+		t.Fatal("R65-ACCESS-004 DEFERRED_MAY must fail CheckReleaseStatuses")
+	}
+	have := map[string]struct{}{}
+	for _, issue := range radiusIssues {
+		have[issue.ID] = struct{}{}
+	}
+	if _, ok := have["R65-ACCESS-004"]; !ok {
+		t.Error("expected R65-ACCESS-004 (DEFERRED_MAY) in RADIUS CheckReleaseStatuses issues")
+	}
+	for _, id := range []string{"R65-PKT-001", "PRJ-SEC-001"} {
+		if _, ok := have[id]; ok {
+			t.Errorf("%s is evidenced PASS and must not fail CheckReleaseStatuses", id)
+		}
+	}
+	if issues := CheckReleaseStatuses(ReleaseConformanceTables(rep)...); len(issues) != 0 {
+		t.Fatalf("-release tables must stay clean: %v", issues)
 	}
 }
 
@@ -362,7 +442,7 @@ func TestGenerateDocs(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := t.TempDir()
-	if err := GenerateDocs(out, rep.Operations, rep.RFC8907, rep.RFC9887); err != nil {
+	if err := GenerateDocs(out, rep.Operations, rep.ConformanceTables()...); err != nil {
 		t.Fatal(err)
 	}
 	parity, err := os.ReadFile(filepath.Join(out, GeneratedParity))
@@ -387,6 +467,14 @@ func TestGenerateDocs(t *testing.T) {
 		"unit:internal/tacacs/codec.TestDecodeEncodeRoundTrip",
 		"Qualification summary",
 		"mandatory rows `PASS`",
+		"Generated TACACS+ and RADIUS conformance inventory",
+		"R65-PKT-001",
+		"R79-MA-001",
+		"R80-DUP-001",
+		"PRJ-SEC-001",
+		"RADIUS qualification summary",
+		"Do not claim complete RADIUS",
+		"External radclient / Cisco IOL",
 	} {
 		if !strings.Contains(string(conf), needle) {
 			t.Errorf("conformance.md missing %q", needle)
@@ -394,7 +482,7 @@ func TestGenerateDocs(t *testing.T) {
 	}
 }
 
-const expectedOperationCount = 38
+const expectedOperationCount = 41
 
 var protocolOnlyOperationIDs = []string{
 	"health.live",
@@ -424,6 +512,94 @@ func issueHasID(rep *Report, id string) bool {
 		}
 	}
 	return false
+}
+
+func TestRADIUSRowPrefixesAndDeferredEvidence(t *testing.T) {
+	t.Parallel()
+	root := testRoot(t)
+	rep, err := ValidateRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rep.Valid() {
+		for _, issue := range rep.Issues {
+			t.Errorf("%s", issue)
+		}
+	}
+	wantPrefix := map[string]string{
+		"2865":    "R65-",
+		"2866":    "R66-",
+		"2869":    "R69-",
+		"3579":    "R79-",
+		"5080":    "R80-",
+		"PROJECT": "PRJ-",
+	}
+	for _, table := range rep.RADIUSTables() {
+		prefix := wantPrefix[table.RFC]
+		if prefix == "" {
+			t.Fatalf("unexpected RADIUS rfc %q", table.RFC)
+		}
+		for _, row := range table.Rows {
+			if !strings.HasPrefix(row.ID, prefix) {
+				t.Errorf("%s: id %s must start with %s", table.RFC, row.ID, prefix)
+			}
+			if strings.HasPrefix(row.ID, "R3579-") || strings.HasPrefix(row.ID, "R5080-") {
+				t.Errorf("invented row id %s is forbidden", row.ID)
+			}
+		}
+	}
+	var challenge *ConformanceRow
+	for _, row := range rep.RFC2865.Rows {
+		if row.ID == "R65-ACCESS-004" {
+			row := row
+			challenge = &row
+			break
+		}
+	}
+	if challenge == nil {
+		t.Fatal("missing R65-ACCESS-004")
+	}
+	if challenge.Status != StatusDeferredMAY {
+		t.Fatalf("R65-ACCESS-004 status %s, want %s", challenge.Status, StatusDeferredMAY)
+	}
+	if len(challenge.Evidence) != 1 || challenge.Evidence[0] != "adr:docs/decisions/0016-radius-udp-security-retransmission-and-scope.md" {
+		t.Fatalf("R65-ACCESS-004 evidence %#v", challenge.Evidence)
+	}
+}
+
+func TestInvalidRADIUSPrefixRejected(t *testing.T) {
+	t.Parallel()
+	doc := &ConformanceRegistry{
+		SchemaVersion: 1,
+		RFC:           "3579",
+		Rows: []ConformanceRow{{
+			ID:          "R3579-MA-001",
+			Section:     "ma",
+			Level:       "MUST",
+			Requirement: "invented prefix",
+			Status:      StatusNotStarted,
+		}},
+	}
+	rep := &Report{}
+	validateConformance(rep, RFC3579Path, "3579", doc)
+	if !containsIssue(rep, "id must match R79-* form") {
+		t.Fatalf("issues %#v", rep.Issues)
+	}
+}
+
+func TestConformanceIDRegex(t *testing.T) {
+	t.Parallel()
+	markdown := []byte("see T89-H-001 and R65-PKT-001 R79-MA-001 R80-DUP-001 PRJ-SEC-001 but not R3579-MA-001 or R5080-IMP-001")
+	got := ExtractConformanceIDs(markdown)
+	want := []string{"T89-H-001", "R65-PKT-001", "R79-MA-001", "R80-DUP-001", "PRJ-SEC-001"}
+	if len(got) != len(want) {
+		t.Fatalf("ids %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("ids %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestEvidenceTestSymbol(t *testing.T) {

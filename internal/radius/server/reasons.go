@@ -1,0 +1,26 @@
+package server
+
+// Frozen silent-discard and reject reasons (design §5.7).
+const (
+	ReasonUnknownClient       = "discard_unknown_client"
+	ReasonAmbiguousClient     = "discard_ambiguous_client"
+	ReasonMalformedHeader     = "discard_malformed_header"
+	ReasonInvalidLength       = "discard_invalid_length"
+	ReasonInvalidCode         = "discard_invalid_code"
+	ReasonInvalidAcctAuth     = "discard_invalid_accounting_request_authenticator"
+	ReasonInvalidMA           = "discard_invalid_message_authenticator"
+	ReasonMissingMA           = "discard_missing_message_authenticator"
+	ReasonEAPWithoutMA        = "discard_eap_without_ma"
+	ReasonProxyStateWithoutMA = "discard_proxy_state_without_ma"
+	ReasonUnknownAcctStatus   = "discard_unknown_acct_status"
+	ReasonAmbiguousIdentity   = "ambiguous_identity"
+	ReasonOverload            = "drop_overload"
+	ReasonMissingUsername     = "reject_missing_username"
+	ReasonConflictingAuth     = "reject_conflicting_auth"
+	ReasonCHAPPasswordLength  = "reject_chap_password_length"
+	ReasonUnsupportedMethod   = "reject_unsupported_method"
+	ReasonBadCredentials      = "reject_bad_credentials"
+	ReasonPolicy              = "reject_policy"
+	ReasonInternal            = "internal_error"
+	ReasonOK                  = "ok"
+)

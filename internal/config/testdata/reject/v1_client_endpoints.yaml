@@ -1,0 +1,6 @@
+schema_version: 1
+clients:
+  - id: sw
+    endpoints:
+      - id: radius-udp
+        protocol: radius

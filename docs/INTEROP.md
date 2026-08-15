@@ -1,8 +1,8 @@
 # TacLab 1.0 interoperability notes
 
-Status: 1.0 qualification record  
-Date: 2026-08-13  
-Normative matrices: [TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) §16, generated [conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md)
+Status: 1.0 qualification record (TACACS) plus RADIUS software-peer record  
+Date: 2026-08-14  
+Normative matrices: [TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) §16, [RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md), generated [conformance.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/generated/conformance.md)
 
 ## Policy
 
@@ -59,3 +59,47 @@ When hardware or that image appears:
 | External TLS PSK / raw public keys | [ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md) `DEFERRED_MAY` |
 | MCP OAuth protected-resource metadata | [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md) |
 | ASCII/PAP compile warning | [ADR 0012](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md) |
+| RADIUS Access-Challenge / EAP termination / CoA / RadSec | [ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md) |
+
+## RADIUS software peer
+
+RADIUS **requires** an independent software peer. Shared-codec loopback (`internal/radius/codec` talking to itself) is **not** that peer. External `radclient` is the Q-010 mature client when installed; a skip is **not** RADIUS PASS and is **not** advertised completeness.
+
+Do **not** tell peers to disable response Message-Authenticator checking.
+
+### Matrix
+
+| Case | Access | Accounting | MA request | MA response | Status |
+|---|---|---|---|---|---|
+| Independent Go test client (`internal/radius/testclient`, separate codec copy) | PAP Access-Accept | Start + Accounting-Response | Yes | Required | **PASS** (`TestIndependentTestclientPAPAndAccountingOnUDP`) |
+| FreeRADIUS 3.2.5+ `radclient` / `radtest` | PAP / CHAP | Start/Stop/Interim with MA | Required | Required | **SKIP** — `radclient` not on PATH in this environment (`TestExternalRadclientAccessAndAccounting`). Required peer: FreeRADIUS 3.2.5+ sending `Message-Authenticator` and validating TacLab Access and Accounting responses. |
+| Cisco IOS / IOS-XE via Containerlab IOL | if image sends RADIUS | if image sends acct | device | device | **SKIP** when `containerlab` or `TACLAB_IOL_IMAGE` is absent (`make cisco-lab`). A skip is **not** Cisco PASS and is **not** RADIUS PASS. |
+| Second NAS (Junos, EOS, …) | — | — | — | — | **SKIP** — no lab hardware |
+
+### Software peer evidence
+
+| ID | Evidence |
+|---|---|
+| Independent codec | `internal/radius/testclient/codec` does not import `internal/radius/codec`, `crypto`, `server`, or `udp` |
+| Independent UDP e2e | `internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP` |
+| External radclient | `internal/radius/udp.TestExternalRadclientAccessAndAccounting` (skip unless `radclient` is on `PATH`) |
+| Compose LAB-* | `LAB-RADIUS-001`, `LAB-RADIUS-002`, `LAB-RADIUS-ONLY` via `make lab-test` (REST diagnostic path; not a wire-peer substitute) |
+
+Peer versions recorded for this freeze:
+
+| Component | Version |
+|---|---|
+| TacLab | RADIUS evidence attach (`git describe` at this change) |
+| Go | 1.25.13 |
+| Testclient | in-tree, this repository |
+| FreeRADIUS `radclient` | n/a (skipped: not installed) |
+| Device NOS | n/a (skipped) |
+
+When `radclient` is installed (FreeRADIUS 3.2.5+ recommended):
+
+1. Run `go test ./internal/radius/udp -run TestExternalRadclientAccessAndAccounting`.
+2. Record the `radclient -v` (or package) version here.
+3. Capture sanitized traces (no secrets).
+4. Do not mark a MUST row PASS from this skip alone.
+
+Do **not** advertise complete RADIUS while Access-Challenge is `DEFERRED_MAY`, `radclient` is skipped, or `system.build.get` RADIUS status is `partial`.

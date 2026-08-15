@@ -33,19 +33,32 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await page.getByRole("link", { name: "Events" }).click();
   await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
   await expect(page.getByText("ascii.login")).toBeVisible();
+  await expect(page.getByLabel("Protocol")).toBeVisible();
+  await expect(page.getByLabel("Role")).toBeVisible();
 
   await page.getByRole("link", { name: "Clients" }).click();
+  await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
+  await expect(page.getByText("lab-switch", { exact: true })).toBeVisible();
   await expect(page.getByText("Overdue", { exact: true })).toBeVisible();
+  await expect(page.getByText("insecure RADIUS compatibility")).toBeVisible();
+  await expect(page.getByText("radius-udp radius/udp")).toBeVisible();
 
   await page.getByRole("link", { name: "Groups" }).click();
   await expect(page.getByRole("heading", { name: "Groups" })).toBeVisible();
   await expect(page.getByText(/default-deny/i)).toBeVisible();
 
-  await page.getByRole("link", { name: "Auth test" }).click();
+  await page.getByRole("link", { name: "Auth test", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Authentication test" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Explain" }).click();
+  await page.getByRole("link", { name: "RADIUS test", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "RADIUS authentication test" })).toBeVisible();
+  await expect(page.getByLabel("Password")).toBeVisible();
+
+  await page.getByRole("link", { name: "Explain", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policy explain" })).toBeVisible();
+
+  await page.getByRole("link", { name: "RADIUS explain", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "RADIUS policy explain" })).toBeVisible();
 
   await page.getByRole("link", { name: "About" }).click();
   await expect(page.getByRole("heading", { name: "About" })).toBeVisible();

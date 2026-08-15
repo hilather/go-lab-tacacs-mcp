@@ -1,0 +1,4 @@
+schema_version: 2
+groups:
+  - id: lab-admins
+    radius_rules: []

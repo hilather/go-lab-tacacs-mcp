@@ -16,8 +16,13 @@ import type {
   ExportConfigResult,
   Group,
   GroupList,
+  ListEventsRequest,
   PolicyTrace,
   ProblemDetails,
+  RadiusAccessTestRequest,
+  RadiusAccessTestResult,
+  RadiusPolicyEvaluateRequest,
+  RadiusPolicyEvaluateResult,
   ReloadConfigResult,
   ResetRuntimeResult,
   Session,
@@ -213,11 +218,21 @@ async function sendJSON<T>(
   return readEnvelope<T>(await apiFetch(path, init));
 }
 
-export async function listEvents(opts: { limit?: number; cursor?: string; categories?: string[] } = {}): Promise<Envelope<EventList>> {
+export async function listEvents(
+  opts: Pick<ListEventsRequest, "cursor" | "limit" | "categories" | "protocol" | "listener_role" | "packet_code" | "outcome"> = {},
+): Promise<Envelope<EventList>> {
   const limit = opts.limit ?? 50;
   return readEnvelope<EventList>(
     await apiFetch(
-      `/api/v1/events${queryString({ limit, cursor: opts.cursor, category: opts.categories })}`,
+      `/api/v1/events${queryString({
+        limit,
+        cursor: opts.cursor,
+        category: opts.categories,
+        protocol: opts.protocol,
+        listener_role: opts.listener_role,
+        packet_code: opts.packet_code,
+        outcome: opts.outcome,
+      })}`,
     ),
   );
 }
@@ -322,6 +337,16 @@ export async function evaluatePolicy(body: EvaluatePolicyRequest): Promise<Envel
 
 export async function testAuthentication(body: TestAuthenticationRequest): Promise<Envelope<AuthenticationTestResult>> {
   return sendJSON<AuthenticationTestResult>("/api/v1/authentication/test", "POST", body);
+}
+
+export async function testRadiusAccess(body: RadiusAccessTestRequest): Promise<Envelope<RadiusAccessTestResult>> {
+  return sendJSON<RadiusAccessTestResult>("/api/v1/radius/access:test", "POST", body);
+}
+
+export async function evaluateRadiusPolicy(
+  body: RadiusPolicyEvaluateRequest,
+): Promise<Envelope<RadiusPolicyEvaluateResult>> {
+  return sendJSON<RadiusPolicyEvaluateResult>("/api/v1/radius/policy:evaluate", "POST", body);
 }
 
 export async function getEffectiveConfig(view?: string): Promise<Envelope<EffectiveConfig>> {

@@ -9,37 +9,40 @@ import (
 
 // Stable IDs of the handlers implemented in this package.
 const (
-	IDSystemStatusGet    = "system.status.get"
-	IDSystemBuildGet     = "system.build.get"
-	IDConfigEffectiveGet = "config.effective.get"
-	IDConfigValidate     = "config.validate"
-	IDConfigReload       = "config.reload"
-	IDConfigExport       = "config.export"
-	IDRuntimeReset       = "runtime.reset"
-	IDUsersList          = "users.list"
-	IDUsersGet           = "users.get"
-	IDUsersCreate        = "users.create"
-	IDUsersUpdate        = "users.update"
-	IDUsersDelete        = "users.delete"
-	IDGroupsList         = "groups.list"
-	IDGroupsGet          = "groups.get"
-	IDGroupsCreate       = "groups.create"
-	IDGroupsUpdate       = "groups.update"
-	IDGroupsDelete       = "groups.delete"
-	IDClientsList        = "clients.list"
-	IDClientsGet         = "clients.get"
-	IDClientsCreate      = "clients.create"
-	IDClientsUpdate      = "clients.update"
-	IDClientsDelete      = "clients.delete"
-	IDTokensList         = "tokens.list"
-	IDTokensCreate       = "tokens.create"
-	IDTokensRevoke       = "tokens.revoke"
-	IDSessionCreate      = "session.create"
-	IDSessionDelete      = "session.delete"
-	IDPolicyEvaluate     = "policy.evaluate"
-	IDAuthenticationTest = "authentication.test"
-	IDEventsList         = "events.list"
-	IDEventsSubscribe    = "events.subscribe"
+	IDSystemStatusGet      = "system.status.get"
+	IDSystemBuildGet       = "system.build.get"
+	IDConfigEffectiveGet   = "config.effective.get"
+	IDConfigValidate       = "config.validate"
+	IDConfigReload         = "config.reload"
+	IDConfigExport         = "config.export"
+	IDRuntimeReset         = "runtime.reset"
+	IDUsersList            = "users.list"
+	IDUsersGet             = "users.get"
+	IDUsersCreate          = "users.create"
+	IDUsersUpdate          = "users.update"
+	IDUsersDelete          = "users.delete"
+	IDGroupsList           = "groups.list"
+	IDGroupsGet            = "groups.get"
+	IDGroupsCreate         = "groups.create"
+	IDGroupsUpdate         = "groups.update"
+	IDGroupsDelete         = "groups.delete"
+	IDClientsList          = "clients.list"
+	IDClientsGet           = "clients.get"
+	IDClientsCreate        = "clients.create"
+	IDClientsUpdate        = "clients.update"
+	IDClientsDelete        = "clients.delete"
+	IDTokensList           = "tokens.list"
+	IDTokensCreate         = "tokens.create"
+	IDTokensRevoke         = "tokens.revoke"
+	IDSessionCreate        = "session.create"
+	IDSessionDelete        = "session.delete"
+	IDPolicyEvaluate       = "policy.evaluate"
+	IDAuthenticationTest   = "authentication.test"
+	IDRadiusAccessTest     = "radius.access.test"
+	IDRadiusPolicyEvaluate = "radius.policy.evaluate"
+	IDRadiusAttributesList = "radius.attributes.list"
+	IDEventsList           = "events.list"
+	IDEventsSubscribe      = "events.subscribe"
 )
 
 // Specification versions reported by system.build.get.
@@ -48,15 +51,26 @@ const (
 	TACACSConformance = "RFC 8907; RFC 9887"
 )
 
-// Listener IDs match configuration keys.
+// Listener IDs match configuration keys and runtime inventory IDs.
 const (
-	ListenerLegacy = "legacy_tacacs"
-	ListenerSecure = "secure_tacacs"
-	ListenerHTTP   = "http"
+	ListenerLegacy           = "legacy_tacacs"
+	ListenerSecure           = "secure_tacacs"
+	ListenerHTTP             = "http"
+	ListenerRADIUSAccess     = "radius_access"
+	ListenerRADIUSAccounting = "radius_accounting"
 )
 
 // TransportHTTP is the admin listener. TACACS transports use domain.Transport.
 const TransportHTTP = "http"
+
+// TransportUDP is the RADIUS listener status string. It is not a domain.Transport.
+const TransportUDP = "udp"
+
+// Per-protocol conformance_status values reported by system.build.get.
+const (
+	ConformanceStatusPass    = "pass"
+	ConformanceStatusPartial = "partial"
+)
 
 // ColocatedTopologyWarning is the non-secret notice required when both TACACS
 // listeners are enabled.
@@ -65,14 +79,22 @@ const ColocatedTopologyWarning = "Both legacy TACACS+ and secure TACACS+ listene
 // GetStatusRequest is the empty input for system.status.get.
 type GetStatusRequest struct{}
 
-// ListenerStatus is configured listener identity from the published snapshot.
-// Live bind/accept counts are not part of this skeleton.
+// ListenerStatus is configured listener identity plus live Runtime stats.
+// TACACS transport stays legacy/tls. RADIUS uses udp (not a domain.Transport).
 type ListenerStatus struct {
-	ID             string `json:"id"`
-	Enabled        bool   `json:"enabled"`
-	Bind           string `json:"bind"`
-	AdvertisedPort int    `json:"advertised_port,omitempty"`
-	Transport      string `json:"transport"`
+	ID             string   `json:"id"`
+	Enabled        bool     `json:"enabled"`
+	Bind           string   `json:"bind"`
+	AdvertisedPort int      `json:"advertised_port,omitempty"`
+	Transport      string   `json:"transport"`
+	Protocol       string   `json:"protocol"`
+	Carrier        string   `json:"carrier"`
+	Roles          []string `json:"roles"`
+	Ready          bool     `json:"ready"`
+	Required       bool     `json:"required"`
+	Inflight       int      `json:"inflight"`
+	QueueDepth     int      `json:"queue_depth"`
+	LastErrorCode  string   `json:"last_error_code,omitempty"`
 }
 
 // Status is the system.status.get result. It contains no secret material.
@@ -97,14 +119,22 @@ type GetBuildRequest struct{}
 
 // BuildInfo is the system.build.get result. Paths and secrets are omitted.
 type BuildInfo struct {
-	Version           string `json:"version"`
-	Commit            string `json:"commit"`
-	BuildTime         string `json:"build_time"`
-	GoVersion         string `json:"go_version"`
-	UIVersion         string `json:"ui_version"`
-	SchemaVersion     int    `json:"schema_version"`
-	TACACSConformance string `json:"tacacs_conformance"`
-	MCPSpecification  string `json:"mcp_specification"`
+	Version           string                         `json:"version"`
+	Commit            string                         `json:"commit"`
+	BuildTime         string                         `json:"build_time"`
+	GoVersion         string                         `json:"go_version"`
+	UIVersion         string                         `json:"ui_version"`
+	SchemaVersion     int                            `json:"schema_version"`
+	TACACSConformance string                         `json:"tacacs_conformance"`
+	MCPSpecification  string                         `json:"mcp_specification"`
+	Protocols         map[string]ProtocolConformance `json:"protocols"`
+}
+
+// ProtocolConformance is one protocols map entry on system.build.get.
+// RADIUS stays partial until MVP conformance rows have evidence.
+type ProtocolConformance struct {
+	Standards         []string `json:"standards"`
+	ConformanceStatus string   `json:"conformance_status"`
 }
 
 // EvaluatePolicyRequest is the policy.evaluate input. Arguments replay a
@@ -175,11 +205,16 @@ type PolicyTraceAV struct {
 	Value     string `json:"value" yaml:"value"`
 }
 
-// ListEventsRequest is the events.list cursor page.
+// ListEventsRequest is the events.list cursor page. Optional Protocol,
+// ListenerRole, PacketCode, and Outcome AND with Categories.
 type ListEventsRequest struct {
-	Cursor     string   `json:"cursor,omitempty"`
-	Limit      int      `json:"limit,omitempty"`
-	Categories []string `json:"categories,omitempty"`
+	Cursor       string   `json:"cursor,omitempty"`
+	Limit        int      `json:"limit,omitempty"`
+	Categories   []string `json:"categories,omitempty"`
+	Protocol     string   `json:"protocol,omitempty"`
+	ListenerRole string   `json:"listener_role,omitempty"`
+	PacketCode   string   `json:"packet_code,omitempty"`
+	Outcome      string   `json:"outcome,omitempty"`
 }
 
 // EventList is one redacted page from the ring.
@@ -214,6 +249,15 @@ type EventView struct {
 	Privilege     uint8           `json:"privilege"`
 	Port          string          `json:"port,omitempty"`
 	Remote        string          `json:"remote,omitempty"`
+	Protocol      string          `json:"protocol,omitempty"`
+	Carrier       string          `json:"carrier,omitempty"`
+	ListenerRole  string          `json:"listener_role,omitempty"`
+	ListenerID    string          `json:"listener_id,omitempty"`
+	PacketCode    string          `json:"packet_code,omitempty"`
+	Outcome       string          `json:"outcome,omitempty"`
+	ReasonCode    string          `json:"reason_code,omitempty"`
+	EndpointID    string          `json:"endpoint_id,omitempty"`
+	AcctSessionID string          `json:"acct_session_id,omitempty"`
 }
 
 // EventAV is one stored attribute-value pair.
@@ -251,7 +295,7 @@ func (d DeleteResult) envelopeRevision() domain.Revision { return d.Revision }
 func defaultCatalog() map[string]reflect.Type {
 	values := []any{
 		GetStatusRequest{}, Status{},
-		GetBuildRequest{}, BuildInfo{},
+		GetBuildRequest{}, BuildInfo{}, ProtocolConformance{},
 		GetEffectiveConfigRequest{}, EffectiveConfig{},
 		ValidateConfigRequest{}, ValidateConfigResult{},
 		ReloadConfigRequest{}, ReloadConfigResult{},
@@ -262,11 +306,16 @@ func defaultCatalog() map[string]reflect.Type {
 		ListGroupsRequest{}, GetGroupRequest{}, CreateGroupRequest{}, UpdateGroupRequest{}, DeleteGroupRequest{},
 		GroupList{}, Group{},
 		ListClientsRequest{}, GetClientRequest{}, CreateClientRequest{}, UpdateClientRequest{}, DeleteClientRequest{},
-		ClientList{}, Client{},
+		ClientList{}, Client{}, ClientProtocolsView{}, ClientRADIUSWrite{}, ClientEndpointWrite{}, ClientEndpointView{},
 		ListTokensRequest{}, CreateTokenRequest{}, RevokeTokenRequest{},
 		TokenList{}, CreatedToken{},
 		EvaluatePolicyRequest{}, PolicyTrace{},
 		TestAuthenticationRequest{}, AuthenticationTestResult{},
+		RadiusAccessTestRequest{}, RadiusAccessTestResult{},
+		RadiusPolicyEvaluateRequest{}, RadiusPolicyEvaluateResult{},
+		RadiusAuthMethod{}, RadiusAttributeValue{}, RadiusPolicyTrace{},
+		RadiusPolicyTraceStep{}, RadiusPolicyTraceWinner{},
+		ListRadiusAttributesRequest{}, RadiusAttributeList{}, RadiusAttributeMetadata{},
 		ListEventsRequest{}, EventList{},
 		SubscribeEventsRequest{}, EventStream{},
 		HealthRequest{}, HealthResult{},

@@ -95,6 +95,29 @@ func TestConsumeSSEPastTimeoutRejectsEarlyClose(t *testing.T) {
 	}
 }
 
+func TestParseStatusListeners(t *testing.T) {
+	raw := []byte(`{"data":{"listeners":[{"id":"legacy_tacacs","enabled":true,"ready":true},{"id":"radius_access","enabled":true,"ready":true,"protocol":"radius","transport":"udp"}]}}`)
+	got, err := parseStatusListeners(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !tacacsListenerReady(got, "legacy_tacacs") {
+		t.Fatal("legacy")
+	}
+	if !radiusListenerReady(got, "radius_access") {
+		t.Fatal("radius")
+	}
+	if radiusListenerReady(got, "radius_accounting") {
+		t.Fatal("missing accounting must not be ready")
+	}
+}
+
+func TestParseStatusListenersMissing(t *testing.T) {
+	if _, err := parseStatusListeners([]byte(`{"data":{}}`)); err == nil {
+		t.Fatal("expected missing listeners")
+	}
+}
+
 func TestConsumeSSEPastTimeoutRequiresPostTimeoutFrame(t *testing.T) {
 	pr, pw := io.Pipe()
 	go func() {

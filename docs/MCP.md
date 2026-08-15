@@ -14,7 +14,7 @@ This page is the setup and usage guide. The parity policy lives in [API_PARITY.m
 | Who terminates TLS | Nobody (lab HTTP) | Reverse proxy or `listeners.http.tls` |
 | Token | File on this machine | Distributed out of band |
 | Origin | Usually absent | Restrict `api.mcp.allowed_origins` if browsers call `/mcp` |
-| Devices | Optional | Point NAS gear at host 49 / 300 separately |
+| Devices | Optional | Point NAS gear at host 49 / 300 (TACACS) and 1812 / 1813 (RADIUS/UDP, when enabled) separately |
 
 Both paths use **identical** headers, tools, resources, and scopes.
 

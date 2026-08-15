@@ -29,19 +29,22 @@ type scenario struct {
 }
 
 type harness struct {
-	HTTP       string
-	Legacy     string
-	TLS        string
-	Token      string
-	Secret     []byte
-	PKI        string
-	Passwords  map[string]string
-	WriteTO    time.Duration
-	Phase      string
-	ServerName string
-	Started    time.Time
-	canaries   []string
-	sourceNote string
+	HTTP         string
+	Legacy       string
+	TLS          string
+	RadiusAccess string
+	RadiusAcct   string
+	Token        string
+	Secret       []byte
+	RadiusSecret []byte
+	PKI          string
+	Passwords    map[string]string
+	WriteTO      time.Duration
+	Phase        string
+	ServerName   string
+	Started      time.Time
+	canaries     []string
+	sourceNote   string
 }
 
 func (h *harness) pw(id string) string {

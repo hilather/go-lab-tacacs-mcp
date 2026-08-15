@@ -23,6 +23,9 @@ func TestNoForbiddenImports(t *testing.T) {
 		"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/aaa",
 		"github.com/hilather/go-lab-tacacs-mcp/internal/events",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp",
+		"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server",
 		"gopkg.in/yaml.v3",
 	}
 	for _, pkg := range pkgs {

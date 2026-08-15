@@ -101,7 +101,9 @@ How to add durable accounts and devices: [BASELINE.md](https://github.com/hilath
 - Groups are flat. `services[]` never authorize a non-empty `cmd`. `command_rules[]` never decide a session request. Default deny on each evaluator.
 - YAML `action: permit` is an alias of `permit_add`. REST/MCP writes use `permit_add` | `permit_replace` | `deny`.
 - `default_command_action` must be `deny` or omitted.
-- Explain a decision: UI Policy page or `POST /api/v1/policy/evaluate` (`policy:test`).
+- Explain a TACACS decision: UI Policy page or `POST /api/v1/policy/evaluate` (`policy:test`).
+- RADIUS lab diagnostics (not complete RADIUS): UI **RADIUS test** / **RADIUS explain**, or `POST /api/v1/radius/access:test` and `POST /api/v1/radius/policy:evaluate`. Secret fields are write-only and cleared in the UI after submit.
+- Events list accepts optional `protocol` and `listener_role` filters (AND with category). The Events page exposes those filters.
 
 Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=configure` → deny.
 

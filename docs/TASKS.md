@@ -1606,7 +1606,7 @@ Do not advertise complete RADIUS. Do not implement production listeners in gover
 - [x] `RAD-API-005` `radius.attributes.list` returns dictionary metadata only (no values/secrets).
 - [x] `RAD-API-006` Same-change generate (OpenAPI, MCP, frontend types, api-parity matrix).
 - [ ] Remaining `RAD-API-*` UI-adjacent admin surfaces (if any) stay with later PRs.
-- [ ] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
+- [x] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI (dashboard listeners, client RADIUS endpoints, RADIUS test/explain pages, event protocol/role filters). Secret inputs cleared. UDP / insecure RADIUS compatibility badges. Not complete RADIUS.
 - [ ] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, secrets, smoke.
 - [ ] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability.
 - [ ] `RAD-QUAL-001` … `RAD-QUAL-008` Conformance, independent evidence, interop, fuzz, race, benches.

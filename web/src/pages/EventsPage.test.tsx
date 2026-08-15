@@ -45,6 +45,55 @@ describe("EventsPage", () => {
     vi.unstubAllGlobals();
   });
 
+  it("sends protocol and role filters to events.list", async () => {
+    seedSession();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/v1/status")) {
+        return json(
+          200,
+          envelope({
+            instance_id: "lab",
+            revision: 3,
+            baseline_hash: "a",
+            overlay_hash: "b",
+            compiled_at: "2026-08-12T00:00:00Z",
+            listeners: [],
+            colocated_topology: false,
+            users: 0,
+            groups: 0,
+            clients: 0,
+            tokens: 0,
+          }),
+        );
+      }
+      if (url.includes("/api/v1/events")) {
+        return json(
+          200,
+          envelope({
+            items: [
+              { ...sampleEvent, id: 12, protocol: "radius", listener_role: "access", type: "radius.access", user_id: "carol" },
+            ],
+            reset: false,
+            overwritten: 0,
+          }),
+        );
+      }
+      return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderApp(<EventsPage />, { route: "/events" });
+    expect(await screen.findByText("carol")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Protocol"), "radius");
+    await user.selectOptions(screen.getByLabelText("Role"), "access");
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.includes("protocol=radius") && u.includes("listener_role=access"))).toBe(true);
+    });
+  });
+
   it("filters events and shows reconnect plus reset state", async () => {
     seedSession();
     vi.stubGlobal("EventSource", FakeEventSource);

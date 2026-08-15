@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getBuild, getStatus } from "../api/client";
+import { ProtocolBadge } from "../components/ProtocolBadge";
 import { RequireScope } from "../components/RequireScope";
 import { errorDetail } from "../ui/errors";
 
@@ -60,6 +61,19 @@ function AboutBody() {
             <dt>MCP specification</dt>
             <dd>{info.mcp_specification}</dd>
           </div>
+          {Object.entries(info.protocols ?? {})
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([name, proto]) => (
+              <div key={name}>
+                <dt>
+                  <ProtocolBadge protocol={name} /> conformance
+                </dt>
+                <dd>
+                  {(proto.standards ?? []).join("; ") || "—"} — {proto.conformance_status}
+                  {name === "radius" ? " (not complete RADIUS)" : ""}
+                </dd>
+              </div>
+            ))}
           <div>
             <dt>Snapshot revision</dt>
             <dd>{status.data ? String(status.data.data.revision) : "—"}</dd>

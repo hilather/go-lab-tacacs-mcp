@@ -3,7 +3,8 @@ import { listEvents } from "../api/client";
 import { RequireScope } from "../components/RequireScope";
 import type { EventView } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
-import { EVENT_CATEGORIES } from "../ui/constants";
+import { ProtocolBadge, RoleBadge } from "../components/ProtocolBadge";
+import { EVENT_CATEGORIES, EVENT_LISTENER_ROLES, EVENT_PROTOCOLS } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
 
 const PAGE = 100;
@@ -19,6 +20,8 @@ export function EventsPage() {
 function EventsBody() {
   const stream = useEventStream();
   const [category, setCategory] = useState("");
+  const [protocol, setProtocol] = useState("");
+  const [role, setRole] = useState("");
   const [transport, setTransport] = useState("");
   const [result, setResult] = useState("");
   const [client, setClient] = useState("");
@@ -35,7 +38,11 @@ function EventsBody() {
   useEffect(() => {
     let cancelled = false;
     setPending(true);
-    void drainRecent(category === "" ? undefined : [category])
+    void drainRecent({
+      ...(category === "" ? {} : { categories: [category] }),
+      ...(protocol === "" ? {} : { protocol }),
+      ...(role === "" ? {} : { listener_role: role }),
+    })
       .then((page) => {
         if (cancelled) {
           return;
@@ -59,7 +66,7 @@ function EventsBody() {
     return () => {
       cancelled = true;
     };
-  }, [category, stream.reset]);
+  }, [category, protocol, role, stream.reset]);
 
   useEffect(() => {
     const incoming = stream.lastEvent;
@@ -71,11 +78,13 @@ function EventsBody() {
 
   const items = useMemo(() => {
     return buffer
-      .filter((ev) => matchEvent(ev, { transport, result, client, user, type }))
+      .filter((ev) => matchEvent(ev, { protocol, role, transport, result, client, user, type }))
       .slice(0, visible);
-  }, [buffer, transport, result, client, user, type, visible]);
+  }, [buffer, protocol, role, transport, result, client, user, type, visible]);
 
-  const filteredCount = buffer.filter((ev) => matchEvent(ev, { transport, result, client, user, type })).length;
+  const filteredCount = buffer.filter((ev) =>
+    matchEvent(ev, { protocol, role, transport, result, client, user, type }),
+  ).length;
 
   return (
     <main className="page page--wide">
@@ -124,6 +133,28 @@ function EventsBody() {
             ))}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="ev-protocol">Protocol</label>
+          <select id="ev-protocol" value={protocol} onChange={(ev) => setProtocol(ev.target.value)}>
+            <option value="">All</option>
+            {EVENT_PROTOCOLS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="ev-role">Role</label>
+          <select id="ev-role" value={role} onChange={(ev) => setRole(ev.target.value)}>
+            <option value="">All</option>
+            {EVENT_LISTENER_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
         <FilterField id="ev-transport" label="Transport" value={transport} onChange={setTransport} />
         <FilterField id="ev-result" label="Result" value={result} onChange={setResult} />
         <FilterField id="ev-client" label="Client" value={client} onChange={setClient} />
@@ -141,6 +172,8 @@ function EventsBody() {
             <th scope="col">Category</th>
             <th scope="col">Type</th>
             <th scope="col">Result</th>
+            <th scope="col">Protocol</th>
+            <th scope="col">Role</th>
             <th scope="col">Transport</th>
             <th scope="col">Client</th>
             <th scope="col">User</th>
@@ -155,6 +188,8 @@ function EventsBody() {
               <td>{ev.category}</td>
               <td>{ev.type}</td>
               <td>{ev.result}</td>
+              <td>{ev.protocol ? <ProtocolBadge protocol={ev.protocol} /> : "—"}</td>
+              <td>{ev.listener_role ? <RoleBadge role={ev.listener_role} /> : "—"}</td>
               <td>{ev.transport || "—"}</td>
               <td>{ev.client_id || "—"}</td>
               <td>{ev.user_id || "—"}</td>
@@ -194,9 +229,11 @@ function FilterField({
 
 function matchEvent(
   ev: EventView,
-  f: { transport: string; result: string; client: string; user: string; type: string },
+  f: { protocol: string; role: string; transport: string; result: string; client: string; user: string; type: string },
 ): boolean {
   const checks: Array<[string, string | undefined]> = [
+    [f.protocol, ev.protocol],
+    [f.role, ev.listener_role],
     [f.transport, ev.transport],
     [f.result, ev.result],
     [f.client, ev.client_id],
@@ -214,7 +251,11 @@ function mergeEvent(prev: EventView[], incoming: EventView): EventView[] {
   return sortNewestFirst([incoming, ...prev.filter((ev) => ev.id !== incoming.id)]);
 }
 
-async function drainRecent(categories?: string[]): Promise<{ items: EventView[]; overwritten: number; reset: boolean }> {
+async function drainRecent(filters: {
+  categories?: string[];
+  protocol?: string;
+  listener_role?: string;
+}): Promise<{ items: EventView[]; overwritten: number; reset: boolean }> {
   const items: EventView[] = [];
   let cursor: string | undefined;
   let overwritten = 0;
@@ -223,7 +264,9 @@ async function drainRecent(categories?: string[]): Promise<{ items: EventView[];
     const env = await listEvents({
       limit: 200,
       ...(cursor ? { cursor } : {}),
-      ...(categories ? { categories } : {}),
+      ...(filters.categories ? { categories: filters.categories } : {}),
+      ...(filters.protocol ? { protocol: filters.protocol } : {}),
+      ...(filters.listener_role ? { listener_role: filters.listener_role } : {}),
     });
     overwritten = env.data.overwritten;
     reset = reset || env.data.reset;

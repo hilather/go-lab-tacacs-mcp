@@ -23,6 +23,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Added
 
+- Protocol-aware UI: listener protocol/role/ready state, client RADIUS endpoints, `/radius-auth-test` and `/radius-explain` pages, and event protocol/role filters. Secret inputs are cleared after submit. UDP and “insecure RADIUS compatibility” badges surface when Message-Authenticator is optional. Generated REST types only. Not advertised as complete RADIUS.
 - RADIUS diagnostic operations (`radius.access.test`, `radius.policy.evaluate`, `radius.attributes.list`) with REST/MCP parity. Access test uses the same `AuthenticateAccess` path as UDP and wipes passwords. Policy evaluate uses the compiled RADIUS engine. Attribute list is dictionary metadata only. Not advertised as complete RADIUS.
 - RADIUS accounting record type (`RecordRADIUSAccounting`) writes to the event ring. `Acct-Session-Id` is stored as `acct_session_id` (string) and is never stuffed into the TACACS `session_id` uint32. Event queries may AND optional protocol, listener role, packet code, and outcome onto the existing category filter.
 

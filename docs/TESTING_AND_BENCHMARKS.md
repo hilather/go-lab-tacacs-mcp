@@ -79,6 +79,8 @@ RADIUS fixtures live under `testdata/protocol/radius/`:
 | `vectors.json` | Packet catalog (header fields, expected disposition) |
 | `crypto/vectors.json` | Independent authenticator / User-Password / Message-Authenticator vectors |
 
+This tree is the **only** home for published RADIUS RFC hex and independent lab vectors (including RFC 2865 §7 secrets/passwords). `.gitleaks.toml` allowlists `testdata/protocol/radius/` for that reason. Put new RADIUS RFC/lab fixtures here; do not scatter hex secrets into other packages. Do **not** commit or gitleaks-allowlist live Compose secret files (`deployments/compose/secrets/` is written by `labgen` and stays untracked).
+
 Independent `internal/radius/testclient` UDP exchange is required software-peer evidence (`TestIndependentTestclientPAPAndAccountingOnUDP`). External FreeRADIUS `radclient` is recorded in [docs/INTEROP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md); a skip is not RADIUS PASS and is not advertised completeness.
 
 ### 3.3 Domain integration tests
@@ -326,7 +328,7 @@ Give every secret class a unique canary and scan:
 
 Only the one-time newly created token response may contain its token canary.
 
-RADIUS adds two unique canaries (`CanaryRADIUSShared`, `CanaryUserPassword`) distinct from the TACACS login-password and legacy-shared canaries. `TestRADIUSCanaryMatrix` plants them in a schema-v2 client endpoint, PAP `authentication.test` input, secret-holder dumps, metrics labels, traces, events, REST/MCP export, and panic recovery. Hidden User-Password bytes are also covered by `internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors`.
+RADIUS adds two unique canaries (`CanaryRADIUSShared`, `CanaryUserPassword`) distinct from the TACACS login-password and legacy-shared canaries. `TestRADIUSCanaryMatrix` plants them in a schema-v2 client endpoint, PAP `authentication.test` input, secret-holder dumps, metrics labels, traces, events, REST/MCP export, and panic recovery. Hidden User-Password bytes are also covered by `internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors` (lab tokens `CANARY-RADIUS-SECRET-aa11` / `CANARY-UNHIDE-PASSWORD-zz99`; gitleaks regex-allowlisted, not live secrets).
 
 For legacy shared secrets, additionally verify that reuse detection can identify equal values without exposing a fingerprint; weak/short validation errors never echo the candidate; lifecycle warnings contain only client IDs and non-secret dates/status; and secret rotation followed by atomic reload updates the process-local comparison state and lifecycle status without leaking either old or new material.
 

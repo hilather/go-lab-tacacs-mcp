@@ -10,4 +10,13 @@ paths = [
   '''(^|/)web/dist/''',
   '''(^|/)\.git/''',
   '''(^|/)internal/credentials/testdata/''',
+  # RADIUS RFC 2865/2866/2869/3579 hex dumps and independent lab vectors.
+  # Future RADIUS RFC/lab fixtures belong here. Never allowlist live Compose secrets.
+  '''(^|/)testdata/protocol/radius/''',
+]
+# Leak-detection canaries used only by RADIUS crypto tests. Not production material.
+# generic-api-key matches `canarySecret = "..."` in git history; keep these exact.
+regexes = [
+  '''CANARY-RADIUS-SECRET-aa11''',
+  '''CANARY-UNHIDE-PASSWORD-zz99''',
 ]

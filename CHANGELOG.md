@@ -53,6 +53,7 @@ Operator-facing closeout of the in-process RADIUS/UDP **lab profile** since 1.0.
 
 - Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).
 - Distinct RADIUS shared-secret purpose, canaries, and closed metric labels (no User-Name, peer IP, or `client_id` on RADIUS series).
+- Gitleaks allowlists published RADIUS RFC/lab vectors under `testdata/protocol/radius/` only (not live Compose secrets).
 
 ### CI
 

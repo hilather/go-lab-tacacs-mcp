@@ -267,6 +267,91 @@ func TestRadiusAccessTestEAPIdentityChallenge(t *testing.T) {
 	assertRadiusDiagRedacted(t, out)
 }
 
+func TestRadiusAccessTestEAPOverlayEmptyMethodsReject(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	writer := Actor{ID: "w", Scopes: []string{"state:write"}}
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	c, ok := m.Snapshot().Client("lab-switches")
+	if !ok {
+		t.Fatal("lab-switches missing")
+	}
+	sec := ""
+	for _, ep := range c.Client.Endpoints {
+		if ep.RADIUS != nil && ep.RADIUS.SharedSecret.File != "" {
+			sec = ep.RADIUS.SharedSecret.File
+			break
+		}
+	}
+	if sec == "" {
+		t.Fatal("lab-switches RADIUS secret file missing")
+	}
+	for _, tc := range []struct {
+		name    string
+		cidr    string
+		methods []string
+	}{
+		{name: "omitted", cidr: "198.51.100.0/24"},
+		{name: "empty", cidr: "203.0.113.0/24", methods: []string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			id := "overlay-empty-" + tc.name
+			_, err := reg.Invoke(context.Background(), IDClientsCreate, m.Snapshot(), Input{
+				Actor: writer,
+				Request: CreateClientRequest{
+					ID: id,
+					Match: &ClientMatchView{
+						SourceCIDRs: []string{tc.cidr},
+					},
+					RADIUS: &ClientRADIUSWrite{
+						SharedSecret:   OptionalSecret{Present: true, File: sec},
+						Roles:          []string{"access"},
+						AllowedMethods: tc.methods,
+					},
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+				Actor: tester,
+				Request: RadiusAccessTestRequest{
+					ClientID: id,
+					UserID:   "lab-admin",
+					Method:   RadiusAuthMethod{Type: "eap"},
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := res.Data.(RadiusAccessTestResult)
+			if out.Outcome != RadiusOutcomeReject || out.ReasonCode != aaa.AccessReasonUnsupportedMethod {
+				t.Fatalf("got %+v", out)
+			}
+			if out.StatePresent {
+				t.Fatalf("empty methods must not challenge: %+v", out)
+			}
+		})
+	}
+}
+
+func TestRadiusMethodAllowedEmptyDefaultsPAPCHAP(t *testing.T) {
+	t.Parallel()
+	empty := config.ClientEndpoint{RADIUS: &config.RADIUSEndpoint{}}
+	if !radiusMethodAllowed(empty, "pap") || !radiusMethodAllowed(empty, "chap") {
+		t.Fatal("empty methods must allow pap/chap")
+	}
+	if radiusMethodAllowed(empty, "eap") {
+		t.Fatal("empty methods must not allow eap")
+	}
+	listed := config.ClientEndpoint{RADIUS: &config.RADIUSEndpoint{
+		AllowedAuthenticationMethods: []string{config.RADIUSAuthMethodPAP, config.RADIUSAuthMethodCHAP, config.RADIUSAuthMethodEAP},
+	}}
+	if !radiusMethodAllowed(listed, "eap") {
+		t.Fatal("explicit eap must be allowed")
+	}
+}
+
 func TestRadiusAccessTestEAPOptInRequired(t *testing.T) {
 	t.Parallel()
 	reg, m := radiusTestRegistry(t)

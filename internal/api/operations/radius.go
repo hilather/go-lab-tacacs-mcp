@@ -290,11 +290,12 @@ func radiusEndpoint(snap *state.Snapshot, clientID string) (config.ClientEndpoin
 }
 
 func radiusMethodAllowed(ep config.ClientEndpoint, typ string) bool {
-	if ep.RADIUS == nil || len(ep.RADIUS.AllowedAuthenticationMethods) == 0 {
-		return true
+	allowed := []string{config.RADIUSAuthMethodPAP, config.RADIUSAuthMethodCHAP}
+	if ep.RADIUS != nil && len(ep.RADIUS.AllowedAuthenticationMethods) > 0 {
+		allowed = ep.RADIUS.AllowedAuthenticationMethods
 	}
 	want := strings.ToLower(strings.TrimSpace(typ))
-	for _, m := range ep.RADIUS.AllowedAuthenticationMethods {
+	for _, m := range allowed {
 		if strings.ToLower(m) == want {
 			return true
 		}

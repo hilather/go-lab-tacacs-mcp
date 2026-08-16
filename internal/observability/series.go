@@ -33,19 +33,22 @@ const (
 
 	// RADIUS / protocol-neutral series. TACACS authen/author/acct series stay
 	// connection-oriented so historical scrapes do not mix UDP outcomes.
-	MetricProtocolRequests           = "taclab_protocol_requests_total"
-	MetricProtocolDiscards           = "taclab_protocol_discards_total"
-	MetricProtocolDuration           = "taclab_protocol_request_duration_seconds"
-	MetricRADIUSQueueDepth           = "taclab_radius_queue_depth"
-	MetricRADIUSInflight             = "taclab_radius_inflight"
-	MetricRADIUSRetransmission       = "taclab_radius_retransmission_total"
-	MetricRADIUSCacheEntries         = "taclab_radius_cache_entries"
-	MetricRADIUSCacheSaturations     = "taclab_radius_cache_saturations_total"
-	MetricRADIUSJournalSaturations   = "taclab_radius_journal_saturations_total"
-	MetricRADIUSAuthenticatorFail    = "taclab_radius_authenticator_failures_total"
-	MetricRADIUSChallenges           = "taclab_radius_challenges_total"
-	MetricRADIUSChallengeEntries     = "taclab_radius_challenge_entries"
-	MetricRADIUSChallengeSaturations = "taclab_radius_challenge_saturations_total"
+	MetricProtocolRequests              = "taclab_protocol_requests_total"
+	MetricProtocolDiscards              = "taclab_protocol_discards_total"
+	MetricProtocolDuration              = "taclab_protocol_request_duration_seconds"
+	MetricRADIUSQueueDepth              = "taclab_radius_queue_depth"
+	MetricRADIUSInflight                = "taclab_radius_inflight"
+	MetricRADIUSRetransmission          = "taclab_radius_retransmission_total"
+	MetricRADIUSCacheEntries            = "taclab_radius_cache_entries"
+	MetricRADIUSCacheSaturations        = "taclab_radius_cache_saturations_total"
+	MetricRADIUSJournalSaturations      = "taclab_radius_journal_saturations_total"
+	MetricRADIUSAuthenticatorFail       = "taclab_radius_authenticator_failures_total"
+	MetricRADIUSChallenges              = "taclab_radius_challenges_total"
+	MetricRADIUSChallengeEntries        = "taclab_radius_challenge_entries"
+	MetricRADIUSChallengeSaturations    = "taclab_radius_challenge_saturations_total"
+	MetricRADIUSSessionIndexEntries     = "taclab_radius_session_index_entries"
+	MetricRADIUSSessionIndexSaturations = "taclab_radius_session_index_saturations_total"
+	MetricRADIUSDynAuthTotal            = "taclab_radius_dynauth_total"
 )
 
 // Label names that may appear on any series.
@@ -65,6 +68,7 @@ const (
 	LabelPacketCode  = "code"
 	LabelResult      = "result"
 	LabelType        = "type"
+	LabelDirection   = "direction"
 )
 
 // Forbidden label keys: unbounded or secret-adjacent cardinality.
@@ -139,19 +143,22 @@ var allowedLabels = map[string]map[string]struct{}{
 	MetricGoGCPauseSeconds:      keys(),
 	MetricGoNumGC:               keys(),
 	// RADIUS series never accept client_id, username, or addresses.
-	MetricProtocolRequests:           keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
-	MetricProtocolDiscards:           keys(LabelProtocol, LabelTransport, LabelRole, LabelReasonCode),
-	MetricProtocolDuration:           keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
-	MetricRADIUSQueueDepth:           keys(LabelRole),
-	MetricRADIUSInflight:             keys(LabelRole),
-	MetricRADIUSRetransmission:       keys(LabelRole, LabelResult),
-	MetricRADIUSCacheEntries:         keys(LabelRole),
-	MetricRADIUSCacheSaturations:     keys(LabelRole),
-	MetricRADIUSJournalSaturations:   keys(LabelRole),
-	MetricRADIUSAuthenticatorFail:    keys(LabelRole, LabelType),
-	MetricRADIUSChallenges:           keys(LabelResult),
-	MetricRADIUSChallengeEntries:     keys(),
-	MetricRADIUSChallengeSaturations: keys(),
+	MetricProtocolRequests:              keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
+	MetricProtocolDiscards:              keys(LabelProtocol, LabelTransport, LabelRole, LabelReasonCode),
+	MetricProtocolDuration:              keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
+	MetricRADIUSQueueDepth:              keys(LabelRole),
+	MetricRADIUSInflight:                keys(LabelRole),
+	MetricRADIUSRetransmission:          keys(LabelRole, LabelResult),
+	MetricRADIUSCacheEntries:            keys(LabelRole),
+	MetricRADIUSCacheSaturations:        keys(LabelRole),
+	MetricRADIUSJournalSaturations:      keys(LabelRole),
+	MetricRADIUSAuthenticatorFail:       keys(LabelRole, LabelType),
+	MetricRADIUSChallenges:              keys(LabelResult),
+	MetricRADIUSChallengeEntries:        keys(),
+	MetricRADIUSChallengeSaturations:    keys(),
+	MetricRADIUSSessionIndexEntries:     keys(),
+	MetricRADIUSSessionIndexSaturations: keys(),
+	MetricRADIUSDynAuthTotal:            keys(LabelDirection, LabelPacketCode, LabelOutcome),
 }
 
 func keys(names ...string) map[string]struct{} {
@@ -208,6 +215,12 @@ const (
 	OutcomeDiscard      = "discard"
 	OutcomeDrop         = "drop"
 	OutcomeError        = "error"
+	OutcomeACK          = "ack"
+	OutcomeNAK          = "nak"
+	OutcomeTimeout      = "timeout"
+
+	DirectionOut = "out"
+	DirectionIn  = "in"
 
 	CodeAccessRequest      = "access_request"
 	CodeAccessAccept       = "access_accept"
@@ -215,6 +228,12 @@ const (
 	CodeAccountingRequest  = "accounting_request"
 	CodeAccountingResponse = "accounting_response"
 	CodeAccessChallenge    = "access_challenge"
+	CodeDisconnectRequest  = "disconnect_request"
+	CodeDisconnectACK      = "disconnect_ack"
+	CodeDisconnectNAK      = "disconnect_nak"
+	CodeCoARequest         = "coa_request"
+	CodeCoAACK             = "coa_ack"
+	CodeCoANAK             = "coa_nak"
 
 	RetransmitHitCompleted = "hit_completed"
 	RetransmitHitPending   = "hit_pending"

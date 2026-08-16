@@ -142,7 +142,44 @@ func normalizeRADIUSAccounting(dst *RADIUSListener, raw rawRADIUSAccounting, pat
 	}
 	dst.JournalBytes = n
 	dst.AmbiguousAccountingPerMinute = intOr(raw.AmbiguousAccountingPerMinute, dst.AmbiguousAccountingPerMinute)
+	dst.SessionIndexEntries = clampInt(intOr(raw.SessionIndexEntries, dst.SessionIndexEntries), MinSessionIndexEntries, MaxSessionIndexEntries)
+	n, err = parseByteSizeOr(raw.SessionIndexBytes, path+".session_index_bytes", dst.SessionIndexBytes)
+	if err != nil {
+		return err
+	}
+	dst.SessionIndexBytes = clampInt(n, MinSessionIndexBytes, MaxSessionIndexBytes)
+	if dst.SessionTTL, err = parseDurationOr(raw.SessionTTL, path+".session_ttl", dst.SessionTTL); err != nil {
+		return err
+	}
+	if dst.SessionTTL < MinSessionTTL {
+		dst.SessionTTL = MinSessionTTL
+	}
+	if dst.SessionTTL > MaxSessionTTL {
+		dst.SessionTTL = MaxSessionTTL
+	}
+	if dst.CoATimeout, err = parseDurationOr(raw.CoATimeout, path+".coa_timeout", dst.CoATimeout); err != nil {
+		return err
+	}
+	if dst.CoATimeout <= 0 {
+		dst.CoATimeout = DefaultCoATimeout
+	}
+	if dst.CoATimeout < MinCoATimeout {
+		dst.CoATimeout = MinCoATimeout
+	}
+	if dst.CoATimeout > MaxCoATimeout {
+		dst.CoATimeout = MaxCoATimeout
+	}
 	return nil
+}
+
+func clampInt(n, min, max int) int {
+	if n < min {
+		return min
+	}
+	if n > max {
+		return max
+	}
+	return n
 }
 
 func normalizeRADIUSCommon(dst *RADIUSListener, raw rawRADIUSCommon, path string) error {

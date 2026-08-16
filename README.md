@@ -264,6 +264,9 @@ Every `PARITY_REQUIRED` operation is the same handler. Live inventory: [docs/gen
 | RADIUS access test | `policy:test` | `POST /api/v1/radius/access:test` | `taclab.radius.access.test` | — |
 | RADIUS policy explain | `policy:test` | `POST /api/v1/radius/policy:evaluate` | `taclab.radius.policy.evaluate` | — |
 | RADIUS attributes | `state:read` | `GET /api/v1/radius/attributes` | `taclab.radius.attributes.list` | `taclab://radius/attributes` |
+| RADIUS sessions | `state:read` | `GET /api/v1/radius/sessions` | `taclab.radius.sessions.list` | `taclab://radius/sessions` |
+| RADIUS Disconnect send | `radius:dynamic` | `POST /api/v1/radius/disconnect:send` | `taclab.radius.disconnect.send` | — |
+| RADIUS CoA send | `radius:dynamic` | `POST /api/v1/radius/coa:send` | `taclab.radius.coa.send` | — |
 | Events page | `events:read` | `GET /api/v1/events` | `taclab.events.list` | `taclab://events/recent` |
 | Event stream | `events:read` | `GET /api/v1/events/stream` (SSE) | `subscriptions/listen` | notify URI only |
 
@@ -283,7 +286,7 @@ Usernames and commands in events also need `events:sensitive`.
 
 `state:write` does **not** imply `tokens:manage`, `runtime:reset`, or `config:reload`.
 
-`state:read` · `state:write` · `config:reload` · `config:export` · `policy:test` · `events:read` · `events:sensitive` · `tokens:manage` · `runtime:reset`
+`state:read` · `state:write` · `config:reload` · `config:export` · `policy:test` · `events:read` · `events:sensitive` · `tokens:manage` · `runtime:reset` · `radius:dynamic`
 
 ---
 

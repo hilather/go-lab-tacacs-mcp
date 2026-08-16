@@ -232,6 +232,35 @@ func (s *Server) listRadiusAttributes(w http.ResponseWriter, r *http.Request) {
 	s.invoke(w, r, operations.IDRadiusAttributesList, operations.ListRadiusAttributesRequest{}, false)
 }
 
+func (s *Server) listRadiusSessions(w http.ResponseWriter, r *http.Request) {
+	req, err := listObjectQuery[operations.ListRadiusSessionsRequest](r, func(cursor string, limit int, _ bool) operations.ListRadiusSessionsRequest {
+		return operations.ListRadiusSessionsRequest{Cursor: cursor, Limit: limit}
+	})
+	if err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDRadiusSessionsList, req, false)
+}
+
+func (s *Server) sendRadiusDisconnect(w http.ResponseWriter, r *http.Request) {
+	var req operations.RadiusDynamicAuthRequest
+	if err := decodeJSON(r, &req, s.maxBody()); err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDRadiusDisconnectSend, req, true)
+}
+
+func (s *Server) sendRadiusCoA(w http.ResponseWriter, r *http.Request) {
+	var req operations.RadiusDynamicAuthRequest
+	if err := decodeJSON(r, &req, s.maxBody()); err != nil {
+		writeDomainID(w, err, requestIDFrom(r))
+		return
+	}
+	s.invoke(w, r, operations.IDRadiusCoASend, req, true)
+}
+
 func listObjectQuery[T any](r *http.Request, build func(cursor string, limit int, deleted bool) T) (T, error) {
 	var zero T
 	limit := 0

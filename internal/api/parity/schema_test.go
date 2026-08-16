@@ -103,7 +103,7 @@ func TestSchemaEquivalence(t *testing.T) {
 		if !sameStrings(goResp, outProps) {
 			t.Errorf("%s MCP output fields go=%v mcp=%v", op.ID, goResp, outProps)
 		}
-		if op.Mutating {
+		if op.Mutating && !operations.OmitsExpectedRevision(op.ID) {
 			allIn := schemaPropNames(tool["inputSchema"])
 			if !contains(allIn, "expected_revision") || !contains(allIn, "idempotency_key") {
 				t.Errorf("%s mutating MCP input missing expected_revision/idempotency_key: %v", op.ID, allIn)

@@ -137,6 +137,8 @@ export interface ClientRADIUSProtocolView {
   allowed_methods?: string[];
   access_policy_id?: string;
   accept_status_types?: string[];
+  nas_coa_port?: number;
+  coa_destination?: string;
 }
 
 export interface ClientRADIUSWrite {
@@ -149,6 +151,8 @@ export interface ClientRADIUSWrite {
   allowed_methods?: string[];
   access_policy_id?: string;
   accept_status_types?: string[];
+  nas_coa_port?: number;
+  coa_destination?: string;
 }
 
 export interface ClientTACACSEndpointView {
@@ -455,6 +459,11 @@ export interface ListGroupsRequest {
 export interface ListRadiusAttributesRequest {
 }
 
+export interface ListRadiusSessionsRequest {
+  cursor?: string;
+  limit?: number;
+}
+
 export interface ListTokensRequest {
   cursor?: string;
   limit?: number;
@@ -589,6 +598,20 @@ export interface RadiusAuthMethod {
   response?: string;
 }
 
+export interface RadiusDynamicAuthRequest {
+  session_handle?: string;
+  client_id?: string;
+  destination?: string;
+  user_id?: string;
+  acct_session_id?: string;
+  attributes?: RadiusAttributeValue[];
+}
+
+export interface RadiusDynamicAuthResult {
+  outcome: "ack" | "nak" | "timeout";
+  error_cause?: number;
+}
+
 export interface RadiusPolicyEvaluateRequest {
   client_id?: string;
   user_id: string;
@@ -629,6 +652,25 @@ export interface RadiusPolicyTraceWinner {
   source: string;
   rule_id: string;
   effect: string;
+}
+
+export interface RadiusSessionList {
+  items: RadiusSessionView[];
+  next_cursor?: string;
+}
+
+export interface RadiusSessionView {
+  session_handle: string;
+  client_id?: string;
+  user_id?: string;
+  endpoint_id?: string;
+  nas_ip?: string;
+  nas_identifier?: string;
+  nas_port?: number;
+  peer?: string;
+  started_at?: string;
+  last_update?: string;
+  acct_session_id?: string;
 }
 
 export interface ReloadConfigRequest {

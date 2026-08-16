@@ -249,6 +249,34 @@ func (r *Recorder) RADIUSAuthenticatorFailure(role, typ string) {
 	}, 1)
 }
 
+// SetRADIUSSessionIndexEntries writes session-index occupancy. No labels.
+func (r *Recorder) SetRADIUSSessionIndexEntries(n int) {
+	if r == nil {
+		return
+	}
+	r.registry().Set(MetricRADIUSSessionIndexEntries, nil, float64(n))
+}
+
+// RADIUSSessionIndexSaturation increments session-index insert refusals.
+func (r *Recorder) RADIUSSessionIndexSaturation() {
+	if r == nil {
+		return
+	}
+	r.registry().Inc(MetricRADIUSSessionIndexSaturations, nil, 1)
+}
+
+// RADIUSDynAuth records one DAC or inbound DAS outcome. Labels are closed enums.
+func (r *Recorder) RADIUSDynAuth(direction, code, outcome string) {
+	if r == nil {
+		return
+	}
+	r.registry().Inc(MetricRADIUSDynAuthTotal, Labels{
+		LabelDirection:  boundDirection(direction),
+		LabelPacketCode: boundPacketCode(code),
+		LabelOutcome:    boundOutcome(outcome),
+	}, 1)
+}
+
 func boundTransport(v string) string {
 	switch strings.ToLower(v) {
 	case TransportLegacy:
@@ -310,8 +338,23 @@ func boundOutcome(v string) string {
 		return OutcomeDrop
 	case OutcomeError:
 		return OutcomeError
+	case OutcomeACK:
+		return OutcomeACK
+	case OutcomeNAK:
+		return OutcomeNAK
+	case OutcomeTimeout:
+		return OutcomeTimeout
 	default:
 		return OutcomeDiscard
+	}
+}
+
+func boundDirection(v string) string {
+	switch strings.ToLower(v) {
+	case DirectionIn:
+		return DirectionIn
+	default:
+		return DirectionOut
 	}
 }
 
@@ -327,6 +370,18 @@ func boundPacketCode(v string) string {
 		return CodeAccountingResponse
 	case CodeAccessChallenge, "access-challenge":
 		return CodeAccessChallenge
+	case CodeDisconnectRequest, "disconnect-request":
+		return CodeDisconnectRequest
+	case CodeDisconnectACK, "disconnect-ack":
+		return CodeDisconnectACK
+	case CodeDisconnectNAK, "disconnect-nak":
+		return CodeDisconnectNAK
+	case CodeCoARequest, "coa-request":
+		return CodeCoARequest
+	case CodeCoAACK, "coa-ack":
+		return CodeCoAACK
+	case CodeCoANAK, "coa-nak":
+		return CodeCoANAK
 	case CodeAccessRequest, "access-request":
 		return CodeAccessRequest
 	default:

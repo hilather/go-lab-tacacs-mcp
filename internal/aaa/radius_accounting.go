@@ -3,6 +3,7 @@ package aaa
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
 // AccountingKind is a RADIUS Acct-Status-Type the AAA service will record.
@@ -59,6 +61,10 @@ type RADIUSAccountingRecord struct {
 	TerminateCause string
 	SafeAttributes []SafeAttributeSummary
 	IdempotencyKey string
+	NASIP          netip.Addr
+	NASIdentifier  string
+	NASPort        uint32
+	Class          []byte
 }
 
 // RecordRADIUSAccounting accepts a RADIUS accounting record into the ring.
@@ -130,7 +136,32 @@ func (s *Service) RecordRADIUSAccounting(ctx context.Context, rec RADIUSAccounti
 	if accepted.ID == 0 {
 		return AccountingResult{}, domain.NewError(domain.CodeInternal, "accounting ring rejected the record")
 	}
+	if s.radiusSessions != nil {
+		// Index is advisory for CoA. Saturation must not fail Accounting-Response.
+		_ = s.radiusSessions.Apply(toSessionEvent(rec))
+	}
 	return AccountingResult{OK: true, EventID: accepted.ID}, nil
+}
+
+func toSessionEvent(rec RADIUSAccountingRecord) radiusruntime.AcctEvent {
+	started := time.Time{}
+	if rec.StartedAt != nil {
+		started = rec.StartedAt.UTC()
+	}
+	return radiusruntime.AcctEvent{
+		Kind:          rec.Kind.String(),
+		EndpointID:    rec.Context.EndpointID,
+		ClientID:      rec.Context.ClientID,
+		UserID:        rec.UserID,
+		SessionID:     rec.SessionID,
+		NASIP:         rec.NASIP,
+		NASIdentifier: rec.NASIdentifier,
+		NASPort:       rec.NASPort,
+		Peer:          rec.Context.Peer,
+		Class:         rec.Class,
+		StartedAt:     started,
+		Revision:      rec.Context.SnapshotRevision,
+	}
 }
 
 func checkSafeAttributeBudget(s *Service, attrs []SafeAttributeSummary) error {

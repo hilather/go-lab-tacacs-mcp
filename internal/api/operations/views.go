@@ -275,6 +275,8 @@ func clientRADIUSView(c config.Client, life domain.SecretLifecycle) ClientRADIUS
 		AllowedMethods:              cloneStrings(ep.RADIUS.AllowedAuthenticationMethods),
 		AccessPolicyID:              ep.RADIUS.AccessPolicyID,
 		AcceptStatusTypes:           cloneStrings(ep.RADIUS.AcceptStatusTypes),
+		NASCoAPort:                  ep.RADIUS.NASCoAPort,
+		CoADestination:              ep.RADIUS.CoADestination,
 	}
 }
 
@@ -656,6 +658,14 @@ func radiusEndpointFromWrite(v *ClientRADIUSWrite, roles []domain.ListenerRole) 
 		if rad.SharedSecret.Purpose == "" {
 			rad.SharedSecret.Purpose = credentials.PurposeRADIUSSharedSecret
 		}
+	}
+	if v.NASCoAPort != nil {
+		rad.NASCoAPort = *v.NASCoAPort
+	} else {
+		rad.NASCoAPort = config.DefaultNASCoAPort
+	}
+	if v.CoADestination != nil {
+		rad.CoADestination = *v.CoADestination
 	}
 	return rad, nil
 }

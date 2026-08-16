@@ -190,6 +190,9 @@ func authzRequests() map[string]any {
 			UserID: "alice", ClientID: "sw", Method: "pap",
 		},
 		operations.IDRadiusAttributesList: operations.ListRadiusAttributesRequest{},
+		operations.IDRadiusSessionsList:   operations.ListRadiusSessionsRequest{},
+		operations.IDRadiusDisconnectSend: operations.RadiusDynamicAuthRequest{ClientID: "sw", Destination: "192.0.2.10:3799"},
+		operations.IDRadiusCoASend:        operations.RadiusDynamicAuthRequest{ClientID: "sw", Destination: "192.0.2.10:3799"},
 		operations.IDEventsList:           operations.ListEventsRequest{Limit: 5},
 	}
 }

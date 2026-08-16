@@ -25,6 +25,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
@@ -80,6 +81,7 @@ var (
 	allScopes     = []string{
 		"state:read", "state:write", "policy:test", "events:read", "tokens:manage",
 		"events:sensitive", "config:reload", "config:export", "runtime:reset",
+		"radius:dynamic",
 	}
 )
 
@@ -123,13 +125,14 @@ func newWorld(t testing.TB, name string, scopes []string, adapters string) *worl
 		t.Fatal(err)
 	}
 	reg, err := operations.NewFromRepo(".", operations.Deps{
-		Build:    operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-12T00:00:00Z"},
-		State:    mgr,
-		Sessions: svc,
-		Usage:    svc,
-		Events:   ring,
-		Creds:    creds,
-		AAA:      aaaSvc,
+		Build:      operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-12T00:00:00Z"},
+		State:      mgr,
+		Sessions:   svc,
+		Usage:      svc,
+		Events:     ring,
+		Creds:      creds,
+		AAA:        aaaSvc,
+		Originator: &server.Originator{},
 		LoadBaseline: func() (*config.Document, error) {
 			return config.Parse([]byte(parityYAML))
 		},

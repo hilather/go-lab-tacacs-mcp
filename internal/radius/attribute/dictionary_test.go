@@ -65,6 +65,7 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		{"MS-CHAP2-Response", VendorTypeMSCHAP2Response, KindString, CardinalitySingle, SensitivitySecret},
 		{"MS-CHAP2-Success", VendorTypeMSCHAP2Success, KindString, CardinalitySingle, SensitivitySecret},
 		{NameCiscoAVPair, TypeCiscoAVPair, KindText, CardinalityMulti, SensitivityRestricted},
+		{"Error-Cause", TypeErrorCause, KindInteger, CardinalitySingle, SensitivityPublic},
 	}
 	all := d.All()
 	if len(all) != len(want) {

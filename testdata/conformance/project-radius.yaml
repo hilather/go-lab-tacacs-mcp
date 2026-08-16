@@ -157,6 +157,21 @@ rows:
       - unit:internal/api/parity.TestEveryParityRequiredHasCase
       - unit:internal/api/operations.TestRadiusAccessTestPAPAcceptAndWipe
       - lab:LAB-RADIUS-002
+  - id: PRJ-COA-001
+    section: dynamic-authorization
+    section_title: Dynamic authorization
+    level: PROJECT MUST
+    requirement: DAC originate CoA/Disconnect uses the client UDP RADIUS secret; handle needs Accounting-Start; explicit dest for access-only labs; MA required
+    evidence_required: Session index Start/On/Off; independent testclient dynauth; REST/MCP scope and expected_revision negatives
+    status: PASS
+    evidence:
+      - unit:internal/radius/runtime.TestSessionIndexStartInterimStop
+      - unit:internal/radius/runtime.TestSessionIndexOnOffFlushByPeerOrNAS
+      - unit:internal/radius/server.TestOriginateCoAACKIndependentTestclient
+      - unit:internal/api/operations.TestRadiusDynAuthRequiresScope
+      - unit:internal/api/operations.TestRadiusDynAuthRejectsExpectedRevision
+      - unit:internal/api/operations.TestRadiusSessionsListRedactsAcctSessionID
+      - adr:docs/decisions/0024-radius-coa-disconnect.md
   - id: PRJ-UL-001
     section: access-request
     section_title: Access-Request

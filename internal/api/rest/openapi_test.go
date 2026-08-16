@@ -50,6 +50,15 @@ func TestOpenAPIUnauthenticated(t *testing.T) {
 	if _, ok := paths["/api/v1/radius/attributes"]; !ok {
 		t.Fatal("missing radius.attributes.list")
 	}
+	if _, ok := paths["/api/v1/radius/sessions"]; !ok {
+		t.Fatal("missing radius.sessions.list")
+	}
+	if _, ok := paths["/api/v1/radius/disconnect:send"]; !ok {
+		t.Fatal("missing radius.disconnect.send")
+	}
+	if _, ok := paths["/api/v1/radius/coa:send"]; !ok {
+		t.Fatal("missing radius.coa.send")
+	}
 	if _, ok := paths["/api/v1/session"]; !ok {
 		t.Fatal("missing session")
 	}

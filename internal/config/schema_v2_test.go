@@ -474,4 +474,7 @@ func assertRADIUSDisabledDefaults(t *testing.T, doc *Document) {
 	if acct.ChallengeTTL != 0 || acct.ChallengeEntries != 0 || acct.ChallengeBytes != 0 {
 		t.Fatalf("accounting must ignore challenge knobs: ttl=%s entries=%d bytes=%d", acct.ChallengeTTL, acct.ChallengeEntries, acct.ChallengeBytes)
 	}
+	if acct.SessionIndexEntries != DefaultSessionIndexEntries || acct.SessionIndexBytes != DefaultSessionIndexBytes || acct.SessionTTL != DefaultSessionTTL || acct.CoATimeout != DefaultCoATimeout {
+		t.Fatalf("session index entries=%d bytes=%d ttl=%s coa_timeout=%s", acct.SessionIndexEntries, acct.SessionIndexBytes, acct.SessionTTL, acct.CoATimeout)
+	}
 }

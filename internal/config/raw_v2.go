@@ -79,6 +79,10 @@ type rawRADIUSAccounting struct {
 	JournalEntries               *int   `yaml:"journal_entries"`
 	JournalBytes                 string `yaml:"journal_bytes"`
 	AmbiguousAccountingPerMinute *int   `yaml:"ambiguous_accounting_per_minute"`
+	SessionIndexEntries          *int   `yaml:"session_index_entries"`
+	SessionIndexBytes            string `yaml:"session_index_bytes"`
+	SessionTTL                   string `yaml:"session_ttl"`
+	CoATimeout                   string `yaml:"coa_timeout"`
 }
 
 // rawClientV2 adds endpoints[] on schema 2. v1 rawClient rejects that field.
@@ -113,6 +117,8 @@ type rawRADIUSEndpoint struct {
 	AllowedAuthenticationMethods []string               `yaml:"allowed_authentication_methods"`
 	AccessPolicyID               string                 `yaml:"access_policy_id"`
 	Accounting                   rawRADIUSEndpointAcct  `yaml:"accounting"`
+	NASCoAPort                   *int                   `yaml:"nas_coa_port"`
+	CoADestination               string                 `yaml:"coa_destination"`
 }
 
 type rawRADIUSEndpointAcct struct {

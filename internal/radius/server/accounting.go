@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"net"
+	"net/netip"
 	"strconv"
 	"time"
 
@@ -218,6 +219,18 @@ func buildRADIUSRecord(in Request, kind aaa.AccountingKind, sessionID string, ke
 	}
 	if ts, ok := timeAttr(attrs, attribute.TypeEventTimestamp); ok {
 		rec.StartedAt = &ts
+	}
+	if a, ok := attrs.First(attribute.TypeNASIPAddress); ok && len(a.Value) == 4 {
+		rec.NASIP = netip.AddrFrom4([4]byte{a.Value[0], a.Value[1], a.Value[2], a.Value[3]})
+	}
+	rec.NASIdentifier = textAttr(attrs, attribute.TypeNASIdentifier)
+	if a, ok := attrs.First(attribute.TypeNASPort); ok {
+		if v, ok := uint32Val(a); ok {
+			rec.NASPort = v
+		}
+	}
+	if a, ok := attrs.First(attribute.TypeClass); ok && len(a.Value) > 0 {
+		rec.Class = append([]byte(nil), a.Value...)
 	}
 	return rec
 }

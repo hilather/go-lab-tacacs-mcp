@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"reflect"
 	"strings"
 
@@ -528,6 +529,15 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 	if endpointRolesContain(roles, domain.RoleAccounting) && len(status) == 0 {
 		status = defaultRADIUSAcceptStatusTypes()
 	}
+	dest := strings.TrimSpace(raw.CoADestination)
+	if dest != "" {
+		if _, _, err := net.SplitHostPort(dest); err != nil {
+			return nil, yamlErrorAt(path+".coa_destination", "coa_destination must be host:port")
+		}
+	}
+	if raw.NASCoAPort != nil && (*raw.NASCoAPort < 1 || *raw.NASCoAPort > 65535) {
+		return nil, yamlErrorAt(path+".nas_coa_port", "nas_coa_port must be 1-65535")
+	}
 	return &RADIUSEndpoint{
 		SharedSecret: sec,
 		SharedSecretLifecycle: SecretLifecycleMeta{
@@ -539,7 +549,34 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 		AllowedAuthenticationMethods: methods,
 		AccessPolicyID:               raw.AccessPolicyID,
 		AcceptStatusTypes:            status,
+		NASCoAPort:                   normalizeNASCoAPort(raw.NASCoAPort),
+		CoADestination:               dest,
 	}, nil
+}
+
+func normalizeNASCoAPort(raw *int) uint16 {
+	if raw == nil || *raw == 0 {
+		return DefaultNASCoAPort
+	}
+	if *raw < 1 || *raw > 65535 {
+		return DefaultNASCoAPort
+	}
+	return uint16(*raw)
+}
+
+// RADIUSUDPEndpoint is the client's UDP RADIUS endpoint. DAC secret and dest
+// knobs always come from this endpoint, never from SessionRecord.EndpointID.
+func RADIUSUDPEndpoint(c Client) *ClientEndpoint {
+	for i := range c.Endpoints {
+		ep := &c.Endpoints[i]
+		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+			continue
+		}
+		if ep.Transport == EndpointTransportUDP || ep.Transport == "" {
+			return ep
+		}
+	}
+	return nil
 }
 
 func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole) bool {

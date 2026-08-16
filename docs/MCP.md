@@ -67,7 +67,7 @@ Lab mode is `api.mode: lab_static_bearer`.
 
 Bootstrap scopes in the reference lab:
 
-`state:read` · `state:write` · `config:reload` · `config:export` · `policy:test` · `events:read` · `tokens:manage` · `runtime:reset`
+`state:read` · `state:write` · `config:reload` · `config:export` · `policy:test` · `events:read` · `tokens:manage` · `runtime:reset` · `radius:dynamic`
 
 Add `events:sensitive` if the client must see usernames and commands.
 

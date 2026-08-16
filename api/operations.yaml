@@ -511,6 +511,57 @@ operations:
       resource: taclab://radius/attributes
     status: PASS
 
+  - id: radius.sessions.list
+    description: List in-memory RADIUS accounting sessions. Opaque handles are always returned. Raw acct_session_id requires events:sensitive. Access-Accept never inserts a row.
+    parity: PARITY_REQUIRED
+    mutating: false
+    idempotent: "true"
+    scopes: [state:read]
+    request_type: ListRadiusSessionsRequest
+    response_type: RadiusSessionList
+    rest:
+      method: GET
+      path: /api/v1/radius/sessions
+    mcp:
+      kind: tool
+      name: taclab.radius.sessions.list
+      resource: taclab://radius/sessions
+    status: PASS
+
+  - id: radius.disconnect.send
+    description: Originate a RADIUS Disconnect-Request to the NAS (DAC). Uses the client's UDP RADIUS secret. expected_revision is rejected. Handle path requires Accounting-Start. Not overlay CAS.
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: "true"
+    scopes: [radius:dynamic]
+    request_type: RadiusDynamicAuthRequest
+    response_type: RadiusDynamicAuthResult
+    rest:
+      method: POST
+      path: /api/v1/radius/disconnect:send
+    mcp:
+      kind: tool
+      name: taclab.radius.disconnect.send
+    audit_event: api.radius.dynauth
+    status: PASS
+
+  - id: radius.coa.send
+    description: Originate a RADIUS CoA-Request to the NAS (DAC). Uses the client's UDP RADIUS secret. expected_revision is rejected. Handle path requires Accounting-Start. Not overlay CAS.
+    parity: PARITY_REQUIRED
+    mutating: true
+    idempotent: "true"
+    scopes: [radius:dynamic]
+    request_type: RadiusDynamicAuthRequest
+    response_type: RadiusDynamicAuthResult
+    rest:
+      method: POST
+      path: /api/v1/radius/coa:send
+    mcp:
+      kind: tool
+      name: taclab.radius.coa.send
+    audit_event: api.radius.dynauth
+    status: PASS
+
   - id: events.list
     description: Read a cursor page of redacted events from the ring. Optional filters protocol, listener_role, packet_code, and outcome AND with categories.
     parity: PARITY_REQUIRED

@@ -88,7 +88,7 @@ api:
   bootstrap_tokens:
     - id: lab
       token: {file: %s}
-      scopes: [state:read, state:write, tokens:manage, config:export, events:read, events:sensitive, policy:test]
+      scopes: [state:read, state:write, tokens:manage, config:export, events:read, events:sensitive, policy:test, radius:dynamic]
 `, legacyPath, radiusPath, loginPath, chalPath, tokPath)
 
 	doc, err := config.Parse([]byte(yamlSrc))
@@ -176,6 +176,7 @@ api:
 		},
 	})
 	mschap := do(t, http.MethodPost, ts.URL+"/api/v1/radius/access:test", value, msBody)
+	sessions := do(t, http.MethodGet, ts.URL+"/api/v1/radius/sessions", value, nil)
 
 	mcpExport := mcpCall(t, ts.URL, value, "tools/call", map[string]any{
 		"name": "taclab.config.export", "arguments": map[string]any{},
@@ -237,6 +238,7 @@ api:
 		{"rest-events", string(evs)},
 		{"rest-status", string(status)},
 		{"rest-users", string(users)},
+		{"rest-sessions", string(sessions)},
 		{"mcp-export", string(mcpExport)},
 		{"mcp-authn-pap", string(mcpAuthn)},
 		{"mcp-clients", string(mcpClients)},

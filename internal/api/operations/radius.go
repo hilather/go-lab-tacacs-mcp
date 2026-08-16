@@ -577,6 +577,18 @@ func radiusPacketName(code uint8) string {
 		return "Accounting-Response"
 	case attribute.PacketAccessChallenge:
 		return "Access-Challenge"
+	case attribute.PacketDisconnectRequest:
+		return "Disconnect-Request"
+	case attribute.PacketDisconnectACK:
+		return "Disconnect-ACK"
+	case attribute.PacketDisconnectNAK:
+		return "Disconnect-NAK"
+	case attribute.PacketCoARequest:
+		return "CoA-Request"
+	case attribute.PacketCoAACK:
+		return "CoA-ACK"
+	case attribute.PacketCoANAK:
+		return "CoA-NAK"
 	default:
 		return "Packet(" + strconv.Itoa(int(code)) + ")"
 	}

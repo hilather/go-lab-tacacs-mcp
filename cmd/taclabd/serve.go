@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log/slog"
@@ -138,8 +139,11 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 			RedactUserInput: doc.Events.RedactUserInput,
 			Metrics:         obs.Rec,
 		})
-		var err error
-		aaaSvc, err = aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec})
+		sessIdx, err := newRADIUSSessionIndex(doc, obs.Rec)
+		if err != nil {
+			return err
+		}
+		aaaSvc, err = aaa.New(aaa.Options{Manager: mgr, Snapshot: mgr.Snapshot, Secrets: lookup, Events: ring, Metrics: obs.Rec, Sessions: sessIdx})
 		if err != nil {
 			return err
 		}
@@ -363,6 +367,12 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 	if err != nil {
 		return nil, nil, err
 	}
+	var sessIdx *radiusruntime.SessionIndex
+	var originator *radiusserver.Originator
+	if aaaSvc != nil {
+		sessIdx = aaaSvc.RADIUSSessions()
+		originator = &radiusserver.Originator{Entropy: rand.Reader, Metrics: obs.Rec}
+	}
 	reg, err := loadRegistry(operations.Deps{
 		Build:          operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime, UIVersion: uiVersion},
 		State:          mgr,
@@ -374,6 +384,8 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		AAA:            aaaSvc,
 		Runtime:        listeners,
 		OnRuntimeReset: onReset,
+		RADIUSSessions: sessIdx,
+		Originator:     originator,
 		LoadBaseline: func() (*config.Document, error) {
 			next, err := config.Load(configPath)
 			if err != nil {
@@ -481,6 +493,31 @@ func reloadSnapshot(path string, mgr *state.Manager) error {
 	rev := mgr.Revision()
 	_, err = mgr.Reload(doc, &rev)
 	return err
+}
+
+func newRADIUSSessionIndex(doc *config.Document, rec *observability.Recorder) (*radiusruntime.SessionIndex, error) {
+	entries := config.DefaultSessionIndexEntries
+	bytes := config.DefaultSessionIndexBytes
+	ttl := config.DefaultSessionTTL
+	if doc != nil {
+		acct := doc.Listeners.RADIUSAccounting
+		if acct.SessionIndexEntries > 0 {
+			entries = acct.SessionIndexEntries
+		}
+		if acct.SessionIndexBytes > 0 {
+			bytes = acct.SessionIndexBytes
+		}
+		if acct.SessionTTL > 0 {
+			ttl = acct.SessionTTL
+		}
+	}
+	return radiusruntime.NewSessionIndex(radiusruntime.Options{
+		MaxEntries: entries,
+		MaxBytes:   bytes,
+		TTL:        ttl,
+		Entropy:    rand.Reader,
+		Metrics:    rec,
+	})
 }
 
 func secretLookup(doc *config.Document) config.SecretLookup {

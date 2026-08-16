@@ -34,6 +34,26 @@ func TestScopesExactSet(t *testing.T) {
 	if ValidScope("admin") {
 		t.Fatal("unknown scope accepted")
 	}
+	if !ValidScope("radius:dynamic") {
+		t.Fatal("radius:dynamic must be in the closed set")
+	}
+}
+
+func TestLabAdminOmitsRadiusDynamic(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"lab.example.yaml", "lab.example.v2.yaml"} {
+		doc, err := Load(filepath.Join("..", "..", "configs", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, tok := range doc.API.BootstrapTokens {
+			for _, s := range tok.Scopes {
+				if s == "radius:dynamic" {
+					t.Fatalf("%s bootstrap token %s has radius:dynamic", name, tok.ID)
+				}
+			}
+		}
+	}
 }
 
 func TestValidateLabExample(t *testing.T) {

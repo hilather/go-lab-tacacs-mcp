@@ -30,6 +30,7 @@ var knownScopes = map[string]struct{}{
 	"events:sensitive": {},
 	"tokens:manage":    {},
 	"runtime:reset":    {},
+	"radius:dynamic":   {},
 }
 
 var validIdempotent = map[string]struct{}{

@@ -42,6 +42,7 @@ const (
 	TypeMessageAuthenticator uint8 = 80
 	TypeAcctInterimInterval  uint8 = 85
 	TypeNASIPv6Address       uint8 = 95
+	TypeErrorCause           uint8 = 101
 )
 
 // MaxValueLength is the maximum Value size (Length is one octet and includes Type+Length).

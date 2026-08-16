@@ -870,6 +870,7 @@ Scopes (exact match, no implicit hierarchy):
 | `events:sensitive` | unredacted username/command fields (in addition to `events:read`) |
 | `tokens:manage` | token CRUD |
 | `runtime:reset` | reset overlay |
+| `radius:dynamic` | originate RADIUS CoA/Disconnect (DAC). Not granted to `lab-admin` by default |
 
 `state:write` does **not** grant `tokens:manage`, `runtime:reset`, or `config:reload`.
 
@@ -996,6 +997,9 @@ There is no prior implementation. The public 1.0 surface is:
 | `radius.access.test` | `policy:test` | `POST /radius/access:test` |
 | `radius.policy.evaluate` | `policy:test` | `POST /radius/policy:evaluate` |
 | `radius.attributes.list` | `state:read` | `GET /radius/attributes` (includes `source`) |
+| `radius.sessions.list` | `state:read` | `GET /radius/sessions` |
+| `radius.disconnect.send` | `radius:dynamic` | `POST /radius/disconnect:send` |
+| `radius.coa.send` | `radius:dynamic` | `POST /radius/coa:send` |
 | `events.list` | `events:read` | `GET /events` |
 | `events.subscribe` | `events:read` | `GET /events/stream` (SSE) |
 

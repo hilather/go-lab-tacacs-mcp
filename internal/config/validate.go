@@ -34,6 +34,7 @@ var knownScopes = map[string]struct{}{
 	"events:sensitive": {},
 	"tokens:manage":    {},
 	"runtime:reset":    {},
+	"radius:dynamic":   {},
 }
 
 var scopeOrder = []string{
@@ -46,6 +47,7 @@ var scopeOrder = []string{
 	"events:sensitive",
 	"tokens:manage",
 	"runtime:reset",
+	"radius:dynamic",
 }
 
 // Validate checks cross-object references, limits, command patterns, credential
@@ -290,6 +292,18 @@ func validateRADIUSListener(l RADIUSListener, path string, accounting bool) erro
 		}
 		if l.AmbiguousAccountingPerMinute < 0 {
 			return domain.NewError(domain.CodeInvalidArgument, "ambiguous_accounting_per_minute must be >= 0").WithPath(path + ".ambiguous_accounting_per_minute")
+		}
+		if l.SessionIndexEntries < MinSessionIndexEntries || l.SessionIndexEntries > MaxSessionIndexEntries {
+			return domain.NewError(domain.CodeInvalidArgument, "session_index_entries is out of range").WithPath(path + ".session_index_entries")
+		}
+		if l.SessionIndexBytes < MinSessionIndexBytes || l.SessionIndexBytes > MaxSessionIndexBytes {
+			return domain.NewError(domain.CodeInvalidArgument, "session_index_bytes is out of range").WithPath(path + ".session_index_bytes")
+		}
+		if l.SessionTTL < MinSessionTTL || l.SessionTTL > MaxSessionTTL {
+			return domain.NewError(domain.CodeInvalidArgument, "session_ttl must be between 1m and 24h").WithPath(path + ".session_ttl")
+		}
+		if l.CoATimeout < MinCoATimeout || l.CoATimeout > MaxCoATimeout {
+			return domain.NewError(domain.CodeInvalidArgument, "coa_timeout must be between 500ms and 30s").WithPath(path + ".coa_timeout")
 		}
 	} else {
 		if l.RetransmissionTTL < RADIUSAccessRetransmissionTTLMin || l.RetransmissionTTL > RADIUSAccessRetransmissionTTLMax {

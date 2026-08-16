@@ -482,7 +482,7 @@ func TestGenerateDocs(t *testing.T) {
 	}
 }
 
-const expectedOperationCount = 41
+const expectedOperationCount = 44
 
 var protocolOnlyOperationIDs = []string{
 	"health.live",

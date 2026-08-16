@@ -27,6 +27,8 @@ func TestRequiredSeriesPresent(t *testing.T) {
 		MetricRADIUSCacheEntries, MetricRADIUSCacheSaturations,
 		MetricRADIUSJournalSaturations, MetricRADIUSAuthenticatorFail,
 		MetricRADIUSChallenges, MetricRADIUSChallengeEntries, MetricRADIUSChallengeSaturations,
+		MetricRADIUSSessionIndexEntries, MetricRADIUSSessionIndexSaturations,
+		MetricRADIUSDynAuthTotal,
 	}
 	for _, name := range required {
 		if !strings.Contains(text, name) {

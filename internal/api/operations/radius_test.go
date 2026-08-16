@@ -470,8 +470,6 @@ func TestEncodeAndFormatNamedCiscoAVPair(t *testing.T) {
 		t.Fatalf("format=%+v", got)
 	}
 }
-	}
-}
 
 func TestRadiusAttributesListRequiresReadScope(t *testing.T) {
 	t.Parallel()

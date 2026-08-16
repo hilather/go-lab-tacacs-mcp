@@ -42,6 +42,23 @@ type SessionRecord struct {
 	StartedAt     time.Time
 	LastUpdate    time.Time
 	Revision      domain.Revision
+	LastCoA       LastCoA
+}
+
+// LastCoA is identification-safe inbound CoA attrs stored for lab inspection.
+type LastCoA struct {
+	SessionTimeout *uint32
+	IdleTimeout    *uint32
+	ReplyMessage   []string
+}
+
+// DASQuery identifies a session for inbound Disconnect/CoA.
+type DASQuery struct {
+	ClientID      string
+	SessionID     string
+	UserID        string
+	NASIP         netip.Addr
+	NASIdentifier string
 }
 
 // AcctEvent is the post-ring-accept hook from RecordRADIUSAccounting.
@@ -206,6 +223,81 @@ func (idx *SessionIndex) Len() int {
 	defer idx.mu.Unlock()
 	idx.expireLocked(idx.clock.Now())
 	return len(idx.byHandle)
+}
+
+// FindDAS returns matching live rows for inbound DAS identification.
+// n is 0 (miss), 1 (unique), or >1 (ambiguous).
+func (idx *SessionIndex) FindDAS(q DASQuery) (SessionRecord, int) {
+	if idx == nil {
+		return SessionRecord{}, 0
+	}
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+	idx.expireLocked(idx.clock.Now())
+	var hits []SessionRecord
+	for _, rec := range idx.byHandle {
+		if rec == nil {
+			continue
+		}
+		if q.ClientID != "" && rec.ClientID != q.ClientID {
+			continue
+		}
+		if q.SessionID != "" && rec.Key.AcctSessionID != q.SessionID {
+			continue
+		}
+		if q.UserID != "" && rec.UserID != q.UserID {
+			continue
+		}
+		if q.NASIP.IsValid() && rec.NASIP.IsValid() && rec.NASIP != q.NASIP {
+			continue
+		}
+		if q.NASIdentifier != "" && rec.NASIdentifier != q.NASIdentifier {
+			continue
+		}
+		hits = append(hits, cloneRecord(*rec))
+	}
+	if len(hits) == 1 {
+		return hits[0], 1
+	}
+	return SessionRecord{}, len(hits)
+}
+
+// StoreLastCoA records supported inbound CoA attrs on the index row.
+func (idx *SessionIndex) StoreLastCoA(key SessionKey, attrs LastCoA) bool {
+	if idx == nil || key.AcctSessionID == "" {
+		return false
+	}
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+	idx.expireLocked(idx.clock.Now())
+	handle, ok := idx.byKey[key]
+	if !ok {
+		return false
+	}
+	rec := idx.byHandle[handle]
+	if rec == nil {
+		return false
+	}
+	idx.bytes -= rec.size()
+	rec.LastCoA = cloneLastCoA(attrs)
+	rec.LastUpdate = idx.clock.Now()
+	idx.bytes += rec.size()
+	return true
+}
+
+// Delete removes a live row by accounting identity.
+func (idx *SessionIndex) Delete(key SessionKey) bool {
+	if idx == nil || key.AcctSessionID == "" {
+		return false
+	}
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+	idx.expireLocked(idx.clock.Now())
+	if _, ok := idx.byKey[key]; !ok {
+		return false
+	}
+	idx.deleteKeyLocked(key)
+	return true
 }
 
 // Reset drops every row. runtime.reset and process exit wipe the table.
@@ -396,6 +488,9 @@ func (r SessionRecord) size() int {
 	n += len(r.Key.EndpointID) + len(r.Key.AcctSessionID)
 	n += len(r.Handle) + len(r.ClientID) + len(r.UserID) + len(r.NASIdentifier)
 	n += len(r.Class)
+	for _, s := range r.LastCoA.ReplyMessage {
+		n += len(s)
+	}
 	return n
 }
 
@@ -403,6 +498,23 @@ func cloneRecord(in SessionRecord) SessionRecord {
 	out := in
 	if in.Class != nil {
 		out.Class = append([]byte(nil), in.Class...)
+	}
+	out.LastCoA = cloneLastCoA(in.LastCoA)
+	return out
+}
+
+func cloneLastCoA(in LastCoA) LastCoA {
+	out := LastCoA{}
+	if in.SessionTimeout != nil {
+		v := *in.SessionTimeout
+		out.SessionTimeout = &v
+	}
+	if in.IdleTimeout != nil {
+		v := *in.IdleTimeout
+		out.IdleTimeout = &v
+	}
+	if in.ReplyMessage != nil {
+		out.ReplyMessage = append([]string(nil), in.ReplyMessage...)
 	}
 	return out
 }

@@ -301,6 +301,38 @@ clients:
 	}
 }
 
+func TestRADIUSEndpointAcceptsDynamicAuthorizationRole(t *testing.T) {
+	t.Parallel()
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+clients:
+  - id: rad
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: r
+        protocol: radius
+        transport: udp
+        roles: [access, accounting, dynamic_authorization]
+        radius:
+          shared_secret: {file: /run/secrets/a}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateV2(doc); err != nil {
+		t.Fatal(err)
+	}
+	ep := radiusEndpoint(doc.Clients[0], EndpointTransportUDP)
+	if ep == nil || !endpointHasRole(*ep, domain.RoleDynamicAuthorization) {
+		t.Fatalf("roles=%v", ep)
+	}
+}
+
 func TestV1StillRejectsEndpoints(t *testing.T) {
 	t.Parallel()
 	_, err := Parse([]byte("schema_version: 1\nclients:\n  - id: sw\n    endpoints:\n      - id: r\n        protocol: radius\n"))

@@ -17,13 +17,16 @@ This is the operator-facing 1.0 guide. Protocol and schema details stay in [CONF
 | RADIUS access | 1812/udp | RFC 2865 PAP/CHAP Access-Accept/Reject. Off unless a v2 profile enables it. |
 | RADIUS accounting | 1813/udp | RFC 2866 Start/Stop/Interim/On/Off into the memory ring. Off unless a v2 profile enables it. |
 | RADIUS/TLS (RadSec) | 2083/tcp | RFC 6614 TLS 1.3 mTLS stream of length-prefixed RADIUS packets. Off unless `listeners.radius.radsec.enabled` is true. PAP/CHAP only until EAP/MS-CHAP land. |
+| RADIUS dynauth (DAS) | 3799/udp | Optional RFC 5176 echo fixture. **Default off.** Index-only; does not kick a NAS. |
 | HTTP admin | 8080/tcp | UI, `/api/v1`, `/mcp`, health |
 
 Runtime overlay is **memory-only**. Restart or `runtime.reset` restores the YAML baseline. RADIUS retransmission cache, accounting journal, CoA session index, and the event ring go with the process. Do not put the overlay on a volume.
 
 When both TACACS listeners are enabled, status/UI/logs show a **co-located lab topology** warning. That topology is a lab convenience ([ADR 0001](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0001-all-in-one-dual-listener-lab.md)). Production-like tests should use the TLS-only Compose overlay or separate hosts.
 
-RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than User-Password travel in the clear. Keep 49, 300, **1812, 1813, and 2083 off the public internet** unless you intentionally publish RadSec behind the same posture as TACACS 300 ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md), [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)).
+RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than User-Password travel in the clear. Keep 49, 300, **1812, 1813, 2083, and 3799 off the public internet** unless you intentionally publish RadSec behind the same posture as TACACS 300 ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md), [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)).
+
+Inbound :3799 is for RFC 5176 test tools. It only updates TacLab’s memory index. To disconnect a device, use Disconnect send.
 
 ### 1.1 Residual limits (honest)
 
@@ -34,7 +37,7 @@ RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than 
 | Memory-only RADIUS accounting | Accounting-Response is sent only after the in-process ring accepts the record. Restart loses the journal and the ring. Persistent accounting (`RAD-EXT-009`) is **cancelled** for the in-memory remaining-work program ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). |
 | UDP is the default RADIUS profile | Source-IP selects the UDP secret. Optional RadSec is a **TLS 1.3 stream** on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)), default off — not “UDP plus TLS.” No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP. Shared secret is still required (do not default the informal string `radsec`). |
 | Access-Challenge / EAP | Identity (type 1) + EAP-MD5 (type 4) terminate when `allowed_authentication_methods` includes `eap` (opt-in; omitted lists stay `[pap, chap]`). Other EAP types get generic EAP-Failure + Access-Reject. No PEAP/TLS/TTLS. `must_change_login` after a good MD5 is Access-Reject + the same generic EAP-Failure as a bad password. Program ADRs [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md) / [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). |
-| CoA / Disconnect DAC | Originate CoA/Disconnect to the NAS via REST/MCP (`radius:dynamic`). Handle path needs Accounting-Start + Acct-Session-Id; access-only labs use explicit `client_id` + destination. Both paths sign with the client's **UDP** RADIUS secret. `lab-admin` does **not** get `radius:dynamic` by default. Inbound :3799 DAS is **not** shipped (PR 10). [ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
+| CoA / Disconnect | DAC originate (REST/MCP `radius:dynamic`) is the **only** path that kicks a NAS. Handle path needs Accounting-Start + Acct-Session-Id; access-only labs use explicit `client_id` + destination. Both paths sign with the client's **UDP** RADIUS secret. `lab-admin` does **not** get `radius:dynamic` by default. Optional inbound DAS (`listeners.radius.dynamic_authorization`, UDP 3799, default off) is an **RFC 5176 echo fixture**: it mutates TacLab’s memory index only and never forwards to a NAS, never tears down a TACACS session, and never sends UDP to the NAS. Add `dynamic_authorization` to the client RADIUS endpoint `roles` to accept inbound packets. `radius:dynamic` is not required for inbound. [ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
 | RADIUS MS-CHAP is opt-in / MD4-era | Add `mschapv1` / `mschapv2` to `allowed_authentication_methods`. Omitted lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. [ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
 | Named `Cisco-AVPair` | Shipped as vendor 9 / vendor-type 1. Reply profiles accept `name: Cisco-AVPair` or raw `{vendor: 9, code: 1, value_hex}`. Evidence is independent fixtures ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md)). An IOL skip is not PASS. |
 | Operator dictionaries | v2 `radius_dictionaries` are TacLab YAML, local absolute files, size-capped, fail-closed. Vendors 0/9/311 and `Cisco-AVPair` / `MS-CHAP-*` are reserved. Not FreeRADIUS `$INCLUDE`. Program ADR [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md). |
@@ -46,7 +49,7 @@ Product, module, binary, and image names stay TacLab / `github.com/hilather/go-l
 
 ## 2. Install and start (Compose)
 
-Prerequisites: Linux, Docker Compose v2, host ports 49/300/8080 (and UDP 1812/1813 for combined or RADIUS-only; TCP 2083 if RadSec is enabled), or the high-port smoke overlay.
+Prerequisites: Linux, Docker Compose v2, host ports 49/300/8080 (and UDP 1812/1813/3799 for combined or RADIUS-only; TCP 2083 if RadSec is enabled), or the high-port smoke overlay.
 
 ```bash
 git clone https://github.com/hilather/go-lab-tacacs-mcp.git
@@ -55,7 +58,7 @@ go run ./tools/labgen deployments/compose
 docker compose -f deployments/compose/compose.yaml up -d --build
 ```
 
-The default Compose baseline is **schema v1** (TACACS listeners only). Host 1812/1813 are mapped; RADIUS sockets stay `enabled: false`.
+The default Compose baseline is **schema v1** (TACACS listeners only). Host 1812/1813/3799 are mapped; RADIUS sockets stay `enabled: false`. Inbound :3799 stays off until `listeners.radius.dynamic_authorization.enabled` is set.
 
 Combined TACACS + RADIUS/UDP (schema v2, listeners on):
 

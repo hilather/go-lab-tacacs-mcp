@@ -50,6 +50,9 @@ func normalizeV2(raw *rawFileV2) (*Document, error) {
 	if err := normalizeRADIUSRadSec(&doc.Listeners.RADIUSRadSec, raw.Listeners.RADIUS.RadSec, "listeners.radius.radsec", doc.Security.AllowEnvironmentSecrets); err != nil {
 		return nil, err
 	}
+	if err := normalizeRADIUSDynAuth(&doc.Listeners.RADIUSDynAuth, raw.Listeners.RADIUS.DynamicAuthorization, "listeners.radius.dynamic_authorization"); err != nil {
+		return nil, err
+	}
 
 	if err := normalizeAPI(&doc.API, raw.API, doc.Listeners.HTTP.TLS.Enabled, doc.Security.AllowEnvironmentSecrets); err != nil {
 		return nil, err
@@ -223,6 +226,17 @@ func normalizeRADIUSAccounting(dst *RADIUSListener, raw rawRADIUSAccounting, pat
 	if dst.CoATimeout > MaxCoATimeout {
 		dst.CoATimeout = MaxCoATimeout
 	}
+	return nil
+}
+
+func normalizeRADIUSDynAuth(dst *RADIUSListener, raw rawRADIUSDynAuth, path string) error {
+	if err := normalizeRADIUSCommon(dst, raw.rawRADIUSCommon, path); err != nil {
+		return err
+	}
+	if raw.RequireMessageAuthenticator != nil && !*raw.RequireMessageAuthenticator {
+		return yamlErrorAt(path+".require_message_authenticator", "require_message_authenticator cannot be disabled for inbound DAS")
+	}
+	dst.MessageAuthenticator = RADIUSMessageAuthenticatorRequired
 	return nil
 }
 

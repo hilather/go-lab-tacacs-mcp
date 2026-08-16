@@ -110,6 +110,32 @@ func EncodeDynAuthReply(secret []byte, code codec.Code, id uint8, reqAuth [16]by
 	return pkt, nil
 }
 
+// DecodeDynAuthReply validates MA and Response Authenticator on ACK/NAK.
+func DecodeDynAuthReply(secret []byte, reqAuth [16]byte, wire []byte) (DynAuthReply, error) {
+	pkt, err := codec.Decode(wire)
+	if err != nil {
+		return DynAuthReply{}, err
+	}
+	if pkt.Code != codec.CoAACK && pkt.Code != codec.CoANAK && pkt.Code != codec.DisconnectACK && pkt.Code != codec.DisconnectNAK {
+		return DynAuthReply{}, ErrUnexpectedCode
+	}
+	if err := validateResponseIntegrity(secret, reqAuth, wire); err != nil {
+		return DynAuthReply{}, err
+	}
+	out := DynAuthReply{
+		Code:          pkt.Code,
+		Identifier:    pkt.Identifier,
+		Authenticator: pkt.Authenticator,
+		Attrs:         pkt.Attrs,
+	}
+	for _, a := range pkt.Attrs {
+		if a.Type == codec.TypeErrorCause && len(a.Value) == 4 {
+			out.ErrorCause = uint32(a.Value[0])<<24 | uint32(a.Value[1])<<16 | uint32(a.Value[2])<<8 | uint32(a.Value[3])
+		}
+	}
+	return out, nil
+}
+
 func attrsWithMAC(in []codec.Attr, mac [16]byte) []codec.Attr {
 	out := codec.CloneAttrs(in)
 	for i := range out {

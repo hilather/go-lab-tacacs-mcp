@@ -13,6 +13,10 @@
 // types, and recorded through aaa.RecordRADIUSAccounting. Accounting-
 // Response always inserts Message-Authenticator first.
 //
+// Inbound CoA/Disconnect (RoleDynamicAuthorization) is an RFC 5176 echo
+// fixture: ACK/NAK and session-index mutation only. It never forwards to
+// a NAS. Message-Authenticator is required. Session miss is NAK 503.
+//
 // This package may import AAA, the RADIUS codec, attributes, and crypto. It
 // must not import TACACS, policy evaluation, or API adapters.
 package server

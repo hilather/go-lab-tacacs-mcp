@@ -632,6 +632,10 @@ function ClientEditor({
               </p>
               <fieldset className="fieldset">
                 <legend>RADIUS roles</legend>
+                <p className="hint">
+                  Inbound :3799 is for RFC 5176 test tools. It only updates TacLab’s memory index. To
+                  disconnect a device, use Disconnect send.
+                </p>
                 {RADIUS_ROLES.map((role) => (
                   <label key={role} className="check">
                     <input

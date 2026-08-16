@@ -6,15 +6,6 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
-// requestCarrier is the Request carrier, defaulting to RADIUS/UDP for
-// existing callers that have not filled the field.
-func requestCarrier(in Request) domain.Carrier {
-	if in.Carrier != "" {
-		return in.Carrier
-	}
-	return domain.CarrierRADIUSUDP
-}
-
 // extractState copies the State attribute if present. Duplicate or empty
 // State is reject_invalid_state. The raw value is never logged.
 func extractState(attrs attribute.RawSet) (state []byte, present bool, reason string) {
@@ -31,7 +22,7 @@ func extractState(attrs attribute.RawSet) (state []byte, present bool, reason st
 // bindFromRequest builds the tagged bind from Carrier. UDP uses peer IP
 // (port is ignored). TLS uses the injected certificate fingerprint.
 func bindFromRequest(in Request) (runtime.ChallengeBind, string) {
-	switch requestCarrier(in) {
+	switch requestCarrier(in.Carrier) {
 	case domain.CarrierRADIUSTLS:
 		if in.TLSCertFP == [32]byte{} {
 			return runtime.ChallengeBind{}, ReasonChallengeBinding

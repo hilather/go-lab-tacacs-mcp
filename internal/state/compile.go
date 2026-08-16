@@ -95,6 +95,10 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err != nil {
 		return nil, nil, err
 	}
+	dynIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleDynamicAuthorization, domain.CarrierRADIUSUDP)
+	if err != nil {
+		return nil, nil, err
+	}
 	radPol, err := policyradius.CompileDocument(synth)
 	if err != nil {
 		return nil, nil, err
@@ -124,6 +128,7 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	matchWarns = append(matchWarns, acctIdx.Warnings()...)
 	matchWarns = append(matchWarns, accessTLS.Warnings()...)
 	matchWarns = append(matchWarns, acctTLS.Warnings()...)
+	matchWarns = append(matchWarns, dynIdx.Warnings()...)
 	snap := &Snapshot{
 		Revision:             rev,
 		BaselineHash:         hashBaseline(base),
@@ -142,6 +147,7 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 		radiusAcctIndex:      acctIdx,
 		radiusAccessTLSIndex: accessTLS,
 		radiusAcctTLSIndex:   acctTLS,
+		radiusDynAuthIndex:   dynIdx,
 		radiusPolicies:       radPol,
 		radiusDictionary:     dict,
 		radiusDictVersion:    dictVer,

@@ -160,9 +160,16 @@ func (r *Registry) HasReadyAAA() bool {
 	}
 	for _, l := range r.listeners {
 		switch l.Protocol() {
-		case domain.ProtocolTACACS, domain.ProtocolRADIUS:
+		case domain.ProtocolTACACS:
 			if l.Ready() {
 				return true
+			}
+		case domain.ProtocolRADIUS:
+			switch l.Role() {
+			case domain.RoleAccess, domain.RoleAccounting:
+				if l.Ready() {
+					return true
+				}
 			}
 		}
 	}

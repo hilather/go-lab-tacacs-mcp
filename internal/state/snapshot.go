@@ -53,6 +53,7 @@ type Snapshot struct {
 	radiusAcctIndex      *config.RADIUSIndex
 	radiusAccessTLSIndex *config.RADIUSCertIndex
 	radiusAcctTLSIndex   *config.RADIUSCertIndex
+	radiusDynAuthIndex   *config.RADIUSIndex
 	radiusPolicies       *policyradius.Engine
 	radiusDictionary     Dictionary
 	radiusDictVersion    string
@@ -371,6 +372,14 @@ func (s *Snapshot) RADIUSAccountingTLSIndex() *config.RADIUSCertIndex {
 	return s.radiusAcctTLSIndex
 }
 
+// RADIUSDynAuthIndex returns the compiled inbound DAS LPM. It is immutable.
+func (s *Snapshot) RADIUSDynAuthIndex() *config.RADIUSIndex {
+	if s == nil {
+		return nil
+	}
+	return s.radiusDynAuthIndex
+}
+
 // RADIUSPolicies returns the compiled RADIUS access-policy engine.
 func (s *Snapshot) RADIUSPolicies() *policyradius.Engine {
 	if s == nil {
@@ -410,8 +419,10 @@ func (s *Snapshot) MatchRADIUS(role domain.ListenerRole, carrier domain.Carrier,
 		idx = s.radiusAccessIndex
 	case domain.RoleAccounting:
 		idx = s.radiusAcctIndex
+	case domain.RoleDynamicAuthorization:
+		idx = s.radiusDynAuthIndex
 	default:
-		return EffectiveClient{}, "", domain.NewError(domain.CodeInvalidArgument, "RADIUS index role must be access or accounting")
+		return EffectiveClient{}, "", domain.NewError(domain.CodeInvalidArgument, "RADIUS index role must be access, accounting, or dynamic_authorization")
 	}
 	if idx == nil {
 		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")

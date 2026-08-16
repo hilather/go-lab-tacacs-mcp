@@ -13,6 +13,7 @@ import {
   radiusInsecureCompatibility,
   isRadiusTLSListener,
   RADSEC_HINT,
+  UDP_DYNAUTH_HINT,
   UDP_RADIUS_HINT,
   warningLooksInsecureRADIUS,
 } from "../ui/radius";
@@ -30,6 +31,12 @@ function listenerStateClass(state: ReturnType<typeof listenerState>): string {
 
 function hasUDPRadiusListener(status: Status): boolean {
   return status.listeners.some((l) => l.enabled && isRadiusUDPListener(l));
+}
+
+function hasDynAuthListener(status: Status): boolean {
+  return status.listeners.some(
+    (l) => l.enabled && (l.id === "radius_dynauth" || (l.roles ?? []).includes("dynamic_authorization")),
+  );
 }
 
 function hasInsecureRadius(status: Status, clients: Client[]): boolean {
@@ -109,6 +116,7 @@ export function DashboardPage() {
   const tokens = tokensQuery.data?.data.items ?? [];
   const clients = clientsQuery.data?.data.items ?? [];
   const udpEnabled = hasUDPRadiusListener(status);
+  const dynAuthEnabled = hasDynAuthListener(status);
   const insecureRadius = hasInsecureRadius(status, clients);
 
   return (
@@ -139,6 +147,13 @@ export function DashboardPage() {
             RADIUS UDP <UDPWarningBadge />
           </h2>
           <p>{UDP_RADIUS_HINT}</p>
+        </section>
+      ) : null}
+
+      {dynAuthEnabled ? (
+        <section className="banner banner--warn" role="status" aria-labelledby="dynauth-heading">
+          <h2 id="dynauth-heading">Inbound RADIUS dynamic authorization</h2>
+          <p>{UDP_DYNAUTH_HINT}</p>
         </section>
       ) : null}
 

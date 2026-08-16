@@ -28,9 +28,9 @@ type radiusIndexClient struct {
 // same-prefix, same-priority tie is CLIENT_MATCH_AMBIGUOUS.
 func CompileRADIUSIndex(clients []Client, role domain.ListenerRole, carrier domain.Carrier) (*RADIUSIndex, error) {
 	switch role {
-	case domain.RoleAccess, domain.RoleAccounting:
+	case domain.RoleAccess, domain.RoleAccounting, domain.RoleDynamicAuthorization:
 	default:
-		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS index role must be access or accounting")
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS index role must be access, accounting, or dynamic_authorization")
 	}
 	if carrier != domain.CarrierRADIUSUDP {
 		return nil, domain.NewError(domain.CodeInvalidArgument, "CompileRADIUSIndex is UDP-only; use CompileRADIUSCertIndex for TLS")

@@ -249,7 +249,7 @@ RADIUS diagnostics are distinct from the TACACS `authentication.test` / `policy.
 
 Sensitive event fields require `events:sensitive` in addition to `events:read`. Redaction is performed in the operation layer before adapter encoding. `acct_session_id` is sensitive.
 
-`radius.sessions.list` is `state:read`. Opaque `session_handle` is always returned. Raw `acct_session_id` requires `events:sensitive`. Access-Accept never inserts a row. `radius.disconnect.send` / `radius.coa.send` are `radius:dynamic` (not `state:write`). They omit `expected_revision`; a present field is `invalid_argument`. Both originate paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP RADIUS endpoint → `RADIUS_SECRET_MISSING`. Handle path requires Accounting-Start + Acct-Session-Id. Explicit path is `client_id` + destination. Inbound DAS is not in this change.
+`radius.sessions.list` is `state:read`. Opaque `session_handle` is always returned. Raw `acct_session_id` requires `events:sensitive`. Access-Accept never inserts a row. `radius.disconnect.send` / `radius.coa.send` are `radius:dynamic` (not `state:write`). They omit `expected_revision`; a present field is `invalid_argument`. Both originate paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP RADIUS endpoint → `RADIUS_SECRET_MISSING`. Handle path requires Accounting-Start + Acct-Session-Id. Explicit path is `client_id` + destination. Inbound DAS on UDP 3799 is a packet-path echo fixture and does **not** require `radius:dynamic`.
 
 ### 9.7 Protocol-only exceptions
 

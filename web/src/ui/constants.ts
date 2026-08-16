@@ -14,7 +14,7 @@ export const AUTH_METHODS = ["ascii", "pap", "chap", "mschapv1", "mschapv2", "en
 
 export const RADIUS_AUTH_METHODS = ["pap", "chap"] as const;
 
-export const RADIUS_ROLES = ["access", "accounting"] as const;
+export const RADIUS_ROLES = ["access", "accounting", "dynamic_authorization"] as const;
 
 export const RADIUS_ACCT_STATUS_TYPES = [
   "start",
@@ -45,6 +45,7 @@ export const EVENT_LISTENER_ROLES = [
   "access",
   "admin",
   "aaa",
+  "dynamic_authorization",
 ] as const;
 
 export const RULE_ACTIONS = ["permit_add", "permit_replace", "deny"] as const;

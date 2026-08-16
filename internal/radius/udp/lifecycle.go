@@ -32,7 +32,7 @@ func (l *Listener) ChallengeStore() *radiusruntime.ChallengeStore {
 	return l.challenges
 }
 
-// Role is access or accounting.
+// Role is access, accounting, or dynamic_authorization.
 func (l *Listener) Role() domain.ListenerRole {
 	if l == nil {
 		return domain.RoleAccess

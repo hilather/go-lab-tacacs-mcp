@@ -101,6 +101,9 @@ func snapshotListeners(settings *config.Document) []ListenerStatus {
 			Required:  rs.Required,
 		})
 	}
+	if settings.Listeners.RADIUSDynAuth.Enabled {
+		out = append(out, radiusSnapshotStatus(settings.Listeners.RADIUSDynAuth, ListenerRADIUSDynAuth, domain.RoleDynamicAuthorization))
+	}
 	return out
 }
 
@@ -186,6 +189,9 @@ func transportForRuntime(st runtime.Status) string {
 		}
 		return string(domain.TransportLegacy)
 	case domain.ProtocolRADIUS:
+		if st.Carrier == domain.CarrierRADIUSTLS {
+			return TransportTLS
+		}
 		return TransportUDP
 	default:
 		return TransportHTTP

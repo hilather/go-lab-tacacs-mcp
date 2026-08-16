@@ -60,6 +60,7 @@ func defaultDocument() Document {
 			RADIUSAccess:     defaultRADIUSAccess(),
 			RADIUSAccounting: defaultRADIUSAccounting(),
 			RADIUSRadSec:     defaultRADIUSRadSec(),
+			RADIUSDynAuth:    defaultRADIUSDynAuth(),
 		},
 		API: API{
 			Mode: "lab_static_bearer",
@@ -207,6 +208,28 @@ func defaultRADIUSRadSec() RADIUSRadSecListener {
 			},
 			RejectEarlyData: true,
 		},
+	}
+}
+
+func defaultRADIUSDynAuth() RADIUSListener {
+	return RADIUSListener{
+		Enabled:                    false,
+		Required:                   false,
+		Bind:                       "0.0.0.0:3799",
+		Transport:                  RADIUSTransportUDP,
+		MaxPacketBytes:             RADIUSMaxPacketBytes,
+		QueueCapacity:              256,
+		Workers:                    8,
+		WorkerDeadline:             5 * time.Second,
+		RetransmissionCacheEntries: 10000,
+		RetransmissionCacheBytes:   4 << 20,
+		RetransmissionTTL:          15 * time.Second,
+		PerSourceRate:              100,
+		PerSourceBurst:             200,
+		MessageAuthenticator:       RADIUSMessageAuthenticatorRequired,
+		ChallengeTTL:               RADIUSChallengeTTLDefault,
+		ChallengeEntries:           RADIUSChallengeEntriesDefault,
+		ChallengeBytes:             RADIUSChallengeBytesDefault,
 	}
 }
 

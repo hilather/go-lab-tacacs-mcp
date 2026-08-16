@@ -37,9 +37,13 @@ func migrateV1ToNormalized(doc *Document) {
 	if doc.Listeners.RADIUSRadSec.MaxPacketBytes == 0 {
 		doc.Listeners.RADIUSRadSec = defaultRADIUSRadSec()
 	}
+	if doc.Listeners.RADIUSDynAuth.MaxPacketBytes == 0 {
+		doc.Listeners.RADIUSDynAuth = defaultRADIUSDynAuth()
+	}
 	doc.Listeners.RADIUSAccess.Enabled = false
 	doc.Listeners.RADIUSAccounting.Enabled = false
 	doc.Listeners.RADIUSRadSec.Enabled = false
+	doc.Listeners.RADIUSDynAuth.Enabled = false
 }
 
 func normalizeCommon(raw *rawFile) (*Document, error) {

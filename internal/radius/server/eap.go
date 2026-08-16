@@ -366,7 +366,7 @@ func (a Access) verifyMD5(ctx context.Context, in Request, rec runtime.Challenge
 	dec, err := a.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
 		Context: domain.RequestContext{
 			Protocol:         domain.ProtocolRADIUS,
-			Carrier:          requestCarrier(in),
+			Carrier:          requestCarrier(in.Carrier),
 			ListenerRole:     domain.RoleAccess,
 			ListenerID:       in.ListenerID,
 			ClientID:         in.ClientID,

@@ -90,7 +90,7 @@ func TestV1SnapshotRADIUSIndexesEmpty(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, smallYAML)
 	s := m.Snapshot()
-	if s.RADIUSAccessIndex() == nil || s.RADIUSAccountingIndex() == nil {
+	if s.RADIUSAccessIndex() == nil || s.RADIUSAccountingIndex() == nil || s.RADIUSDynAuthIndex() == nil {
 		t.Fatal("v1 snapshot must still carry RADIUS indexes")
 	}
 	assertRADIUSIndexEmpty(t, s)
@@ -156,11 +156,14 @@ func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, mixedRADIUSYAML)
 	s := m.Snapshot()
-	if s.RADIUSAccessIndex() == nil || s.RADIUSAccountingIndex() == nil {
+	if s.RADIUSAccessIndex() == nil || s.RADIUSAccountingIndex() == nil || s.RADIUSDynAuthIndex() == nil {
 		t.Fatal("missing RADIUS indexes")
 	}
 	if s.RADIUSAccessIndex().Role() != domain.RoleAccess || s.RADIUSAccountingIndex().Role() != domain.RoleAccounting {
 		t.Fatalf("roles access=%s acct=%s", s.RADIUSAccessIndex().Role(), s.RADIUSAccountingIndex().Role())
+	}
+	if s.RADIUSDynAuthIndex().Role() != domain.RoleDynamicAuthorization {
+		t.Fatalf("dynauth role=%s", s.RADIUSDynAuthIndex().Role())
 	}
 	c, epid, err := s.MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
 	if err != nil || c.Client.ID != "lab-switches" || epid != "radius-udp" {
@@ -174,6 +177,10 @@ func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	de, ok := domain.AsError(err)
 	if !ok || de.Code != domain.CodeNotFound {
 		t.Fatalf("unknown source: %v", err)
+	}
+	_, _, err = s.MatchRADIUS(domain.RoleDynamicAuthorization, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
+	if err == nil {
+		t.Fatal("mixed YAML has no dynamic_authorization role")
 	}
 	if s.DictionaryVersion() != "builtin-mvp-1" || s.Dictionary().Empty() {
 		t.Fatalf("dictionary version=%q empty=%v", s.DictionaryVersion(), s.Dictionary().Empty())
@@ -435,6 +442,13 @@ func assertRADIUSIndexEmpty(t *testing.T, s *Snapshot) {
 	}
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeNotFound {
 		t.Fatalf("acct empty: %v", err)
+	}
+	_, _, err = s.MatchRADIUS(domain.RoleDynamicAuthorization, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
+	if err == nil {
+		t.Fatal("expected empty dynauth index")
+	}
+	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeNotFound {
+		t.Fatalf("dynauth empty: %v", err)
 	}
 }
 

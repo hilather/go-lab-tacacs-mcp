@@ -10,6 +10,9 @@ services:
       - target: 1813
         published: ${TACLAB_RADIUS_ACCT_PORT:-1813}
         protocol: udp
+      - target: 3799
+        published: ${TACLAB_RADIUS_DYNAUTH_PORT:-3799}
+        protocol: udp
       - target: 8080
         published: ${TACLAB_HTTP_PORT:-8080}
         protocol: tcp

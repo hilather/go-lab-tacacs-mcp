@@ -1,4 +1,4 @@
-// Package udp serves RADIUS/UDP access and accounting sockets.
+// Package udp serves RADIUS/UDP access, accounting, and optional dynauth sockets.
 //
 // Receive is bounded (queue + worker pool + per-source rate). Source IP
 // is resolved against the snapshot RADIUSIndex before any secret work.

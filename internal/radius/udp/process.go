@@ -92,6 +92,9 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 	}
 
 	requireMA, limitPS, methods := endpointAccessPolicy(client, endpointID)
+	if l.role == domain.RoleDynamicAuthorization {
+		requireMA = true
+	}
 	req := server.Request{
 		Role:                        l.role,
 		Carrier:                     domain.CarrierRADIUSUDP,
@@ -175,6 +178,8 @@ func codeAllowed(role domain.ListenerRole, code codec.Code) bool {
 		return code == codec.CodeAccessRequest
 	case domain.RoleAccounting:
 		return code == codec.CodeAccountingRequest
+	case domain.RoleDynamicAuthorization:
+		return code == codec.CodeCoARequest || code == codec.CodeDisconnectRequest
 	default:
 		return false
 	}
@@ -327,10 +332,14 @@ func (l *Listener) observeRequest(reqCode codec.Code, res server.Result, seconds
 }
 
 func (l *Listener) metricRole() string {
-	if l.role == domain.RoleAccounting {
+	switch l.role {
+	case domain.RoleAccounting:
 		return observability.RoleAccounting
+	case domain.RoleDynamicAuthorization:
+		return observability.RoleDynamicAuthorization
+	default:
+		return observability.RoleAccess
 	}
-	return observability.RoleAccess
 }
 
 func (l *Listener) now() time.Time {
@@ -341,8 +350,11 @@ func (l *Listener) now() time.Time {
 }
 
 func replyLabels(req codec.Code, res server.Result) (code, outcome string) {
-	if req == codec.CodeAccountingRequest {
+	switch req {
+	case codec.CodeAccountingRequest:
 		return observability.CodeAccountingResponse, observability.OutcomeOK
+	case codec.CodeCoARequest, codec.CodeDisconnectRequest:
+		return dynAuthReplyLabels(req, res)
 	}
 	if res.Reason == server.ReasonOK {
 		return observability.CodeAccessAccept, observability.OutcomeAccessAccept
@@ -351,6 +363,20 @@ func replyLabels(req codec.Code, res server.Result) (code, outcome string) {
 		return observability.CodeAccessChallenge, observability.OutcomeAccessChallenge
 	}
 	return observability.CodeAccessReject, observability.OutcomeAccessReject
+}
+
+func dynAuthReplyLabels(req codec.Code, res server.Result) (code, outcome string) {
+	if req == codec.CodeDisconnectRequest {
+		code = observability.CodeDisconnectRequest
+	} else {
+		code = observability.CodeCoARequest
+	}
+	switch res.Reason {
+	case server.ReasonOK:
+		return code, observability.OutcomeACK
+	default:
+		return code, observability.OutcomeNAK
+	}
 }
 
 func wipe(b []byte) {

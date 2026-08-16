@@ -110,6 +110,44 @@ func TestSessionIndexStartReplaceKeepsHandle(t *testing.T) {
 	}
 }
 
+func TestSessionIndexDASLookupDeleteAndLastCoA(t *testing.T) {
+	t.Parallel()
+	idx := testIndex(t, Options{MaxEntries: 16, MaxBytes: 64 << 10, TTL: time.Hour})
+	if !idx.Apply(startEv("00000001")) {
+		t.Fatal("start")
+	}
+	got, n := idx.FindDAS(DASQuery{ClientID: "lab-switches", SessionID: "00000001"})
+	if n != 1 || got.UserID != "lab-admin" {
+		t.Fatalf("by session=%+v n=%d", got, n)
+	}
+	byUser, n := idx.FindDAS(DASQuery{
+		ClientID: "lab-switches",
+		UserID:   "lab-admin",
+		NASIP:    netip.MustParseAddr("192.0.2.10"),
+	})
+	if n != 1 || byUser.Key.AcctSessionID != "00000001" {
+		t.Fatalf("by user+nas=%+v n=%d", byUser, n)
+	}
+	miss, n := idx.FindDAS(DASQuery{ClientID: "lab-switches", SessionID: "missing"})
+	if n != 0 || miss.Handle != "" {
+		t.Fatalf("miss=%+v n=%d", miss, n)
+	}
+	timeout := uint32(60)
+	if !idx.StoreLastCoA(got.Key, LastCoA{SessionTimeout: &timeout, ReplyMessage: []string{"lab"}}) {
+		t.Fatal("store last CoA")
+	}
+	updated, ok := idx.LookupKey(got.Key)
+	if !ok || updated.LastCoA.SessionTimeout == nil || *updated.LastCoA.SessionTimeout != 60 || len(updated.LastCoA.ReplyMessage) != 1 {
+		t.Fatalf("last CoA=%+v", updated.LastCoA)
+	}
+	if !idx.Delete(got.Key) {
+		t.Fatal("delete")
+	}
+	if idx.Len() != 0 {
+		t.Fatalf("len=%d", idx.Len())
+	}
+}
+
 func TestSessionIndexStartWithoutSessionIDDoesNotInsert(t *testing.T) {
 	t.Parallel()
 	idx := testIndex(t, Options{MaxEntries: 16, MaxBytes: 64 << 10, TTL: time.Hour})

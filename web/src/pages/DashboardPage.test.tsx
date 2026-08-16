@@ -250,4 +250,65 @@ describe("DashboardPage", () => {
     expect(screen.queryByRole("heading", { name: /RADIUS UDP/i })).not.toBeInTheDocument();
     expect(screen.getByText(/Optional RADIUS\/TLS \(RadSec\)/i)).toBeInTheDocument();
   });
+
+  it("says inbound 3799 is an index-only fixture", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return json(
+            200,
+            envelope({
+              instance_id: "lab",
+              revision: 7,
+              baseline_hash: "abcdef0123456789",
+              overlay_hash: "fedcba9876543210",
+              compiled_at: "2026-08-12T00:00:00Z",
+              listeners: [
+                {
+                  id: "radius_dynauth",
+                  enabled: true,
+                  bind: "0.0.0.0:3799",
+                  transport: "udp",
+                  protocol: "radius",
+                  carrier: "radius_udp",
+                  roles: ["dynamic_authorization"],
+                  ready: true,
+                  required: false,
+                  inflight: 0,
+                  queue_depth: 0,
+                },
+              ],
+              colocated_topology: false,
+              users: 0,
+              groups: 0,
+              clients: 0,
+              tokens: 0,
+              warnings: [],
+            }),
+          );
+        }
+        if (url.includes("/api/v1/build")) {
+          return json(
+            200,
+            envelope({
+              version: "dev",
+              commit: "abc",
+              build_time: "now",
+              go_version: "go1.24.5",
+              ui_version: "0.0.0",
+              schema_version: 2,
+              protocols: { radius: { standards: ["RFC 2865"], conformance_status: "partial" } },
+            }),
+          );
+        }
+        return json(200, envelope({ revision: 7, items: [] }));
+      }),
+    );
+    renderApp(<DashboardPage />, { route: "/" });
+    expect(await screen.findByText(/only updates TacLab/i)).toBeInTheDocument();
+    expect(screen.getByText(/To disconnect a device, use Disconnect send/i)).toBeInTheDocument();
+  });
 });

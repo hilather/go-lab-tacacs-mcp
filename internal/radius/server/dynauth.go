@@ -292,6 +292,15 @@ func decodeDeclared(packet []byte) (codec.Header, []byte, error) {
 	return h, packet[:h.Length], nil
 }
 
+const (
+	// ErrorCauseUnsupportedAttribute is RFC 5176 Error-Cause 401.
+	ErrorCauseUnsupportedAttribute = 401
+	// ErrorCauseSessionContextNotFound is RFC 5176 Error-Cause 503.
+	ErrorCauseSessionContextNotFound = 503
+	// ErrorCauseMultipleSessionSelection is RFC 5176 Error-Cause 508.
+	ErrorCauseMultipleSessionSelection = 508
+)
+
 // DefaultNASCoAPort is used when the UDP endpoint omits nas_coa_port.
 func DefaultNASCoAPort() uint16 { return defaultNASCoAPort }
 

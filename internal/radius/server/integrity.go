@@ -16,9 +16,29 @@ func CheckIntegrity(in Request) string {
 		return checkAccessIntegrity(in)
 	case domain.RoleAccounting:
 		return checkAccountingMA(in)
+	case domain.RoleDynamicAuthorization:
+		return checkDynAuthIntegrity(in)
 	default:
 		return ReasonInvalidCode
 	}
+}
+
+func checkDynAuthIntegrity(in Request) string {
+	mas := in.Packet.Attributes.AllOf(attribute.TypeMessageAuthenticator)
+	if mas.Len() > 1 {
+		return ReasonInvalidMA
+	}
+	declared := declaredPacket(in)
+	if len(declared) == 0 {
+		return ReasonMalformedHeader
+	}
+	if mas.Len() == 0 {
+		return ReasonMissingMA
+	}
+	if err := crypto.ValidateMessageAuthenticator(in.Secret, declared); err != nil {
+		return ReasonInvalidMA
+	}
+	return ""
 }
 
 func checkAccessIntegrity(in Request) string {

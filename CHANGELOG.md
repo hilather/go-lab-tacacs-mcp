@@ -26,7 +26,8 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - Originate CoA-Request / Disconnect-Request (RFC 5176 codes 40–45) from REST/MCP. Message-Authenticator required. Handle path needs Accounting-Start; explicit `client_id` + destination covers access-only labs.
 - Both paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP endpoint → `RADIUS_SECRET_MISSING`.
 - New scope `radius:dynamic` in the closed set. Example `lab-admin` does **not** receive it. `sessions.list` is `state:read`; raw `acct_session_id` needs `events:sensitive`.
-- `expected_revision` is rejected on originate (not overlay CAS). No inbound DAS listener yet.
+- `expected_revision` is rejected on originate (not overlay CAS).
+- Optional inbound DAS listener (`listeners.radius.dynamic_authorization`, UDP 3799, default off) is an RFC 5176 echo fixture. It mutates the in-memory session index only and never forwards to a NAS. Unknown client / missing or invalid Message-Authenticator are silent discards. Session miss is NAK Error-Cause 503. `radius:dynamic` is not required on the packet path.
 
 ### Configuration
 

@@ -45,9 +45,10 @@ type rawTACACSListenersV2 struct {
 }
 
 type rawRADIUSListenersV2 struct {
-	Access     rawRADIUSAccess     `yaml:"access"`
-	Accounting rawRADIUSAccounting `yaml:"accounting"`
-	RadSec     rawRADIUSRadSec     `yaml:"radsec"`
+	Access               rawRADIUSAccess     `yaml:"access"`
+	Accounting           rawRADIUSAccounting `yaml:"accounting"`
+	RadSec               rawRADIUSRadSec     `yaml:"radsec"`
+	DynamicAuthorization rawRADIUSDynAuth    `yaml:"dynamic_authorization"`
 }
 
 type rawRADIUSRadSec struct {
@@ -99,6 +100,11 @@ type rawRADIUSAccounting struct {
 	SessionIndexBytes            string `yaml:"session_index_bytes"`
 	SessionTTL                   string `yaml:"session_ttl"`
 	CoATimeout                   string `yaml:"coa_timeout"`
+}
+
+type rawRADIUSDynAuth struct {
+	rawRADIUSCommon             `yaml:",inline"`
+	RequireMessageAuthenticator *bool `yaml:"require_message_authenticator"`
 }
 
 // rawClientV2 adds endpoints[] on schema 2. v1 rawClient rejects that field.

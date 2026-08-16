@@ -1,6 +1,6 @@
 # Overlay for make lab-test / CI. High host ports so 49/300/8080 need not be free.
-# RADIUS/UDP host maps are also raised (11812/11813) to avoid CI collisions.
-# Integration tests talk on the compose network (taclab:4949/4300/8080/1812/1813).
+# RADIUS/UDP host maps are also raised (11812/11813/13799) to avoid CI collisions.
+# Integration tests talk on the compose network (taclab:4949/4300/8080/1812/1813/3799).
 # Source-IP on this path is the test container address — see LAB_DEPLOYMENT §4.3.
 services:
   taclab:
@@ -20,6 +20,9 @@ services:
         protocol: udp
       - target: 1813
         published: ${TACLAB_RADIUS_ACCT_PORT:-11813}
+        protocol: udp
+      - target: 3799
+        published: ${TACLAB_RADIUS_DYNAUTH_PORT:-13799}
         protocol: udp
 
   integration-tests:

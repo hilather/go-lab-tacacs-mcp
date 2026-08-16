@@ -62,6 +62,7 @@ const (
 	ListenerRADIUSAccess     = "radius_access"
 	ListenerRADIUSAccounting = "radius_accounting"
 	ListenerRADIUSRadSec     = "radius_radsec"
+	ListenerRADIUSDynAuth    = "radius_dynauth"
 )
 
 // TransportHTTP is the admin listener. TACACS transports use domain.Transport.

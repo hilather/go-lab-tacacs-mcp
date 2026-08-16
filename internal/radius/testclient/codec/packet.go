@@ -23,8 +23,10 @@ const (
 	TypeAcctStatusType       uint8 = 40
 	TypeNASIPAddress         uint8 = 4
 	TypeNASPort              uint8 = 5
+	TypeFramedIPAddress      uint8 = 8
 	TypeReplyMessage         uint8 = 18
 	TypeSessionTimeout       uint8 = 27
+	TypeIdleTimeout          uint8 = 28
 	TypeNASIdentifier        uint8 = 32
 	TypeAcctSessionID        uint8 = 44
 	TypeState                uint8 = 24

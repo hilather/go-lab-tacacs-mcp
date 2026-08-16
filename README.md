@@ -357,6 +357,7 @@ Every contract linked from this page, with what it covers.
 | [0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md) | UDP controlled-network profile; Access-Challenge deferred |
 | [0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md) | Schema v2; `config.export` never emits v2 for a v1 source without `normalize=true` |
 | [0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) | Keep TacLab / `taclabd` / module / image names |
+| [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md) | Force login-class lock; lab/vendor in-LOGIN GETPASS (not RFC LOGIN) |
 
 ### Operator / maintainer
 

@@ -2,13 +2,15 @@
 
 Status: executable implementation plan  
 Architecture: all-in-one Go backend with React and TypeScript frontend  
-Last updated: 2026-08-15
+Last updated: 2026-08-16
 
 ## 1. How agents must use this backlog
 
 This file is the implementation sequence and acceptance checklist. It is not permission to ignore the contracts in `AGENTS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `TACACS_CONFORMANCE.md`, `RADIUS_CONFORMANCE.md`, `API_PARITY.md`, `CONFIGURATION.md`, `TESTING_AND_BENCHMARKS.md`, or `LAB_DEPLOYMENT.md`.
 
 RADIUS work uses stable pack task IDs `RAD-*` (section 22). Do not invent a parallel RADIUS numbering scheme.
+
+User-lifecycle work uses stable pack task IDs `UL-*` (section 23). Do not invent `taclab.qa.*` tools.
 
 For every task:
 
@@ -1632,3 +1634,43 @@ Each item needs its own ADR before implementation. Do not fold them into the UDP
 - [ ] `RAD-EXT-008` RADIUS proxying / realm routing (second hop; not a lab-appliance default).
 - [ ] `RAD-EXT-009` Persistent accounting (opt-in; requires ADR vs memory-only ring/journal).
 - [ ] `RAD-EXT-010` User- and group-attached RADIUS rules (MVP is client `access_policy_id` + fallback + default deny).
+
+## 23. User lifecycle pack (`UL-*`)
+
+Pack task IDs are the backlog keys. Binding ADR: [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md). Conformance rows: `T89-FLOW-013`, `T89-FLOW-014`, `T89-FLOW-015`, `PRJ-UL-001`.
+
+Do not invent `taclab.qa.*` tools. MCP owns fixture + assert + admin rotate (`taclab.users.update`, `taclab.users.get`, `taclab.authentication.test`). GETPASS new/confirm is NAS / `internal/tacacs/testclient` only. Overlay is memory-only. The YAML baseline is never rewritten. Do not advertise complete RADIUS. Access-Challenge stays deferred ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)).
+
+In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (§5.4.2.1) or ENABLE (§5.4.2.6). RFC change-password remains CHPASS (§5.4.2.7).
+
+### 23.1 Governance
+
+- [x] `UL-GOV-001` Accept [ADR 0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md): force login-class lock and lab/vendor in-LOGIN GETPASS. Contract: no new TACACS status; in-LOGIN/in-ENABLE are lab/vendor extensions; RFC change-password remains CHPASS; K7 identity lock; K13 `ascii_chpass` required; K16 overlay vs YAML; Q2 closed (`password_changed` always on CHPASS PASS). README ADR table updated.
+
+### 23.2 Model and state
+
+- [ ] `UL-MDL-001` Add `must_change_login` / `must_change_enable` on YAML, `config.User`, snapshot, and `applyUserPatch`. Default false. Flag requires the corresponding verifier regardless of `enabled`. K9: any non-nil login/enable secret patch (including Clear) clears the matching flag unless the same patch sets it true. `userFromCreate` must pass the new `*bool` fields. Hash both flags in `writeUsers` and `hashOverlay`. YAML-set flags are durable; MCP/REST-set flags are overlay-only (K16).
+
+### 23.3 AAA / protocol
+
+- [ ] `UL-AAA-001` ASCII LOGIN lab-extension GETPASS after successful verify when `ascii_chpass` is allowed (or `allowed_methods` is empty). `continueASCII` must dispatch `needNew`/`needConfirm` before `finishPassword`. In-LOGIN success event is `ascii_login` + `reason_code=password_changed`. Inspect flags only after `Verify*` returns nil on the session-bound snapshot. `T89-FLOW-013`.
+- [ ] `UL-AAA-002` CHPASS clears `must_change_login` and always emits `reason_code=password_changed` on PASS (Q2). CHPASS prompt goldens stay `"Password: "`. PAP/CHAP/MS-CHAP after successful verify + `must_change_login` FAIL with `server_msg=Password change required`; wrong password stays empty `server_msg`. K13: ASCII allowed without `ascii_chpass` → FAIL, no `OverrideLoginVerifier`. `T89-FLOW-014`.
+- [ ] `UL-AAA-003` ENABLE lab-extension GETPASS + `OverrideEnableVerifier` after successful enable verify + `must_change_enable`. No RFC or TacLab CHPASS analogue; `CHPASS` + ENABLE service stays FAIL. Does **not** gate `UL-AAA-001` / the login-class fail-closed merge. `T89-FLOW-015`.
+
+### 23.4 API and RADIUS
+
+- [ ] `UL-API-001` Expose the flags on `users.create` / `users.update` / `users.get` / `users.list` and `exportUser`. OpenAPI/MCP + REST/MCP parity (`PARITY_REQUIRED`). Unknown JSON rejected. No `taclab.qa.*`.
+- [ ] `UL-API-002` `authentication.test` returns status `must_change` after successful verify + the applicable flag. Not a TACACS/RADIUS packet status. Handler lands in the fail-closed vertical with `UL-AAA-001`.
+- [ ] `UL-RAD-001` `AuthenticateAccess` Access-Reject `reject_password_change_required` after good PAP/CHAP + `must_change_login`; do not evaluate policy. Update `wireAccessReason`, `TestReasonTableStable`, and [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) §5.7 in the same change. References `PRJ-UL-001`. Do not invent a parallel RADIUS numbering scheme. No Microsoft VSA, named `Cisco-AVPair`, or Access-Challenge.
+
+### 23.5 UI, docs, and benches
+
+- [ ] `UL-UI-001` Users page badge + editor checkboxes for both flags; Auth Test page displays `must_change`. Generated types only.
+- [ ] `UL-DOC-001` OPERATOR copy-paste recipes, CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence, CHANGELOG. Recipes-only; no compose fixture user (Q1). Do not mark RADIUS complete.
+- [ ] `UL-BEN-001` Rerun ASCII/CHAP login benches; add a must-change start bench that stops at the first extra GETPASS.
+
+### 23.6 Merge gates
+
+Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-API-002`, `UL-RAD-001`) lands together. Do not merge flags while RADIUS still Accepts a must-change user or `authentication.test` still returns `pass` after a good password.
+
+`UL-AAA-003` must not gate that merge.

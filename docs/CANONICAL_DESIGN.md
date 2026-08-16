@@ -105,7 +105,7 @@ These limits are product contract, not temporary stubs. Operator text lives in [
 - Multi-replica or highly available runtime state.
 - Required external database. Optional SQLite accounting is post-1.0 and ADR-gated.
 - Acting as LDAP/SAML/OIDC/Kerberos IdP.
-- RADIUS EAP method termination, Access-Challenge as an advertised feature, CoA/Disconnect, RadSec/DTLS/RADIUS/1.1, proxying, MS-CHAP, custom dictionary files, named `Cisco-AVPair` decoding, persistent RADIUS accounting, or a second daemon/module rename.
+- RADIUS EAP method termination, Access-Challenge as an advertised feature, CoA/Disconnect, RadSec/DTLS/RADIUS/1.1, proxying, custom dictionary files, named `Cisco-AVPair` decoding, persistent RADIUS accounting, or a second daemon/module rename.
 - Rewriting the baseline YAML in place.
 - Implementing SENDPASS, SENDAUTH, or FOLLOW as supported features (explicit rejection is required).
 - Kubernetes as the primary deployment.

@@ -520,9 +520,7 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 	if err != nil {
 		return nil, err
 	}
-	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
-		methods = []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
-	}
+	methods = DefaultRADIUSAccessMethods(methods, roles)
 	status, err := normalizeRADIUSStatusTypes(raw.Accounting.AcceptStatusTypes, path+".accounting.accept_status_types")
 	if err != nil {
 		return nil, err
@@ -551,6 +549,15 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 		}
 	}
 	return false
+}
+
+// DefaultRADIUSAccessMethods fills an omitted/empty access-role list with
+// [pap, chap]. MS-CHAP stays opt-in (KD-R21).
+func DefaultRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
+	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
+		return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
+	}
+	return methods
 }
 
 // ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2. Used by overlay writes.

@@ -449,7 +449,7 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 			c.Endpoints = config.SynthesizeTACACSEndpoints(*c)
 		}
 		rad := defaultRADIUSEndpoint(roles)
-		if err := applyRADIUSFields(&rad, p); err != nil {
+		if err := applyRADIUSFields(&rad, p, roles); err != nil {
 			return err
 		}
 		c.Endpoints = append(c.Endpoints, config.ClientEndpoint{
@@ -462,10 +462,10 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 		return nil
 	}
 	ep.Roles = append([]domain.ListenerRole(nil), roles...)
-	return applyRADIUSFields(ep.RADIUS, p)
+	return applyRADIUSFields(ep.RADIUS, p, roles)
 }
 
-func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch) error {
+func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch, roles []domain.ListenerRole) error {
 	if rad == nil || p == nil {
 		return nil
 	}
@@ -484,7 +484,7 @@ func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch) error {
 		if err != nil {
 			return err
 		}
-		rad.AllowedAuthenticationMethods = methods
+		rad.AllowedAuthenticationMethods = config.DefaultRADIUSAccessMethods(methods, roles)
 	}
 	if p.AccessPolicyID != nil {
 		rad.AccessPolicyID = *p.AccessPolicyID

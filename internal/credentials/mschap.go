@@ -131,6 +131,7 @@ func GenerateMSCHAPv2Success(ident byte, password, username, authChallenge, peer
 	out := make([]byte, mschapv2SuccessLen)
 	out[0] = ident
 	copy(out[1:], authResp)
+	wipeBytes(authResp)
 	return out, nil
 }
 

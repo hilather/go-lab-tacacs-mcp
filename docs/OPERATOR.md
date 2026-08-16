@@ -101,7 +101,7 @@ To require challenge methods only, set the client (or intersection of global/lis
 
 Login verifiers (Argon2id) are never used to compute CHAP/MS-CHAP. CHPASS updates only the runtime login verifier.
 
-RADIUS PAP uses the same login verifier. RADIUS CHAP uses the same challenge secret. RADIUS MS-CHAP is **not** implemented.
+RADIUS PAP uses the same login verifier. RADIUS CHAP and opt-in MS-CHAP (`mschapv1` / `mschapv2` on the RADIUS endpoint `allowed_authentication_methods`) use the same challenge secret. Omitted or empty RADIUS method lists stay `[pap, chap]`. Must-change after a good RADIUS MS-CHAP verify is Access-Reject with no `MS-CHAP-Error`.
 
 ### 3.2 RADIUS/UDP lab profile
 
@@ -111,7 +111,7 @@ What ships when a v2 file enables the sockets:
 
 | Item | Behavior |
 |---|---|
-| Access | PAP and CHAP. Access-Accept or Access-Reject after integrity + known client. No Access-Challenge. |
+| Access | PAP, CHAP, and opt-in MS-CHAPv1/v2 (`mschapv1` / `mschapv2` on `allowed_authentication_methods`; omitted lists stay `[pap, chap]`). Access-Accept or Access-Reject after integrity + known client. No Access-Challenge. Must-change is Access-Reject with no `MS-CHAP-Error`. |
 | Message-Authenticator | Required on Access-Request by default. Always inserted first on Access-Accept, Access-Reject, and Accounting-Response. Accounting-Request MA is validate-if-present. |
 | Policy | Client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. |
 | Accounting | Start, Stop, Interim-Update, Accounting-On, Accounting-Off. SUCCESS on the wire only after the ring accepts the record. |

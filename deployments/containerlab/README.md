@@ -54,6 +54,7 @@ The runner **never** `docker pull`s a Cisco image.
 
 - [topo.clab.yaml.tmpl](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/deployments/containerlab/topo.clab.yaml.tmpl) — `cisco_iol` + TacLab `linux` node on a shared mgmt network.
 - [iol-aaa.cfg.partial.tmpl](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/deployments/containerlab/iol-aaa.cfg.partial.tmpl) — IOL AAA (legacy TACACS+ TCP 4949) targeting TacLab. Filled only in an ephemeral workdir.
+- [iol-radius.cfg.partial.tmpl](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/deployments/containerlab/iol-radius.cfg.partial.tmpl) — optional IOL RADIUS snippet (UDP 1812/1813). Not applied by the default TACACS exercise. A skip without `TACLAB_IOL_IMAGE` is **not** `PRJ-CISCO-001` PASS; named `Cisco-AVPair` evidence is independent fixtures.
 
 TacLab secrets come from `tools/labgen` (same layout as Compose). IOL Ethernet0/0 lives in VRF `clab-mgmt` (Containerlab default).
 

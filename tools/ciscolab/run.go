@@ -73,9 +73,13 @@ func Run(opts RunOptions) (Evidence, int) {
 	d := Detect(opts.Lookups)
 	ev := decisionEvidence(d)
 	ev.StartedAt = started
+	rad := RADIUSCiscoAVPairScenario(d)
+	ev.RADIUSCiscoAVPair = rad.Status
+	ev.CapabilityNotes = append(ev.CapabilityNotes, rad.Note)
 	if d.Status == StatusSkip {
 		fmt.Fprintln(opts.Stdout, d.Reason)
 		fmt.Fprintln(opts.Stdout, "cisco-lab: skip is not Cisco PASS and is not device-family completeness")
+		fmt.Fprintln(opts.Stdout, rad.Note)
 		ev.FinishedAt = opts.Now()
 		_ = writeEvidence(evPath, ev)
 		return ev, 0

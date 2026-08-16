@@ -419,32 +419,52 @@ func mergeReplyProfiles(effect domain.Effect, ids []string, profiles map[string]
 
 func resolveAttr(name string, vendor uint32, code uint8, path string) (attrDef, AttrKey, error) {
 	name = strings.TrimSpace(name)
-	if vendor != 0 {
-		if code == 0 {
-			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "vendor requires code").WithPath(path + ".code")
-		}
-		if name != "" && name != "Vendor-Specific" {
-			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "named Cisco-AVPair and other named VSAs are not accepted").
-				WithPath(path + ".name")
-		}
-		def, _ := builtinDict.lookupName("Vendor-Specific")
-		return def, AttrKey{Vendor: vendor, Code: code, Name: "Vendor-Specific"}, nil
-	}
 	if name != "" {
 		def, ok := builtinDict.lookupName(name)
 		if !ok {
 			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "unknown RADIUS attribute name").
 				WithPath(path + ".name")
 		}
-		if def.Kind == KindVSA && code == 0 {
-			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "raw VSA requires vendor and code").
-				WithPath(path)
+		if def.Vendor != 0 {
+			if vendor != 0 && vendor != def.Vendor {
+				return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "attribute name and vendor disagree").
+					WithPath(path)
+			}
+			if code != 0 && code != def.Code {
+				return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "attribute name and code disagree").
+					WithPath(path)
+			}
+			return def, def.key(), nil
+		}
+		if def.Kind == KindVSA {
+			if vendor == 0 || code == 0 {
+				return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "raw VSA requires vendor and code").
+					WithPath(path)
+			}
+			if named, ok := builtinDict.lookupVSA(vendor, code); ok {
+				return named, named.key(), nil
+			}
+			return def, AttrKey{Vendor: vendor, Code: code, Name: def.Name}, nil
+		}
+		if vendor != 0 {
+			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "IETF attribute names must not set vendor").
+				WithPath(path + ".vendor")
 		}
 		if code != 0 && code != def.Code {
 			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "attribute name and code disagree").
 				WithPath(path)
 		}
 		return def, def.key(), nil
+	}
+	if vendor != 0 {
+		if code == 0 {
+			return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "vendor requires code").WithPath(path + ".code")
+		}
+		if named, ok := builtinDict.lookupVSA(vendor, code); ok {
+			return named, named.key(), nil
+		}
+		def, _ := builtinDict.lookupName("Vendor-Specific")
+		return def, AttrKey{Vendor: vendor, Code: code, Name: "Vendor-Specific"}, nil
 	}
 	if code == 0 {
 		return attrDef{}, AttrKey{}, domain.NewError(domain.CodeConfigYAMLInvalid, "attribute requires name or vendor+code").
@@ -460,6 +480,25 @@ func resolveAttr(name string, vendor uint32, code uint8, path string) (attrDef, 
 
 func parseTypedValue(def attrDef, key AttrKey, value, valueHex, path string) (Typed, error) {
 	out := Typed{Key: key, Kind: def.Kind}
+	if def.Vendor != 0 && def.Kind == KindText {
+		if valueHex != "" {
+			b, err := hex.DecodeString(valueHex)
+			if err != nil {
+				return Typed{}, domain.NewError(domain.CodeConfigYAMLInvalid, "value_hex must be even-length hex").
+					WithPath(path + ".value_hex")
+			}
+			if value != "" && value != string(b) {
+				return Typed{}, domain.NewError(domain.CodeConfigYAMLInvalid, "value and value_hex disagree").
+					WithPath(path)
+			}
+			out.Text = string(b)
+			out.Raw = b
+			return out, nil
+		}
+		out.Text = value
+		out.Raw = []byte(value)
+		return out, nil
+	}
 	if def.Kind == KindVSA || key.Vendor != 0 {
 		if valueHex == "" {
 			return Typed{}, domain.NewError(domain.CodeConfigYAMLInvalid, "raw VSA requires value_hex").

@@ -333,6 +333,30 @@ func encodeRadiusRequestAttrs(in []RadiusAttributeValue) (attribute.RawSet, erro
 }
 
 func encodeRadiusAttr(a RadiusAttributeValue, path string) (attribute.Raw, error) {
+	name := strings.TrimSpace(a.Name)
+	if name == attribute.NameCiscoAVPair || (a.Vendor == attribute.VendorCisco && a.Code == attribute.TypeCiscoAVPair) {
+		if name != "" && name != attribute.NameCiscoAVPair {
+			return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "attribute name and vendor disagree").WithPath(path)
+		}
+		if a.Vendor != 0 && a.Vendor != attribute.VendorCisco {
+			return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "attribute name and vendor disagree").WithPath(path)
+		}
+		if a.Code != 0 && a.Code != attribute.TypeCiscoAVPair {
+			return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "attribute name and code disagree").WithPath(path)
+		}
+		text := a.Value
+		if a.ValueHex != "" {
+			b, err := hex.DecodeString(a.ValueHex)
+			if err != nil {
+				return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "value_hex must be even-length hex").WithPath(path + ".value_hex")
+			}
+			if text != "" && text != string(b) {
+				return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "value and value_hex disagree").WithPath(path)
+			}
+			text = string(b)
+		}
+		return attribute.EncodeCiscoAVPair(text)
+	}
 	if a.Vendor != 0 {
 		if a.Code == 0 {
 			return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "vendor requires code").WithPath(path + ".code")
@@ -344,7 +368,11 @@ func encodeRadiusAttr(a RadiusAttributeValue, path string) (attribute.Raw, error
 		if err != nil {
 			return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "value_hex must be even-length hex").WithPath(path + ".value_hex")
 		}
-		return attribute.VSA{Vendor: a.Vendor, Payload: append([]byte{a.Code, byte(2 + len(payload))}, payload...)}.Raw()
+		nested, err := attribute.EncodeVendorTLVs([]attribute.VendorTLV{{Type: a.Code, Value: payload}})
+		if err != nil {
+			return attribute.Raw{}, err
+		}
+		return attribute.VSA{Vendor: a.Vendor, Payload: nested}.Raw()
 	}
 	def, err := resolveRADIUSDef(a, path)
 	if err != nil {
@@ -353,11 +381,33 @@ func encodeRadiusAttr(a RadiusAttributeValue, path string) (attribute.Raw, error
 	if def.Sensitivity == attribute.SensitivitySecret {
 		return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "request attributes must not include secret types").WithPath(path)
 	}
+	if def.Vendor != 0 {
+		return encodeNamedVSA(def, a.Value, a.ValueHex, path)
+	}
 	val, err := parseRADIUSAttrValue(def, a.Value, a.ValueHex, path)
 	if err != nil {
 		return attribute.Raw{}, err
 	}
 	return val, nil
+}
+
+func encodeNamedVSA(def attribute.Definition, value, valueHex, path string) (attribute.Raw, error) {
+	text := value
+	if valueHex != "" {
+		b, err := hex.DecodeString(valueHex)
+		if err != nil {
+			return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "value_hex must be even-length hex").WithPath(path + ".value_hex")
+		}
+		text = string(b)
+	}
+	if def.Name == attribute.NameCiscoAVPair {
+		return attribute.EncodeCiscoAVPair(text)
+	}
+	nested, err := attribute.EncodeVendorTLVs([]attribute.VendorTLV{{Type: def.Code, Value: []byte(text)}})
+	if err != nil {
+		return attribute.Raw{}, err
+	}
+	return attribute.VSA{Vendor: def.Vendor, Payload: nested}.Raw()
 }
 
 func resolveRADIUSDef(a RadiusAttributeValue, path string) (attribute.Definition, error) {
@@ -452,7 +502,40 @@ func formatRadiusReply(in attribute.RawSet) []RadiusAttributeValue {
 		if attribute.Sensitive(raw.Type) || attribute.MicrosoftSecret(raw) {
 			continue
 		}
-		out = append(out, formatRadiusRaw(raw))
+		out = append(out, formatRadiusExpanded(raw)...)
+	}
+	return out
+}
+
+func formatRadiusExpanded(raw attribute.Raw) []RadiusAttributeValue {
+	if raw.Type != attribute.TypeVendorSpecific {
+		return []RadiusAttributeValue{formatRadiusRaw(raw)}
+	}
+	vsa, err := attribute.ParseVSA(raw)
+	if err != nil {
+		return []RadiusAttributeValue{formatRadiusRaw(raw)}
+	}
+	tlvs, err := attribute.ParseVendorTLVs(vsa.Payload)
+	if err != nil || len(tlvs) == 0 {
+		return []RadiusAttributeValue{formatRadiusRaw(raw)}
+	}
+	out := make([]RadiusAttributeValue, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		item := RadiusAttributeValue{Vendor: vsa.Vendor, Code: tlv.Type}
+		if def, ok := attribute.Builtin().LookupKey(attribute.Key{
+			Vendor: vsa.Vendor, Code: uint32(tlv.Type), Space: attribute.SpaceVSA,
+		}); ok {
+			item.Name = def.Name
+			if def.Kind == attribute.KindText {
+				item.Value = string(tlv.Value)
+			} else {
+				item.ValueHex = hex.EncodeToString(tlv.Value)
+			}
+		} else {
+			item.Name = "Vendor-Specific"
+			item.ValueHex = hex.EncodeToString(tlv.Value)
+		}
+		out = append(out, item)
 	}
 	return out
 }

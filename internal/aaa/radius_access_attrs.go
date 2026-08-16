@@ -18,6 +18,10 @@ func policyRequestAttrs(raw attribute.RawSet) policyradius.TypedSet {
 		if skipRequestAttr(a.Type) || attribute.MicrosoftSecret(a) {
 			continue
 		}
+		if a.Type == attribute.TypeVendorSpecific {
+			out = append(out, typedFromVSAAll(a)...)
+			continue
+		}
 		if tv, ok := typedFromRaw(a); ok {
 			out = append(out, tv)
 		}
@@ -38,9 +42,6 @@ func skipRequestAttr(typ uint8) bool {
 }
 
 func typedFromRaw(a attribute.Raw) (policyradius.Typed, bool) {
-	if a.Type == attribute.TypeVendorSpecific {
-		return typedFromVSA(a)
-	}
 	def, ok := attribute.Builtin().LookupIETF(a.Type)
 	if !ok {
 		return policyradius.Typed{}, false
@@ -75,20 +76,37 @@ func typedFromRaw(a attribute.Raw) (policyradius.Typed, bool) {
 	return tv, true
 }
 
-func typedFromVSA(a attribute.Raw) (policyradius.Typed, bool) {
+func typedFromVSAAll(a attribute.Raw) []policyradius.Typed {
 	vsa, err := attribute.ParseVSA(a)
-	if err != nil || len(vsa.Payload) < 2 {
-		return policyradius.Typed{}, false
+	if err != nil {
+		return nil
 	}
-	vlen := int(vsa.Payload[1])
-	if vlen < 2 || vlen > len(vsa.Payload) {
-		return policyradius.Typed{}, false
+	tlvs, err := attribute.ParseVendorTLVs(vsa.Payload)
+	if err != nil {
+		return nil
 	}
-	return policyradius.Typed{
-		Key:  policyradius.AttrKey{Vendor: vsa.Vendor, Code: vsa.Payload[0], Name: "Vendor-Specific"},
-		Kind: policyradius.KindVSA,
-		Raw:  append([]byte(nil), vsa.Payload[2:vlen]...),
-	}, true
+	out := make([]policyradius.Typed, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		name := "Vendor-Specific"
+		kind := policyradius.KindVSA
+		text := ""
+		if def, ok := attribute.Builtin().LookupKey(attribute.Key{
+			Vendor: vsa.Vendor, Code: uint32(tlv.Type), Space: attribute.SpaceVSA,
+		}); ok {
+			name = def.Name
+			kind = policyradius.ValueKind(def.Kind)
+			if def.Kind == attribute.KindText {
+				text = string(tlv.Value)
+			}
+		}
+		out = append(out, policyradius.Typed{
+			Key:  policyradius.AttrKey{Vendor: vsa.Vendor, Code: tlv.Type, Name: name},
+			Kind: kind,
+			Text: text,
+			Raw:  append([]byte(nil), tlv.Value...),
+		})
+	}
+	return out
 }
 
 func encodePolicyReply(attrs policyradius.TypedSet, packet uint8) (attribute.RawSet, error) {
@@ -145,13 +163,17 @@ func encodeTyped(a policyradius.Typed) (attribute.Raw, error) {
 }
 
 func encodeVSA(a policyradius.Typed) (attribute.Raw, error) {
-	if len(a.Raw) > attribute.MaxValueLength-6 {
+	inner := a.Raw
+	if len(inner) == 0 && a.Text != "" {
+		inner = []byte(a.Text)
+	}
+	if len(inner) > attribute.MaxVendorTLVValue {
 		return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "reply VSA exceeds attribute maximum")
 	}
-	payload := make([]byte, 2+len(a.Raw))
-	payload[0] = a.Key.Code
-	payload[1] = byte(2 + len(a.Raw))
-	copy(payload[2:], a.Raw)
+	payload, err := attribute.EncodeVendorTLVs([]attribute.VendorTLV{{Type: a.Key.Code, Value: inner}})
+	if err != nil {
+		return attribute.Raw{}, err
+	}
 	return attribute.VSA{Vendor: a.Key.Vendor, Payload: payload}.Raw()
 }
 

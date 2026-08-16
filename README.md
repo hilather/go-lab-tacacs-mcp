@@ -109,7 +109,7 @@ Optional sockets. Default YAML stays `enabled: false`. Schema v2 required. Contr
 | Accounting | Start / Stop / Interim / On / Off into the **memory** ring. SUCCESS only after the ring accepts. |
 | Integrity | Message-Authenticator required on Access by default; always first on responses. |
 | Policy | User `radius_policy_id`, then `effectiveGroups`, then client `access_policy_id`, then optional fallback, then default deny. Schema v2 only; v1 rejects the keys. |
-| Dictionary | Built-in IETF MVP. Unknown attributes stay raw. Named `Cisco-AVPair` is not shipped. |
+| Dictionary | Built-in IETF MVP plus named `Cisco-AVPair` (vendor 9 type 1). Unknown attributes stay raw. Operator dictionaries are fail-closed TacLab YAML. |
 | Deferred | EAP termination, CoA/Disconnect, RadSec/DTLS, RADIUS MS-CHAP, custom dictionaries, persistent accounting. |
 
 `system.build.get` RADIUS `conformance_status` stays `partial`. Matrix: [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md). Operator guide: [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md).

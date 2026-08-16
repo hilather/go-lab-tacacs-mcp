@@ -1,0 +1,18 @@
+{
+  "name": "avpair-priv-lvl",
+  "description": "Independent Cisco-AVPair (vendor 9, vendor-type 1). Constructed from the published Cisco TLV layout, not captured from IOL. A make cisco-lab skip is not PASS.",
+  "vendor": 9,
+  "vendor_type": 1,
+  "text": "shell:priv-lvl=15",
+  "path": "avpair-priv-lvl.bin",
+  "value_hex": "0000000901137368656c6c3a707269762d6c766c3d3135",
+  "named_yaml": {
+    "name": "Cisco-AVPair",
+    "value": "shell:priv-lvl=15"
+  },
+  "raw_yaml": {
+    "vendor": 9,
+    "code": 1,
+    "value_hex": "7368656c6c3a707269762d6c766c3d3135"
+  }
+}

@@ -65,7 +65,7 @@ func (d Dictionary) LookupIETF(code uint8) (Definition, bool) {
 	return d.LookupKey(IETFKey(code))
 }
 
-// LookupKey looks up a vendor/code/space identity, including named Microsoft VSAs.
+// LookupKey looks up a vendor/code/space identity, including named VSAs.
 func (d Dictionary) LookupKey(k Key) (Definition, bool) {
 	def, ok := d.byKey[k]
 	return def, ok
@@ -121,6 +121,14 @@ func (s Summary) String() string {
 		" sensitivity=" + string(s.Sensitivity) + "}"
 }
 
+func namedVSASummary(d Dictionary, v VSA) (Definition, bool) {
+	tlvs, err := ParseVendorTLVs(v.Payload)
+	if err != nil || len(tlvs) != 1 {
+		return Definition{}, false
+	}
+	return d.LookupKey(Key{Vendor: v.Vendor, Code: uint32(tlvs[0].Type), Space: SpaceVSA})
+}
+
 // Summarize classifies a raw TLV without copying or exposing Value.
 func (d Dictionary) Summarize(r Raw) Summary {
 	s := Summary{Type: r.Type, Length: len(r.Value), Sensitivity: SensitivityUnknown}
@@ -130,6 +138,10 @@ func (d Dictionary) Summarize(r Raw) Summary {
 		s.Sensitivity = SensitivityRestricted
 		if v, err := ParseVSA(r); err == nil {
 			s.Vendor = v.Vendor
+			if named, ok := namedVSASummary(d, v); ok {
+				s.Name = named.Name
+				s.Sensitivity = named.Sensitivity
+			}
 		}
 		return s
 	}

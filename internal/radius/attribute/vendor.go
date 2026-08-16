@@ -26,9 +26,19 @@ const (
 	MSCHAP2SuccessWireLen = 43 // Ident + RFC 2759 AuthenticatorResponse
 )
 
+// Cisco vendor id and the only named nested type in this program.
+const (
+	VendorCisco     uint32 = 9
+	TypeCiscoAVPair uint8  = 1
+	NameCiscoAVPair        = "Cisco-AVPair"
+)
+
+// MaxVendorTLVValue is the largest nested vendor-type value that still
+// fits in one type-26 attribute (253 − 4 vendor-id − 2 TLV header).
+const MaxVendorTLVValue = MaxValueLength - vendorIDSize - 2
+
 // VSA is Vendor-Specific (type 26) framing: a 32-bit vendor id and an
-// undistinguished payload. Nested vendor-type dictionaries are not applied
-// here; use ParseVendorTLVs for 1-byte type/length walks.
+// undistinguished payload. Nested vendor-type dictionaries are applied by ParseVendorTLVs.
 type VSA struct {
 	Vendor  uint32
 	Payload []byte
@@ -70,29 +80,30 @@ func (v VSA) Raw() (Raw, error) {
 }
 
 // ParseVendorTLVs walks a vendor payload as 1-byte type + 1-byte length TLVs.
-// Unknown types are returned as-is. A leftover byte or illegal length is
-// malformed — callers must not guess.
+// Unknown types stay raw. A leftover byte, length < 2, or length past the
+// remaining payload is malformed — callers must not guess.
 func ParseVendorTLVs(payload []byte) ([]VendorTLV, error) {
 	if len(payload) == 0 {
-		return nil, nil
+		return []VendorTLV{}, nil
 	}
 	out := make([]VendorTLV, 0, 2)
 	i := 0
 	for i < len(payload) {
-		if len(payload)-i < 2 {
-			return nil, fmt.Errorf("%w: leftover %d", ErrVendorTLVMalformed, len(payload)-i)
+		left := len(payload) - i
+		if left < 2 {
+			return nil, fmt.Errorf("%w: leftover %d", ErrVendorTLV, left)
 		}
 		typ := payload[i]
 		n := int(payload[i+1])
 		if n < 2 {
-			return nil, fmt.Errorf("%w: type %d length %d", ErrVendorTLVMalformed, typ, n)
+			return nil, fmt.Errorf("%w: type %d length %d", ErrVendorTLV, typ, n)
 		}
-		if n > len(payload)-i {
-			return nil, fmt.Errorf("%w: type %d length %d remain %d", ErrVendorTLVMalformed, typ, n, len(payload)-i)
+		if n > left {
+			return nil, fmt.Errorf("%w: type %d length %d remain %d", ErrVendorTLV, typ, n, left)
 		}
 		var val []byte
-		if n > 2 {
-			val = make([]byte, n-2)
+		if vlen := n - 2; vlen > 0 {
+			val = make([]byte, vlen)
 			copy(val, payload[i+2:i+n])
 		}
 		out = append(out, VendorTLV{Type: typ, Value: val})
@@ -101,17 +112,21 @@ func ParseVendorTLVs(payload []byte) ([]VendorTLV, error) {
 	return out, nil
 }
 
-// EncodeVendorTLVs writes type/length/value. Values must fit in one TLV.
+// EncodeVendorTLVs writes nested type/length/value. Each value must fit
+// in one type-26 payload together with the vendor id.
 func EncodeVendorTLVs(tlvs []VendorTLV) ([]byte, error) {
 	n := 0
 	for _, t := range tlvs {
-		if len(t.Value) > MaxValueLength-vendorIDSize-2 {
-			return nil, fmt.Errorf("%w: type %d value %d", ErrVSAValueLong, t.Type, len(t.Value))
+		if len(t.Value) > MaxVendorTLVValue {
+			return nil, fmt.Errorf("%w: type %d value %d", ErrVendorTLVLong, t.Type, len(t.Value))
 		}
 		n += 2 + len(t.Value)
 	}
 	if n == 0 {
-		return nil, nil
+		return []byte{}, nil
+	}
+	if n > MaxValueLength-vendorIDSize {
+		return nil, fmt.Errorf("%w: payload %d", ErrVSAValueLong, n)
 	}
 	out := make([]byte, n)
 	off := 0
@@ -155,4 +170,41 @@ func MicrosoftSecret(r Raw) bool {
 		}
 	}
 	return false
+}
+
+// EncodeCiscoAVPair encodes one named Cisco-AVPair as type 26 / vendor 9 / type 1.
+func EncodeCiscoAVPair(text string) (Raw, error) {
+	payload, err := EncodeVendorTLVs([]VendorTLV{{Type: TypeCiscoAVPair, Value: []byte(text)}})
+	if err != nil {
+		return Raw{}, err
+	}
+	return (VSA{Vendor: VendorCisco, Payload: payload}).Raw()
+}
+
+// CiscoAVPairKey is the dictionary identity for named Cisco-AVPair.
+func CiscoAVPairKey() Key {
+	return Key{Vendor: VendorCisco, Code: uint32(TypeCiscoAVPair), Space: SpaceVSA}
+}
+
+// DecodeCiscoAVPairs returns every vendor-type 1 text from a type-26 Raw.
+// Unknown nested types are skipped. Malformed nested TLVs fail closed.
+func DecodeCiscoAVPairs(r Raw) ([]string, error) {
+	vsa, err := ParseVSA(r)
+	if err != nil {
+		return nil, err
+	}
+	if vsa.Vendor != VendorCisco {
+		return nil, nil
+	}
+	tlvs, err := ParseVendorTLVs(vsa.Payload)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		if tlv.Type == TypeCiscoAVPair {
+			out = append(out, string(tlv.Value))
+		}
+	}
+	return out, nil
 }

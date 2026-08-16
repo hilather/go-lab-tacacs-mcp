@@ -17,17 +17,22 @@ var embeddedTopo string
 //go:embed templates/iol-aaa.cfg.partial.tmpl
 var embeddedIOLPartial string
 
+//go:embed templates/iol-radius.cfg.partial.tmpl
+var embeddedIOLRADIUSPartial string
+
 // RenderParams fill the committed Containerlab + IOL templates.
 type RenderParams struct {
-	IOLImage     string
-	TacLabImage  string
-	TacLabIPv4   string
-	IOLIPv4      string
-	MgmtSubnet   string
-	TacacsPort   int
-	HTTPHostPort int
-	LabDir       string
-	SharedSecret string
+	IOLImage       string
+	TacLabImage    string
+	TacLabIPv4     string
+	IOLIPv4        string
+	MgmtSubnet     string
+	TacacsPort     int
+	RADIUSAuthPort int
+	RADIUSAcctPort int
+	HTTPHostPort   int
+	LabDir         string
+	SharedSecret   string
 }
 
 // QuotedSecret is an IOS-safe quoted TACACS key (secrets may contain '#').
@@ -65,6 +70,22 @@ func RenderIOLPartial(repoRoot string, p RenderParams) (string, error) {
 		return "", err
 	}
 	return execTemplate("iol", src, p)
+}
+
+// RenderIOLRADIUSPartial writes the optional IOL RADIUS snippet.
+// Applying it is operator-driven. A skip without TACLAB_IOL_IMAGE is not PASS.
+func RenderIOLRADIUSPartial(repoRoot string, p RenderParams) (string, error) {
+	if p.RADIUSAuthPort == 0 {
+		p.RADIUSAuthPort = defaultRADIUSAuthPort
+	}
+	if p.RADIUSAcctPort == 0 {
+		p.RADIUSAcctPort = defaultRADIUSAcctPort
+	}
+	src, err := loadTemplate(repoRoot, "iol-radius.cfg.partial.tmpl", embeddedIOLRADIUSPartial)
+	if err != nil {
+		return "", err
+	}
+	return execTemplate("iol-radius", src, p)
 }
 
 func execTemplate(name, src string, p RenderParams) (string, error) {

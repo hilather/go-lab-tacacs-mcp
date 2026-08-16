@@ -44,3 +44,31 @@ func BenchmarkDictionaryCheckSet_8Attrs(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkParseVendorTLVs_CiscoAVPair(b *testing.B) {
+	raw, err := EncodeCiscoAVPair("shell:priv-lvl=15")
+	if err != nil {
+		b.Fatal(err)
+	}
+	vsa, err := ParseVSA(raw)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := ParseVendorTLVs(vsa.Payload); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeCiscoAVPair(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := EncodeCiscoAVPair("shell:priv-lvl=15"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

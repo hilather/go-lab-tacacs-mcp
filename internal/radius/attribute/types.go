@@ -1,7 +1,7 @@
 package attribute
 
 // IETF attribute type numbers for the built-in MVP dictionary (RAD-CODEC-004).
-// Named Cisco-AVPair is not in this table.
+// Named Cisco-AVPair is vendor 9 / vendor-type 1 (see vendor.go), not an IETF code.
 const (
 	TypeUserName             uint8 = 1
 	TypeUserPassword         uint8 = 2

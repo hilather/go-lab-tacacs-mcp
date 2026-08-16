@@ -64,6 +64,7 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		{"MS-CHAP-Challenge", VendorTypeMSCHAPChallenge, KindString, CardinalitySingle, SensitivitySecret},
 		{"MS-CHAP2-Response", VendorTypeMSCHAP2Response, KindString, CardinalitySingle, SensitivitySecret},
 		{"MS-CHAP2-Success", VendorTypeMSCHAP2Success, KindString, CardinalitySingle, SensitivitySecret},
+		{NameCiscoAVPair, TypeCiscoAVPair, KindText, CardinalityMulti, SensitivityRestricted},
 	}
 	all := d.All()
 	if len(all) != len(want) {
@@ -75,7 +76,15 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing name %s", w.name)
 		}
-		if def.Vendor == 0 {
+		if w.name == NameCiscoAVPair {
+			byKey, ok := d.LookupKey(CiscoAVPairKey())
+			if !ok || byKey.Name != w.name || byKey.Vendor != VendorCisco {
+				t.Fatalf("lookup cisco key: %+v ok=%v", byKey, ok)
+			}
+			if _, ok := d.LookupIETF(w.code); !ok {
+				t.Fatal("IETF type 1 must remain User-Name")
+			}
+		} else if def.Vendor == 0 {
 			byCode, ok := d.LookupIETF(w.code)
 			if !ok || byCode.Name != w.name {
 				t.Fatalf("lookup code %d: %+v ok=%v", w.code, byCode, ok)
@@ -120,17 +129,30 @@ func TestNamedMicrosoftVSAs(t *testing.T) {
 	}
 }
 
-func TestNoNamedCiscoAVPair(t *testing.T) {
+func TestNamedCiscoAVPair(t *testing.T) {
 	t.Parallel()
 	d := Builtin()
-	if _, ok := d.LookupName("Cisco-AVPair"); ok {
-		t.Fatal("named Cisco-AVPair must not be in MVP")
+	def, ok := d.LookupName(NameCiscoAVPair)
+	if !ok {
+		t.Fatal("named Cisco-AVPair must be in the builtin dictionary")
 	}
-	if _, ok := d.LookupKey(Key{Vendor: 9, Code: 1, Space: SpaceVSA}); ok {
-		t.Fatal("vendor 9 code 1 must not be named")
+	if def.Vendor != VendorCisco || def.Code != TypeCiscoAVPair || def.Kind != KindText ||
+		def.Cardinality != CardinalityMulti || def.Sensitivity != SensitivityRestricted {
+		t.Fatalf("cisco def=%+v", def)
 	}
-	if _, ok := d.LookupKey(Key{Vendor: 9, Code: 1, Space: SpaceIETF}); ok {
+	if !def.AllowedIn(PacketAccessRequest) || !def.AllowedIn(PacketAccessAccept) ||
+		!def.AllowedIn(PacketAccessReject) || !def.AllowedIn(PacketAccessChallenge) ||
+		!def.AllowedIn(PacketAccountingRequest) || def.AllowedIn(PacketAccountingResponse) {
+		t.Fatalf("cisco packet roles=%v", def.AllowedPackets())
+	}
+	if _, ok := d.LookupKey(CiscoAVPairKey()); !ok {
+		t.Fatal("vendor 9 code 1 must be named")
+	}
+	if _, ok := d.LookupKey(Key{Vendor: VendorCisco, Code: 1, Space: SpaceIETF}); ok {
 		t.Fatal("vendor 9 IETF space must not exist")
+	}
+	if user, ok := d.LookupIETF(TypeUserName); !ok || user.Name != "User-Name" {
+		t.Fatal("IETF User-Name must stay type 1")
 	}
 }
 

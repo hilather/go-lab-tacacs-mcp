@@ -23,6 +23,7 @@ type Evidence struct {
 	Enable            string            `json:"enable,omitempty"`
 	Authorization     string            `json:"authorization,omitempty"`
 	Accounting        string            `json:"accounting,omitempty"`
+	RADIUSCiscoAVPair string            `json:"radius_cisco_avpair,omitempty"`
 	CapabilityNotes   []string          `json:"capability_notes,omitempty"`
 	IOLImageRef       string            `json:"iol_image_ref,omitempty"`
 	Extra             map[string]string `json:"extra,omitempty"`

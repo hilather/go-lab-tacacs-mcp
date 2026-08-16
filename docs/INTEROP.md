@@ -74,6 +74,7 @@ Do **not** tell peers to disable response Message-Authenticator checking.
 | Independent Go test client (`internal/radius/testclient`, separate codec copy) | PAP Access-Accept | Start + Accounting-Response | Yes | Required | **PASS** (`TestIndependentTestclientPAPAndAccountingOnUDP`) |
 | FreeRADIUS 3.2.5+ `radclient` / `radtest` | PAP / CHAP | Start/Stop/Interim with MA | Required | Required | **SKIP** — `radclient` not on PATH in this environment (`TestExternalRadclientAccessAndAccounting`). Required peer: FreeRADIUS 3.2.5+ sending `Message-Authenticator` and validating TacLab Access and Accounting responses. |
 | Cisco IOS / IOS-XE via Containerlab IOL | if image sends RADIUS | if image sends acct | device | device | **SKIP** when `containerlab` or `TACLAB_IOL_IMAGE` is absent (`make cisco-lab`). A skip is **not** Cisco PASS and is **not** RADIUS PASS. |
+| Named `Cisco-AVPair` (vendor 9 type 1) | Independent `testclient` encode/decode | — | — | — | **PASS** on `testdata/protocol/radius/cisco/` fixtures (`PRJ-CISCO-001`). Optional IOL RADIUS snippet is generated; absence of `TACLAB_IOL_IMAGE` is **SKIP** and is **not** `PRJ-CISCO-001` PASS. |
 | Second NAS (Junos, EOS, …) | — | — | — | — | **SKIP** — no lab hardware |
 
 ### Software peer evidence
@@ -82,6 +83,7 @@ Do **not** tell peers to disable response Message-Authenticator checking.
 |---|---|
 | Independent codec | `internal/radius/testclient/codec` does not import `internal/radius/codec`, `crypto`, `server`, or `udp` |
 | Independent UDP e2e | `internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP` |
+| Named Cisco-AVPair | `internal/radius/testclient/codec.TestIndependentCiscoAVPairGolden` (`testdata/protocol/radius/cisco/`) |
 | External radclient | `internal/radius/udp.TestExternalRadclientAccessAndAccounting` (skip unless `radclient` is on `PATH`) |
 | Compose LAB-* | `LAB-RADIUS-001`, `LAB-RADIUS-002`, `LAB-RADIUS-ONLY` via `make lab-test` (REST diagnostic path; not a wire-peer substitute) |
 

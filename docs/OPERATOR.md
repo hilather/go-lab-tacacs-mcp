@@ -36,7 +36,7 @@ RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than 
 | Deferred EAP | EAP-Message without a valid Message-Authenticator is discarded. There is no EAP method termination or pass-through. Program ADR [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). |
 | Deferred CoA / Disconnect | RFC 5176 is not shipped. Program ADR [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
 | RADIUS MS-CHAP is opt-in / MD4-era | Add `mschapv1` / `mschapv2` to `allowed_authentication_methods`. Omitted lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. [ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
-| Deferred named `Cisco-AVPair` | Not shipped. Raw Vendor-Specific framing is preserved. Named decode evidence is independent `testclient` fixtures, **not** an IOL gate ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) supersedes [ADR 0015](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0015-radius-codec-attribute-and-dictionary-boundary.md) decision 4). An IOL skip is not PASS. |
+| Named `Cisco-AVPair` | Shipped as vendor 9 / vendor-type 1. Reply profiles accept `name: Cisco-AVPair` or raw `{vendor: 9, code: 1, value_hex}`. Evidence is independent fixtures ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md)). An IOL skip is not PASS. |
 | Operator dictionaries | v2 `radius_dictionaries` are TacLab YAML, local absolute files, size-capped, fail-closed. Vendors 0/9/311 and `Cisco-AVPair` / `MS-CHAP-*` are reserved. Not FreeRADIUS `$INCLUDE`. Program ADR [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md). |
 | User/group RADIUS rules (v2) | Optional `users[].radius_policy_id` / `groups[].radius_policy_id`. Walk is user → `effectiveGroups` → client → fallback → default deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). v1 rejects the keys. |
 | Proxying out | Not offered (`DEFERRED_MAY`, [ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). |
@@ -199,7 +199,7 @@ Disabled users fail credentials before policy on Access-Request. `radius.policy.
 
 Match keys: `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), typed request attributes (`equals` / `present` / `absent`). No regex. Unknown attribute names fail compile.
 
-Permit rules may list `reply_profiles`. Profiles concatenate in listed order; two `single` attributes of the same key fail compile. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in this profile). Named `Cisco-AVPair` is not accepted; raw VSA is `{vendor, code, value_hex}` only.
+Permit rules may list `reply_profiles`. Profiles concatenate in listed order; two `single` attributes of the same key fail compile. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in this profile). Named `Cisco-AVPair` (`shell:priv-lvl=15`) and raw `{vendor: 9, code: 1, value_hex}` encode to the same wire. Other named VSAs are not accepted.
 
 Explain a RADIUS decision: UI RADIUS Policy page or `POST /api/v1/radius/policy:evaluate`. Drive the same `AuthenticateAccess` path as UDP with `POST /api/v1/radius/access:test` (`method.type` is `pap` or `chap`; passwords are write-only and wiped).
 
@@ -321,7 +321,7 @@ YAML field contract: [CONFIGURATION.md](https://github.com/hilather/go-lab-tacac
 
 The reference Compose baseline is **not** flipped to must-change. Recipes use existing `lab-admin` / `lab-readonly` / `lab-switches`. Do not add a compose fixture user.
 
-RADIUS advertised status stays **`partial`**. There is no Access-Challenge, no Microsoft Password-Expired VSA, and no named `Cisco-AVPair`. `authentication.test` `status=must_change` is **not** a TACACS or RADIUS packet status.
+RADIUS advertised status stays **`partial`**. There is no Access-Challenge and no Microsoft Password-Expired VSA. Named `Cisco-AVPair` is available on reply profiles. `authentication.test` `status=must_change` is **not** a TACACS or RADIUS packet status.
 
 | MCP tool | REST | Scope |
 |---|---|---|

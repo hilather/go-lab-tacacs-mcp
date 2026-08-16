@@ -10,9 +10,17 @@ import (
 // Evaluate walks user, then effectiveGroups, then client, then fallback.
 // First matching rule wins. No match is deny. A nil engine is an error
 // (fail closed, never permit).
+//
+// When the user is compiled, groups_any uses the same effectiveGroups
+// membership as the walk (caller Request.Groups is ignored). Wire
+// AuthenticateAccess never reaches this for a disabled user: credentials
+// reject first. Diagnostics still walk client default_group_ids.
 func (e *Engine) Evaluate(req Request) Result {
 	if e == nil {
 		return errorResult(newTrace(req), "policy engine is not compiled")
+	}
+	if _, ok := e.users[req.UserID]; ok {
+		req.Groups = groupIDs(e.effectiveGroups(req.UserID, req.ClientID))
 	}
 	tr := newTrace(req)
 	if u, ok := e.users[req.UserID]; ok && u.enabled && u.policyID != "" {

@@ -692,7 +692,7 @@ Group priority controls inter-group rule order. Rule priority controls order ins
 
 A user can hold zero or more groups. A user with no applicable permit policy fails authorization by default.
 
-Schema v2 users may set optional `radius_policy_id`. That named policy is the first RADIUS access walk source. REST/MCP omit keeps it; JSON `null` or `""` clears it.
+Schema v2 users may set optional `radius_policy_id`. That named policy is the first RADIUS access walk source. REST/MCP omit keeps it; JSON `null` or `""` clears it. Disabled users fail credentials before this walk. Diagnostics still apply client `default_group_ids` without the user's own groups.
 
 Credential capabilities are explicit:
 

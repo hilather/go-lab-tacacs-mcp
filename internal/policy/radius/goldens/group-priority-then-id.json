@@ -4,7 +4,10 @@
   "client_id": "lab-switches",
   "endpoint_id": "radius-udp",
   "method": "",
-  "groups": [],
+  "groups": [
+    "ops",
+    "admins"
+  ],
   "steps": [
     {
       "source": "group_policy:ops-permit",

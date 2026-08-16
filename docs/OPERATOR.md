@@ -195,6 +195,8 @@ Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=confi
 
 Evaluation order is user `radius_policy_id`, then each group in `effectiveGroups` (same order as TACACS: user `group_ids`, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. Schema v2 only; v1 files reject `radius_policy_id`. REST/MCP omit keeps the current id; JSON `null` clears it. There are no UI selects for this field yet.
 
+Disabled users fail credentials before policy on Access-Request. `radius.policy.evaluate` still skips that user's policy and group_ids but walks client `default_group_ids`.
+
 Match keys: `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), typed request attributes (`equals` / `present` / `absent`). No regex. Unknown attribute names fail compile.
 
 Permit rules may list `reply_profiles`. Profiles concatenate in listed order; two `single` attributes of the same key fail compile. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in this profile). Named `Cisco-AVPair` is not accepted; raw VSA is `{vendor, code, value_hex}` only.

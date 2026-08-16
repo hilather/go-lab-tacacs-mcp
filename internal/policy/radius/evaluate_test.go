@@ -351,9 +351,58 @@ func TestEvaluateEqualGroupPrioritySortsByID(t *testing.T) {
 func TestEvaluateDisabledUserSkipsUserPolicy(t *testing.T) {
 	t.Parallel()
 	eng := userGroupEngine(t)
+	// lab-switches has no default_group_ids, so only user policy/groups are skipped.
 	res := eng.Evaluate(Request{UserID: "disabled-u", ClientID: "lab-switches", EndpointID: "radius-udp"})
 	if res.Trace.Winner == nil || res.Trace.Winner.Source != sourceClientPrefix+"client-deny" {
-		t.Fatalf("disabled user skips user+groups: %+v", res)
+		t.Fatalf("disabled user without client defaults hits client policy: %+v", res)
+	}
+}
+
+func TestEvaluateDisabledUserStillGetsClientDefaultGroups(t *testing.T) {
+	t.Parallel()
+	eng := userGroupEngine(t)
+	res := eng.Evaluate(Request{
+		UserID:     "disabled-u",
+		ClientID:   "lab-defaults",
+		EndpointID: "radius-udp",
+		// Caller Groups must not win: compiled user uses effectiveGroups.
+		Groups: []string{"admins"},
+	})
+	if res.Trace.Winner == nil || res.Trace.Winner.Source != sourceGroupPrefix+"ops-permit" {
+		t.Fatalf("disabled user still walks client default groups: %+v", res)
+	}
+	if len(res.Trace.Groups) != 1 || res.Trace.Groups[0] != "ops" {
+		t.Fatalf("groups_any membership must be client defaults only: %v", res.Trace.Groups)
+	}
+}
+
+func TestEvaluateDisabledUserGroupsAnyUsesClientDefaults(t *testing.T) {
+	t.Parallel()
+	eng := mustCompile(t, Input{
+		Policies: []config.RADIUSPolicy{
+			{ID: "ops-any", Rules: []config.RADIUSRule{{
+				ID: "need-ops", Enabled: true,
+				Match:  config.RADIUSMatch{GroupsAny: []string{"ops"}},
+				Effect: domain.EffectPermit,
+			}}},
+			{ID: "client", Rules: []config.RADIUSRule{{ID: "deny", Enabled: true, Effect: domain.EffectDeny}}},
+		},
+		Clients: []config.Client{{
+			ID:            "c",
+			Enabled:       true,
+			Authorization: config.ClientAuthz{DefaultGroupIDs: []string{"ops"}},
+			Endpoints: []config.ClientEndpoint{{
+				ID: "e", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "client"},
+			}},
+		}},
+		Groups: []config.Group{{ID: "ops", Enabled: true, Priority: 10, RADIUSPolicyID: "ops-any"}},
+		Users: []config.User{
+			{ID: "off", Enabled: false, GroupIDs: []string{"ops"}, RADIUSPolicyID: "ops-any"},
+		},
+	})
+	res := eng.Evaluate(Request{UserID: "off", ClientID: "c", EndpointID: "e"})
+	if res.Effect != domain.EffectPermit || res.Trace.Winner == nil || res.Trace.Winner.RuleID != "need-ops" {
+		t.Fatalf("groups_any must see client default membership: %+v", res)
 	}
 }
 

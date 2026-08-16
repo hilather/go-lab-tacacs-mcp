@@ -606,7 +606,9 @@ type Result struct {
 4. Global `radius_policies` named by `fallback_radius_policy_id` (optional; default empty).
 5. Default deny.
 
-`effectiveGroups` **must** match `policy.Engine.effectiveGroups` in `internal/policy/compile.go`: user `group_ids` in listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then group `id`. Equal priorities are **legal**. Do **not** add a compile reject for equal group priority. Client-match ties remain `CLIENT_MATCH_AMBIGUOUS` (C1); that rule does not apply to groups. v1 `User` / `Group` stay TACACS-shaped and reject `radius_policy_id`.
+`effectiveGroups` **must** match `policy.Engine.effectiveGroups` in `internal/policy/compile.go` for **enabled** users: user `group_ids` in listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then group `id`. Equal priorities are **legal**. Do **not** add a compile reject for equal group priority. Client-match ties remain `CLIENT_MATCH_AMBIGUOUS` (C1); that rule does not apply to groups. v1 `User` / `Group` stay TACACS-shaped and reject `radius_policy_id`.
+
+Disabled users fail credentials before `Evaluate` on the Access-Request path (`reject_bad_credentials`). TACACS never calls `effectiveGroups` for them. Diagnostics (`radius.policy.evaluate`) still skip user policy and user `group_ids` but keep client `default_group_ids`. `groups_any` uses that same compiled membership when the user is in the engine.
 
 First matching rule wins. Traces include source (`user_policy:<id>`, `group_policy:<id>`, `client_policy:<id>`, `fallback`), rule id, matched, reason. Secrets and sensitive attribute values never appear in traces.
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
@@ -162,6 +163,9 @@ func evaluateAccess(snap *state.Snapshot, user, clientID, endpointID string, met
 		return rejectAccess(user, AccessReasonInternal)
 	}
 	eng := snap.RADIUSPolicies()
+	// Groups are omitted when the user is compiled: Evaluate uses the
+	// same effectiveGroups membership as the walk. Callers without a
+	// compiled user (unit engines) still pass Groups for groups_any.
 	res := eng.Evaluate(policyradius.Request{
 		UserID:     user,
 		ClientID:   clientID,
@@ -207,16 +211,21 @@ func mapPolicyResult(user string, res policyradius.Result) RadiusAccessDecision 
 	}
 }
 
+// effectiveRADIUSGroups matches policy/radius effectiveGroups: enabled
+// users contribute group_ids, then client default_group_ids, then sort
+// by group priority then id. Disabled users omit their own group_ids
+// (credentials already rejected them on the wire) but still receive
+// client defaults so diagnostics do not drift from Evaluate.
 func effectiveRADIUSGroups(snap *state.Snapshot, userID, clientID string) []string {
 	if snap == nil {
 		return nil
 	}
-	u, ok := snap.User(userID)
-	if !ok || !u.User.Enabled {
-		return nil
+	type ranked struct {
+		id       string
+		priority int
 	}
-	seen := make(map[string]struct{}, len(u.User.GroupIDs)+4)
-	out := make([]string, 0, len(u.User.GroupIDs)+4)
+	seen := make(map[string]struct{}, 8)
+	var rankedGroups []ranked
 	add := func(id string) {
 		if id == "" {
 			return
@@ -229,15 +238,27 @@ func effectiveRADIUSGroups(snap *state.Snapshot, userID, clientID string) []stri
 			return
 		}
 		seen[id] = struct{}{}
-		out = append(out, id)
+		rankedGroups = append(rankedGroups, ranked{id: id, priority: g.Group.Priority})
 	}
-	for _, id := range u.User.GroupIDs {
-		add(id)
+	if u, ok := snap.User(userID); ok && u.User.Enabled {
+		for _, id := range u.User.GroupIDs {
+			add(id)
+		}
 	}
 	if c, ok := snap.Client(clientID); ok {
 		for _, id := range c.Client.Authorization.DefaultGroupIDs {
 			add(id)
 		}
+	}
+	sort.SliceStable(rankedGroups, func(i, j int) bool {
+		if rankedGroups[i].priority != rankedGroups[j].priority {
+			return rankedGroups[i].priority < rankedGroups[j].priority
+		}
+		return rankedGroups[i].id < rankedGroups[j].id
+	})
+	out := make([]string, len(rankedGroups))
+	for i, g := range rankedGroups {
+		out[i] = g.id
 	}
 	return out
 }

@@ -174,9 +174,15 @@ func Compile(in Input) (*Engine, error) {
 	return e, nil
 }
 
-// effectiveGroups matches policy/compile.go: user group_ids in listed
-// order, then client default_group_ids not already present, then sort
-// by ascending group priority then id. Disabled groups are omitted.
+// effectiveGroups matches policy/compile.go for enabled users: user
+// group_ids in listed order, then client default_group_ids not already
+// present, then sort by ascending group priority then id. Disabled
+// groups are omitted.
+//
+// Disabled users skip user policy and user group_ids (TACACS never
+// evaluates them). Client default_group_ids still apply so diagnostics
+// stay defined. AuthenticateAccess rejects disabled users at credential
+// verify and never calls Evaluate.
 func (e *Engine) effectiveGroups(userID, clientID string) []compiledGroup {
 	ids := make([]string, 0, 8)
 	seen := make(map[string]struct{}, 8)
@@ -218,6 +224,14 @@ func (e *Engine) effectiveGroups(userID, clientID string) []compiledGroup {
 		}
 		return out[i].id < out[j].id
 	})
+	return out
+}
+
+func groupIDs(in []compiledGroup) []string {
+	out := make([]string, len(in))
+	for i, g := range in {
+		out[i] = g.id
+	}
 	return out
 }
 

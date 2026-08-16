@@ -208,6 +208,30 @@ func TestAuthenticateAccessUserPolicyWinsBeforeClient(t *testing.T) {
 	}
 }
 
+func TestAuthenticateAccessDisabledUserRejectsBeforePolicy(t *testing.T) {
+	t.Parallel()
+	svc := testRADIUSPolicyService(t)
+	rev := svc.mgr.Revision()
+	off := false
+	if _, err := svc.mgr.UpdateUser("lab-admin", state.UpdateUser{Enabled: &off}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context:  domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:   "lab-admin",
+		Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonBadCredentials {
+		t.Fatalf("disabled user must fail credentials, not policy: %+v", got)
+	}
+	if got.Trace.Winner != nil {
+		t.Fatalf("policy must not run: %+v", got.Trace)
+	}
+}
+
 func TestAuthenticateAccessMustChangeRejectsWithoutPolicy(t *testing.T) {
 	t.Parallel()
 	svc := testRADIUSPolicyService(t)

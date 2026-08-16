@@ -4,50 +4,34 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
-### Added
+## [1.2.0] — 2026-08-16
 
-- Fail-closed login-class lock (`must_change_login`): after a successful verify,
-  ASCII LOGIN **may** continue with extra GETPASS new/confirm (TacLab/vendor
-  extension, not RFC 8907 LOGIN) when the client allows `ascii_chpass` (or
-  `allowed_methods` is empty); otherwise FAIL with
-  `server_msg=Password change required` and no overlay mutation. PAP / CHAP /
-  MS-CHAP FAIL with the same `server_msg`. RADIUS Access-Reject
-  `reject_password_change_required` (no extra attributes, no Access-Challenge,
-  no Microsoft Password-Expired VSA). The lock is identity-level — CHAP /
-  MS-CHAP fail even though they verify challenge material.
-  `must_change_login` does not apply to ENABLE. Combined account-expiry /
-  disabled / restricted / unknown / wrong-password stay uniform FAIL (empty
-  `server_msg`). MCP owns fixture + assert + admin rotate; GETPASS is NAS /
-  `internal/tacacs/testclient` only. YAML-set flags survive `runtime.reset`;
-  MCP-set flags and published PHCs do not. RADIUS advertised status stays
-  `partial`.
-- In-ENABLE GETPASS new/confirm after a successful ENABLE verify when
-  `must_change_enable` is set (TacLab/vendor extension, not RFC 8907 ENABLE).
-  Overlay-only PHC via `OverrideEnableVerifier`; YAML baseline is never
-  rewritten. `must_change_login` still does not apply to ENABLE.
-- `users.create` / `users.update` / `users.get` / `users.list` and `config.export`
-  expose top-level `must_change_login` / `must_change_enable` (default `false`).
-  `authentication.test` `status` enum includes `must_change` (not a TACACS or
-  RADIUS packet status). `radius.access.test` `reason_code` includes
-  `reject_password_change_required`. Unknown JSON on user mutations is rejected.
-  No `taclab.qa.*` tools.
-- Users page shows `Must change login` / `Must change enable` badges next to
-  Enabled and editor checkboxes for both flags (create/update send the bools;
-  stale-write compare includes them). Authentication test displays status
-  `must_change` with warn styling instead of treating it as a generic fail.
-- [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md)
-  §14 copy-paste MCP recipes for must-change fixture, assert, rotate, disable,
-  account window, groups, client restriction, tombstone/reveal,
-  `allowed_methods`, `policy.evaluate`, and `runtime.reset`. K16 overlay vs
-  YAML is documented on every must-change recipe. No compose fixture user.
-  No `taclab.qa.*` tools.
-- `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the
-  HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests
-  with a missing or older header pass through to the official SDK transport,
-  which negotiates the protocol version during `initialize` — this lets
-  older-generation MCP clients (gateways/proxies such as MCPJungle) connect.
-  `subscriptions/listen` still requires the pinned version, and the strict
-  default behavior is unchanged.
+User-lifecycle must-change lock and MCP client compatibility. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays `partial`.
+
+### Residual limits (prominent)
+
+- In-LOGIN / in-ENABLE extra GETPASS is a **TacLab/vendor extension**, not RFC 8907 LOGIN (§5.4.2.1) or ENABLE (§5.4.2.6). RFC change-password remains **CHPASS**.
+- RADIUS still has no Access-Challenge, Microsoft Password-Expired VSA, or named `Cisco-AVPair`. Must-change on RADIUS is Access-Reject `reject_password_change_required` only.
+- Published PHCs and MCP/REST-set flags are overlay-only. YAML-set flags return on `runtime.reset` / restart; the YAML baseline is never rewritten.
+- MCP owns fixture + assert + admin rotate. It cannot send TACACS CONTINUE or complete GETPASS. Hosted agents finish a change with `users.update` secret rotate.
+- No `taclab.qa.*` tools.
+
+### Protocol
+
+- Fail-closed login-class lock (`must_change_login`): after a successful verify, ASCII LOGIN **may** continue with extra GETPASS new/confirm when the client allows `ascii_chpass` (or `allowed_methods` is empty); otherwise FAIL with `server_msg=Password change required` and no overlay mutation. PAP / CHAP / MS-CHAP FAIL with the same `server_msg`. The lock is identity-level — CHAP / MS-CHAP fail even though they verify challenge material. `must_change_login` does not apply to ENABLE. Combined account-expiry / disabled / restricted / unknown / wrong-password stay uniform FAIL (empty `server_msg`).
+- In-ENABLE GETPASS new/confirm after a successful ENABLE verify when `must_change_enable` is set. Overlay-only PHC via `OverrideEnableVerifier`.
+- RADIUS Access-Reject `reject_password_change_required` after a good PAP/CHAP verify while `must_change_login` is set (no extra attributes).
+
+### Admin surfaces
+
+- `users.create` / `users.update` / `users.get` / `users.list` and `config.export` expose top-level `must_change_login` / `must_change_enable` (default `false`). REST and MCP (`taclab.users.*`) share the same types. `authentication.test` `status` includes `must_change` (not a TACACS or RADIUS packet status). `radius.access.test` `reason_code` includes `reject_password_change_required`. Unknown JSON on user mutations is rejected.
+- Users page shows `Must change login` / `Must change enable` badges and editor checkboxes. Authentication test displays status `must_change` with warn styling.
+- `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests with a missing or older header pass through to the official SDK transport, which negotiates the protocol version during `initialize` — this lets older-generation MCP clients (gateways/proxies such as MCPJungle) connect. `subscriptions/listen` still requires the pinned version.
+
+### Documentation
+
+- [ADR 0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.2.0/docs/decisions/0019-force-password-change.md) — login-class lock and vendor-extension GETPASS contract.
+- [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.2.0/docs/OPERATOR.md) §14 copy-paste MCP recipes for must-change fixture, assert, rotate, disable, account window, groups, client restriction, tombstone/reveal, `allowed_methods`, `policy.evaluate`, and `runtime.reset`. Overlay vs YAML (K16) is documented on every must-change recipe. No compose fixture user.
 
 ## [1.1.0] — 2026-08-15
 

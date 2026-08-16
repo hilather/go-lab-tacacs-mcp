@@ -639,10 +639,20 @@ listeners:
       per_source_rate: 100
       per_source_burst: 200
       ambiguous_accounting_per_minute: 60
+    radsec:
+      enabled: false          # default; set true to bind TCP 2083 (RADIUS/TLS 1.3)
+      required: false
+      bind: 0.0.0.0:2083
+      transport: tls          # only legal value; no cleartext TCP
+      max_packet_bytes: 4096
+      max_connections: 256
+      idle_timeout: 60s
+      handshake_timeout: 10s
+      # tls: same SecureTLS shape as listeners.tacacs.tls
   http: { enabled: true, bind: 0.0.0.0:8080 }
 ```
 
-v2 clients may declare `endpoints[]` (canonical protocol model). `match.source_cidrs` stays shared. v2 does not use `match.transports`; transports live on endpoints (`tacacs`+`tcp`/`tls`, `radius`+`udp`). Flatten TACACS fields (`match.transports`, `legacy`, `authentication`, `authorization`, `accounting`) are a deterministic projection of TACACS endpoints. v1 client YAML is unchanged; after load, TACACS endpoints are synthesized so the projection invariant holds. A client may have at most one RADIUS UDP endpoint (access and accounting share the secret and compile into separate role indexes). `certificate_only` is invalid unless a TACACS TLS endpoint exists. RADIUS-only clients require `source_cidrs`.
+v2 clients may declare `endpoints[]` (canonical protocol model). `match.source_cidrs` stays shared. v2 does not use `match.transports`; transports live on endpoints (`tacacs`+`tcp`/`tls`, `radius`+`udp`/`tls`). Flatten TACACS fields (`match.transports`, `legacy`, `authentication`, `authorization`, `accounting`) are a deterministic projection of TACACS endpoints. v1 client YAML is unchanged; after load, TACACS endpoints are synthesized so the projection invariant holds. A client may have at most one RADIUS endpoint **per carrier** (one `radius`+`udp` and one `radius`+`tls`). Access and accounting on the same carrier share that secret and compile into separate role indexes. `certificate_only` requires a TACACS TLS **or** RADIUS TLS endpoint. RADIUS/UDP clients require `source_cidrs`. TLS-only `certificate_only` clients do not. Shared secret is required on every RADIUS endpoint (including TLS); the informal well-known value `radsec` is not a default. CoA/Disconnect originate (when implemented) always uses the **UDP** RADIUS endpoint; a TLS-only client cannot originate CoA.
 
 v2 may declare `radius_policies`, `radius_reply_profiles`, and optional `fallback_radius_policy_id`. Evaluation order is frozen ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)): user `radius_policy_id`, then each group in `effectiveGroups` (`users[].group_ids` listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client endpoint `access_policy_id`, then optional fallback, then default deny. First matching **rule** wins. v2 `users[]` / `groups[]` accept optional `radius_policy_id`; unknown policy id is `CONFIG_YAML_INVALID`. v1 `rawUser` / `rawGroup` reject those keys. REST/MCP `users.*` / `groups.*` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). Match operators are `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), and typed request attributes (`op: equals|present|absent`). Unknown attribute names/codes fail compile (`CONFIG_YAML_INVALID`). Reply profiles are merged in listed order; two `single` attributes of the same key is a compile error. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in MVP). Named `Cisco-AVPair` and raw `{vendor: 9, code: 1, value_hex}` are accepted on permit reply profiles and encode to the same wire. After a credential pass, `AuthenticateAccess` evaluates the snapshot-held engine: permit is Access-Accept with those profile attributes; deny and evaluator errors are Access-Reject. This is not a complete RADIUS authorization surface.
 
@@ -700,8 +710,8 @@ Limits are security boundaries. Reducing a limit through reload is permitted onl
 A client identifies a Network Access Server or a group of devices. Matching is fail-closed and uses a deterministic order:
 
 1. Listener/transport compatibility (`legacy` vs `tls` for TACACS; `access` vs `accounting` role indexes for RADIUS).
-2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN). Certificate match does not apply to RADIUS/UDP.
-3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a TACACS match key and requires a TACACS TLS endpoint.
+2. Explicit certificate identity constraints for TLS, when configured (dNSName / iPAddress SAN). Certificate match does not apply to RADIUS/UDP. RADIUS/TLS (RadSec) uses a cert index after the handshake (`address_and_certificate` or `certificate_only`).
+3. Unless `match.mode` is `certificate_only`, longest matching source CIDR prefix over compiled IPv4 and IPv6 indexes. `certificate_only` ignores `source_cidrs` as a match key and requires a TACACS TLS **or** RADIUS TLS endpoint.
 4. Lowest numeric client priority.
 5. A remaining tie is a configuration error (`CLIENT_MATCH_AMBIGUOUS`). Lexicographic client ID is not a runtime tie-breaker.
 

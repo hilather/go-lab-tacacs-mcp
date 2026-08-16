@@ -420,8 +420,12 @@ func assertRADIUSDisabledDefaults(t *testing.T, doc *Document) {
 	t.Helper()
 	acc := doc.Listeners.RADIUSAccess
 	acct := doc.Listeners.RADIUSAccounting
-	if acc.Enabled || acct.Enabled {
-		t.Fatalf("RADIUS listeners must default disabled: access=%v acct=%v", acc.Enabled, acct.Enabled)
+	rs := doc.Listeners.RADIUSRadSec
+	if acc.Enabled || acct.Enabled || rs.Enabled {
+		t.Fatalf("RADIUS listeners must default disabled: access=%v acct=%v radsec=%v", acc.Enabled, acct.Enabled, rs.Enabled)
+	}
+	if rs.Bind != "0.0.0.0:2083" || rs.Transport != EndpointTransportTLS {
+		t.Fatalf("radsec bind=%q transport=%q", rs.Bind, rs.Transport)
 	}
 	if acc.Required || acct.Required {
 		t.Fatal("RADIUS required must default false")

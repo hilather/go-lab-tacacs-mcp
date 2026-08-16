@@ -16,13 +16,14 @@ This is the operator-facing 1.0 guide. Protocol and schema details stay in [CONF
 | Secure TACACS+ | 300 → 4300/tcp | RFC 9887 TLS 1.3 mTLS |
 | RADIUS access | 1812/udp | RFC 2865 PAP/CHAP Access-Accept/Reject. Off unless a v2 profile enables it. |
 | RADIUS accounting | 1813/udp | RFC 2866 Start/Stop/Interim/On/Off into the memory ring. Off unless a v2 profile enables it. |
+| RADIUS/TLS (RadSec) | 2083/tcp | RFC 6614 TLS 1.3 mTLS stream of length-prefixed RADIUS packets. Off unless `listeners.radius.radsec.enabled` is true. PAP/CHAP only until EAP/MS-CHAP land. |
 | HTTP admin | 8080/tcp | UI, `/api/v1`, `/mcp`, health |
 
 Runtime overlay is **memory-only**. Restart or `runtime.reset` restores the YAML baseline. RADIUS retransmission cache, accounting journal, CoA session index, and the event ring go with the process. Do not put the overlay on a volume.
 
 When both TACACS listeners are enabled, status/UI/logs show a **co-located lab topology** warning. That topology is a lab convenience ([ADR 0001](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0001-all-in-one-dual-listener-lab.md)). Production-like tests should use the TLS-only Compose overlay or separate hosts.
 
-RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than User-Password travel in the clear. Keep 49, 300, **1812, and 1813 off the public internet** ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)).
+RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than User-Password travel in the clear. Keep 49, 300, **1812, 1813, and 2083 off the public internet** unless you intentionally publish RadSec behind the same posture as TACACS 300 ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md), [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)).
 
 ### 1.1 Residual limits (honest)
 
@@ -31,8 +32,8 @@ RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than 
 | Lab appliance | Single replica. No HA, no persistence adapter, no production AAA cluster. |
 | Memory-only overlay | Create/shadow/tombstone users, groups, clients, tokens vanish on restart or `runtime.reset`. |
 | Memory-only RADIUS accounting | Accounting-Response is sent only after the in-process ring accepts the record. Restart loses the journal and the ring. Persistent accounting (`RAD-EXT-009`) is **cancelled** for the in-memory remaining-work program ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). |
-| UDP controlled-network only | No RadSec, DTLS, RADIUS/TCP, or RADIUS/1.1 shipped. Source-IP selects the secret. RadSec first slice is [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) (not implemented yet). |
-| Deferred Access-Challenge | In-memory State store exists (UDP IP + TLS cert bind, TTL, consume-on-use, capacity fail-closed). **No Access-Challenge on the live listener** (`R65-ACCESS-004` `DEFERRED_MAY`). Program ADR [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). |
+| UDP is the default RADIUS profile | Source-IP selects the UDP secret. Optional RadSec is a **TLS 1.3 stream** on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)), default off — not “UDP plus TLS.” No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP. Shared secret is still required (do not default the informal string `radsec`). RadSec PAP/CHAP only until EAP/MS-CHAP land. |
+| Deferred Access-Challenge | In-memory State store exists (UDP IP + TLS cert bind, TTL, consume-on-use, capacity fail-closed). **No Access-Challenge on the live listener** until EAP (`R65-ACCESS-004` `DEFERRED_MAY`). Program ADR [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). |
 | Deferred EAP | EAP-Message without a valid Message-Authenticator is discarded. There is no EAP method termination or pass-through. Program ADR [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). |
 | CoA / Disconnect DAC | Originate CoA/Disconnect to the NAS via REST/MCP (`radius:dynamic`). Handle path needs Accounting-Start + Acct-Session-Id; access-only labs use explicit `client_id` + destination. Both paths sign with the client's **UDP** RADIUS secret. `lab-admin` does **not** get `radius:dynamic` by default. Inbound :3799 DAS is **not** shipped (PR 10). [ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
 | RADIUS MS-CHAP is opt-in / MD4-era | Add `mschapv1` / `mschapv2` to `allowed_authentication_methods`. Omitted lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. [ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
@@ -46,7 +47,7 @@ Product, module, binary, and image names stay TacLab / `github.com/hilather/go-l
 
 ## 2. Install and start (Compose)
 
-Prerequisites: Linux, Docker Compose v2, host ports 49/300/8080 (and UDP 1812/1813 for combined or RADIUS-only), or the high-port smoke overlay.
+Prerequisites: Linux, Docker Compose v2, host ports 49/300/8080 (and UDP 1812/1813 for combined or RADIUS-only; TCP 2083 if RadSec is enabled), or the high-port smoke overlay.
 
 ```bash
 git clone https://github.com/hilather/go-lab-tacacs-mcp.git
@@ -176,7 +177,11 @@ Requires `schema_version: 2` and enabled `listeners.radius.access` (and `account
 5. PAP needs a login verifier on the user. CHAP needs a challenge secret. Both methods must be listed on `allowed_authentication_methods`.
 6. Attach a user or group `radius_policy_id`, or a client `access_policy_id` (or rely on `fallback_radius_policy_id`). No match → Access-Reject.
 
-`certificate_only` is invalid on a RADIUS-only client. RADIUS-only clients require `source_cidrs`.
+`certificate_only` requires a TACACS TLS **or** RADIUS TLS endpoint. A RADIUS/UDP-only client cannot use `certificate_only` and still requires `source_cidrs`. A RadSec-only client may use `certificate_only` (TCP peer IP is not the Challenge bind). A TLS-only RADIUS client cannot originate CoA/Disconnect — DAC always uses the client’s **UDP** RADIUS endpoint secret and dest; add a UDP endpoint (and dest) if you need CoA.
+
+### RADIUS RadSec NAS
+
+Requires `schema_version: 2` and `listeners.radius.radsec.enabled: true` plus a `protocol: radius` / `transport: tls` endpoint. TLS 1.3 mTLS is required (`client_authentication: require_and_verify_certificate`). After handshake, TacLab selects the client from the peer certificate (and `source_cidrs` unless `certificate_only`). Point the NAS at host TCP **2083**. Do not describe this as encrypting UDP 1812.
 
 ## 6. Users, groups, and policy
 

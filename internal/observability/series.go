@@ -177,6 +177,7 @@ const (
 	ListenerMetrics          = "metrics"
 	ListenerRADIUSAccess     = "radius_access"
 	ListenerRADIUSAccounting = "radius_accounting"
+	ListenerRADIUSRadSec     = "radius_radsec"
 
 	TransportLegacy = "legacy"
 	TransportTLS    = "tls"
@@ -258,7 +259,7 @@ var SecretLifecycleStatuses = []string{StatusCurrent, StatusDueSoon, StatusOverd
 func knownListener(v string) bool {
 	switch v {
 	case ListenerLegacy, ListenerSecure, ListenerHTTP, ListenerMetrics,
-		ListenerRADIUSAccess, ListenerRADIUSAccounting:
+		ListenerRADIUSAccess, ListenerRADIUSAccounting, ListenerRADIUSRadSec:
 		return true
 	default:
 		return false

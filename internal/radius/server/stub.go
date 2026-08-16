@@ -19,9 +19,11 @@ const (
 	ActionReply
 )
 
-// Request is one decoded datagram plus the endpoint secret selected by source IP.
+// Request is one decoded packet plus the endpoint secret selected by the
+// listener (UDP LPM or TLS cert index).
 type Request struct {
 	Role                        domain.ListenerRole
+	Carrier                     domain.Carrier
 	Packet                      codec.Packet
 	Declared                    []byte
 	Secret                      []byte

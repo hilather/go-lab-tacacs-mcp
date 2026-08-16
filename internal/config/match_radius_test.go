@@ -46,11 +46,11 @@ clients:
 	if err := ValidateV2(doc); err != nil {
 		t.Fatalf("same CIDR different roles must compile: %v", err)
 	}
-	acc, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess)
+	acc, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	acct, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting)
+	acct, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ clients:
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = CompileRADIUSIndex(doc.Clients, domain.RoleAccess)
+	_, err = CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err == nil {
 		t.Fatal("expected CLIENT_MATCH_AMBIGUOUS")
 	}
@@ -110,7 +110,7 @@ clients:
 	if !strings.Contains(de.Message, "alpha") || !strings.Contains(de.Message, "zebra") {
 		t.Fatalf("error should name both ids: %v", err)
 	}
-	_, err = CompileRADIUSIndex(doc.Clients, domain.RoleAccounting)
+	_, err = CompileRADIUSIndex(doc.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatalf("accounting index is empty, not ambiguous: %v", err)
 	}
@@ -151,7 +151,7 @@ clients:
 	if err != nil {
 		t.Fatal(err)
 	}
-	acc, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess)
+	acc, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ clients:
 	if err != nil || got != "wide" {
 		t.Fatalf("v4 wide=%q err=%v", got, err)
 	}
-	acct, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting)
+	acct, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ clients:
 	if err != nil {
 		t.Fatal(err)
 	}
-	idx, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess)
+	idx, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func BenchmarkRADIUSClientLookupIPv4(b *testing.B) {
 			}},
 		}
 	}
-	idx, err := CompileRADIUSIndex(clients, domain.RoleAccess)
+	idx, err := CompileRADIUSIndex(clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err != nil {
 		b.Fatal(err)
 	}

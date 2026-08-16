@@ -59,6 +59,7 @@ func defaultDocument() Document {
 			},
 			RADIUSAccess:     defaultRADIUSAccess(),
 			RADIUSAccounting: defaultRADIUSAccounting(),
+			RADIUSRadSec:     defaultRADIUSRadSec(),
 		},
 		API: API{
 			Mode: "lab_static_bearer",
@@ -179,6 +180,33 @@ func defaultRADIUSAccounting() RADIUSListener {
 		SessionIndexBytes:            DefaultSessionIndexBytes,
 		SessionTTL:                   DefaultSessionTTL,
 		CoATimeout:                   DefaultCoATimeout,
+	}
+}
+
+func defaultRADIUSRadSec() RADIUSRadSecListener {
+	return RADIUSRadSecListener{
+		Enabled:                    false,
+		Required:                   false,
+		Bind:                       "0.0.0.0:2083",
+		Transport:                  EndpointTransportTLS,
+		MaxPacketBytes:             RADIUSMaxPacketBytes,
+		MaxConnections:             256,
+		IdleTimeout:                60 * time.Second,
+		HandshakeTimeout:           10 * time.Second,
+		RetransmissionCacheEntries: 10000,
+		RetransmissionCacheBytes:   4 << 20,
+		RetransmissionTTL:          15 * time.Second,
+		TLS: SecureTLS{
+			MinimumVersion:       "TLS1.3",
+			ClientAuthentication: "require_and_verify_certificate",
+			Revocation:           Revocation{Mode: "configured_crl"},
+			SessionResumption: SessionResumption{
+				Enabled:                 true,
+				TicketLifetime:          TLSTicketLifetimeEnforced,
+				RecheckClientRevocation: true,
+			},
+			RejectEarlyData: true,
+		},
 	}
 }
 

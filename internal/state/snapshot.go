@@ -35,29 +35,31 @@ type Snapshot struct {
 	OverlayHash  string
 	CompiledAt   time.Time
 
-	settings          *config.Document
-	users             map[string]EffectiveUser
-	groups            map[string]EffectiveGroup
-	clients           map[string]EffectiveClient
-	tokens            map[string]EffectiveToken
-	userIDs           []string
-	groupIDs          []string
-	clientIDs         []string
-	tokenIDs          []string
-	tokenIndex        map[tokenDigestKey]string
-	tombstones        []domain.Tombstone
-	fallback          config.RuleSet
-	fallbackRules     CompiledRuleSet
-	index             *config.ClientIndex
-	radiusAccessIndex *config.RADIUSIndex
-	radiusAcctIndex   *config.RADIUSIndex
-	radiusPolicies    *policyradius.Engine
-	radiusDictionary  Dictionary
-	radiusDictVersion string
-	secretWarns       []config.SecretWarning
-	matchWarnings     []string
-	lifecycles        map[string]domain.SecretLifecycle
-	runtimeSecrets    map[string][]byte
+	settings             *config.Document
+	users                map[string]EffectiveUser
+	groups               map[string]EffectiveGroup
+	clients              map[string]EffectiveClient
+	tokens               map[string]EffectiveToken
+	userIDs              []string
+	groupIDs             []string
+	clientIDs            []string
+	tokenIDs             []string
+	tokenIndex           map[tokenDigestKey]string
+	tombstones           []domain.Tombstone
+	fallback             config.RuleSet
+	fallbackRules        CompiledRuleSet
+	index                *config.ClientIndex
+	radiusAccessIndex    *config.RADIUSIndex
+	radiusAcctIndex      *config.RADIUSIndex
+	radiusAccessTLSIndex *config.RADIUSCertIndex
+	radiusAcctTLSIndex   *config.RADIUSCertIndex
+	radiusPolicies       *policyradius.Engine
+	radiusDictionary     Dictionary
+	radiusDictVersion    string
+	secretWarns          []config.SecretWarning
+	matchWarnings        []string
+	lifecycles           map[string]domain.SecretLifecycle
+	runtimeSecrets       map[string][]byte
 }
 
 // Dictionary is the compiled RADIUS attribute dictionary attached to a
@@ -353,6 +355,22 @@ func (s *Snapshot) RADIUSAccountingIndex() *config.RADIUSIndex {
 	return s.radiusAcctIndex
 }
 
+// RADIUSAccessTLSIndex returns the compiled RADIUS TLS access cert index.
+func (s *Snapshot) RADIUSAccessTLSIndex() *config.RADIUSCertIndex {
+	if s == nil {
+		return nil
+	}
+	return s.radiusAccessTLSIndex
+}
+
+// RADIUSAccountingTLSIndex returns the compiled RADIUS TLS accounting cert index.
+func (s *Snapshot) RADIUSAccountingTLSIndex() *config.RADIUSCertIndex {
+	if s == nil {
+		return nil
+	}
+	return s.radiusAcctTLSIndex
+}
+
 // RADIUSPolicies returns the compiled RADIUS access-policy engine.
 func (s *Snapshot) RADIUSPolicies() *policyradius.Engine {
 	if s == nil {
@@ -377,11 +395,14 @@ func (s *Snapshot) DictionaryVersion() string {
 	return s.radiusDictVersion
 }
 
-// MatchRADIUS selects one client for a RADIUS role by source IP. Ties fail
-// closed. endpointID is the compiled RADIUS endpoint on the winning client.
-func (s *Snapshot) MatchRADIUS(role domain.ListenerRole, ip net.IP) (client EffectiveClient, endpointID string, err error) {
+// MatchRADIUS selects one client for a RADIUS role and carrier. UDP uses
+// source-IP LPM. TLS uses MatchRADIUSTLS (cert required).
+func (s *Snapshot) MatchRADIUS(role domain.ListenerRole, carrier domain.Carrier, ip net.IP) (client EffectiveClient, endpointID string, err error) {
 	if s == nil {
 		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	if carrier == domain.CarrierRADIUSTLS {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeInvalidArgument, "RADIUS TLS match requires a peer certificate").WithPath("clients")
 	}
 	var idx *config.RADIUSIndex
 	switch role {
@@ -396,6 +417,34 @@ func (s *Snapshot) MatchRADIUS(role domain.ListenerRole, ip net.IP) (client Effe
 		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
 	}
 	id, epid, err := idx.Match(ip)
+	if err != nil {
+		return EffectiveClient{}, "", err
+	}
+	c, ok := s.Client(id)
+	if !ok {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	return c, epid, nil
+}
+
+// MatchRADIUSTLS selects one client for a RADIUS TLS role after handshake.
+func (s *Snapshot) MatchRADIUSTLS(role domain.ListenerRole, ip net.IP, cert *config.CertIdentity) (client EffectiveClient, endpointID string, err error) {
+	if s == nil {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	var idx *config.RADIUSCertIndex
+	switch role {
+	case domain.RoleAccess:
+		idx = s.radiusAccessTLSIndex
+	case domain.RoleAccounting:
+		idx = s.radiusAcctTLSIndex
+	default:
+		return EffectiveClient{}, "", domain.NewError(domain.CodeInvalidArgument, "RADIUS cert index role must be access or accounting")
+	}
+	if idx == nil {
+		return EffectiveClient{}, "", domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
+	}
+	id, epid, err := idx.Match(ip, cert)
 	if err != nil {
 		return EffectiveClient{}, "", err
 	}

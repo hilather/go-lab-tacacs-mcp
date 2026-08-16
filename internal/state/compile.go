@@ -79,11 +79,19 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err != nil {
 		return nil, nil, err
 	}
-	accessIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleAccess)
+	accessIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err != nil {
 		return nil, nil, err
 	}
-	acctIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleAccounting)
+	acctIdx, err := config.CompileRADIUSIndex(synth.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP)
+	if err != nil {
+		return nil, nil, err
+	}
+	accessTLS, err := config.CompileRADIUSCertIndex(synth.Clients, domain.RoleAccess)
+	if err != nil {
+		return nil, nil, err
+	}
+	acctTLS, err := config.CompileRADIUSCertIndex(synth.Clients, domain.RoleAccounting)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -114,29 +122,33 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	matchWarns := append([]string(nil), idx.Warnings()...)
 	matchWarns = append(matchWarns, accessIdx.Warnings()...)
 	matchWarns = append(matchWarns, acctIdx.Warnings()...)
+	matchWarns = append(matchWarns, accessTLS.Warnings()...)
+	matchWarns = append(matchWarns, acctTLS.Warnings()...)
 	snap := &Snapshot{
-		Revision:          rev,
-		BaselineHash:      hashBaseline(base),
-		OverlayHash:       hashOverlay(ov),
-		CompiledAt:        now,
-		settings:          cloneDocument(base),
-		users:             map[string]EffectiveUser{},
-		groups:            map[string]EffectiveGroup{},
-		clients:           map[string]EffectiveClient{},
-		tokens:            map[string]EffectiveToken{},
-		tokenIndex:        map[tokenDigestKey]string{},
-		fallback:          fallback,
-		fallbackRules:     fbCompiled,
-		index:             idx,
-		radiusAccessIndex: accessIdx,
-		radiusAcctIndex:   acctIdx,
-		radiusPolicies:    radPol,
-		radiusDictionary:  dict,
-		radiusDictVersion: dictVer,
-		secretWarns:       sw,
-		matchWarnings:     matchWarns,
-		lifecycles:        life,
-		runtimeSecrets:    cloneSecretBag(ov.secrets),
+		Revision:             rev,
+		BaselineHash:         hashBaseline(base),
+		OverlayHash:          hashOverlay(ov),
+		CompiledAt:           now,
+		settings:             cloneDocument(base),
+		users:                map[string]EffectiveUser{},
+		groups:               map[string]EffectiveGroup{},
+		clients:              map[string]EffectiveClient{},
+		tokens:               map[string]EffectiveToken{},
+		tokenIndex:           map[tokenDigestKey]string{},
+		fallback:             fallback,
+		fallbackRules:        fbCompiled,
+		index:                idx,
+		radiusAccessIndex:    accessIdx,
+		radiusAcctIndex:      acctIdx,
+		radiusAccessTLSIndex: accessTLS,
+		radiusAcctTLSIndex:   acctTLS,
+		radiusPolicies:       radPol,
+		radiusDictionary:     dict,
+		radiusDictVersion:    dictVer,
+		secretWarns:          sw,
+		matchWarnings:        matchWarns,
+		lifecycles:           life,
+		runtimeSecrets:       cloneSecretBag(ov.secrets),
 	}
 	for _, u := range users {
 		u.Meta.EffectiveRevision = rev
@@ -174,9 +186,15 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 			c.Lifecycle = domain.LifecycleUnknown
 		}
 		if life != nil {
-			if ep := radiusEndpointPtr(&c.Client); ep != nil {
+			for _, ep := range c.Client.Endpoints {
+				if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+					continue
+				}
 				if st, ok := life[c.Client.ID+"/"+ep.ID]; ok {
 					c.RADIUSLifecycle = st
+					if ep.Transport == config.EndpointTransportUDP {
+						break
+					}
 				}
 			}
 		}

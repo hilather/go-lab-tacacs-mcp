@@ -355,8 +355,9 @@ func radiusEndpointPtr(c *config.Client) *config.ClientEndpoint {
 	if c == nil {
 		return nil
 	}
+	// Overlay flatten and secret patch stay on the UDP endpoint (DAC).
 	for i := range c.Endpoints {
-		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil {
+		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil && c.Endpoints[i].Transport == config.EndpointTransportUDP {
 			return &c.Endpoints[i]
 		}
 	}

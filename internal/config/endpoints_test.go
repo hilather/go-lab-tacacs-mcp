@@ -29,7 +29,7 @@ func TestV2ParsesRADIUSEndpoints(t *testing.T) {
 	if c.Legacy.SharedSecret.Purpose != credentials.PurposeLegacySharedSecret || c.Legacy.SharedSecret.File == "" {
 		t.Fatalf("legacy projection=%+v", c.Legacy.SharedSecret)
 	}
-	rad := radiusEndpoint(c)
+	rad := radiusEndpoint(c, EndpointTransportUDP)
 	if rad == nil || rad.RADIUS == nil {
 		t.Fatal("missing RADIUS endpoint")
 	}

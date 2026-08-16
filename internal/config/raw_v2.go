@@ -47,6 +47,22 @@ type rawTACACSListenersV2 struct {
 type rawRADIUSListenersV2 struct {
 	Access     rawRADIUSAccess     `yaml:"access"`
 	Accounting rawRADIUSAccounting `yaml:"accounting"`
+	RadSec     rawRADIUSRadSec     `yaml:"radsec"`
+}
+
+type rawRADIUSRadSec struct {
+	Enabled                    *bool        `yaml:"enabled"`
+	Required                   *bool        `yaml:"required"`
+	Bind                       string       `yaml:"bind"`
+	Transport                  string       `yaml:"transport"`
+	MaxPacketBytes             *int         `yaml:"max_packet_bytes"`
+	MaxConnections             *int         `yaml:"max_connections"`
+	IdleTimeout                string       `yaml:"idle_timeout"`
+	HandshakeTimeout           string       `yaml:"handshake_timeout"`
+	RetransmissionCacheEntries *int         `yaml:"retransmission_cache_entries"`
+	RetransmissionCacheBytes   string       `yaml:"retransmission_cache_bytes"`
+	RetransmissionTTL          string       `yaml:"retransmission_ttl"`
+	TLS                        rawSecureTLS `yaml:"tls"`
 }
 
 type rawRADIUSCommon struct {

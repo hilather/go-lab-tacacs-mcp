@@ -47,6 +47,9 @@ func normalizeV2(raw *rawFileV2) (*Document, error) {
 	if err := normalizeRADIUSAccounting(&doc.Listeners.RADIUSAccounting, raw.Listeners.RADIUS.Accounting, "listeners.radius.accounting"); err != nil {
 		return nil, err
 	}
+	if err := normalizeRADIUSRadSec(&doc.Listeners.RADIUSRadSec, raw.Listeners.RADIUS.RadSec, "listeners.radius.radsec", doc.Security.AllowEnvironmentSecrets); err != nil {
+		return nil, err
+	}
 
 	if err := normalizeAPI(&doc.API, raw.API, doc.Listeners.HTTP.TLS.Enabled, doc.Security.AllowEnvironmentSecrets); err != nil {
 		return nil, err
@@ -129,6 +132,57 @@ func normalizeRADIUSAccess(dst *RADIUSListener, raw rawRADIUSAccess, path string
 		return err
 	}
 	return nil
+}
+
+func normalizeRADIUSRadSec(dst *RADIUSRadSecListener, raw rawRADIUSRadSec, path string, allowEnv bool) error {
+	dst.Enabled = boolOr(raw.Enabled, dst.Enabled)
+	dst.Required = boolOr(raw.Required, dst.Required)
+	if raw.Bind != "" {
+		dst.Bind = raw.Bind
+	}
+	if raw.Transport != "" {
+		if raw.Transport != EndpointTransportTLS {
+			return yamlErrorAt(path+".transport", "transport must be tls")
+		}
+		dst.Transport = raw.Transport
+	}
+	dst.MaxPacketBytes = intOr(raw.MaxPacketBytes, dst.MaxPacketBytes)
+	dst.MaxConnections = intOr(raw.MaxConnections, dst.MaxConnections)
+	var err error
+	if dst.IdleTimeout, err = parseDurationOr(raw.IdleTimeout, path+".idle_timeout", dst.IdleTimeout); err != nil {
+		return err
+	}
+	if dst.HandshakeTimeout, err = parseDurationOr(raw.HandshakeTimeout, path+".handshake_timeout", dst.HandshakeTimeout); err != nil {
+		return err
+	}
+	dst.RetransmissionCacheEntries = intOr(raw.RetransmissionCacheEntries, dst.RetransmissionCacheEntries)
+	if dst.RetransmissionCacheBytes, err = parseByteSizeOr(raw.RetransmissionCacheBytes, path+".retransmission_cache_bytes", dst.RetransmissionCacheBytes); err != nil {
+		return err
+	}
+	if dst.RetransmissionTTL, err = parseDurationOr(raw.RetransmissionTTL, path+".retransmission_ttl", dst.RetransmissionTTL); err != nil {
+		return err
+	}
+	if rawSecureTLSPresent(raw.TLS) {
+		if err := normalizeSecureTLS(&dst.TLS, raw.TLS, path+".tls", allowEnv); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rawSecureTLSPresent(raw rawSecureTLS) bool {
+	return raw.MinimumVersion != "" ||
+		raw.ClientAuthentication != "" ||
+		raw.Identities.DefaultID != "" ||
+		raw.Identities.RequireSNI != nil ||
+		len(raw.Identities.Profiles) > 0 ||
+		raw.ClientCABundle != nil ||
+		raw.Revocation.Mode != "" ||
+		raw.Revocation.CRLBundle != nil ||
+		raw.SessionResumption.Enabled != nil ||
+		raw.SessionResumption.TicketLifetime != "" ||
+		raw.SessionResumption.RecheckClientRevocation != nil ||
+		raw.RejectEarlyData != nil
 }
 
 func normalizeRADIUSAccounting(dst *RADIUSListener, raw rawRADIUSAccounting, path string) error {

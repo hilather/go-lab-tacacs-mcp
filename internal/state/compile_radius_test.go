@@ -162,15 +162,15 @@ func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	if s.RADIUSAccessIndex().Role() != domain.RoleAccess || s.RADIUSAccountingIndex().Role() != domain.RoleAccounting {
 		t.Fatalf("roles access=%s acct=%s", s.RADIUSAccessIndex().Role(), s.RADIUSAccountingIndex().Role())
 	}
-	c, epid, err := s.MatchRADIUS(domain.RoleAccess, net.ParseIP("192.0.2.10"))
+	c, epid, err := s.MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
 	if err != nil || c.Client.ID != "lab-switches" || epid != "radius-udp" {
 		t.Fatalf("access=%s ep=%s err=%v", c.Client.ID, epid, err)
 	}
-	c, epid, err = s.MatchRADIUS(domain.RoleAccounting, net.ParseIP("192.0.2.10"))
+	c, epid, err = s.MatchRADIUS(domain.RoleAccounting, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
 	if err != nil || c.Client.ID != "lab-switches" || epid != "radius-udp" {
 		t.Fatalf("acct=%s ep=%s err=%v", c.Client.ID, epid, err)
 	}
-	_, _, err = s.MatchRADIUS(domain.RoleAccess, net.ParseIP("198.51.100.1"))
+	_, _, err = s.MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, net.ParseIP("198.51.100.1"))
 	de, ok := domain.AsError(err)
 	if !ok || de.Code != domain.CodeNotFound {
 		t.Fatalf("unknown source: %v", err)
@@ -228,7 +228,7 @@ clients:
 	if m.Revision() != before.Revision {
 		t.Fatalf("revision moved: %d", m.Revision())
 	}
-	c, _, err := m.Snapshot().MatchRADIUS(domain.RoleAccess, net.ParseIP("192.0.2.10"))
+	c, _, err := m.Snapshot().MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
 	if err != nil || c.Client.ID != "lab-switches" {
 		t.Fatalf("previous RADIUS index lost: %s err=%v", c.Client.ID, err)
 	}
@@ -400,14 +400,14 @@ func mustParseFile(t *testing.T, path string) *config.Document {
 
 func assertRADIUSIndexEmpty(t *testing.T, s *Snapshot) {
 	t.Helper()
-	_, _, err := s.MatchRADIUS(domain.RoleAccess, net.ParseIP("192.0.2.10"))
+	_, _, err := s.MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
 	if err == nil {
 		t.Fatal("expected empty access index")
 	}
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeNotFound {
 		t.Fatalf("access empty: %v", err)
 	}
-	_, _, err = s.MatchRADIUS(domain.RoleAccounting, net.ParseIP("192.0.2.10"))
+	_, _, err = s.MatchRADIUS(domain.RoleAccounting, domain.CarrierRADIUSUDP, net.ParseIP("192.0.2.10"))
 	if err == nil {
 		t.Fatal("expected empty accounting index")
 	}

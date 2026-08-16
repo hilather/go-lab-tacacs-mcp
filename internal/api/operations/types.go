@@ -61,13 +61,17 @@ const (
 	ListenerHTTP             = "http"
 	ListenerRADIUSAccess     = "radius_access"
 	ListenerRADIUSAccounting = "radius_accounting"
+	ListenerRADIUSRadSec     = "radius_radsec"
 )
 
 // TransportHTTP is the admin listener. TACACS transports use domain.Transport.
 const TransportHTTP = "http"
 
-// TransportUDP is the RADIUS listener status string. It is not a domain.Transport.
+// TransportUDP is the RADIUS/UDP listener status string. It is not a domain.Transport.
 const TransportUDP = "udp"
+
+// TransportTLS is the RADIUS/TLS (RadSec) listener status string.
+const TransportTLS = "tls"
 
 // Per-protocol conformance_status values reported by system.build.get.
 const (

@@ -15,6 +15,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - RADIUS access evaluation order is user policy, then each `effectiveGroups` policy (same membership/order as TACACS), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). First matching rule wins.
 - Fail-closed operator RADIUS dictionaries (schema v2 `radius_dictionaries`). TacLab YAML only; local absolute files; size-capped. Cannot redefine built-in IETF attributes, cannot downgrade secret sensitivity, and cannot claim reserved vendor IDs `0` / `9` / `311` or names `Cisco-AVPair` / `MS-CHAP-*`. Remote files and FreeRADIUS `$INCLUDE` are rejected. `DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled. This is **not** complete RADIUS.
 - Named RADIUS `Cisco-AVPair` (vendor 9, vendor-type 1) decode/encode. Reply profiles accept `name: Cisco-AVPair` / `value: shell:priv-lvl=15` and the existing raw `{vendor: 9, code: 1, value_hex}` form; both produce the same wire. Unknown Cisco vendor-types stay raw. Evidence is independent `internal/radius/testclient` fixtures under `testdata/protocol/radius/cisco/`. `PRJ-CISCO-001` is PASS. Optional `make cisco-lab` RADIUS IOL snippet SKIP without `TACLAB_IOL_IMAGE`; a skip is not Cisco PASS and not RADIUS PASS. Do not vendor IOL.
+- Optional RADIUS/TLS 1.3 (RadSec) listener: length-prefixed RADIUS packets (RFC 6613 §2.6) inside TLS 1.3 mTLS on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)). Default `listeners.radius.radsec.enabled: false`.
+- A client may have one RADIUS UDP endpoint and one RADIUS TLS endpoint. `certificate_only` is legal when a TACACS TLS **or** RADIUS TLS endpoint exists.
+- `system.build.get` RADIUS standards add `RFC 6614`. Status stays `partial`. `PRJ-RADSEC-001` PASS; `PRJ-RADSEC-002` (DTLS/1.1) `DEFERRED_MAY`.
 
 ### RADIUS CoA / Disconnect (DAC)
 
@@ -28,6 +31,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - v2 `listeners.radius.access` gains `challenge_ttl` (default `30s`, 5s–60s), `challenge_entries` (default `4096`, 16–65536), and `challenge_bytes` (default `1MiB`, 64KiB–8MiB). Accounting rejects those keys.
 - Schema v2 accepts optional `users[].radius_policy_id` and `groups[].radius_policy_id`. Unknown policy ids fail compile (`CONFIG_YAML_INVALID`). Schema v1 still rejects those keys.
+- Schema v2 additive `listeners.radius.radsec` (bind `0.0.0.0:2083`, `transport: tls`) and client `transport: tls` on `protocol: radius`. v1 documents reject those keys.
 
 ### Admin surfaces
 
@@ -38,6 +42,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ### Residual limits (prominent)
 
 - `system.build.get` RADIUS `conformance_status` stays `partial`. Named `Cisco-AVPair` does not make TacLab complete RADIUS.
+- RadSec is an optional TLS 1.3 stream on TCP 2083, default off — not “UDP plus TLS.” No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP.
+- Shared secret is still required on RADIUS/TLS endpoints. The informal well-known value `radsec` is not a default.
+- DAC CoA always uses the client’s **UDP** RADIUS endpoint. A TLS-only RADIUS client cannot originate CoA.
 
 ## [1.2.0] — 2026-08-16
 

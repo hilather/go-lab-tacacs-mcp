@@ -170,6 +170,7 @@ type Listeners struct {
 	HTTP             HTTPListener
 	RADIUSAccess     RADIUSListener
 	RADIUSAccounting RADIUSListener
+	RADIUSRadSec     RADIUSRadSecListener
 }
 
 // RADIUSListener is a UDP access or accounting socket. Journal and
@@ -201,6 +202,23 @@ type RADIUSListener struct {
 	SessionIndexBytes   int
 	SessionTTL          time.Duration
 	CoATimeout          time.Duration
+}
+
+// RADIUSRadSecListener is the RADIUS/TLS 1.3 (RadSec) TCP socket. Default
+// enabled:false. Transport is always tls; cleartext RADIUS/TCP is not offered.
+type RADIUSRadSecListener struct {
+	Enabled                    bool
+	Required                   bool
+	Bind                       string
+	Transport                  string
+	MaxPacketBytes             int
+	MaxConnections             int
+	IdleTimeout                time.Duration
+	HandshakeTimeout           time.Duration
+	RetransmissionCacheEntries int
+	RetransmissionCacheBytes   int
+	RetransmissionTTL          time.Duration
+	TLS                        SecureTLS
 }
 
 // TACACSListener is shared legacy/secure socket settings.
@@ -401,8 +419,10 @@ type TACACSEndpoint struct {
 	Accounting            ClientAcct
 }
 
-// RADIUSEndpoint is the UDP access/accounting profile. Access and accounting
-// share this secret and compile into separate role indexes.
+// RADIUSEndpoint is the per-carrier access/accounting profile. A client may
+// have at most one RADIUS UDP endpoint and one RADIUS TLS endpoint. Access
+// and accounting on the same carrier share this secret and compile into
+// separate role indexes.
 type RADIUSEndpoint struct {
 	SharedSecret                 SecretRef
 	SharedSecretLifecycle        SecretLifecycleMeta

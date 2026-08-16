@@ -19,6 +19,7 @@ The reference lab must support all of the following without rebuilding the image
 - Accept legacy TACACS+ on host TCP port 49.
 - Accept secure TACACS+ over TLS 1.3 on host TCP port 300.
 - Accept RADIUS/UDP access and accounting on host UDP ports 1812 and 1813 when the v2 combined or RADIUS-only profile is mounted. This is a lab profile, not complete RADIUS.
+- Optionally accept RADIUS/TLS (RadSec) on host TCP port 2083 when `listeners.radius.radsec` is enabled. Default off. Not a TLS wrap of UDP.
 - Expose the React UI, REST API, MCP endpoint, health checks, and optional metrics endpoint.
 - Create, update, shadow, and delete runtime-only users, groups, clients, policies, and API tokens.
 - Restore the declared baseline after process restart.
@@ -43,6 +44,7 @@ Legacy network devices ---------------+--> 49 -> 4949           |   |
                                       |      |                  |   |
 TLS network devices ------------------+--> 300 -> 4300         |   |
 RADIUS NAS (combined / RADIUS-only) --+--> 1812/udp + 1813/udp  |   |
+RADIUS RadSec (optional, default off)-+--> 2083/tcp             |   |
                                       |      |  taclab process  |   |
 Optional Prometheus ------------------+--> loopback 9090        |   |
                                       |      |                  |   |
@@ -60,7 +62,7 @@ The initial product intentionally places legacy and TLS listeners in one process
 
 - Linux host capable of running OCI containers.
 - Docker Engine and Docker Compose v2, or a compatible runtime that preserves TCP source addresses as documented for the selected network mode.
-- Access to host TCP ports 49, 300, and 8080. Combined/RADIUS-only profiles also need UDP 1812 and 1813. Keep 49, 300, 1812, and 1813 off the public internet.
+- Access to host TCP ports 49, 300, and 8080. Combined/RADIUS-only profiles also need UDP 1812 and 1813. RadSec, when enabled, uses TCP 2083. Keep 49, 300, 1812, 1813, and 2083 off the public internet.
 - A filesystem location for configuration, public certificates, and secret files.
 - Accurate host time for certificate validation, token expiry, events, and accounting timestamps.
 

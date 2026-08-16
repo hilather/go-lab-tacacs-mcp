@@ -233,10 +233,22 @@ func radiusEndpoint(snap *state.Snapshot, clientID string) (config.ClientEndpoin
 	if !ok {
 		return config.ClientEndpoint{}, false
 	}
+	var tls config.ClientEndpoint
+	var haveTLS bool
 	for _, ep := range c.Client.Endpoints {
-		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil {
+		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+			continue
+		}
+		if ep.Transport == config.EndpointTransportUDP {
 			return ep, true
 		}
+		if ep.Transport == config.EndpointTransportTLS {
+			tls = ep
+			haveTLS = true
+		}
+	}
+	if haveTLS {
+		return tls, true
 	}
 	return config.ClientEndpoint{}, false
 }

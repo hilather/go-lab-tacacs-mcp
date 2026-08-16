@@ -26,6 +26,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	radiusserver "github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
+	radiustls "github.com/hilather/go-lab-tacacs-mcp/internal/radius/tls"
 	radiusudp "github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -89,7 +90,8 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	secureOn := doc.Listeners.SecureTACACS.Enabled
 	accessOn := doc.Listeners.RADIUSAccess.Enabled
 	acctOn := doc.Listeners.RADIUSAccounting.Enabled
-	if !legacyOn && !secureOn && !accessOn && !acctOn && !doc.Server.AdminOnly {
+	radsecOn := doc.Listeners.RADIUSRadSec.Enabled
+	if !legacyOn && !secureOn && !accessOn && !acctOn && !radsecOn && !doc.Server.AdminOnly {
 		return fmt.Errorf("at least one AAA listener must be enabled")
 	}
 
@@ -240,6 +242,26 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 		built = append(built, acctLn)
 	}
+	if radsecOn {
+		radsecLn, err := radiustls.Listen(radiustls.Options{
+			ID:       runtime.IDRADIUSRadSec,
+			Bind:     doc.Listeners.RADIUSRadSec.Bind,
+			Required: doc.Listeners.RADIUSRadSec.Required,
+			Settings: doc.Listeners.RADIUSRadSec,
+			Grace:    doc.Server.ShutdownGrace,
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Access:   radiusAccess,
+			Recorder: aaaSvc,
+			Logger:   logger,
+			Metrics:  obs.Rec,
+		})
+		if err != nil {
+			cleanup()
+			return err
+		}
+		built = append(built, radsecLn)
+	}
 	listeners, err := runtime.New(built...)
 	if err != nil {
 		cleanup()
@@ -317,6 +339,9 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 	if l := listeners.Get(runtime.IDRADIUSAccounting); l != nil {
 		fmt.Fprintf(stdout, "listening radius_accounting %s\n", l.Status().Bind)
+	}
+	if l := listeners.Get(runtime.IDRADIUSRadSec); l != nil {
+		fmt.Fprintf(stdout, "listening radius_radsec %s\n", l.Status().Bind)
 	}
 	fmt.Fprintln(stdout, "ready")
 

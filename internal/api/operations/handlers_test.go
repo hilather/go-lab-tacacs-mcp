@@ -168,6 +168,15 @@ func TestBuildReadsSnapshotAndMeta(t *testing.T) {
 	if radius.ConformanceStatus != ConformanceStatusPartial {
 		t.Fatalf("radius must stay partial, got %+v", radius)
 	}
+	have6614 := false
+	for _, s := range radius.Standards {
+		if s == "RFC 6614" {
+			have6614 = true
+		}
+	}
+	if !have6614 {
+		t.Fatal("RadSec tests passed; system.build.get must list RFC 6614 while status stays partial")
+	}
 	if radius.ConformanceStatus == ConformanceStatusPass {
 		t.Fatal("do not advertise RADIUS PASS")
 	}

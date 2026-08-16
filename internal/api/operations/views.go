@@ -319,12 +319,20 @@ func clientEndpointViews(c config.Client, radLife domain.SecretLifecycle) []Clie
 }
 
 func radiusEndpointOf(c config.Client) *config.ClientEndpoint {
+	var tls *config.ClientEndpoint
 	for i := range c.Endpoints {
-		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil {
-			return &c.Endpoints[i]
+		ep := &c.Endpoints[i]
+		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+			continue
+		}
+		if ep.Transport == config.EndpointTransportUDP {
+			return ep
+		}
+		if ep.Transport == config.EndpointTransportTLS {
+			tls = ep
 		}
 	}
-	return nil
+	return tls
 }
 
 func hasTransport(ts []domain.Transport, want domain.Transport) bool {

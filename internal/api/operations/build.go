@@ -39,7 +39,7 @@ func protocolConformance() map[string]ProtocolConformance {
 			ConformanceStatus: ConformanceStatusPass,
 		},
 		string(domain.ProtocolRADIUS): {
-			Standards:         []string{"RFC 2865", "RFC 2866", "RFC 2869", "RFC 3579", "RFC 5080"},
+			Standards:         []string{"RFC 2865", "RFC 2866", "RFC 2869", "RFC 3579", "RFC 5080", "RFC 6614"},
 			ConformanceStatus: ConformanceStatusPartial,
 		},
 	}

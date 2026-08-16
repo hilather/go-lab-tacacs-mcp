@@ -492,6 +492,161 @@ func TestUsersCreateUpdateGetMustChangeFlags(t *testing.T) {
 	}
 }
 
+func TestBaselineViewKeepsYAMLMustChangeAfterOverlay(t *testing.T) {
+	t.Parallel()
+	src := strings.Replace(smallYAML, "    display_name: Alice\n", "    display_name: Alice\n    must_change_login: true\n", 1)
+	m := mustMgr(t, src)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write", "config:export"}}
+
+	rev := m.Revision()
+	name := "Alice Overlay"
+	if _, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", DisplayName: &name},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	eff, err := reg.Invoke(context.Background(), IDConfigEffectiveGet, m.Snapshot(), Input{
+		Actor:   writer,
+		Request: GetEffectiveConfigRequest{View: ConfigViewBaseline},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ec := eff.Data.(EffectiveConfig)
+	if ec.View != ConfigViewBaseline {
+		t.Fatalf("view=%s", ec.View)
+	}
+	found := false
+	for _, u := range ec.Users {
+		if u.ID != "alice" {
+			continue
+		}
+		found = true
+		if !u.MustChangeLogin || u.MustChangeEnable {
+			t.Fatalf("baseline effective flags=%+v", u)
+		}
+	}
+	if !found {
+		t.Fatal("alice missing from baseline effective")
+	}
+
+	exp, err := reg.Invoke(context.Background(), IDConfigExport, m.Snapshot(), Input{
+		Actor:   writer,
+		Request: ExportConfigRequest{View: ConfigViewBaseline},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	yamlOut := exp.Data.(ExportConfigResult).YAML
+	if !strings.Contains(yamlOut, "must_change_login: true") {
+		t.Fatalf("baseline export lost must_change_login:\n%s", yamlOut)
+	}
+}
+
+func TestUsersUpdateOmitAndK9MustChange(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+
+	rev := m.Revision()
+	updated, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", MustChangeLogin: boolPtr(true), MustChangeEnable: boolPtr(true)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := updated.Data.(User); !u.MustChangeLogin || !u.MustChangeEnable {
+		t.Fatalf("flag-only update=%+v", u)
+	}
+
+	rev = updated.Revision
+	name := "Alice Overlay"
+	named, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", DisplayName: &name},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := named.Data.(User); !u.MustChangeLogin || !u.MustChangeEnable || u.DisplayName != name {
+		t.Fatalf("display-name omit must leave flags: %+v", u)
+	}
+
+	rev = named.Revision
+	cleared, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateUserRequest{
+			ID:    "alice",
+			Login: OptionalSecret{Present: true, File: "/run/secrets/alice-login"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := cleared.Data.(User); u.MustChangeLogin || !u.MustChangeEnable {
+		t.Fatalf("login omit flag must clear login only: %+v", u)
+	}
+
+	rev = cleared.Revision
+	kept, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateUserRequest{
+			ID:              "alice",
+			Login:           OptionalSecret{Present: true, File: "/run/secrets/alice-login"},
+			MustChangeLogin: boolPtr(true),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := kept.Data.(User); !u.MustChangeLogin {
+		t.Fatalf("login + flag true must keep login flag: %+v", u)
+	}
+
+	rev = kept.Revision
+	enCleared, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateUserRequest{
+			ID:     "alice",
+			Enable: OptionalSecret{Present: true, File: "/run/secrets/alice-enable"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := enCleared.Data.(User); u.MustChangeEnable || !u.MustChangeLogin {
+		t.Fatalf("enable omit flag must clear enable only: %+v", u)
+	}
+
+	rev = enCleared.Revision
+	enKept, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateUserRequest{
+			ID:               "alice",
+			Enable:           OptionalSecret{Present: true, File: "/run/secrets/alice-enable"},
+			MustChangeEnable: boolPtr(true),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := enKept.Data.(User); !u.MustChangeEnable {
+		t.Fatalf("enable + flag true must keep enable flag: %+v", u)
+	}
+}
+
 func TestUserMutationJSONRejectsUnknownFields(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{

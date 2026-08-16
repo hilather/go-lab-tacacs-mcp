@@ -263,6 +263,8 @@ func baselineObjects(snap *state.Snapshot) ([]User, []Group, []Client) {
 			ASCIIPapConfigured:  u.Credentials.Login.Verifier.Set(),
 			ChallengeConfigured: u.Credentials.Challenge.Secret.Set(),
 			EnableConfigured:    u.Credentials.Enable.Verifier.Set(),
+			MustChangeLogin:     u.MustChangeLogin,
+			MustChangeEnable:    u.MustChangeEnable,
 		})
 	}
 	groups := make([]Group, 0, len(settings.Groups))

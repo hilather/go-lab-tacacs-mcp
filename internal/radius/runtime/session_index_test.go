@@ -148,6 +148,34 @@ func TestSessionIndexDASLookupDeleteAndLastCoA(t *testing.T) {
 	}
 }
 
+func TestSessionIndexFindDASRequiresQueryNASIPOnRecord(t *testing.T) {
+	t.Parallel()
+	idx := testIndex(t, Options{MaxEntries: 16, MaxBytes: 64 << 10, TTL: time.Hour})
+	with := startEv("with-nas")
+	empty := startEv("no-nas")
+	empty.NASIP = netip.Addr{}
+	empty.NASIdentifier = ""
+	if !idx.Apply(with) || !idx.Apply(empty) {
+		t.Fatal("starts")
+	}
+	hit, n := idx.FindDAS(DASQuery{UserID: "lab-admin", NASIP: netip.MustParseAddr("192.0.2.10")})
+	if n != 1 || hit.Key.AcctSessionID != "with-nas" {
+		t.Fatalf("matching NAS-IP=%+v n=%d", hit, n)
+	}
+	miss, n := idx.FindDAS(DASQuery{UserID: "lab-admin", NASIP: netip.MustParseAddr("198.51.100.9")})
+	if n != 0 || miss.Handle != "" {
+		t.Fatalf("wrong NAS-IP must miss empty-NAS row: %+v n=%d", miss, n)
+	}
+	emptyOnly := testIndex(t, Options{MaxEntries: 16, MaxBytes: 64 << 10, TTL: time.Hour})
+	if !emptyOnly.Apply(empty) {
+		t.Fatal("empty start")
+	}
+	_, n = emptyOnly.FindDAS(DASQuery{UserID: "lab-admin", NASIP: netip.MustParseAddr("192.0.2.10")})
+	if n != 0 {
+		t.Fatalf("query NAS-IP must not match a record without NAS-IP: n=%d", n)
+	}
+}
+
 func TestSessionIndexStartWithoutSessionIDDoesNotInsert(t *testing.T) {
 	t.Parallel()
 	idx := testIndex(t, Options{MaxEntries: 16, MaxBytes: 64 << 10, TTL: time.Hour})

@@ -56,6 +56,9 @@ func TestKnownReasonCodeCoversServerAndAccessReasons(t *testing.T) {
 		aaa.AccessReasonChallenge,
 		aaa.AccessReasonUnsupportedEAPMethod,
 		aaa.AccessReasonEAPTooLong,
+		server.ReasonSessionNotFound,
+		server.ReasonUnsupportedAttribute,
+		server.ReasonMultipleSessions,
 	}
 	for _, code := range codes {
 		reg := observability.NewRegistry()
@@ -68,5 +71,33 @@ func TestKnownReasonCodeCoversServerAndAccessReasons(t *testing.T) {
 		if reg.DroppedLabels() != 0 {
 			t.Errorf("knownReasonCode missing %q", code)
 		}
+	}
+}
+
+func TestInboundDASMetricsLabelsAreAllowed(t *testing.T) {
+	t.Parallel()
+	reg := observability.NewRegistry()
+	rec := observability.NewRecorder(reg)
+	rec.ProtocolRequest(
+		observability.ProtocolRADIUS,
+		observability.TransportUDP,
+		observability.RoleDynamicAuthorization,
+		observability.CodeCoARequest,
+		observability.OutcomeACK,
+		0.001,
+	)
+	rec.ProtocolRequest(
+		observability.ProtocolRADIUS,
+		observability.TransportUDP,
+		observability.RoleDynamicAuthorization,
+		observability.CodeDisconnectRequest,
+		observability.OutcomeNAK,
+		0.001,
+	)
+	rec.RADIUSDynAuth(observability.DirectionIn, observability.CodeCoARequest, observability.OutcomeACK)
+	rec.RADIUSDynAuth(observability.DirectionIn, observability.CodeDisconnectRequest, observability.OutcomeNAK)
+	rec.RADIUSDynAuth(observability.DirectionOut, observability.CodeCoARequest, observability.OutcomeTimeout)
+	if reg.DroppedLabels() != 0 {
+		t.Fatalf("inbound DAS metrics dropped labels: %d", reg.DroppedLabels())
 	}
 }

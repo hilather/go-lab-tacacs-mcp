@@ -17,6 +17,9 @@ import (
 type DynamicAuth struct {
 	Sessions *radiusruntime.SessionIndex
 	Metrics  *observability.Recorder
+	// Originator is ignored. Inbound DAS never originates. Tests may set
+	// Dial to detect a regression that starts forwarding to a NAS.
+	Originator *Originator
 }
 
 // Handle implements Handler for CoA-Request and Disconnect-Request.
@@ -37,14 +40,13 @@ func (d DynamicAuth) Handle(ctx context.Context, in Request) Result {
 	}
 
 	attrs := in.Packet.Attributes
-	if err := attribute.Builtin().CheckSet(attrs, uint8(in.Packet.Code)); err != nil {
-		return d.replyNAK(in, ReasonUnsupportedAttribute, ErrorCauseUnsupportedAttribute)
-	}
-	if unsupported := firstUnsupportedDynAuthAttr(in.Packet.Code, attrs); unsupported {
+	// Integrity is the MA gate. RFC 5176 does not require MA first; do not
+	// apply response-oriented CheckSet (require/firstIn) to inbound DAS.
+	if firstUnsupportedDynAuthAttr(in.Packet.Code, attrs) {
 		return d.replyNAK(in, ReasonUnsupportedAttribute, ErrorCauseUnsupportedAttribute)
 	}
 
-	rec, n := d.lookup(in, attrs)
+	rec, n := d.lookup(attrs)
 	if n == 0 {
 		return d.replyNAK(in, ReasonSessionNotFound, ErrorCauseSessionContextNotFound)
 	}
@@ -62,11 +64,14 @@ func (d DynamicAuth) Handle(ctx context.Context, in Request) Result {
 	}
 }
 
-func (d DynamicAuth) lookup(in Request, attrs attribute.RawSet) (radiusruntime.SessionRecord, int) {
+func (d DynamicAuth) lookup(attrs attribute.RawSet) (radiusruntime.SessionRecord, int) {
 	if d.Sessions == nil {
 		return radiusruntime.SessionRecord{}, 0
 	}
-	q := radiusruntime.DASQuery{ClientID: in.ClientID}
+	// Identify only by design keys. Source LPM + MA already authenticated
+	// the sender; a dedicated RFC 5176 tool client may target a session
+	// recorded by a different NAS client.
+	var q radiusruntime.DASQuery
 	if a, ok := attrs.First(attribute.TypeAcctSessionID); ok {
 		q.SessionID = string(a.Value)
 	}

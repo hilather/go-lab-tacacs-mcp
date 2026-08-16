@@ -190,6 +190,51 @@ listeners:
 	}
 }
 
+func TestValidateV2RejectsAmbiguousDynAuthClients(t *testing.T) {
+	t.Parallel()
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+clients:
+  - id: zebra
+    priority: 10
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: r1
+        protocol: radius
+        transport: udp
+        roles: [dynamic_authorization]
+        radius:
+          shared_secret: {file: /run/secrets/a}
+  - id: alpha
+    priority: 10
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: r2
+        protocol: radius
+        transport: udp
+        roles: [dynamic_authorization]
+        radius:
+          shared_secret: {file: /run/secrets/b}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ValidateV2(doc)
+	if err == nil {
+		t.Fatal("expected CLIENT_MATCH_AMBIGUOUS")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeClientMatchAmbiguous {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestV1RejectsDynamicAuthorizationKey(t *testing.T) {
 	t.Parallel()
 	_, err := Parse([]byte("schema_version: 1\nlisteners:\n  dynamic_authorization: {enabled: true}\n"))

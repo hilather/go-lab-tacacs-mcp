@@ -22,7 +22,7 @@ validated defaults
 = immutable compiled snapshot
 ```
 
-The compiled snapshot is the only state consumed by TACACS and RADIUS request processing. It carries TACACS indexes plus RADIUS access/accounting LPM indexes, the compiled RADIUS dictionary (`builtin-mvp-1`, plus operator files when listed), and the compiled RADIUS access-policy engine. Default example YAML keeps RADIUS listeners `enabled: false`. Enabling them is a **controlled-network lab profile**, not complete RADIUS. A failed startup, reload, or runtime mutation must never partially publish state.
+The compiled snapshot is the only state consumed by TACACS and RADIUS request processing. It carries TACACS indexes plus RADIUS access/accounting/dynamic_authorization LPM indexes, the compiled RADIUS dictionary (`builtin-mvp-1`, plus operator files when listed), and the compiled RADIUS access-policy engine. Default example YAML keeps RADIUS listeners `enabled: false`. Enabling them is a **controlled-network lab profile**, not complete RADIUS. A failed startup, reload, or runtime mutation must never partially publish state.
 
 ## 2. Non-negotiable rules
 

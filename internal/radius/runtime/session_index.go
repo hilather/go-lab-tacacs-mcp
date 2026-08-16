@@ -248,7 +248,7 @@ func (idx *SessionIndex) FindDAS(q DASQuery) (SessionRecord, int) {
 		if q.UserID != "" && rec.UserID != q.UserID {
 			continue
 		}
-		if q.NASIP.IsValid() && rec.NASIP.IsValid() && rec.NASIP != q.NASIP {
+		if q.NASIP.IsValid() && rec.NASIP != q.NASIP {
 			continue
 		}
 		if q.NASIdentifier != "" && rec.NASIdentifier != q.NASIdentifier {

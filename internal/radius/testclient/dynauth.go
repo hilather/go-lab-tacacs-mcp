@@ -14,6 +14,8 @@ type DynAuthRequest struct {
 	UserName      string
 	AcctSessionID string
 	Extra         []codec.Attr
+	// MALast puts Message-Authenticator last (RFC 5176 tools often do).
+	MALast bool
 }
 
 // DynAuthReply is an independent ACK/NAK after MA and Response Authenticator checks.
@@ -39,8 +41,11 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 			return nil, err
 		}
 	}
+	ma := codec.Attr{Type: codec.TypeMessageAuthenticator, Value: make([]byte, 16)}
 	attrs := make([]codec.Attr, 0, 4+len(req.Extra))
-	attrs = append(attrs, codec.Attr{Type: codec.TypeMessageAuthenticator, Value: make([]byte, 16)})
+	if !req.MALast {
+		attrs = append(attrs, ma)
+	}
 	if req.UserName != "" {
 		attrs = append(attrs, codec.Attr{Type: codec.TypeUserName, Value: []byte(req.UserName)})
 	}
@@ -48,6 +53,9 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 		attrs = append(attrs, codec.Attr{Type: codec.TypeAcctSessionID, Value: []byte(req.AcctSessionID)})
 	}
 	attrs = append(attrs, codec.CloneAttrs(req.Extra)...)
+	if req.MALast {
+		attrs = append(attrs, ma)
+	}
 	pkt, err := codec.Encode(codec.Packet{
 		Code:          req.Code,
 		Identifier:    req.Identifier,
@@ -61,7 +69,9 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 	if err != nil {
 		return nil, err
 	}
-	copy(pkt[codec.HeaderLen+2:codec.HeaderLen+18], mac[:])
+	if err := codec.PutMessageAuthenticator(pkt, mac); err != nil {
+		return nil, err
+	}
 	return pkt, nil
 }
 

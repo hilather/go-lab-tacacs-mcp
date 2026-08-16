@@ -2,10 +2,13 @@ package udp
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"net"
-	"sync/atomic"
+	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -30,7 +33,6 @@ func TestDynAuthUnknownClientDiscard(t *testing.T) {
 		t.Fatal("127.0.0.1 must miss the compiled dynauth index")
 	}
 
-	nas := newPacketSpy(t)
 	ln, sessions := startDynAuth(t, doc)
 	c := dialUDP(t, ln.Addr().String())
 	wire, err := testclient.EncodeDynAuthRequest([]byte(labSecret), testclient.DynAuthRequest{
@@ -51,9 +53,6 @@ func TestDynAuthUnknownClientDiscard(t *testing.T) {
 	if sessions.Len() != 0 {
 		t.Fatal("unknown client must not mutate the index")
 	}
-	if nas.Count() != 0 {
-		t.Fatal("unknown client must never send a packet to a NAS")
-	}
 }
 
 func TestDynAuthMissingAndInvalidMADiscardNoCacheMutation(t *testing.T) {
@@ -61,7 +60,6 @@ func TestDynAuthMissingAndInvalidMADiscardNoCacheMutation(t *testing.T) {
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
-	nas := newPacketSpy(t)
 	ln, sessions := startDynAuth(t, doc)
 	insertSession(t, sessions, "0001")
 	c := dialUDP(t, ln.Addr().String())
@@ -127,9 +125,6 @@ func TestDynAuthMissingAndInvalidMADiscardNoCacheMutation(t *testing.T) {
 	if reply.Code != tcodec.DisconnectACK {
 		t.Fatalf("code=%s", reply.Code)
 	}
-	if nas.Count() != 0 {
-		t.Fatal("inbound DAS must never send a packet to a NAS")
-	}
 }
 
 func TestDynAuthSessionMissNAK503NeverForwards(t *testing.T) {
@@ -137,7 +132,6 @@ func TestDynAuthSessionMissNAK503NeverForwards(t *testing.T) {
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
-	nas := newPacketSpy(t)
 	ln, sessions := startDynAuth(t, doc)
 	c := dialUDP(t, ln.Addr().String())
 	var ra [16]byte
@@ -169,9 +163,6 @@ func TestDynAuthSessionMissNAK503NeverForwards(t *testing.T) {
 	if sessions.Len() != 0 {
 		t.Fatal("miss must not insert")
 	}
-	if nas.Count() != 0 {
-		t.Fatal("session miss must never send a packet to a NAS")
-	}
 }
 
 func TestDynAuthDisconnectACKDeletesIndexOnly(t *testing.T) {
@@ -179,7 +170,6 @@ func TestDynAuthDisconnectACKDeletesIndexOnly(t *testing.T) {
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
-	nas := newPacketSpy(t)
 	ln, sessions := startDynAuth(t, doc)
 	insertSession(t, sessions, "live-1")
 	c := dialUDP(t, ln.Addr().String())
@@ -211,9 +201,6 @@ func TestDynAuthDisconnectACKDeletesIndexOnly(t *testing.T) {
 	if sessions.Len() != 0 {
 		t.Fatal("Disconnect-Request must delete the index row")
 	}
-	if nas.Count() != 0 {
-		t.Fatal("ACK must never forward to a NAS")
-	}
 }
 
 func TestDynAuthCoAStoresLastAttrsAndRejectsUnsupported(t *testing.T) {
@@ -221,7 +208,6 @@ func TestDynAuthCoAStoresLastAttrsAndRejectsUnsupported(t *testing.T) {
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
-	nas := newPacketSpy(t)
 	ln, sessions := startDynAuth(t, doc)
 	insertSession(t, sessions, "coa-1")
 	c := dialUDP(t, ln.Addr().String())
@@ -284,9 +270,6 @@ func TestDynAuthCoAStoresLastAttrsAndRejectsUnsupported(t *testing.T) {
 	if nak.Code != tcodec.CoANAK || nak.ErrorCause != 401 {
 		t.Fatalf("nak=%+v", nak)
 	}
-	if nas.Count() != 0 {
-		t.Fatal("CoA echo must never send a packet to a NAS")
-	}
 }
 
 func TestDynAuthDuplicateIdentifierRaceAndCacheHit(t *testing.T) {
@@ -339,6 +322,188 @@ func TestDynAuthDuplicateIdentifierRaceAndCacheHit(t *testing.T) {
 	hit := readUDP(t, c, 2*time.Second)
 	if !bytes.Equal(first, hit) {
 		t.Fatal("cache hit must replay exact ACK bytes")
+	}
+}
+
+func TestDynAuthMALastACKNot401(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
+	ln, sessions := startDynAuth(t, doc)
+	insertSession(t, sessions, "ma-last")
+	c := dialUDP(t, ln.Addr().String())
+	var ra [16]byte
+	ra[0] = 0xb1
+	wire, err := testclient.EncodeDynAuthRequest([]byte(labSecret), testclient.DynAuthRequest{
+		Code:          tcodec.DisconnectRequest,
+		Identifier:    13,
+		Authenticator: ra,
+		AcctSessionID: "ma-last",
+		MALast:        true,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt, err := tcodec.Decode(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pkt.Attrs[0].Type == tcodec.TypeMessageAuthenticator {
+		t.Fatal("fixture must put MA last")
+	}
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	got := readUDP(t, c, 2*time.Second)
+	if got == nil {
+		t.Fatal("missing reply")
+	}
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Code != tcodec.DisconnectACK {
+		t.Fatalf("MA last must ACK not 401, got %+v", reply)
+	}
+}
+
+func TestDynAuthMultipleSessionsNAK508(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
+	ln, sessions := startDynAuth(t, doc)
+	insertSession(t, sessions, "dup-a")
+	insertSession(t, sessions, "dup-b")
+	c := dialUDP(t, ln.Addr().String())
+	var ra [16]byte
+	ra[0] = 0xb2
+	wire, err := testclient.EncodeDynAuthRequest([]byte(labSecret), testclient.DynAuthRequest{
+		Code:          tcodec.DisconnectRequest,
+		Identifier:    14,
+		Authenticator: ra,
+		UserName:      "lab-admin",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	got := readUDP(t, c, 2*time.Second)
+	if got == nil {
+		t.Fatal("missing NAK")
+	}
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Code != tcodec.DisconnectNAK || reply.ErrorCause != 508 {
+		t.Fatalf("want NAK 508, got %+v", reply)
+	}
+	if sessions.Len() != 2 {
+		t.Fatalf("508 must not delete: %d", sessions.Len())
+	}
+}
+
+func TestDynAuthToolClientTargetsNASSession(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	nasSec := writeNamedSecret(t, dir, "nas", labSecret)
+	toolSec := writeNamedSecret(t, dir, "tool", "ToolRadius-Secret-32-bytes-ok!")
+	doc := mustParse(t, dynAuthTwoClientYAML(nasSec, toolSec))
+	ln, sessions := startDynAuth(t, doc)
+	if !sessions.Apply(radiusruntime.AcctEvent{
+		Kind:       radiusruntime.EventStart,
+		EndpointID: "nas-udp",
+		ClientID:   "nas",
+		UserID:     "lab-admin",
+		SessionID:  "cross-1",
+	}) {
+		t.Fatal("insert NAS session")
+	}
+	c := dialUDP(t, ln.Addr().String())
+	var ra [16]byte
+	ra[0] = 0xb3
+	wire, err := testclient.EncodeDynAuthRequest([]byte("ToolRadius-Secret-32-bytes-ok!"), testclient.DynAuthRequest{
+		Code:          tcodec.DisconnectRequest,
+		Identifier:    15,
+		Authenticator: ra,
+		AcctSessionID: "cross-1",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	got := readUDP(t, c, 2*time.Second)
+	if got == nil {
+		t.Fatal("missing ACK")
+	}
+	reply, err := testclient.DecodeDynAuthReply([]byte("ToolRadius-Secret-32-bytes-ok!"), ra, got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Code != tcodec.DisconnectACK {
+		t.Fatalf("tool client must ACK NAS session, got %+v", reply)
+	}
+}
+
+func TestDynAuthUserNameNASIPOnUDP(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sec := writeSecret(t, dir)
+	doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
+	ln, sessions := startDynAuth(t, doc)
+	nas := netip.MustParseAddr("192.0.2.10")
+	if !sessions.Apply(radiusruntime.AcctEvent{
+		Kind:       radiusruntime.EventStart,
+		EndpointID: "radius-udp",
+		ClientID:   "loop",
+		UserID:     "lab-admin",
+		SessionID:  "named-nas",
+		NASIP:      nas,
+	}) || !sessions.Apply(radiusruntime.AcctEvent{
+		Kind:       radiusruntime.EventStart,
+		EndpointID: "radius-udp",
+		ClientID:   "loop",
+		UserID:     "lab-admin",
+		SessionID:  "empty-nas",
+	}) {
+		t.Fatal("starts")
+	}
+	c := dialUDP(t, ln.Addr().String())
+	b := nas.As4()
+	var ra [16]byte
+	ra[0] = 0xb4
+	wire, err := testclient.EncodeDynAuthRequest([]byte(labSecret), testclient.DynAuthRequest{
+		Code:          tcodec.DisconnectRequest,
+		Identifier:    16,
+		Authenticator: ra,
+		UserName:      "lab-admin",
+		Extra:         []tcodec.Attr{{Type: tcodec.TypeNASIPAddress, Value: b[:]}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	got := readUDP(t, c, 2*time.Second)
+	if got == nil {
+		t.Fatal("missing ACK")
+	}
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Code != tcodec.DisconnectACK {
+		t.Fatalf("named NAS-IP must ACK uniquely, got %+v", reply)
+	}
+	if _, ok := sessions.LookupKey(radiusruntime.SessionKey{EndpointID: "radius-udp", AcctSessionID: "empty-nas"}); !ok {
+		t.Fatal("empty-NAS row must remain")
 	}
 }
 
@@ -412,7 +577,15 @@ clients:
 func startDynAuth(t *testing.T, doc *config.Document) (*Listener, *radiusruntime.SessionIndex) {
 	t.Helper()
 	sessions := newTestSessionIndex(t)
-	ln := startDynAuthHandler(t, doc, server.DynamicAuth{Sessions: sessions})
+	ln := startDynAuthHandler(t, doc, server.DynamicAuth{
+		Sessions: sessions,
+		Originator: &server.Originator{
+			Dial: func(context.Context, string, string) (net.PacketConn, *net.UDPAddr, error) {
+				t.Error("inbound DAS must not originate")
+				return nil, nil, fmt.Errorf("forward")
+			},
+		},
+	})
 	return ln, sessions
 }
 
@@ -436,6 +609,57 @@ func newTestSessionIndex(t *testing.T) *radiusruntime.SessionIndex {
 	return idx
 }
 
+func writeNamedSecret(t *testing.T, dir, name, value string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte(value), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func dynAuthTwoClientYAML(nasSecret, toolSecret string) string {
+	return fmt.Sprintf(`
+schema_version: 2
+listeners:
+  tacacs:
+    legacy: {enabled: false}
+    tls: {enabled: false}
+  radius:
+    access: {enabled: false}
+    accounting: {enabled: false}
+    dynamic_authorization:
+      enabled: true
+      bind: 127.0.0.1:0
+      workers: 2
+      queue_capacity: 32
+      retransmission_ttl: 15s
+clients:
+  - id: nas
+    priority: 20
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: nas-udp
+        protocol: radius
+        transport: udp
+        roles: [access, accounting]
+        radius:
+          shared_secret: {file: %q}
+  - id: rfc5176-tool
+    priority: 10
+    match:
+      source_cidrs: ["127.0.0.0/8"]
+    endpoints:
+      - id: tool-udp
+        protocol: radius
+        transport: udp
+        roles: [dynamic_authorization]
+        radius:
+          shared_secret: {file: %q}
+`, nasSecret, toolSecret)
+}
+
 func insertSession(t *testing.T, idx *radiusruntime.SessionIndex, sessionID string) {
 	t.Helper()
 	if !idx.Apply(radiusruntime.AcctEvent{
@@ -447,48 +671,6 @@ func insertSession(t *testing.T, idx *radiusruntime.SessionIndex, sessionID stri
 	}) {
 		t.Fatal("insert session")
 	}
-}
-
-type packetSpy struct {
-	pc    *net.UDPConn
-	count atomic.Int64
-}
-
-func newPacketSpy(t *testing.T) *packetSpy {
-	t.Helper()
-	pc, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := &packetSpy{pc: pc}
-	t.Cleanup(func() { _ = pc.Close() })
-	go func() {
-		buf := make([]byte, 4096)
-		for {
-			n, _, err := pc.ReadFromUDP(buf)
-			if err != nil {
-				return
-			}
-			if n > 0 {
-				s.count.Add(1)
-			}
-		}
-	}()
-	return s
-}
-
-func (s *packetSpy) Addr() net.Addr {
-	if s == nil || s.pc == nil {
-		return nil
-	}
-	return s.pc.LocalAddr()
-}
-
-func (s *packetSpy) Count() int64 {
-	if s == nil {
-		return 0
-	}
-	return s.count.Load()
 }
 
 func TestDynAuthListenerDefaultOff(t *testing.T) {

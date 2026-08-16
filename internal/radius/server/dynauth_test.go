@@ -161,6 +161,74 @@ func TestOriginateTimeout(t *testing.T) {
 	}
 }
 
+func TestOriginateCacheDoesNotCollapseCodes(t *testing.T) {
+	t.Parallel()
+	secret := []byte("LabSecret-16chars!")
+	var seen []codec.Code
+	org := &Originator{
+		Entropy: rand.Reader,
+		Dial: func(_ context.Context, _, address string) (net.PacketConn, *net.UDPAddr, error) {
+			addr, err := net.ResolveUDPAddr("udp", address)
+			if err != nil {
+				return nil, nil, err
+			}
+			return &recordConn{onWrite: func(b []byte) {
+				if len(b) > 0 {
+					seen = append(seen, codec.Code(b[0]))
+				}
+			}}, addr, nil
+		},
+	}
+	attrs := attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}}
+	id, dest := "h:same-handle", "127.0.0.1:9"
+	for _, code := range []codec.Code{codec.CodeCoARequest, codec.CodeDisconnectRequest} {
+		_, err := org.Send(context.Background(), OriginateRequest{
+			Secret:      secret,
+			Destination: dest,
+			Code:        code,
+			Attributes:  attrs,
+			Timeout:     20 * time.Millisecond,
+			CacheKey:    originateKeyForTest(id, dest, code, attrs),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(seen) != 2 || seen[0] != codec.CodeCoARequest || seen[1] != codec.CodeDisconnectRequest {
+		t.Fatalf("datagrams=%v", seen)
+	}
+}
+
+func originateKeyForTest(id, dest string, code codec.Code, attrs attribute.RawSet) string {
+	// Must match operations.originateCacheKey: identity + dest + code + attrs.
+	return string(rune(code)) + id + dest + string(rune(len(attrs)))
+}
+
+type recordConn struct {
+	onWrite func([]byte)
+}
+
+func (c *recordConn) ReadFrom([]byte) (int, net.Addr, error) {
+	return 0, nil, timeoutErr{}
+}
+func (c *recordConn) WriteTo(p []byte, _ net.Addr) (int, error) {
+	if c.onWrite != nil {
+		c.onWrite(p)
+	}
+	return len(p), nil
+}
+func (c *recordConn) Close() error                     { return nil }
+func (c *recordConn) LocalAddr() net.Addr              { return &net.UDPAddr{} }
+func (c *recordConn) SetDeadline(time.Time) error      { return nil }
+func (c *recordConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *recordConn) SetWriteDeadline(time.Time) error { return nil }
+
+type timeoutErr struct{}
+
+func (timeoutErr) Error() string   { return "timeout" }
+func (timeoutErr) Timeout() bool   { return true }
+func (timeoutErr) Temporary() bool { return true }
+
 func TestSignDynAuthRequestRequiresMAFirst(t *testing.T) {
 	t.Parallel()
 	var auth [16]byte

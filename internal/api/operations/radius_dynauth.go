@@ -2,7 +2,9 @@ package operations
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"net"
 	"net/netip"
 	"strconv"
@@ -144,11 +146,11 @@ func handleDynAuthSend(deps Deps, code codec.Code) handleFunc {
 				return nil, err
 			}
 			timeout = snapCoATimeout(snap)
-			cacheKey = "h:" + rec.Handle
 			attrs, err := dynAuthAttrs(code, userID, acctSess, nasIP, nasID, nasPort, req.Attributes)
 			if err != nil {
 				return nil, err
 			}
+			cacheKey = originateCacheKey("h:"+rec.Handle, dest, code, attrs)
 			res, err := deps.Originator.Send(ctx, server.OriginateRequest{
 				Secret:      secret,
 				Destination: dest,
@@ -187,11 +189,11 @@ func handleDynAuthSend(deps Deps, code codec.Code) handleFunc {
 		userID = strings.TrimSpace(req.UserID)
 		acctSess = strings.TrimSpace(req.AcctSessionID)
 		timeout = snapCoATimeout(snap)
-		cacheKey = "e:" + clientID + "|" + dest + "|" + userID + "|" + acctSess
 		attrs, err := dynAuthAttrs(code, userID, acctSess, netip.Addr{}, "", 0, req.Attributes)
 		if err != nil {
 			return nil, err
 		}
+		cacheKey = originateCacheKey("e:"+clientID+"|"+userID+"|"+acctSess, dest, code, attrs)
 		res, err := deps.Originator.Send(ctx, server.OriginateRequest{
 			Secret:      secret,
 			Destination: dest,
@@ -299,6 +301,25 @@ func dynAuthAttrs(code codec.Code, userID, acctSess string, nasIP netip.Addr, na
 		out = append(out, raw)
 	}
 	return out, nil
+}
+
+// originateCacheKey distinguishes distinct DAC operations so a CoA and a
+// Disconnect (or two CoAs with different attrs) on the same handle do not
+// reuse the first datagram. Same identity+dest+code+attrs may reuse Identifier.
+func originateCacheKey(id, dest string, code codec.Code, attrs attribute.RawSet) string {
+	h := sha256.New()
+	_, _ = h.Write([]byte(id))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(dest))
+	_, _ = h.Write([]byte{0, byte(code)})
+	for _, a := range attrs {
+		var hdr [2]byte
+		hdr[0] = a.Type
+		hdr[1] = byte(len(a.Value))
+		_, _ = h.Write(hdr[:])
+		_, _ = h.Write(a.Value)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func isSessionModifyAttr(typ uint8) bool {

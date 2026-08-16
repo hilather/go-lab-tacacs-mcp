@@ -2,12 +2,17 @@ package operations
 
 import (
 	"context"
+	"encoding/binary"
+	"net"
 	"net/netip"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 )
@@ -131,6 +136,28 @@ func TestRadiusDynAuthUnknownClient(t *testing.T) {
 	_ = reg
 }
 
+func TestOriginateCacheKeyDistinguishesCodeAndAttrs(t *testing.T) {
+	t.Parallel()
+	id := "h:01HANDLE"
+	dest := "192.0.2.10:3799"
+	user := attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}}
+	coa := originateCacheKey(id, dest, codec.CodeCoARequest, user)
+	disc := originateCacheKey(id, dest, codec.CodeDisconnectRequest, user)
+	if coa == disc || coa == "" {
+		t.Fatalf("code must change key: coa=%s disc=%s", coa, disc)
+	}
+	var timeout [4]byte
+	binary.BigEndian.PutUint32(timeout[:], 60)
+	coaTO := originateCacheKey(id, dest, codec.CodeCoARequest, append(user, attribute.Raw{Type: attribute.TypeSessionTimeout, Value: timeout[:]}))
+	if coaTO == coa {
+		t.Fatal("extra attrs must change key")
+	}
+	again := originateCacheKey(id, dest, codec.CodeCoARequest, user)
+	if again != coa {
+		t.Fatal("same inputs must be stable")
+	}
+}
+
 func TestRadiusDynAuthHandleMiss(t *testing.T) {
 	t.Parallel()
 	idx := mustSessionIndex(t)
@@ -147,6 +174,89 @@ func TestRadiusDynAuthHandleMiss(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestRadiusDynAuthCoAThenDisconnectUsesDistinctDatagrams(t *testing.T) {
+	t.Parallel()
+	idx := mustSessionIndex(t)
+	if !idx.Apply(radiusruntime.AcctEvent{
+		Kind:       radiusruntime.EventStart,
+		EndpointID: "acct-udp",
+		ClientID:   "lab-switches",
+		UserID:     "lab-admin",
+		SessionID:  "sess-coa-disc",
+		Peer:       netip.MustParseAddrPort("192.0.2.10:1813"),
+	}) {
+		t.Fatal("insert")
+	}
+	rec, ok := idx.LookupKey(radiusruntime.SessionKey{EndpointID: "acct-udp", AcctSessionID: "sess-coa-disc"})
+	if !ok {
+		t.Fatal("missing")
+	}
+	var mu sync.Mutex
+	var codes []byte
+	org := &server.Originator{
+		Dial: func(_ context.Context, _, address string) (net.PacketConn, *net.UDPAddr, error) {
+			addr, err := net.ResolveUDPAddr("udp", address)
+			if err != nil {
+				return nil, nil, err
+			}
+			return timeoutRecordConn(func(p []byte) {
+				if len(p) > 0 {
+					mu.Lock()
+					codes = append(codes, p[0])
+					mu.Unlock()
+				}
+			}), addr, nil
+		},
+	}
+	m := mustRadiusMgr(t)
+	reg, err := New(mustSpec(t), Deps{State: m, RADIUSSessions: idx, Secrets: radiusLookup, Originator: org})
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := Actor{ID: "t", Scopes: []string{"radius:dynamic"}}
+	req := RadiusDynamicAuthRequest{SessionHandle: rec.Handle}
+	if _, err := reg.Invoke(context.Background(), IDRadiusCoASend, m.Snapshot(), Input{Actor: actor, Request: req}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reg.Invoke(context.Background(), IDRadiusDisconnectSend, m.Snapshot(), Input{Actor: actor, Request: req}); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(codes) != 2 || codes[0] != byte(codec.CodeCoARequest) || codes[1] != byte(codec.CodeDisconnectRequest) {
+		t.Fatalf("codes=%v", codes)
+	}
+}
+
+func timeoutRecordConn(onWrite func([]byte)) net.PacketConn {
+	return &captureConn{onWrite: onWrite}
+}
+
+type captureConn struct {
+	onWrite func([]byte)
+}
+
+func (c *captureConn) ReadFrom([]byte) (int, net.Addr, error) {
+	return 0, nil, timeoutNetErr{}
+}
+func (c *captureConn) WriteTo(p []byte, _ net.Addr) (int, error) {
+	if c.onWrite != nil {
+		c.onWrite(p)
+	}
+	return len(p), nil
+}
+func (c *captureConn) Close() error                     { return nil }
+func (c *captureConn) LocalAddr() net.Addr              { return &net.UDPAddr{} }
+func (c *captureConn) SetDeadline(time.Time) error      { return nil }
+func (c *captureConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *captureConn) SetWriteDeadline(time.Time) error { return nil }
+
+type timeoutNetErr struct{}
+
+func (timeoutNetErr) Error() string   { return "i/o timeout" }
+func (timeoutNetErr) Timeout() bool   { return true }
+func (timeoutNetErr) Temporary() bool { return true }
 
 func TestRadiusDynAuthHandleDoesNotUseEndpointIDAsSecret(t *testing.T) {
 	t.Parallel()

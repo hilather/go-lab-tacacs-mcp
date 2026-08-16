@@ -51,6 +51,36 @@ describe("UsersPage", () => {
     expect(await screen.findByText("alice")).toBeInTheDocument();
     expect(screen.getByText("CONFIG")).toBeInTheDocument();
     expect(screen.getByText(/ASCII\/PAP/)).toBeInTheDocument();
+    expect(screen.queryByText("Must change login")).not.toBeInTheDocument();
+    expect(screen.queryByText("Must change enable")).not.toBeInTheDocument();
+  });
+
+  it("shows must-change badges next to Enabled when flags are true", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return statusOK();
+        }
+        if (url.includes("/api/v1/users")) {
+          return json(
+            200,
+            envelope({
+              revision: 3,
+              items: [{ ...sampleUser, must_change_login: true, must_change_enable: true }],
+            }),
+          );
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<UsersPage />, { route: "/users" });
+    expect(await screen.findByText("Must change login")).toBeInTheDocument();
+    expect(screen.getByText("Must change enable")).toBeInTheDocument();
+    expect(screen.getByText("Enabled", { selector: ".state" })).toBeInTheDocument();
+    expect(screen.getByText("CONFIG")).toBeInTheDocument();
   });
 
   it("clears write-only secret fields after a successful save", async () => {
@@ -80,9 +110,55 @@ describe("UsersPage", () => {
       const patch = fetchMock.mock.calls.find((c) => String(c[1]?.method ?? "GET").toUpperCase() === "PATCH");
       expect(patch).toBeTruthy();
       expect(String(patch?.[1]?.body)).toContain("/run/secrets/alice-login");
+      const body = JSON.parse(String(patch?.[1]?.body)) as {
+        must_change_login?: boolean;
+        must_change_enable?: boolean;
+        login?: { file?: string };
+      };
+      expect(body.login?.file).toBe("/run/secrets/alice-login");
+      expect(body.must_change_login).toBe(false);
+      expect(body.must_change_enable).toBe(false);
     });
     await waitFor(() => {
       expect(screen.queryByLabelText(/Secret file path/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("sends must_change_login and must_change_enable on save", async () => {
+    seedSession();
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url.includes("/api/v1/status")) {
+        return statusOK();
+      }
+      if (url.includes("/api/v1/users") && method === "PATCH") {
+        return json(200, envelope({ ...sampleUser, must_change_login: true }, 4));
+      }
+      if (url.includes("/api/v1/users")) {
+        return json(200, envelope({ revision: 3, items: [sampleUser] }));
+      }
+      return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderApp(<UsersPage />, { route: "/users" });
+    await user.click(await screen.findByRole("button", { name: "Edit alice" }));
+    const loginFlag = await screen.findByRole("checkbox", { name: "Must change login" });
+    const enableFlag = screen.getByRole("checkbox", { name: "Must change enable" });
+    expect(loginFlag).not.toBeChecked();
+    expect(enableFlag).not.toBeChecked();
+    await user.click(loginFlag);
+    await user.click(screen.getByRole("button", { name: "Save user" }));
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find((c) => String(c[1]?.method ?? "GET").toUpperCase() === "PATCH");
+      expect(patch).toBeTruthy();
+      const body = JSON.parse(String(patch?.[1]?.body)) as {
+        must_change_login?: boolean;
+        must_change_enable?: boolean;
+      };
+      expect(body.must_change_login).toBe(true);
+      expect(body.must_change_enable).toBe(false);
     });
   });
 
@@ -177,6 +253,45 @@ describe("UsersPage", () => {
       const body = JSON.parse(String(patch?.[1]?.body)) as { restrictions?: { valid_after?: string; valid_before?: string } };
       expect(body.restrictions?.valid_after).toBe(sampleUser.restrictions.valid_after);
       expect(body.restrictions?.valid_before).toBe(sampleUser.restrictions.valid_before);
+    });
+  });
+
+  it("includes must-change flags in the stale-write compare", async () => {
+    seedSession();
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url.includes("/api/v1/status")) {
+        return statusOK();
+      }
+      if (url.includes("/api/v1/users") && method === "PATCH") {
+        return json(412, {
+          type: "about:blank",
+          title: "revision_mismatch",
+          status: 412,
+          detail: "expected revision does not match published snapshot",
+          code: "revision_mismatch",
+        });
+      }
+      if (url.includes("/api/v1/users/alice")) {
+        return json(200, envelope({ ...sampleUser, must_change_login: false, must_change_enable: true }, 5));
+      }
+      if (url.includes("/api/v1/users")) {
+        return json(200, envelope({ revision: 3, items: [sampleUser] }));
+      }
+      return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderApp(<UsersPage />, { route: "/users" });
+    await user.click(await screen.findByRole("button", { name: "Edit alice" }));
+    await user.click(screen.getByRole("checkbox", { name: "Must change login" }));
+    await user.click(screen.getByRole("button", { name: "Save user" }));
+    expect(await screen.findByRole("heading", { name: "Revision conflict" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reload latest" }));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Must change login" })).not.toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Must change enable" })).toBeChecked();
     });
   });
 });

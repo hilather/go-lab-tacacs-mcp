@@ -6,6 +6,16 @@ import type { AuthenticationTestResult, TestAuthenticationRequest } from "../gen
 import { AUTH_METHODS, compact } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
 
+function authTestStatusClass(status: AuthenticationTestResult["status"]): string {
+  if (status === "pass") {
+    return "state state--on";
+  }
+  if (status === "must_change") {
+    return "state state--warn";
+  }
+  return "state state--off";
+}
+
 export function AuthTestPage() {
   return (
     <RequireScope scope="policy:test">
@@ -77,7 +87,8 @@ function AuthTestBody() {
       <h1>Authentication test</h1>
       <p>
         Runs <code>authentication.test</code> against the published snapshot. The password is write-only and is cleared
-        after submit. Challenge methods need wire <code>data</code> from a TACACS client, not this form.
+        after submit. Challenge methods need wire <code>data</code> from a TACACS client, not this form. Status{" "}
+        <code>must_change</code> means the password verified and a must-change flag is set.
       </p>
       <p className="visually-hidden" role="status">
         {announce}
@@ -128,7 +139,10 @@ function AuthTestBody() {
             <div>
               <dt>Status</dt>
               <dd>
-                <span className={result.status === "pass" ? "state state--on" : "state state--off"}>{result.status}</span>
+                <span className={authTestStatusClass(result.status)}>{result.status}</span>
+                {result.status === "must_change" ? (
+                  <p className="hint">Password change required after a successful verify. Not a TACACS or RADIUS packet status.</p>
+                ) : null}
               </dd>
             </div>
             <div>

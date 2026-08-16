@@ -1665,7 +1665,7 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 
 ### 23.5 UI, docs, and benches
 
-- [ ] `UL-UI-001` Users page badge + editor checkboxes for both flags; Auth Test page displays `must_change`. Generated types only.
+- [x] `UL-UI-001` Users page badge + editor checkboxes for both flags; Auth Test page displays `must_change`. Generated types only.
 - [ ] `UL-DOC-001` OPERATOR copy-paste recipes, CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence, CHANGELOG. Recipes-only; no compose fixture user (Q1). Do not mark RADIUS complete.
 - [x] `UL-BEN-001` Rerun ASCII/CHAP login benches; add a must-change start bench that stops at the first extra GETPASS.
 

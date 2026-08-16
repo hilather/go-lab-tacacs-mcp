@@ -116,8 +116,12 @@ function UsersBody() {
                 <ObjectMeta source={u.source} deleted={u.deleted} shadows={u.shadows_source} />
               </td>
               <td>
-                <span className={u.enabled ? "state state--on" : "state state--off"}>
-                  {u.enabled ? "Enabled" : "Disabled"}
+                <span className="object-meta">
+                  <span className={u.enabled ? "state state--on" : "state state--off"}>
+                    {u.enabled ? "Enabled" : "Disabled"}
+                  </span>
+                  {u.must_change_login ? <span className="state state--warn">Must change login</span> : null}
+                  {u.must_change_enable ? <span className="state state--warn">Must change enable</span> : null}
                 </span>
               </td>
               <td>
@@ -173,6 +177,8 @@ function UserEditor({
   const [id, setId] = useState(existing?.id ?? "");
   const [displayName, setDisplayName] = useState(existing?.display_name ?? "");
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
+  const [mustChangeLogin, setMustChangeLogin] = useState(existing?.must_change_login ?? false);
+  const [mustChangeEnable, setMustChangeEnable] = useState(existing?.must_change_enable ?? false);
   const [override, setOverride] = useState(false);
   const [groupIds, setGroupIds] = useState(joinList(existing?.group_ids));
   const [clientIds, setClientIds] = useState(joinList(existing?.restrictions.client_ids));
@@ -202,6 +208,8 @@ function UserEditor({
       const bodyBase = {
         display_name: displayName.trim(),
         enabled,
+        must_change_login: mustChangeLogin,
+        must_change_enable: mustChangeEnable,
         group_ids: splitList(groupIds),
         rules,
         login: secretPayload(login),
@@ -277,10 +285,22 @@ function UserEditor({
     setCompare([
       { field: "display_name", yours: displayName, server: server.display_name ?? "" },
       { field: "enabled", yours: enabled ? "true" : "false", server: server.enabled ? "true" : "false" },
+      {
+        field: "must_change_login",
+        yours: mustChangeLogin ? "true" : "false",
+        server: server.must_change_login ? "true" : "false",
+      },
+      {
+        field: "must_change_enable",
+        yours: mustChangeEnable ? "true" : "false",
+        server: server.must_change_enable ? "true" : "false",
+      },
       { field: "group_ids", yours: groupIds, server: joinList(server.group_ids) },
     ]);
     setDisplayName(server.display_name ?? "");
     setEnabled(server.enabled);
+    setMustChangeLogin(server.must_change_login);
+    setMustChangeEnable(server.must_change_enable);
     setGroupIds(joinList(server.group_ids));
     setClientIds(joinList(server.restrictions.client_ids));
     setValidAfter(toDatetimeLocal(server.restrictions.valid_after));
@@ -361,6 +381,14 @@ function UserEditor({
         <label className="check">
           <input type="checkbox" checked={enabled} onChange={(ev) => setEnabled(ev.target.checked)} />
           Enabled
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={mustChangeLogin} onChange={(ev) => setMustChangeLogin(ev.target.checked)} />
+          Must change login
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={mustChangeEnable} onChange={(ev) => setMustChangeEnable(ev.target.checked)} />
+          Must change enable
         </label>
         {creating ? (
           <label className="check">

@@ -16,6 +16,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
   RADIUS packet status). `radius.access.test` `reason_code` includes
   `reject_password_change_required`. Unknown JSON on user mutations is rejected.
   No `taclab.qa.*` tools.
+- Users page shows `Must change login` / `Must change enable` badges next to
+  Enabled and editor checkboxes for both flags (create/update send the bools;
+  stale-write compare includes them). Authentication test displays status
+  `must_change` with warn styling instead of treating it as a generic fail.
 - `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the
   HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests
   with a missing or older header pass through to the official SDK transport,

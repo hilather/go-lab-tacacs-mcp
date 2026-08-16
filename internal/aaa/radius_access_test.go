@@ -144,6 +144,9 @@ func TestAuthenticateAccessPermitFromCompiledPolicy(t *testing.T) {
 	if got.Outcome != RadiusAccessAccept || got.ReasonCode != AccessReasonOK {
 		t.Fatalf("got %+v", got)
 	}
+	if got.Outcome == RadiusAccessChallenge || got.Challenge != nil {
+		t.Fatalf("PAP must not return challenge: %+v", got)
+	}
 	if got.Trace.Winner == nil || got.Trace.Winner.RuleID != "permit-lab-admins" {
 		t.Fatalf("trace=%+v", got.Trace)
 	}
@@ -190,6 +193,9 @@ func TestAuthenticateAccessMustChangeRejectsWithoutPolicy(t *testing.T) {
 	}
 	if got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonPasswordChangeRequired {
 		t.Fatalf("got %+v", got)
+	}
+	if got.Outcome == RadiusAccessChallenge || got.Challenge != nil {
+		t.Fatalf("must_change must not Challenge: %+v", got)
 	}
 	if got.ReplyAttributes.Len() != 0 {
 		t.Fatalf("must not evaluate policy reply attrs: %+v", got.ReplyAttributes)

@@ -23,6 +23,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	radiusserver "github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 	radiusudp "github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
@@ -145,9 +146,16 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		h = server.Bridge{AAA: aaaSvc}
 		defer ring.Close()
 	}
+	challenges := radiusruntime.NewChallengeStoreWithHook(
+		doc.Listeners.RADIUSAccess.ChallengeEntries,
+		doc.Listeners.RADIUSAccess.ChallengeBytes,
+		doc.Listeners.RADIUSAccess.ChallengeTTL,
+		nil,
+		obs.Rec.RADIUSChallengeSaturation,
+	)
 	var radiusAccess radiusserver.Handler = radiusserver.Stub{}
 	if aaaSvc != nil {
-		radiusAccess = radiusserver.Access{AAA: aaaSvc}
+		radiusAccess = radiusserver.Access{AAA: aaaSvc, Store: challenges}
 	}
 
 	var built []runtime.Listener
@@ -191,16 +199,17 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 	if accessOn {
 		accessLn, err := radiusudp.Listen(radiusudp.Options{
-			ID:       runtime.IDRADIUSAccess,
-			Role:     domain.RoleAccess,
-			Bind:     doc.Listeners.RADIUSAccess.Bind,
-			Required: doc.Listeners.RADIUSAccess.Required,
-			Settings: doc.Listeners.RADIUSAccess,
-			Snapshot: mgr.Snapshot,
-			Secrets:  lookup,
-			Handler:  radiusAccess,
-			Logger:   logger,
-			Metrics:  obs.Rec,
+			ID:         runtime.IDRADIUSAccess,
+			Role:       domain.RoleAccess,
+			Bind:       doc.Listeners.RADIUSAccess.Bind,
+			Required:   doc.Listeners.RADIUSAccess.Required,
+			Settings:   doc.Listeners.RADIUSAccess,
+			Snapshot:   mgr.Snapshot,
+			Secrets:    lookup,
+			Handler:    radiusAccess,
+			Logger:     logger,
+			Metrics:    obs.Rec,
+			Challenges: challenges,
 		})
 		if err != nil {
 			cleanup()
@@ -284,7 +293,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, aaaSvc, logger, obs)
+		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, aaaSvc, logger, obs, challenges.Reset)
 		if err != nil {
 			_ = listeners.Drain(context.Background())
 			return err
@@ -342,7 +351,7 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, aaaSvc *aaa.Service, logger *slog.Logger, obs *observability.Server) (*http.Server, net.Listener, error) {
+func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, aaaSvc *aaa.Service, logger *slog.Logger, obs *observability.Server, onReset func()) (*http.Server, net.Listener, error) {
 	if obs == nil {
 		obs = observability.New(observability.Options{})
 	}
@@ -355,15 +364,16 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		return nil, nil, err
 	}
 	reg, err := loadRegistry(operations.Deps{
-		Build:    operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime, UIVersion: uiVersion},
-		State:    mgr,
-		Sessions: authSvc,
-		Usage:    authSvc,
-		Events:   ring,
-		Secrets:  lookup,
-		Creds:    creds,
-		AAA:      aaaSvc,
-		Runtime:  listeners,
+		Build:          operations.BuildMeta{Version: version, Commit: commit, BuildTime: buildTime, UIVersion: uiVersion},
+		State:          mgr,
+		Sessions:       authSvc,
+		Usage:          authSvc,
+		Events:         ring,
+		Secrets:        lookup,
+		Creds:          creds,
+		AAA:            aaaSvc,
+		Runtime:        listeners,
+		OnRuntimeReset: onReset,
 		LoadBaseline: func() (*config.Document, error) {
 			next, err := config.Load(configPath)
 			if err != nil {

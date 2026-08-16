@@ -42,6 +42,16 @@ func TestKnownReasonCodeCoversServerAndAccessReasons(t *testing.T) {
 		aaa.AccessReasonUnsupportedMethod,
 		aaa.AccessReasonInternal,
 		aaa.AccessReasonPasswordChangeRequired,
+		server.ReasonInvalidState,
+		server.ReasonChallengeExpired,
+		server.ReasonChallengeBinding,
+		server.ReasonChallengeCapacity,
+		server.ReasonChallenge,
+		aaa.AccessReasonInvalidState,
+		aaa.AccessReasonChallengeExpired,
+		aaa.AccessReasonChallengeBinding,
+		aaa.AccessReasonChallengeCapacity,
+		aaa.AccessReasonChallenge,
 	}
 	for _, code := range codes {
 		reg := observability.NewRegistry()

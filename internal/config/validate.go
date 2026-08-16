@@ -297,6 +297,15 @@ func validateRADIUSListener(l RADIUSListener, path string, accounting bool) erro
 		default:
 			return domain.NewError(domain.CodeInvalidArgument, "message_authenticator must be required or allow_missing").WithPath(path + ".message_authenticator")
 		}
+		if l.ChallengeTTL < RADIUSChallengeTTLMin || l.ChallengeTTL > RADIUSChallengeTTLMax {
+			return domain.NewError(domain.CodeInvalidArgument, "challenge_ttl must be between 5s and 60s").WithPath(path + ".challenge_ttl")
+		}
+		if l.ChallengeEntries < RADIUSChallengeEntriesMin || l.ChallengeEntries > RADIUSChallengeEntriesMax {
+			return domain.NewError(domain.CodeInvalidArgument, "challenge_entries must be between 16 and 65536").WithPath(path + ".challenge_entries")
+		}
+		if l.ChallengeBytes < RADIUSChallengeBytesMin || l.ChallengeBytes > RADIUSChallengeBytesMax {
+			return domain.NewError(domain.CodeInvalidArgument, "challenge_bytes must be between 64KiB and 8MiB").WithPath(path + ".challenge_bytes")
+		}
 	}
 	if l.PerSourceRate <= 0 {
 		return domain.NewError(domain.CodeInvalidArgument, "per_source_rate must be > 0").WithPath(path + ".per_source_rate")

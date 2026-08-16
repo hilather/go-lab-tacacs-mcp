@@ -68,6 +68,9 @@ type rawRADIUSAccess struct {
 	rawRADIUSCommon      `yaml:",inline"`
 	MessageAuthenticator string `yaml:"message_authenticator"`
 	LimitProxyState      *bool  `yaml:"limit_proxy_state"`
+	ChallengeTTL         string `yaml:"challenge_ttl"`
+	ChallengeEntries     *int   `yaml:"challenge_entries"`
+	ChallengeBytes       string `yaml:"challenge_bytes"`
 }
 
 type rawRADIUSAccounting struct {

@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 )
 
@@ -22,6 +23,14 @@ func (l *Listener) Protocol() domain.Protocol { return domain.ProtocolRADIUS }
 
 // Carrier is the RADIUS/UDP binding. This is not a domain.Transport value.
 func (l *Listener) Carrier() domain.Carrier { return domain.CarrierRADIUSUDP }
+
+// ChallengeStore is the shared in-memory State table. Close does not Reset it.
+func (l *Listener) ChallengeStore() *radiusruntime.ChallengeStore {
+	if l == nil {
+		return nil
+	}
+	return l.challenges
+}
 
 // Role is access or accounting.
 func (l *Listener) Role() domain.ListenerRole {

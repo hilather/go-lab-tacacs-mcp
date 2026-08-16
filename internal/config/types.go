@@ -41,6 +41,15 @@ const (
 	RADIUSAccessRetransmissionTTLMin     = 5 * time.Second
 	RADIUSAccessRetransmissionTTLMax     = 30 * time.Second
 	RADIUSAccountingRetransmissionTTLMax = 300 * time.Second
+	RADIUSChallengeTTLDefault            = 30 * time.Second
+	RADIUSChallengeTTLMin                = 5 * time.Second
+	RADIUSChallengeTTLMax                = 60 * time.Second
+	RADIUSChallengeEntriesDefault        = 4096
+	RADIUSChallengeEntriesMin            = 16
+	RADIUSChallengeEntriesMax            = 65536
+	RADIUSChallengeBytesDefault          = 1 << 20
+	RADIUSChallengeBytesMin              = 64 << 10
+	RADIUSChallengeBytesMax              = 8 << 20
 )
 
 // DefaultMaxBytes is the default maximum baseline file size (4 MiB).
@@ -168,6 +177,10 @@ type RADIUSListener struct {
 	AmbiguousAccountingPerMinute int
 	MessageAuthenticator         string
 	LimitProxyState              bool
+	// Challenge knobs apply to the access listener. Accounting ignores them.
+	ChallengeTTL     time.Duration
+	ChallengeEntries int
+	ChallengeBytes   int
 }
 
 // TACACSListener is shared legacy/secure socket settings.

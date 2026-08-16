@@ -2,6 +2,7 @@ package aaa
 
 import (
 	"context"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	policyradius "github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius"
@@ -10,13 +11,15 @@ import (
 )
 
 // RadiusAccessOutcome is the AAA decision for one Access-Request.
-// There is no Access-Error packet; after integrity the wire is Accept or Reject.
+// There is no Access-Error packet; after integrity the wire is Accept or Reject
+// until a Challenge provider ships. RadiusAccessChallenge is unused by PAP/CHAP.
 type RadiusAccessOutcome string
 
 const (
-	RadiusAccessAccept RadiusAccessOutcome = "accept"
-	RadiusAccessReject RadiusAccessOutcome = "reject"
-	RadiusAccessError  RadiusAccessOutcome = "error"
+	RadiusAccessAccept    RadiusAccessOutcome = "accept"
+	RadiusAccessReject    RadiusAccessOutcome = "reject"
+	RadiusAccessChallenge RadiusAccessOutcome = "challenge"
+	RadiusAccessError     RadiusAccessOutcome = "error"
 )
 
 func (o RadiusAccessOutcome) String() string { return string(o) }
@@ -29,6 +32,11 @@ const (
 	AccessReasonUnsupportedMethod      = "reject_unsupported_method"
 	AccessReasonInternal               = "internal_error"
 	AccessReasonPasswordChangeRequired = "reject_password_change_required"
+	AccessReasonInvalidState           = "reject_invalid_state"
+	AccessReasonChallengeExpired       = "reject_challenge_expired"
+	AccessReasonChallengeBinding       = "reject_challenge_binding"
+	AccessReasonChallengeCapacity      = "reject_challenge_capacity"
+	AccessReasonChallenge              = "challenge"
 )
 
 // RadiusAccessAttempt is protocol-neutral access evidence. Hidden
@@ -41,13 +49,24 @@ type RadiusAccessAttempt struct {
 	Attributes attribute.RawSet
 }
 
+// RadiusChallenge is the unused-by-PAP/CHAP Challenge payload.
+// The adapter stores State; AuthenticateAccess never returns this for PAP/CHAP.
+type RadiusChallenge struct {
+	Method  domain.AuthMethod
+	State   []byte
+	Prompt  attribute.RawSet
+	Expires time.Time
+}
+
 // RadiusAccessDecision is Accept/Reject plus a metrics-safe reason.
 // ReplyAttributes are policy profile attrs only (no Message-Authenticator).
+// Challenge is nil unless Outcome == challenge (not used for PAP/CHAP).
 type RadiusAccessDecision struct {
 	Outcome         RadiusAccessOutcome
 	ReasonCode      string
 	UserID          string
 	ReplyAttributes attribute.RawSet
+	Challenge       *RadiusChallenge
 	Trace           policyradius.Trace
 }
 

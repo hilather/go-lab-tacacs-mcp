@@ -52,6 +52,8 @@ rows:
     evidence:
       - unit:internal/radius/server.TestReasonTableStable
       - unit:internal/radius/server.TestAccessExtractRejects
+      - unit:internal/radius/server.TestWireAccessReasonChallengeCodes
+      - unit:internal/radius/server.TestAccessUnknownStateRejects
       - unit:internal/radius/udp.TestInvalidCodeAndShortDatagramDiscard
   - id: PRJ-ACCT-001
     section: accounting-behavior

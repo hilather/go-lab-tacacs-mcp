@@ -114,6 +114,14 @@ func normalizeRADIUSAccess(dst *RADIUSListener, raw rawRADIUSAccess, path string
 		}
 	}
 	dst.LimitProxyState = boolOr(raw.LimitProxyState, dst.LimitProxyState)
+	var err error
+	if dst.ChallengeTTL, err = parseDurationOr(raw.ChallengeTTL, path+".challenge_ttl", dst.ChallengeTTL); err != nil {
+		return err
+	}
+	dst.ChallengeEntries = intOr(raw.ChallengeEntries, dst.ChallengeEntries)
+	if dst.ChallengeBytes, err = parseByteSizeOr(raw.ChallengeBytes, path+".challenge_bytes", dst.ChallengeBytes); err != nil {
+		return err
+	}
 	return nil
 }
 

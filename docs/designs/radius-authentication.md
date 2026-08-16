@@ -872,7 +872,7 @@ Compatibility-mode Access without MA **does** participate (documented spoofing r
 
 #### 5.7 Condition → wire action → cache (frozen)
 
-There is no Access-Error / Access-Reject-with-Error packet. After integrity + known client, Access always replies Accept or Reject.
+There is no Access-Error / Access-Reject-with-Error packet. After integrity + known client, Access replies Accept or Reject. Access-Challenge is reserved behind the in-memory state gate ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md)); this PR does **not** emit it on the live listener. Challenge-failure reasons must not collapse to `reject_bad_credentials`.
 
 | Condition | `reason_code` | Wire | Cache |
 |---|---|---|---|
@@ -893,6 +893,11 @@ There is no Access-Error / Access-Reject-with-Error packet. After integrity + kn
 | Method not allowed / no usable evidence | `reject_unsupported_method` | Access-Reject | yes |
 | User unknown, disabled, or password/CHAP mismatch | `reject_bad_credentials` | Access-Reject | yes |
 | Successful PAP/CHAP verify + `must_change_login` | `reject_password_change_required` | Access-Reject | yes |
+| Continuation State unknown | `reject_invalid_state` | Access-Reject | yes |
+| Continuation expired | `reject_challenge_expired` | Access-Reject | yes |
+| Bind / endpoint mismatch | `reject_challenge_binding` | Access-Reject | yes |
+| Store saturated at issue | `reject_challenge_capacity` | Access-Reject | yes |
+| Challenge issued | `challenge` | Access-Challenge | yes (constant + allowlist only; no live emit) |
 | Policy deny or no matching rule | `reject_policy` | Access-Reject | yes |
 | Policy permit | `ok` | Access-Accept | yes |
 | Access evaluator/internal panic after integrity | `internal_error` | Access-Reject | yes (do not re-run KDF on retry) |

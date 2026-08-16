@@ -232,9 +232,11 @@ func TestConfigEffectiveExportValidateReset(t *testing.T) {
 	src := smallYAML
 	ring := events.New(32, nil)
 	t.Cleanup(ring.Close)
+	var resetCalls int
 	reg, err := New(mustSpec(t), Deps{
-		State:  m,
-		Events: ring,
+		State:          m,
+		Events:         ring,
+		OnRuntimeReset: func() { resetCalls++ },
 		LoadBaseline: func() (*config.Document, error) {
 			return config.Parse([]byte(src))
 		},
@@ -312,6 +314,9 @@ func TestConfigEffectiveExportValidateReset(t *testing.T) {
 	}
 	if len(m.Snapshot().Users()) != 1 {
 		t.Fatalf("reset leftover users=%d", len(m.Snapshot().Users()))
+	}
+	if resetCalls != 1 {
+		t.Fatalf("OnRuntimeReset calls=%d", resetCalls)
 	}
 }
 

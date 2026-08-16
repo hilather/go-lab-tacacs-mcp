@@ -34,6 +34,8 @@ type Request struct {
 	LimitProxyState             bool
 	AllowedMethods              []string
 	AcceptStatusTypes           []string
+	Carrier                     domain.Carrier
+	TLSCertFP                   [32]byte // BindTLSCert; tests inject a peer-cert fingerprint
 	Journal                     SemanticJournal
 	Sampler                     AmbiguousSampler
 }

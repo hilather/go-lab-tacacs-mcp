@@ -150,6 +150,9 @@ func defaultRADIUSAccess() RADIUSListener {
 		PerSourceBurst:             200,
 		MessageAuthenticator:       RADIUSMessageAuthenticatorRequired,
 		LimitProxyState:            true,
+		ChallengeTTL:               RADIUSChallengeTTLDefault,
+		ChallengeEntries:           RADIUSChallengeEntriesDefault,
+		ChallengeBytes:             RADIUSChallengeBytesDefault,
 	}
 }
 

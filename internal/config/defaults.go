@@ -69,8 +69,9 @@ func defaultDocument() Document {
 				CookieSameSite: "strict",
 			},
 			MCP: MCP{
-				AllowedOrigins: []string{},
-				RequireOrigin:  false,
+				AllowedOrigins:     []string{},
+				RequireOrigin:      false,
+				AllowLegacyClients: false,
 			},
 			BootstrapTokens: []BootstrapToken{},
 			RateLimits: RateLimits{

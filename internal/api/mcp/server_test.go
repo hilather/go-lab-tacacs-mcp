@@ -477,6 +477,81 @@ func TestUnsupportedProtocolVersion(t *testing.T) {
 	}
 }
 
+// TestAllowLegacyClientsNegotiatesViaSDK covers api.mcp.allow_legacy_clients:
+// an older-generation client (an MCP gateway that neither sends the
+// MCP-Protocol-Version header nor taclab's _meta envelope) must reach the SDK
+// transport, which negotiates the protocol version during initialize. The
+// strict default is covered by TestProtocolVersionRequired /
+// TestUnsupportedProtocolVersion.
+func TestAllowLegacyClientsNegotiatesViaSDK(t *testing.T) {
+	t.Parallel()
+	h := mcpHarnessScopes(t, []string{
+		"state:read", "state:write", "policy:test", "events:read", "tokens:manage",
+		"events:sensitive", "config:reload", "config:export", "runtime:reset",
+	}, config.MCP{AllowLegacyClients: true})
+
+	legacyInitialize := func(hdr map[string]string) *http.Response {
+		t.Helper()
+		body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"legacy-gateway","version":"0.0.1"}}}`
+		req, err := http.NewRequest(http.MethodPost, h.HTTP.URL+"/mcp", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+h.Token)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		for k, v := range hdr {
+			req.Header.Set(k, v)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+
+	// No MCP-Protocol-Version header at all (what legacy gateways send).
+	resp := legacyInitialize(nil)
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d body=%s", resp.StatusCode, raw)
+	}
+	payload := raw
+	if strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
+		payload = nil
+		for _, line := range strings.Split(string(raw), "\n") {
+			if rest, ok := strings.CutPrefix(line, "data: "); ok {
+				payload = []byte(rest)
+				break
+			}
+		}
+	}
+	var parsed struct {
+		Result struct {
+			ProtocolVersion string `json:"protocolVersion"`
+		} `json:"result"`
+		Error *rpcError `json:"error"`
+	}
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		t.Fatalf("body=%s err=%v", raw, err)
+	}
+	if parsed.Error != nil || parsed.Result.ProtocolVersion == "" {
+		t.Fatalf("initialize result=%+v err=%+v", parsed.Result, parsed.Error)
+	}
+
+	// An older (mismatched) header must also pass through instead of 400.
+	resp2 := legacyInitialize(map[string]string{headerProtocolVersion: "2025-03-26"})
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp2.Body)
+		t.Fatalf("mismatched header status=%d body=%s", resp2.StatusCode, b)
+	}
+}
+
 func TestHeaderMetaVersionMismatch(t *testing.T) {
 	t.Parallel()
 	h := mcpHarness(t)

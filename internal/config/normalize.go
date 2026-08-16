@@ -365,6 +365,7 @@ func normalizeAPI(dst *API, raw rawAPI, httpTLS bool, allowEnv bool) error {
 		dst.MCP.AllowedOrigins = []string{}
 	}
 	dst.MCP.RequireOrigin = boolOr(raw.MCP.RequireOrigin, false)
+	dst.MCP.AllowLegacyClients = boolOr(raw.MCP.AllowLegacyClients, false)
 
 	tokens := make([]BootstrapToken, 0, len(raw.BootstrapTokens))
 	seen := map[string]struct{}{}

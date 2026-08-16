@@ -1666,8 +1666,9 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 ### 23.5 UI, docs, and benches
 
 - [x] `UL-UI-001` Users page badge + editor checkboxes for both flags; Auth Test page displays `must_change`. Generated types only.
-- [x] `UL-DOC-001` OPERATOR copy-paste recipes ([docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §14), CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence (`T89-FLOW-013` / `014` / `015`, `PRJ-UL-001`), CHANGELOG [Unreleased]. Recipes-only; no compose fixture user (Q1). RADIUS `conformance_status` stays `partial`.
+- [x] `UL-DOC-001` OPERATOR copy-paste recipes ([docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §14), CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence (`T89-FLOW-013` / `014` / `015`, `PRJ-UL-001`), CHANGELOG `## [1.2.0]`. Recipes-only; no compose fixture user (Q1). RADIUS `conformance_status` stays `partial`.
 - [x] `UL-BEN-001` Rerun ASCII/CHAP login benches; add a must-change start bench that stops at the first extra GETPASS.
+- [x] `UL-REL-001` Tag/release `v1.2.0` after CHANGELOG `## [1.2.0]` and green `ci` + `release` workflows. GitHub Release plus `ghcr.io/hilather/go-lab-tacacs-mcp:v1.2.0` / `:v1.2.0-ubuntu` / `:v1.2.0-rocky`.
 
 ### 23.6 Merge gates
 

@@ -290,3 +290,44 @@ func TestAccessConcurrentStateConsume(t *testing.T) {
 		t.Fatalf("winner=%d invalid=%d", unsupported.Load(), invalid.Load())
 	}
 }
+
+func TestIssueChallengeDefaultsBindFromRequest(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	store := runtime.NewChallengeStore(8, 64<<10, 30*time.Second, func() time.Time { return now })
+	peer := netip.MustParseAddrPort("192.0.2.10:1812")
+	state := []byte("auto-bind-state16")
+	in := Request{
+		EndpointID: "ep",
+		ClientID:   "c",
+		Carrier:    domain.CarrierRADIUSUDP,
+		Peer:       peer,
+	}
+	if reason := IssueChallenge(store, in, runtime.ChallengeIssue{State: state, Method: "eap", Step: runtime.StepIdentity}); reason != "" {
+		t.Fatal(reason)
+	}
+	bind := runtime.ChallengeBind{Kind: runtime.BindUDPIP, SourceIP: peer.Addr()}
+	if _, res := store.Consume("ep", state, "c", bind); res != runtime.ConsumeOK {
+		t.Fatalf("auto bind consume=%v", res)
+	}
+
+	if reason := IssueChallenge(store, Request{EndpointID: "ep", ClientID: "c"}, runtime.ChallengeIssue{State: []byte("no-peer-state-16")}); reason != ReasonChallengeBinding {
+		t.Fatalf("missing peer bind=%q", reason)
+	}
+
+	var fp [32]byte
+	fp[0] = 0x7e
+	tlsState := []byte("auto-tls-state-16")
+	tlsIn := Request{
+		EndpointID: "ep-tls",
+		ClientID:   "c-tls",
+		Carrier:    domain.CarrierRADIUSTLS,
+		TLSCertFP:  fp,
+	}
+	if reason := IssueChallenge(store, tlsIn, runtime.ChallengeIssue{State: tlsState, Method: "eap", Step: runtime.StepIdentity}); reason != "" {
+		t.Fatal(reason)
+	}
+	if _, res := store.Consume("ep-tls", tlsState, "c-tls", runtime.ChallengeBind{Kind: runtime.BindTLSCert, CertFP: fp}); res != runtime.ConsumeOK {
+		t.Fatalf("auto tls bind consume=%v", res)
+	}
+}

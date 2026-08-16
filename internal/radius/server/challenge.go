@@ -61,6 +61,13 @@ func IssueChallenge(store *runtime.ChallengeStore, in Request, rec runtime.Chall
 	if rec.Revision == 0 {
 		rec.Revision = in.Revision
 	}
+	if rec.Bind.Unset() {
+		bind, reason := bindFromRequest(in)
+		if reason != "" {
+			return reason
+		}
+		rec.Bind = bind
+	}
 	switch store.Issue(rec) {
 	case runtime.IssueOK:
 		return ""

@@ -2,6 +2,8 @@ package aaa
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
@@ -56,6 +58,19 @@ type RadiusChallenge struct {
 	State   []byte
 	Prompt  attribute.RawSet
 	Expires time.Time
+}
+
+// String omits State and prompt bytes.
+func (c RadiusChallenge) String() string {
+	return fmt.Sprintf("RadiusChallenge{method=%s state_len=%d}", c.Method, len(c.State))
+}
+
+// GoString is the %#v form and never includes State.
+func (c RadiusChallenge) GoString() string { return c.String() }
+
+// Format never writes State or prompt values.
+func (c RadiusChallenge) Format(f fmt.State, _ rune) {
+	_, _ = io.WriteString(f, c.String())
 }
 
 // RadiusAccessDecision is Accept/Reject plus a metrics-safe reason.

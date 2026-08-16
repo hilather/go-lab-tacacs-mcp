@@ -3,6 +3,7 @@ package runtime
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/netip"
 	"sync"
 	"sync/atomic"
@@ -38,6 +39,11 @@ type ChallengeBind struct {
 	Kind     BindKind
 	SourceIP netip.Addr // BindUDPIP
 	CertFP   [32]byte   // BindTLSCert; SHA-256 of raw peer certificate
+}
+
+// Unset reports a zero bind that IssueChallenge may fill from the request.
+func (b ChallengeBind) Unset() bool {
+	return !b.SourceIP.IsValid() && b.CertFP == [32]byte{}
 }
 
 func (b ChallengeBind) match(other ChallengeBind) bool {
@@ -79,6 +85,19 @@ type ChallengeIssue struct {
 	Revision     domain.Revision
 }
 
+// String omits State, MD5 challenge, and certificate material.
+func (in ChallengeIssue) String() string {
+	return fmt.Sprintf("ChallengeIssue{endpoint=%s client=%s bind=%s step=%s}", in.EndpointID, in.ClientID, in.Bind.Kind, in.Step)
+}
+
+// GoString is the %#v form and never includes State or MD5 bytes.
+func (in ChallengeIssue) GoString() string { return in.String() }
+
+// Format never writes State or MD5 challenge bytes.
+func (in ChallengeIssue) Format(f fmt.State, _ rune) {
+	_, _ = io.WriteString(f, in.String())
+}
+
 // ChallengeRecord is a consumed (or inspected) store row. MD5Challenge is
 // copied out and wiped from the store on a successful consume.
 type ChallengeRecord struct {
@@ -98,6 +117,14 @@ type ChallengeRecord struct {
 // String omits State, MD5 challenge, and certificate material.
 func (r ChallengeRecord) String() string {
 	return fmt.Sprintf("ChallengeRecord{endpoint=%s client=%s bind=%s step=%s}", r.EndpointID, r.ClientID, r.Bind.Kind, r.Step)
+}
+
+// GoString is the %#v form and never includes MD5 or cert bytes.
+func (r ChallengeRecord) GoString() string { return r.String() }
+
+// Format never writes MD5 challenge or certificate material.
+func (r ChallengeRecord) Format(f fmt.State, _ rune) {
+	_, _ = io.WriteString(f, r.String())
 }
 
 // IssueResult is the insert outcome.

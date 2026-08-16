@@ -872,7 +872,7 @@ Compatibility-mode Access without MA **does** participate (documented spoofing r
 
 #### 5.7 Condition → wire action → cache (frozen)
 
-There is no Access-Error / Access-Reject-with-Error packet. After integrity + known client, Access replies Accept or Reject. Access-Challenge is reserved behind the in-memory state gate ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md)); this PR does **not** emit it on the live listener. Challenge-failure reasons must not collapse to `reject_bad_credentials`.
+There is no Access-Error / Access-Reject-with-Error packet. After integrity + known client, Access replies Accept or Reject. Access-Challenge is reserved behind the in-memory state gate ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md)); there is no Access-Challenge on the live listener until independent testclient wire evidence. Challenge-failure reasons must not collapse to `reject_bad_credentials`.
 
 | Condition | `reason_code` | Wire | Cache |
 |---|---|---|---|

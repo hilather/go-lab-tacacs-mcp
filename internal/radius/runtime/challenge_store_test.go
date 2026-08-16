@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"bytes"
+	"fmt"
 	"net/netip"
 	"strings"
 	"sync"
@@ -193,9 +195,42 @@ func TestChallengeRecordStringOmitsSecrets(t *testing.T) {
 		MD5Challenge: []byte("md5-challenge-secret"),
 		Step:         StepMD5Challenge,
 	}
-	got := rec.String()
-	if strings.Contains(got, "md5-challenge-secret") || strings.Contains(got, string(rec.Bind.CertFP[:])) {
-		t.Fatalf("leaked secret material: %s", got)
+	issue := ChallengeIssue{
+		State:        []byte("raw-state-secret!!"),
+		EndpointID:   "ep",
+		ClientID:     "c",
+		Bind:         tlsBind(9),
+		MD5Challenge: []byte("md5-challenge-secret"),
+		Step:         StepMD5Challenge,
+	}
+	for _, got := range []string{rec.String(), rec.GoString(), fmt.Sprintf("%v", rec), fmt.Sprintf("%+v", rec), fmt.Sprintf("%#v", rec),
+		issue.String(), issue.GoString(), fmt.Sprintf("%v", issue), fmt.Sprintf("%+v", issue), fmt.Sprintf("%#v", issue)} {
+		if strings.Contains(got, "md5-challenge-secret") || strings.Contains(got, "raw-state-secret") || strings.Contains(got, string(rec.Bind.CertFP[:])) {
+			t.Fatalf("leaked secret material: %s", got)
+		}
+	}
+}
+
+func TestChallengeConsumeCopiesMD5AndReplayUnknown(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	s := NewChallengeStore(8, 64<<10, 30*time.Second, testNow(now))
+	bind := udpBind("192.0.2.10")
+	md5 := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	in := issueRec("md5-state-16bytes", "ep", "c", bind)
+	in.MD5Challenge = append([]byte(nil), md5...)
+	if s.Issue(in) != IssueOK {
+		t.Fatal("issue")
+	}
+	rec, res := s.Consume("ep", []byte("md5-state-16bytes"), "c", bind)
+	if res != ConsumeOK {
+		t.Fatalf("consume=%v", res)
+	}
+	if !bytes.Equal(rec.MD5Challenge, md5) {
+		t.Fatalf("copy=%x want %x", rec.MD5Challenge, md5)
+	}
+	if _, res = s.Consume("ep", []byte("md5-state-16bytes"), "c", bind); res != ConsumeUnknown {
+		t.Fatalf("second consume=%v", res)
 	}
 }
 

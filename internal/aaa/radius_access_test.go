@@ -217,6 +217,21 @@ func TestAuthenticateAccessMustChangeRejectsWithoutPolicy(t *testing.T) {
 	}
 }
 
+func TestRadiusChallengeFormatOmitsState(t *testing.T) {
+	t.Parallel()
+	c := RadiusChallenge{
+		Method:  domain.AuthMethodCHAP,
+		State:   []byte("raw-challenge-state"),
+		Prompt:  attribute.RawSet{{Type: attribute.TypeReplyMessage, Value: []byte("secret-prompt")}},
+		Expires: time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC),
+	}
+	for _, got := range []string{c.String(), c.GoString(), fmt.Sprintf("%v", c), fmt.Sprintf("%+v", c), fmt.Sprintf("%#v", c)} {
+		if strings.Contains(got, "raw-challenge-state") || strings.Contains(got, "secret-prompt") {
+			t.Fatalf("leaked secret material: %s", got)
+		}
+	}
+}
+
 func TestAuthenticateAccessDenyFromCompiledPolicy(t *testing.T) {
 	t.Parallel()
 	svc := testRADIUSPolicyService(t)

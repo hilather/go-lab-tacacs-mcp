@@ -52,10 +52,11 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 		if reason != "" {
 			return replyAccess(in, codec.CodeAccessReject, reason, nil)
 		}
-		_, reason = consumeContinuation(a.Store, in, state)
+		rec, reason := consumeContinuation(a.Store, in, state)
 		if reason != "" {
 			return replyAccess(in, codec.CodeAccessReject, reason, nil)
 		}
+		crypto.Wipe(rec.MD5Challenge)
 		// Successful consume has no EAP continuation provider yet.
 		return replyAccess(in, codec.CodeAccessReject, ReasonUnsupportedMethod, nil)
 	}

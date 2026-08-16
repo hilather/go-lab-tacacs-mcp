@@ -46,12 +46,45 @@ func parityCases() []parityCase {
 			},
 		},
 		{id: operations.IDUsersList, req: operations.ListUsersRequest{}},
-		{id: operations.IDUsersGet, req: operations.GetUserRequest{ID: "alice"}},
+		{id: operations.IDUsersGet, req: operations.GetUserRequest{ID: "alice"}, check: func(t *testing.T, _ *world, out callOut) {
+			t.Helper()
+			m := asMap(out.Data)
+			if m["must_change_login"] != false || m["must_change_enable"] != false {
+				t.Fatalf("default flags=%s", canonicalJSON(out.Data))
+			}
+		}},
 		{id: operations.IDUsersGet, req: operations.GetUserRequest{ID: "missing"}, wantCode: string(domain.CodeNotFound)},
 		{id: operations.IDUsersCreate, req: operations.CreateUserRequest{ID: "bob", DisplayName: strPtr("Bob"), Enabled: boolPtr(false)}},
 		{
+			id: operations.IDUsersCreate,
+			req: operations.CreateUserRequest{
+				ID:              "qa-expire",
+				Enabled:         boolPtr(true),
+				Login:           operations.OptionalSecret{Present: true, File: "/run/secrets/qa-login"},
+				MustChangeLogin: boolPtr(true),
+			},
+			check: func(t *testing.T, _ *world, out callOut) {
+				t.Helper()
+				m := asMap(out.Data)
+				if m["must_change_login"] != true || m["must_change_enable"] != false {
+					t.Fatalf("create flags=%s", canonicalJSON(out.Data))
+				}
+			},
+		},
+		{
 			id:  operations.IDUsersUpdate,
 			req: operations.UpdateUserRequest{ID: "alice", DisplayName: strPtr("Alice Prime")},
+		},
+		{
+			id:  operations.IDUsersUpdate,
+			req: operations.UpdateUserRequest{ID: "alice", MustChangeLogin: boolPtr(true)},
+			check: func(t *testing.T, _ *world, out callOut) {
+				t.Helper()
+				m := asMap(out.Data)
+				if m["must_change_login"] != true || m["must_change_enable"] != false {
+					t.Fatalf("update flags=%s", canonicalJSON(out.Data))
+				}
+			},
 		},
 		{
 			id:  operations.IDUsersUpdate,

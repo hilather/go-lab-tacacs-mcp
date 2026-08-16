@@ -130,6 +130,59 @@ func findRepoRoot(t *testing.T) string {
 	}
 }
 
+func TestOpenAPIMustChangeEnums(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	doc := BuildOpenAPI(h.Server.Registry)
+	components, _ := doc["components"].(map[string]any)
+	schemas, _ := components["schemas"].(map[string]any)
+	status := schemaProp(t, schemas, "AuthenticationTestResult", "status")
+	if !enumContains(status, "must_change") {
+		t.Fatalf("AuthenticationTestResult.status enum=%v", status["enum"])
+	}
+	for _, want := range []string{"pass", "fail", "error", "restart"} {
+		if !enumContains(status, want) {
+			t.Fatalf("AuthenticationTestResult.status missing %s: %v", want, status["enum"])
+		}
+	}
+	reason := schemaProp(t, schemas, "RadiusAccessTestResult", "reason_code")
+	if !enumContains(reason, "reject_password_change_required") {
+		t.Fatalf("RadiusAccessTestResult.reason_code enum=%v", reason["enum"])
+	}
+	user := schemaProp(t, schemas, "User", "must_change_login")
+	if user["type"] != "boolean" {
+		t.Fatalf("User.must_change_login=%v", user)
+	}
+	create := schemaProp(t, schemas, "CreateUserRequest", "must_change_login")
+	if create["type"] != "boolean" {
+		t.Fatalf("CreateUserRequest.must_change_login=%v", create)
+	}
+}
+
+func schemaProp(t *testing.T, schemas map[string]any, typeName, field string) map[string]any {
+	t.Helper()
+	raw, ok := schemas[typeName].(map[string]any)
+	if !ok {
+		t.Fatalf("schema %s missing", typeName)
+	}
+	props, _ := raw["properties"].(map[string]any)
+	prop, ok := props[field].(map[string]any)
+	if !ok {
+		t.Fatalf("%s.%s missing", typeName, field)
+	}
+	return prop
+}
+
+func enumContains(prop map[string]any, want string) bool {
+	raw, _ := prop["enum"].([]any)
+	for _, v := range raw {
+		if s, _ := v.(string); s == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestOpenAPIJSONContentType(t *testing.T) {
 	t.Parallel()
 	h := restHarness(t)

@@ -2,7 +2,7 @@
 
 Status: operator and agent contract  
 MCP baseline: 2026-07-28  
-Last updated: 2026-08-13
+Last updated: 2026-08-16
 
 TacLab exposes administrative operations as an MCP server on the **same HTTP listener** as REST and the UI. REST and MCP share one operation registry, one bearer verifier, and one exact-match scope matrix. MCP never proxies REST.
 
@@ -412,6 +412,10 @@ Streamable HTTP at POST /mcp.
 7. Runtime overlay is memory-only. runtime.reset or restart restores YAML.
 8. This is a lab. Do not treat dual listeners or static bearers as a
    production AAA design.
+9. Force next-login change with taclab.users.update must_change_login /
+   must_change_enable (top-level bools, not restrictions). Assert with
+   taclab.authentication.test status must_change. RADIUS surfaces
+   reject_password_change_required. No taclab.qa.* tools.
 ```
 
 Operator walkthrough for non-MCP tasks: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First boot: [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).

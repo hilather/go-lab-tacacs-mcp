@@ -14,6 +14,8 @@ export const sampleUser: User = {
   ascii_pap_configured: true,
   challenge_configured: false,
   enable_configured: false,
+  must_change_login: false,
+  must_change_enable: false,
   created_at: "2026-08-12T00:00:00Z",
   updated_at: "2026-08-12T00:00:00Z",
 };

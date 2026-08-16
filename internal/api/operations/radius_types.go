@@ -1,5 +1,7 @@
 package operations
 
+import "github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
+
 // RADIUS wire outcome strings returned by radius.access.test.
 // They are not domain.AuthOutcome and not advertised as complete RADIUS.
 const (
@@ -43,6 +45,17 @@ type RadiusAccessTestResult struct {
 	ReasonCode      string                 `json:"reason_code"`
 	ReplyAttributes []RadiusAttributeValue `json:"reply_attributes"`
 	Trace           *RadiusPolicyTrace     `json:"trace,omitempty"`
+}
+
+// RadiusAccessTestReasonCodes is the closed set of radius.access.test reason_code
+// values returned by AuthenticateAccess (design §5.7 access replies).
+var RadiusAccessTestReasonCodes = []string{
+	aaa.AccessReasonOK,
+	aaa.AccessReasonBadCredentials,
+	aaa.AccessReasonPolicy,
+	aaa.AccessReasonUnsupportedMethod,
+	aaa.AccessReasonInternal,
+	aaa.AccessReasonPasswordChangeRequired,
 }
 
 // RadiusPolicyEvaluateRequest explains the compiled RADIUS engine.

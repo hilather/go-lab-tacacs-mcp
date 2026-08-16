@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -664,9 +665,16 @@ func structSchema(t reflect.Type, schemas map[string]any) map[string]any {
 		if !f.omitempty {
 			required = append(required, f.name)
 		}
-		if f.writeOnly {
-			if m, ok := props[f.name].(map[string]any); ok {
+		if m, ok := props[f.name].(map[string]any); ok {
+			if f.writeOnly {
 				m["writeOnly"] = true
+			}
+			if enums := operations.JSONStringEnums(t.Name(), f.name); len(enums) > 0 {
+				vals := make([]any, len(enums))
+				for i, e := range enums {
+					vals[i] = e
+				}
+				m["enum"] = vals
 			}
 		}
 	}
@@ -893,12 +901,19 @@ func writeTSInterface(b *strings.Builder, name string, t reflect.Type) {
 		if f.omitempty || f.typ.Kind() == reflect.Ptr {
 			opt = "?"
 		}
-		fmt.Fprintf(b, "  %s%s: %s;\n", f.name, opt, tsType(f.typ))
+		fmt.Fprintf(b, "  %s%s: %s;\n", f.name, opt, tsType(f.typ, operations.JSONStringEnums(name, f.name)))
 	}
 	b.WriteString("}\n\n")
 }
 
-func tsType(t reflect.Type) string {
+func tsType(t reflect.Type, enums []string) string {
+	if len(enums) > 0 {
+		parts := make([]string, len(enums))
+		for i, e := range enums {
+			parts[i] = strconv.Quote(e)
+		}
+		return strings.Join(parts, " | ")
+	}
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -915,9 +930,9 @@ func tsType(t reflect.Type) string {
 		reflect.Float32, reflect.Float64:
 		return "number"
 	case reflect.Slice, reflect.Array:
-		return tsType(t.Elem()) + "[]"
+		return tsType(t.Elem(), nil) + "[]"
 	case reflect.Map:
-		return "{ [key: string]: " + tsType(t.Elem()) + " }"
+		return "{ [key: string]: " + tsType(t.Elem(), nil) + " }"
 	case reflect.Struct:
 		if t.Name() != "" {
 			return t.Name()

@@ -103,6 +103,15 @@ func schemaOf(t reflect.Type, seen map[reflect.Type]bool) map[string]any {
 				name = f.Name
 			}
 			props[name] = schemaOf(f.Type, seen)
+			if enums := operations.JSONStringEnums(t.Name(), name); len(enums) > 0 {
+				if m, ok := props[name].(map[string]any); ok {
+					vals := make([]any, len(enums))
+					for i, e := range enums {
+						vals[i] = e
+					}
+					m["enum"] = vals
+				}
+			}
 			if !omit && f.Type.Kind() != reflect.Pointer && f.Type.Kind() != reflect.Slice && f.Type.Kind() != reflect.Map {
 				required = append(required, name)
 			}

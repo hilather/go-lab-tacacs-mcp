@@ -186,6 +186,8 @@ Names are proposed stable contracts. A naming change requires migration notes an
 
 User outputs expose credential capability metadata only, such as `ascii_pap_configured` and `challenge_configured`. Secret values and verifier strings are omitted.
 
+Top-level `must_change_login` / `must_change_enable` are readable bools (default `false`) on `users.create` / `users.update` / `users.get` / `users.list`. They are not `restrictions` fields and are not nested under write-only secrets. `authentication.test` `status` includes `must_change` after successful verify plus the applicable flag (not a TACACS or RADIUS packet status). `radius.access.test` `reason_code` includes `reject_password_change_required`.
+
 ### 9.3 Groups and rules
 
 | Operation ID | Scope | REST | MCP | Disposition |

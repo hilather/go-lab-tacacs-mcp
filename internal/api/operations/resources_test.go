@@ -400,6 +400,122 @@ func TestConfigReloadAndOverlayOrder(t *testing.T) {
 	}
 }
 
+func TestUsersCreateUpdateGetMustChangeFlags(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write", "config:export"}}
+
+	got, err := reg.Invoke(context.Background(), IDUsersGet, m.Snapshot(), Input{Actor: writer, Request: GetUserRequest{ID: "alice"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	alice := got.Data.(User)
+	if alice.MustChangeLogin || alice.MustChangeEnable {
+		t.Fatalf("baseline flags default false: %+v", alice)
+	}
+
+	rev := m.Revision()
+	updated, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", MustChangeLogin: boolPtr(true)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := updated.Data.(User)
+	if !u.MustChangeLogin || u.MustChangeEnable {
+		t.Fatalf("update flags=%+v", u)
+	}
+	listed, err := reg.Invoke(context.Background(), IDUsersList, m.Snapshot(), Input{Actor: writer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, item := range listed.Data.(UserList).Items {
+		if item.ID == "alice" {
+			found = true
+			if !item.MustChangeLogin || item.MustChangeEnable {
+				t.Fatalf("list flags=%+v", item)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("alice missing from list")
+	}
+
+	created, err := reg.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), Input{
+		Actor: writer,
+		Request: CreateUserRequest{
+			ID:               "qa-expire",
+			Enabled:          boolPtr(true),
+			Login:            OptionalSecret{Present: true, File: "/run/secrets/qa-login"},
+			Enable:           OptionalSecret{Present: true, File: "/run/secrets/qa-enable"},
+			MustChangeLogin:  boolPtr(true),
+			MustChangeEnable: boolPtr(true),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	qa := created.Data.(User)
+	if !qa.MustChangeLogin || !qa.MustChangeEnable {
+		t.Fatalf("create flags=%+v", qa)
+	}
+
+	fetched, err := reg.Invoke(context.Background(), IDUsersGet, m.Snapshot(), Input{Actor: writer, Request: GetUserRequest{ID: "qa-expire"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fetched.Data.(User); !got.MustChangeLogin || !got.MustChangeEnable {
+		t.Fatalf("get flags=%+v", got)
+	}
+
+	exp, err := reg.Invoke(context.Background(), IDConfigExport, m.Snapshot(), Input{Actor: writer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	yamlOut := exp.Data.(ExportConfigResult).YAML
+	if !strings.Contains(yamlOut, "must_change_login: true") || !strings.Contains(yamlOut, "must_change_enable: true") {
+		t.Fatalf("export missing must_change keys:\n%s", yamlOut)
+	}
+
+	rev = m.Revision()
+	_, err = reg.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          CreateUserRequest{ID: "no-login", MustChangeLogin: boolPtr(true)},
+	})
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("flag without verifier err=%v", err)
+	}
+}
+
+func TestUserMutationJSONRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		`{"id":"alice","must_change_password":true}`,
+		`{"id":"alice","restrictions":{"must_change_login":true}}`,
+	} {
+		dec := json.NewDecoder(strings.NewReader(raw))
+		dec.DisallowUnknownFields()
+		var req UpdateUserRequest
+		if err := dec.Decode(&req); err == nil {
+			t.Fatalf("accepted unknown JSON %s", raw)
+		}
+	}
+	dec := json.NewDecoder(strings.NewReader(`{"id":"alice","must_change_login":true}`))
+	dec.DisallowUnknownFields()
+	var req UpdateUserRequest
+	if err := dec.Decode(&req); err != nil {
+		t.Fatal(err)
+	}
+	if req.MustChangeLogin == nil || !*req.MustChangeLogin {
+		t.Fatalf("decoded=%+v", req)
+	}
+}
+
 func TestOptionalSecretRejectsUnknownFields(t *testing.T) {
 	t.Parallel()
 	var s OptionalSecret

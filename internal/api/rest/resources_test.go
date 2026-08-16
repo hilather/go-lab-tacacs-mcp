@@ -177,6 +177,49 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 	}
 }
 
+func TestUsersMustChangeFlagsREST(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	got := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/users/alice", h.Token, nil, nil)
+	defer got.Body.Close()
+	if got.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(got.Body)
+		t.Fatalf("get=%d %s", got.StatusCode, b)
+	}
+	var env struct {
+		Revision uint64          `json:"revision"`
+		Data     operations.User `json:"data"`
+	}
+	if err := json.NewDecoder(got.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.MustChangeLogin || env.Data.MustChangeEnable {
+		t.Fatalf("default flags=%+v", env.Data)
+	}
+	etag := got.Header.Get("ETag")
+	patch := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/alice", h.Token, []byte(`{"must_change_login":true}`), map[string]string{"If-Match": etag})
+	defer patch.Body.Close()
+	if patch.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(patch.Body)
+		t.Fatalf("patch=%d %s", patch.StatusCode, b)
+	}
+	var patched struct {
+		Data operations.User `json:"data"`
+	}
+	if err := json.NewDecoder(patch.Body).Decode(&patched); err != nil {
+		t.Fatal(err)
+	}
+	if !patched.Data.MustChangeLogin || patched.Data.MustChangeEnable {
+		t.Fatalf("patched=%+v", patched.Data)
+	}
+	unknown := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/alice", h.Token, []byte(`{"must_change_password":true}`), map[string]string{"If-Match": patch.Header.Get("ETag")})
+	defer unknown.Body.Close()
+	if unknown.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(unknown.Body)
+		t.Fatalf("unknown field status=%d %s", unknown.StatusCode, b)
+	}
+}
+
 func TestOptionalSecretUnknownFieldRejected(t *testing.T) {
 	t.Parallel()
 	h := restHarness(t)

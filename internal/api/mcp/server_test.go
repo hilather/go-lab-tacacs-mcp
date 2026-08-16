@@ -272,6 +272,31 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 	if !sort.StringsAreSorted(names) {
 		t.Fatalf("tools not sorted: %v", names)
 	}
+	for _, raw := range tools {
+		m, _ := raw.(map[string]any)
+		switch m["name"] {
+		case "taclab.authentication.test":
+			status, _ := outputProp(m, "status")
+			if !schemaEnumContains(status, "must_change") {
+				t.Fatalf("authentication.test status enum=%v", status["enum"])
+			}
+		case "taclab.radius.access.test":
+			reason, _ := outputProp(m, "reason_code")
+			if !schemaEnumContains(reason, "reject_password_change_required") {
+				t.Fatalf("radius.access.test reason_code enum=%v", reason["enum"])
+			}
+		case "taclab.users.get":
+			if _, ok := outputProp(m, "must_change_login"); !ok {
+				t.Fatal("users.get missing must_change_login")
+			}
+		case "taclab.users.update":
+			in, _ := m["inputSchema"].(map[string]any)
+			props, _ := in["properties"].(map[string]any)
+			if props["must_change_login"] == nil || props["must_change_enable"] == nil {
+				t.Fatalf("users.update input missing flags: %v", props)
+			}
+		}
+	}
 	want := []string{"taclab.system.status.get", "taclab.policy.evaluate", "taclab.users.list", "taclab.events.list"}
 	for _, n := range want {
 		found := false
@@ -692,6 +717,44 @@ func TestUsersCreateAndListParity(t *testing.T) {
 	}
 }
 
+func TestUsersUpdateMustChangeAndUnknownJSON(t *testing.T) {
+	t.Parallel()
+	h := mcpHarness(t)
+	listed := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name": "taclab.users.get", "arguments": map[string]any{"id": "alice"},
+	}, nil)
+	if listed.Err != nil {
+		t.Fatalf("get=%+v", listed.Err)
+	}
+	rev, _ := listed.Result["structuredContent"].(map[string]any)["effective_revision"].(float64)
+	updated := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name": "taclab.users.update",
+		"arguments": map[string]any{
+			"id":                "alice",
+			"must_change_login": true,
+			"expected_revision": rev,
+		},
+	}, nil)
+	if updated.Err != nil {
+		t.Fatalf("update=%+v %s", updated.Err, updated.Raw)
+	}
+	sc, _ := updated.Result["structuredContent"].(map[string]any)
+	if sc["must_change_login"] != true || sc["must_change_enable"] != false {
+		t.Fatalf("updated=%v", sc)
+	}
+	unknown := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name": "taclab.users.update",
+		"arguments": map[string]any{
+			"id":                   "alice",
+			"must_change_password": true,
+			"expected_revision":    sc["effective_revision"],
+		},
+	}, nil)
+	if unknown.Err == nil || unknown.Err.Code != codeInvalidParams {
+		t.Fatalf("unknown field err=%+v", unknown.Err)
+	}
+}
+
 func TestExpectedRevision(t *testing.T) {
 	t.Parallel()
 	h := mcpHarness(t)
@@ -754,6 +817,23 @@ func TestSessionIdIgnored(t *testing.T) {
 	if strings.Contains(string(got.Raw), "should-ignore") {
 		t.Fatal("session id echoed")
 	}
+}
+
+func outputProp(tool map[string]any, field string) (map[string]any, bool) {
+	out, _ := tool["outputSchema"].(map[string]any)
+	props, _ := out["properties"].(map[string]any)
+	prop, ok := props[field].(map[string]any)
+	return prop, ok
+}
+
+func schemaEnumContains(prop map[string]any, want string) bool {
+	raw, _ := prop["enum"].([]any)
+	for _, v := range raw {
+		if s, _ := v.(string); s == want {
+			return true
+		}
+	}
+	return false
 }
 
 func requireCacheablePrivate(t *testing.T, result map[string]any) {

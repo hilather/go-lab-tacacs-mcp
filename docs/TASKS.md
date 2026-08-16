@@ -1659,7 +1659,7 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 
 ### 23.4 API and RADIUS
 
-- [ ] `UL-API-001` Expose the flags on `users.create` / `users.update` / `users.get` / `users.list` and `exportUser`. OpenAPI/MCP + REST/MCP parity (`PARITY_REQUIRED`). Unknown JSON rejected. No `taclab.qa.*`.
+- [x] `UL-API-001` Expose the flags on `users.create` / `users.update` / `users.get` / `users.list` and `exportUser`. OpenAPI/MCP + REST/MCP parity (`PARITY_REQUIRED`). Unknown JSON rejected. No `taclab.qa.*`.
 - [x] `UL-API-002` `authentication.test` returns status `must_change` after successful verify + the applicable flag. Not a TACACS/RADIUS packet status. Handler lands in the fail-closed vertical with `UL-AAA-001`.
 - [x] `UL-RAD-001` `AuthenticateAccess` Access-Reject `reject_password_change_required` after good PAP/CHAP + `must_change_login`; do not evaluate policy. Update `wireAccessReason`, `TestReasonTableStable`, and [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) §5.7 in the same change. References `PRJ-UL-001`. Do not invent a parallel RADIUS numbering scheme. No Microsoft VSA, named `Cisco-AVPair`, or Access-Challenge.
 

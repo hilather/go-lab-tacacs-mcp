@@ -10,6 +10,12 @@ All notable changes to TacLab (`taclabd`) are documented here.
   `must_change_enable` is set (TacLab/vendor extension, not RFC 8907 ENABLE).
   Overlay-only PHC via `OverrideEnableVerifier`; YAML baseline is never
   rewritten. `must_change_login` still does not apply to ENABLE.
+- `users.create` / `users.update` / `users.get` / `users.list` and `config.export`
+  expose top-level `must_change_login` / `must_change_enable` (default `false`).
+  `authentication.test` `status` enum includes `must_change` (not a TACACS or
+  RADIUS packet status). `radius.access.test` `reason_code` includes
+  `reject_password_change_required`. Unknown JSON on user mutations is rejected.
+  No `taclab.qa.*` tools.
 - `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the
   HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests
   with a missing or older header pass through to the official SDK transport,

@@ -30,6 +30,8 @@ func userView(u state.EffectiveUser, rev domain.Revision) User {
 		ASCIIPapConfigured:  u.Capabilities.Login,
 		ChallengeConfigured: u.Capabilities.Challenge,
 		EnableConfigured:    u.Capabilities.Enable,
+		MustChangeLogin:     u.User.MustChangeLogin,
+		MustChangeEnable:    u.User.MustChangeEnable,
 		CreatedAt:           meta.CreatedAt,
 		UpdatedAt:           meta.UpdatedAt,
 	}

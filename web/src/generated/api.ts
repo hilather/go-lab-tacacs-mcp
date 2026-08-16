@@ -25,7 +25,7 @@ export interface HealthStatus {
 }
 
 export interface AuthenticationTestResult {
-  status: string;
+  status: "pass" | "fail" | "error" | "restart" | "must_change";
   method: string;
   user_id: string;
   client_id?: string;
@@ -234,6 +234,8 @@ export interface CreateUserRequest {
   challenge?: OptionalSecret;
   enable?: OptionalSecret;
   restrictions?: RestrictionsView;
+  must_change_login?: boolean;
+  must_change_enable?: boolean;
   override?: boolean;
 }
 
@@ -548,7 +550,7 @@ export interface RadiusAccessTestRequest {
 
 export interface RadiusAccessTestResult {
   outcome: string;
-  reason_code: string;
+  reason_code: "ok" | "reject_bad_credentials" | "reject_policy" | "reject_unsupported_method" | "internal_error" | "reject_password_change_required";
   reply_attributes: RadiusAttributeValue[];
   trace?: RadiusPolicyTrace;
 }
@@ -766,6 +768,8 @@ export interface UpdateUserRequest {
   challenge?: OptionalSecret;
   enable?: OptionalSecret;
   restrictions?: RestrictionsView;
+  must_change_login?: boolean;
+  must_change_enable?: boolean;
 }
 
 export interface User {
@@ -785,6 +789,8 @@ export interface User {
   ascii_pap_configured: boolean;
   challenge_configured: boolean;
   enable_configured: boolean;
+  must_change_login: boolean;
+  must_change_enable: boolean;
   created_at: string;
   updated_at: string;
 }

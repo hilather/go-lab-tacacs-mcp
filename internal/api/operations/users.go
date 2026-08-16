@@ -85,17 +85,19 @@ func handleUsersCreate(deps Deps) handleFunc {
 			return nil, err
 		}
 		published, err := deps.State.CreateUser(state.CreateUser{
-			ID:           req.ID,
-			DisplayName:  req.DisplayName,
-			Enabled:      req.Enabled,
-			Labels:       req.Labels,
-			GroupIDs:     req.GroupIDs,
-			Rules:        rules,
-			Login:        req.Login.patch(),
-			Challenge:    req.Challenge.patch(),
-			Enable:       req.Enable.patch(),
-			Restrictions: restrictionsFromView(req.Restrictions),
-			Override:     req.Override,
+			ID:               req.ID,
+			DisplayName:      req.DisplayName,
+			Enabled:          req.Enabled,
+			Labels:           req.Labels,
+			GroupIDs:         req.GroupIDs,
+			Rules:            rules,
+			Login:            req.Login.patch(),
+			Challenge:        req.Challenge.patch(),
+			Enable:           req.Enable.patch(),
+			Restrictions:     restrictionsFromView(req.Restrictions),
+			MustChangeLogin:  req.MustChangeLogin,
+			MustChangeEnable: req.MustChangeEnable,
+			Override:         req.Override,
 		}, in.ExpectedRevision)
 		if err != nil {
 			return nil, err
@@ -123,15 +125,17 @@ func handleUsersUpdate(deps Deps) handleFunc {
 			return nil, err
 		}
 		published, err := deps.State.UpdateUser(req.ID, state.UpdateUser{
-			DisplayName:  req.DisplayName,
-			Enabled:      req.Enabled,
-			Labels:       req.Labels,
-			GroupIDs:     req.GroupIDs,
-			Rules:        rules,
-			Login:        req.Login.patch(),
-			Challenge:    req.Challenge.patch(),
-			Enable:       req.Enable.patch(),
-			Restrictions: restrictionsFromView(req.Restrictions),
+			DisplayName:      req.DisplayName,
+			Enabled:          req.Enabled,
+			Labels:           req.Labels,
+			GroupIDs:         req.GroupIDs,
+			Rules:            rules,
+			Login:            req.Login.patch(),
+			Challenge:        req.Challenge.patch(),
+			Enable:           req.Enable.patch(),
+			Restrictions:     restrictionsFromView(req.Restrictions),
+			MustChangeLogin:  req.MustChangeLogin,
+			MustChangeEnable: req.MustChangeEnable,
 		}, in.ExpectedRevision)
 		if err != nil {
 			return nil, err

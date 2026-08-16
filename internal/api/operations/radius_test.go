@@ -160,6 +160,37 @@ func TestRadiusAccessTestCHAPAndAttributes(t *testing.T) {
 	}
 }
 
+func TestRadiusAccessTestMustChangeReasonCode(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	writer := Actor{ID: "w", Scopes: []string{"state:write"}}
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	rev := m.Revision()
+	_, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "lab-admin", MustChangeLogin: boolPtr(true)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			ClientID: "lab-switches",
+			UserID:   "lab-admin",
+			Method:   RadiusAuthMethod{Type: "pap", Password: radiusTestPassword},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAccessTestResult)
+	if out.Outcome != RadiusOutcomeReject || out.ReasonCode != aaa.AccessReasonPasswordChangeRequired {
+		t.Fatalf("got %+v", out)
+	}
+}
+
 func TestRadiusAccessTestValidationAndScope(t *testing.T) {
 	t.Parallel()
 	reg, m := radiusTestRegistry(t)

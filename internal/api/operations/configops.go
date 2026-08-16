@@ -319,6 +319,8 @@ type exportDoc struct {
 	Tokens                 []exportToken  `yaml:"tokens,omitempty"`
 }
 
+// exportUser is the YAML export shape. New User fields must be assigned
+// in marshalExportYAML or they are omitted from config.export.
 type exportUser struct {
 	ID                  string            `yaml:"id"`
 	DisplayName         string            `yaml:"display_name,omitempty"`
@@ -330,6 +332,8 @@ type exportUser struct {
 	ASCIIPapConfigured  bool              `yaml:"ascii_pap_configured"`
 	ChallengeConfigured bool              `yaml:"challenge_configured"`
 	EnableConfigured    bool              `yaml:"enable_configured"`
+	MustChangeLogin     bool              `yaml:"must_change_login"`
+	MustChangeEnable    bool              `yaml:"must_change_enable"`
 	Rules               RuleSetView       `yaml:"rules,omitempty"`
 	Restrictions        RestrictionsView  `yaml:"restrictions,omitempty"`
 	Login               exportSecret      `yaml:"credentials_login,omitempty"`
@@ -403,6 +407,7 @@ func marshalExportYAML(eff EffectiveConfig, emitV2 bool) ([]byte, error) {
 			ID: u.ID, DisplayName: u.DisplayName, Enabled: u.Enabled, Source: string(u.Source),
 			Deleted: u.Deleted, GroupIDs: u.GroupIDs, Labels: u.Labels,
 			ASCIIPapConfigured: u.ASCIIPapConfigured, ChallengeConfigured: u.ChallengeConfigured, EnableConfigured: u.EnableConfigured,
+			MustChangeLogin: u.MustChangeLogin, MustChangeEnable: u.MustChangeEnable,
 			Rules: u.Rules, Restrictions: u.Restrictions,
 		}
 		if u.ASCIIPapConfigured {

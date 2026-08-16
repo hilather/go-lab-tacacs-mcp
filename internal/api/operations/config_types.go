@@ -125,3 +125,19 @@ type AuthenticationTestResult struct {
 	ChallengeConfigured bool   `json:"challenge_configured"`
 	EnableConfigured    bool   `json:"enable_configured"`
 }
+
+// AuthenticationTestStatuses is the closed set of AuthenticationTestResult.status.
+var AuthenticationTestStatuses = []string{"pass", "fail", "error", "restart", "must_change"}
+
+// JSONStringEnums returns the closed string enum for a generated schema field.
+// Unknown type/field pairs return nil.
+func JSONStringEnums(typeName, field string) []string {
+	switch typeName + "." + field {
+	case "AuthenticationTestResult.status":
+		return append([]string(nil), AuthenticationTestStatuses...)
+	case "RadiusAccessTestResult.reason_code":
+		return append([]string(nil), RadiusAccessTestReasonCodes...)
+	default:
+		return nil
+	}
+}

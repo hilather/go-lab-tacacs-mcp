@@ -29,31 +29,35 @@ type GetUserRequest struct {
 
 // CreateUserRequest creates a runtime user or an explicit baseline override.
 type CreateUserRequest struct {
-	ID           string             `json:"id"`
-	DisplayName  *string            `json:"display_name,omitempty"`
-	Enabled      *bool              `json:"enabled,omitempty"`
-	Labels       *map[string]string `json:"labels,omitempty"`
-	GroupIDs     *[]string          `json:"group_ids,omitempty"`
-	Rules        *RuleSetView       `json:"rules,omitempty"`
-	Login        OptionalSecret     `json:"login,omitempty"`
-	Challenge    OptionalSecret     `json:"challenge,omitempty"`
-	Enable       OptionalSecret     `json:"enable,omitempty"`
-	Restrictions *RestrictionsView  `json:"restrictions,omitempty"`
-	Override     bool               `json:"override,omitempty"`
+	ID               string             `json:"id"`
+	DisplayName      *string            `json:"display_name,omitempty"`
+	Enabled          *bool              `json:"enabled,omitempty"`
+	Labels           *map[string]string `json:"labels,omitempty"`
+	GroupIDs         *[]string          `json:"group_ids,omitempty"`
+	Rules            *RuleSetView       `json:"rules,omitempty"`
+	Login            OptionalSecret     `json:"login,omitempty"`
+	Challenge        OptionalSecret     `json:"challenge,omitempty"`
+	Enable           OptionalSecret     `json:"enable,omitempty"`
+	Restrictions     *RestrictionsView  `json:"restrictions,omitempty"`
+	MustChangeLogin  *bool              `json:"must_change_login,omitempty"`
+	MustChangeEnable *bool              `json:"must_change_enable,omitempty"`
+	Override         bool               `json:"override,omitempty"`
 }
 
 // UpdateUserRequest is a typed user patch. Omitted fields are unchanged.
 type UpdateUserRequest struct {
-	ID           string             `json:"id"`
-	DisplayName  *string            `json:"display_name,omitempty"`
-	Enabled      *bool              `json:"enabled,omitempty"`
-	Labels       *map[string]string `json:"labels,omitempty"`
-	GroupIDs     *[]string          `json:"group_ids,omitempty"`
-	Rules        *RuleSetView       `json:"rules,omitempty"`
-	Login        OptionalSecret     `json:"login,omitempty"`
-	Challenge    OptionalSecret     `json:"challenge,omitempty"`
-	Enable       OptionalSecret     `json:"enable,omitempty"`
-	Restrictions *RestrictionsView  `json:"restrictions,omitempty"`
+	ID               string             `json:"id"`
+	DisplayName      *string            `json:"display_name,omitempty"`
+	Enabled          *bool              `json:"enabled,omitempty"`
+	Labels           *map[string]string `json:"labels,omitempty"`
+	GroupIDs         *[]string          `json:"group_ids,omitempty"`
+	Rules            *RuleSetView       `json:"rules,omitempty"`
+	Login            OptionalSecret     `json:"login,omitempty"`
+	Challenge        OptionalSecret     `json:"challenge,omitempty"`
+	Enable           OptionalSecret     `json:"enable,omitempty"`
+	Restrictions     *RestrictionsView  `json:"restrictions,omitempty"`
+	MustChangeLogin  *bool              `json:"must_change_login,omitempty"`
+	MustChangeEnable *bool              `json:"must_change_enable,omitempty"`
 }
 
 // DeleteUserRequest deletes a runtime user or tombstones a baseline user.
@@ -82,6 +86,8 @@ type User struct {
 	ASCIIPapConfigured  bool      `json:"ascii_pap_configured"`
 	ChallengeConfigured bool      `json:"challenge_configured"`
 	EnableConfigured    bool      `json:"enable_configured"`
+	MustChangeLogin     bool      `json:"must_change_login"`
+	MustChangeEnable    bool      `json:"must_change_enable"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 }

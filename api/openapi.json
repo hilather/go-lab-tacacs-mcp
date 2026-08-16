@@ -20,6 +20,13 @@
             "type": "string"
           },
           "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "error",
+              "restart",
+              "must_change"
+            ],
             "type": "string"
           },
           "user_id": {
@@ -753,6 +760,12 @@
           "login": {
             "$ref": "#/components/schemas/OptionalSecret",
             "writeOnly": true
+          },
+          "must_change_enable": {
+            "type": "boolean"
+          },
+          "must_change_login": {
+            "type": "boolean"
           },
           "override": {
             "type": "boolean"
@@ -1895,6 +1908,14 @@
             "type": "string"
           },
           "reason_code": {
+            "enum": [
+              "ok",
+              "reject_bad_credentials",
+              "reject_policy",
+              "reject_unsupported_method",
+              "internal_error",
+              "reject_password_change_required"
+            ],
             "type": "string"
           },
           "reply_attributes": {
@@ -2669,6 +2690,12 @@
             "$ref": "#/components/schemas/OptionalSecret",
             "writeOnly": true
           },
+          "must_change_enable": {
+            "type": "boolean"
+          },
+          "must_change_login": {
+            "type": "boolean"
+          },
           "restrictions": {
             "$ref": "#/components/schemas/RestrictionsView"
           },
@@ -2724,6 +2751,12 @@
             },
             "type": "object"
           },
+          "must_change_enable": {
+            "type": "boolean"
+          },
+          "must_change_login": {
+            "type": "boolean"
+          },
           "restrictions": {
             "$ref": "#/components/schemas/RestrictionsView"
           },
@@ -2759,6 +2792,8 @@
           "ascii_pap_configured",
           "challenge_configured",
           "enable_configured",
+          "must_change_login",
+          "must_change_enable",
           "created_at",
           "updated_at"
         ],

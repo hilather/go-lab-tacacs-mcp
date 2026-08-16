@@ -247,6 +247,32 @@ func (s *Service) VerifyMSCHAPv2(ctx context.Context, userID string, _ byte, cha
 	return err
 }
 
+// MSCHAPv2Success looks up the challenge secret and returns RFC 2548
+// MS-CHAP2-Success (Ident || "S=" || 40-hex). It never returns the NT hash.
+func (s *Service) MSCHAPv2Success(ctx context.Context, userID string, ident byte, authChallenge, peerChallenge []byte) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if len(authChallenge) != MSCHAPv2ChallengeLen || len(peerChallenge) != mschapPeerLen {
+		return nil, malformed()
+	}
+	canon, cerr := CanonicalUsername(userID)
+	rec, lerr := s.lookup(userID)
+	if cerr != nil || lerr != nil {
+		if lerr != nil {
+			return nil, lerr
+		}
+		return nil, fail(KindUnknown)
+	}
+	if rec.Challenge.Empty() {
+		return nil, unavailable()
+	}
+	sec := rec.Challenge.Bytes()
+	out, err := GenerateMSCHAPv2Success(ident, sec, []byte(canon), authChallenge, peerChallenge)
+	wipeBytes(sec)
+	return out, err
+}
+
 // VerifyEnable checks the distinct ENABLE Argon2id verifier. Login material
 // is never used as a fallback. secret is caller-owned and is not wiped.
 func (s *Service) VerifyEnable(ctx context.Context, userID string, secret []byte) error {

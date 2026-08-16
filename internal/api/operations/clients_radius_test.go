@@ -189,7 +189,7 @@ func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
 			},
 			RADIUS: &ClientRADIUSWrite{
 				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
-				AllowedMethods: []string{"mschapv2"},
+				AllowedMethods: []string{"eap"},
 			},
 		},
 	})

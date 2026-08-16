@@ -1,0 +1,12 @@
+{
+  "comment": "Independent RADIUS MS-CHAPv1 vector (RFC 2548 vendor 311). Not a TACACS START data fixture. Password matches RFC 3079 NT hash of clientPass. Challenge is the same 8-octet value used by the TACACS crypto test; the wire form here is RFC 2548 Ident||Flags||LM||NT.",
+  "rfc": "2548 / 2433",
+  "password": "clientPass",
+  "username": "User",
+  "id": 9,
+  "challenge_hex": "0123456789abcdef",
+  "nt_password_hash_hex": "44ebba8d5312b8d611474411f56989ae",
+  "ms_chap_challenge_hex": "0123456789abcdef",
+  "ms_chap_response_hex": "09011bde2544944c9596d8c0390004e6923faef7b57dbf23ee5defc1423ba3f0a9ae4ef14af4d2dcf349a82b8931758082ef",
+  "expected": "accept"
+}

@@ -553,11 +553,11 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 	return false
 }
 
-// ParseRADIUSAuthMethods accepts pap/chap only. Used by overlay writes.
+// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2. Used by overlay writes.
 func ParseRADIUSAuthMethods(raw []string) ([]string, error) {
 	out, err := normalizeRADIUSAuthMethods(raw, "radius.allowed_methods")
 	if err != nil {
-		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap or chap").WithPath("radius.allowed_methods")
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2").WithPath("radius.allowed_methods")
 	}
 	return out, nil
 }
@@ -580,9 +580,9 @@ func normalizeRADIUSAuthMethods(raw []string, path string) ([]string, error) {
 	for i, s := range raw {
 		m := strings.ToLower(strings.TrimSpace(s))
 		switch m {
-		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP:
+		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2:
 		default:
-			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap or chap")
+			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2")
 		}
 		if _, ok := seen[m]; ok {
 			continue

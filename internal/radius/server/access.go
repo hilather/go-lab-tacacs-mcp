@@ -111,12 +111,21 @@ func extractAccessEvidence(in Request) (user string, ev aaa.CredentialEvidence, 
 	paps := in.Packet.Attributes.AllOf(attribute.TypeUserPassword)
 	chaps := in.Packet.Attributes.AllOf(attribute.TypeCHAPPassword)
 	chals := in.Packet.Attributes.AllOf(attribute.TypeCHAPChallenge)
+	eaps := in.Packet.Attributes.AllOf(attribute.TypeEAPMessage)
+	ms := collectMSCHAP(in.Packet.Attributes)
 
 	if paps.Len() > 1 || chaps.Len() > 1 || chals.Len() > 1 || (paps.Len() > 0 && chaps.Len() > 0) {
 		return user, ev, ReasonConflictingAuth, wipe
 	}
-	if in.Packet.Attributes.AllOf(attribute.TypeEAPMessage).Len() > 0 {
+	if ms.present() && (paps.Len() > 0 || chaps.Len() > 0 || eaps.Len() > 0) {
+		return user, ev, ReasonConflictingAuth, wipe
+	}
+	if eaps.Len() > 0 {
 		return user, ev, ReasonUnsupportedMethod, wipe
+	}
+	if ms.present() {
+		got, reason, wipe := extractMSCHAPEvidence(in, ms, wipe)
+		return user, got, reason, wipe
 	}
 	if paps.Len() == 0 && chaps.Len() == 0 {
 		return user, ev, ReasonUnsupportedMethod, wipe
@@ -190,7 +199,7 @@ func policySafeAttrs(in attribute.RawSet) attribute.RawSet {
 	}
 	out := make(attribute.RawSet, 0, in.Len())
 	for _, a := range in {
-		if attribute.Sensitive(a.Type) || a.Type == attribute.TypeMessageAuthenticator || a.Type == attribute.TypeProxyState || a.Type == attribute.TypeState {
+		if attribute.Sensitive(a.Type) || attribute.MicrosoftSecret(a) || a.Type == attribute.TypeMessageAuthenticator || a.Type == attribute.TypeProxyState || a.Type == attribute.TypeState {
 			continue
 		}
 		out = append(out, a.Clone())

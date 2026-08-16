@@ -173,7 +173,7 @@ func radiusEvidence(m RadiusAuthMethod) (domain.AuthMethod, aaa.CredentialEviden
 	switch method {
 	case domain.AuthMethodPassword:
 		ev.Password = credentials.NewPassword([]byte(m.Password))
-	case domain.AuthMethodCHAP:
+	case domain.AuthMethodCHAP, domain.AuthMethodMSCHAPv1, domain.AuthMethodMSCHAPv2:
 		chal, err := decodeRadiusB64("method.challenge", m.Challenge)
 		if err != nil {
 			return "", ev, err
@@ -196,8 +196,12 @@ func parseRADIUSMethod(raw, path string) (domain.AuthMethod, error) {
 		return domain.AuthMethodPassword, nil
 	case "chap":
 		return domain.AuthMethodCHAP, nil
+	case "mschapv1":
+		return domain.AuthMethodMSCHAPv1, nil
+	case "mschapv2":
+		return domain.AuthMethodMSCHAPv2, nil
 	default:
-		return "", domain.NewError(domain.CodeInvalidArgument, "method must be pap or chap").WithPath(path)
+		return "", domain.NewError(domain.CodeInvalidArgument, "method must be pap, chap, mschapv1, or mschapv2").WithPath(path)
 	}
 }
 
@@ -436,7 +440,7 @@ func formatRadiusReply(in attribute.RawSet) []RadiusAttributeValue {
 	}
 	out := make([]RadiusAttributeValue, 0, len(in))
 	for _, raw := range in {
-		if attribute.Sensitive(raw.Type) {
+		if attribute.Sensitive(raw.Type) || attribute.MicrosoftSecret(raw) {
 			continue
 		}
 		out = append(out, formatRadiusRaw(raw))

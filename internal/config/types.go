@@ -30,6 +30,8 @@ const (
 	EndpointTransportUDP                 = "udp"
 	RADIUSAuthMethodPAP                  = "pap"
 	RADIUSAuthMethodCHAP                 = "chap"
+	RADIUSAuthMethodMSCHAPv1             = "mschapv1"
+	RADIUSAuthMethodMSCHAPv2             = "mschapv2"
 	RADIUSMatchOpEquals                  = "equals"
 	RADIUSMatchOpPresent                 = "present"
 	RADIUSMatchOpAbsent                  = "absent"

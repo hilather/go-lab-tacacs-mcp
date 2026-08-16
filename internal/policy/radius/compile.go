@@ -162,7 +162,7 @@ func compileMatch(m config.RADIUSMatch, path string) (compiledMatch, error) {
 	}
 	if m.Method != nil {
 		if !m.Method.Valid() {
-			return compiledMatch{}, domain.NewError(domain.CodeConfigYAMLInvalid, "authentication method must be password, pap, or chap").
+			return compiledMatch{}, domain.NewError(domain.CodeConfigYAMLInvalid, "authentication method must be password, pap, chap, mschapv1, mschapv2, or eap").
 				WithPath(path + ".method")
 		}
 		v := *m.Method

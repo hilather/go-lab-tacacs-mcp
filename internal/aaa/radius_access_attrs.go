@@ -15,7 +15,7 @@ func policyRequestAttrs(raw attribute.RawSet) policyradius.TypedSet {
 	}
 	out := make(policyradius.TypedSet, 0, len(raw))
 	for _, a := range raw {
-		if skipRequestAttr(a.Type) {
+		if skipRequestAttr(a.Type) || attribute.MicrosoftSecret(a) {
 			continue
 		}
 		if tv, ok := typedFromRaw(a); ok {
@@ -157,7 +157,7 @@ func encodeVSA(a policyradius.Typed) (attribute.Raw, error) {
 
 func wipeSecretAttrs(set attribute.RawSet) {
 	for i := range set {
-		if !attribute.Sensitive(set[i].Type) {
+		if !attribute.Sensitive(set[i].Type) && !attribute.MicrosoftSecret(set[i]) {
 			continue
 		}
 		for j := range set[i].Value {

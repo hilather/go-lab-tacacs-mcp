@@ -1,0 +1,18 @@
+{
+  "comment": "Independent RADIUS MS-CHAPv2 vector (RFC 2548 vendor 311 + RFC 2759 §8/§9). Not a TACACS START data fixture. AuthenticatorResponse is the RFC 2759 appendix string; MS-CHAP2-Success is Ident plus that 42-octet string.",
+  "rfc": "2548 / 2759",
+  "source": "https://www.rfc-editor.org/rfc/rfc2759.html#section-9",
+  "password": "clientPass",
+  "username": "User",
+  "id": 17,
+  "challenge_hex": "5b5d7c7d7b3f2f3e3c2c602132262628",
+  "peer_challenge_hex": "21402324255e262a28295f2b3a337c7e",
+  "challenge_hash_hex": "d02e4386bce91226",
+  "nt_response_hex": "82309ecd8d708b5ea08faa3981cd83544233114a3d85d6df",
+  "nt_password_hash_hex": "44ebba8d5312b8d611474411f56989ae",
+  "ms_chap_challenge_hex": "5b5d7c7d7b3f2f3e3c2c602132262628",
+  "ms_chap2_response_hex": "110021402324255e262a28295f2b3a337c7e000000000000000082309ecd8d708b5ea08faa3981cd83544233114a3d85d6df",
+  "ms_chap2_success_hex": "11533d34303741353538393131354644304436323039463531304645394330343536363933324344413536",
+  "authenticator_response": "S=407A5589115FD0D6209F510FE9C04566932CDA56",
+  "expected": "accept"
+}

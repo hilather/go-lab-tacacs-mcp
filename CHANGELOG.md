@@ -11,10 +11,15 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ### Protocol
 
 - Bounded in-memory RADIUS Challenge State store (`internal/radius/runtime`): UDP source-IP and TLS cert binds, TTL, consume-on-use, capacity fail-closed. Continuation failures use `reject_invalid_state` / `reject_challenge_expired` / `reject_challenge_binding` / `reject_challenge_capacity`. **No Access-Challenge is emitted on the live listener.** PAP/CHAP and `must_change_login` stay Access-Reject. `R65-ACCESS-004` stays `DEFERRED_MAY`. Restart / `runtime.reset` wipe the store.
+- RADIUS Access-Request accepts opt-in Microsoft MS-CHAPv1/v2 VSAs (RFC 2548 vendor 311) with independent RADIUS wire vectors. Omitted `allowed_authentication_methods` still compile to `[pap, chap]`. Must-change after a good MS-CHAP verify is Access-Reject `reject_password_change_required` with no `MS-CHAP-Error` and no extra attributes. MS-CHAPv2 Accept includes `MS-CHAP2-Success`. TACACS START fixtures are not RADIUS evidence. MS-CHAP remains MD4-era and is not a complete-RADIUS claim.
 
 ### Configuration
 
 - v2 `listeners.radius.access` gains `challenge_ttl` (default `30s`, 5s–60s), `challenge_entries` (default `4096`, 16–65536), and `challenge_bytes` (default `1MiB`, 64KiB–8MiB). Accounting rejects those keys.
+
+### Admin surfaces
+
+- `radius.access.test` and `radius.policy.evaluate` method unions grow `mschapv1` / `mschapv2` (`PARITY_REQUIRED`). MS-CHAP material is wiped and omitted from replies.
 
 ## [1.2.0] — 2026-08-16
 

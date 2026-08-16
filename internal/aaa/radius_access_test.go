@@ -105,7 +105,7 @@ func TestAuthenticateAccessDefaultDenyAndRejects(t *testing.T) {
 		{
 			name:   "unsupported-method",
 			user:   "lab-admin",
-			ev:     CredentialEvidence{Method: domain.AuthMethod("mschapv1")},
+			ev:     CredentialEvidence{Method: domain.AuthMethod("eap")},
 			want:   RadiusAccessReject,
 			reason: AccessReasonUnsupportedMethod,
 		},
@@ -274,6 +274,103 @@ func TestAuthenticateAccessAttributeMatchPermit(t *testing.T) {
 	if got.Outcome != RadiusAccessAccept || got.Trace.Winner == nil || got.Trace.Winner.RuleID != "permit-pap-nas" {
 		t.Fatalf("got %+v", got)
 	}
+}
+
+func TestAuthenticateAccessMSCHAPPermitAndMustChange(t *testing.T) {
+	t.Parallel()
+	svc := testRADIUSPolicyService(t)
+	chal := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef}
+	v1 := credentials.MSCHAPv1Response([]byte(testChallenge), chal, true)
+	got, err := svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context: domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:  "lab-admin",
+		Evidence: CredentialEvidence{
+			Method:    domain.AuthMethodMSCHAPv1,
+			CHAPID:    9,
+			Challenge: chal,
+			Response:  v1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessAccept || got.ReasonCode != AccessReasonOK {
+		t.Fatalf("v1 permit=%+v", got)
+	}
+
+	auth := []byte{0x5b, 0x5d, 0x7c, 0x7d, 0x7b, 0x3f, 0x2f, 0x3e, 0x3c, 0x2c, 0x60, 0x21, 0x32, 0x26, 0x26, 0x28}
+	peer := []byte{0x21, 0x40, 0x23, 0x24, 0x25, 0x5e, 0x26, 0x2a, 0x28, 0x29, 0x5f, 0x2b, 0x3a, 0x33, 0x7c, 0x7e}
+	v2 := credentials.MSCHAPv2Response([]byte(testChallenge), []byte("lab-admin"), auth, peer)
+	got, err = svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context: domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:  "lab-admin",
+		Evidence: CredentialEvidence{
+			Method:    domain.AuthMethodMSCHAPv2,
+			CHAPID:    17,
+			Challenge: auth,
+			Response:  v2,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessAccept {
+		t.Fatalf("v2 permit=%+v", got)
+	}
+	success := firstMSCHAP2Success(got.ReplyAttributes)
+	if success == nil || success[0] != 17 || string(success[1:3]) != "S=" || len(success) != 43 {
+		t.Fatalf("missing MS-CHAP2-Success: %+v", got.ReplyAttributes)
+	}
+
+	rev := svc.mgr.Revision()
+	flag := true
+	if _, err := svc.mgr.UpdateUser("lab-admin", state.UpdateUser{MustChangeLogin: &flag}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	got, err = svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context: domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:  "lab-admin",
+		Evidence: CredentialEvidence{
+			Method:    domain.AuthMethodMSCHAPv2,
+			CHAPID:    17,
+			Challenge: auth,
+			Response:  credentials.MSCHAPv2Response([]byte(testChallenge), []byte("lab-admin"), auth, peer),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonPasswordChangeRequired {
+		t.Fatalf("must_change=%+v", got)
+	}
+	if got.ReplyAttributes.Len() != 0 {
+		t.Fatalf("must_change must have no extra attrs: %+v", got.ReplyAttributes)
+	}
+	if firstMSCHAP2Success(got.ReplyAttributes) != nil {
+		t.Fatal("must not emit MS-CHAP2-Success")
+	}
+}
+
+func firstMSCHAP2Success(set attribute.RawSet) []byte {
+	for _, raw := range set {
+		if !attribute.MicrosoftSecret(raw) {
+			continue
+		}
+		vsa, err := attribute.ParseVSA(raw)
+		if err != nil {
+			continue
+		}
+		tlvs, err := attribute.ParseVendorTLVs(vsa.Payload)
+		if err != nil {
+			continue
+		}
+		for _, t := range tlvs {
+			if t.Type == attribute.VendorTypeMSCHAP2Success {
+				return t.Value
+			}
+		}
+	}
+	return nil
 }
 
 func TestAuthenticateAccessPolicyErrorRejects(t *testing.T) {

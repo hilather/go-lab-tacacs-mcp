@@ -10,12 +10,13 @@ type AuthMethod string
 const (
 	AuthMethodPassword AuthMethod = "password"
 	AuthMethodCHAP     AuthMethod = "chap"
-	// mschapv1/v2 reserved; not MVP
+	AuthMethodMSCHAPv1 AuthMethod = "mschapv1"
+	AuthMethodMSCHAPv2 AuthMethod = "mschapv2"
 )
 
 func (m AuthMethod) Valid() bool {
 	switch m {
-	case AuthMethodPassword, AuthMethodCHAP:
+	case AuthMethodPassword, AuthMethodCHAP, AuthMethodMSCHAPv1, AuthMethodMSCHAPv2:
 		return true
 	default:
 		return false
@@ -24,16 +25,21 @@ func (m AuthMethod) Valid() bool {
 
 func (m AuthMethod) String() string { return string(m) }
 
-// ParseAuthMethod accepts password (canonical), pap (alias of password), or chap.
-// Unknown tokens including passwd fail. The returned value is never "pap".
+// ParseAuthMethod accepts password (canonical), pap (alias of password), chap,
+// mschapv1, or mschapv2. Unknown tokens including passwd fail. The returned
+// value is never "pap". Error text also names eap (not accepted until RAD-EXT-002).
 func ParseAuthMethod(s string) (AuthMethod, error) {
 	switch strings.ToLower(s) {
 	case "password", "pap":
 		return AuthMethodPassword, nil
 	case "chap":
 		return AuthMethodCHAP, nil
+	case "mschapv1":
+		return AuthMethodMSCHAPv1, nil
+	case "mschapv2":
+		return AuthMethodMSCHAPv2, nil
 	default:
-		return "", NewError(CodeInvalidArgument, "authentication method must be password, pap, or chap")
+		return "", NewError(CodeInvalidArgument, "authentication method must be password, pap, chap, mschapv1, mschapv2, or eap")
 	}
 }
 

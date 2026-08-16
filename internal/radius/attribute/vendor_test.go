@@ -70,6 +70,64 @@ func TestVSARawRejectsLongPayload(t *testing.T) {
 	}
 }
 
+func TestParseVendorTLVsRoundTripAndUnknown(t *testing.T) {
+	t.Parallel()
+	in := []VendorTLV{
+		{Type: VendorTypeMSCHAPChallenge, Value: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
+		{Type: 99, Value: []byte{0xaa}},
+	}
+	payload, err := EncodeVendorTLVs(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseVendorTLVs(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Type != VendorTypeMSCHAPChallenge || !bytes.Equal(got[0].Value, in[0].Value) {
+		t.Fatalf("got=%+v", got)
+	}
+	if got[1].Type != 99 || !bytes.Equal(got[1].Value, []byte{0xaa}) {
+		t.Fatalf("unknown type not preserved: %+v", got[1])
+	}
+}
+
+func TestParseVendorTLVsMalformed(t *testing.T) {
+	t.Parallel()
+	cases := [][]byte{
+		{0x01},
+		{0x01, 0x00},
+		{0x01, 0x01},
+		{0x01, 0x05, 0xaa},
+	}
+	for i, payload := range cases {
+		if _, err := ParseVendorTLVs(payload); !errors.Is(err, ErrVendorTLVMalformed) {
+			t.Fatalf("case %d: %v", i, err)
+		}
+	}
+}
+
+func TestMicrosoftVSAAndSecret(t *testing.T) {
+	t.Parallel()
+	raw, err := MicrosoftVSA(VendorTypeMSCHAPChallenge, []byte{1, 2, 3, 4, 5, 6, 7, 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !MicrosoftSecret(raw) {
+		t.Fatal("challenge must be secret")
+	}
+	cisco, err := (VSA{Vendor: 9, Payload: []byte{0x01, 0x03, 'x'}}).Raw()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if MicrosoftSecret(cisco) {
+		t.Fatal("Cisco VSA is not Microsoft secret")
+	}
+	if MicrosoftSecret(Raw{Type: TypeUserName, Value: []byte("a")}) {
+		t.Fatal("User-Name")
+	}
+}
+
 func TestPacketKeepsMalformedVSARaw(t *testing.T) {
 	t.Parallel()
 	wire := []byte{TypeVendorSpecific, 4, 0, 1}

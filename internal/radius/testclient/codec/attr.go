@@ -162,3 +162,82 @@ func (v VSA) Attr() (Attr, error) {
 	copy(val[4:], v.Payload)
 	return Attr{Type: TypeVendorSpecific, Value: val}, nil
 }
+
+// Microsoft vendor id (RFC 2548). Independent of production attribute.
+const VendorMicrosoft uint32 = 311
+
+const (
+	VendorTypeMSCHAPResponse  uint8 = 1
+	VendorTypeMSCHAPError     uint8 = 2
+	VendorTypeMSCHAPChallenge uint8 = 11
+	VendorTypeMSCHAP2Response uint8 = 25
+	VendorTypeMSCHAP2Success  uint8 = 26
+)
+
+// VendorTLV is one nested vendor-type / vendor-length / value tuple.
+type VendorTLV struct {
+	Type  uint8
+	Value []byte
+}
+
+// ParseVendorTLVs walks a vendor payload as 1-byte type + 1-byte length TLVs.
+func ParseVendorTLVs(payload []byte) ([]VendorTLV, error) {
+	if len(payload) == 0 {
+		return nil, nil
+	}
+	out := make([]VendorTLV, 0, 2)
+	i := 0
+	for i < len(payload) {
+		if len(payload)-i < 2 {
+			return nil, fmt.Errorf("%w: leftover %d", ErrVendorTLVMalformed, len(payload)-i)
+		}
+		typ := payload[i]
+		n := int(payload[i+1])
+		if n < 2 {
+			return nil, fmt.Errorf("%w: type %d length %d", ErrVendorTLVMalformed, typ, n)
+		}
+		if n > len(payload)-i {
+			return nil, fmt.Errorf("%w: type %d length %d remain %d", ErrVendorTLVMalformed, typ, n, len(payload)-i)
+		}
+		var val []byte
+		if n > 2 {
+			val = make([]byte, n-2)
+			copy(val, payload[i+2:i+n])
+		}
+		out = append(out, VendorTLV{Type: typ, Value: val})
+		i += n
+	}
+	return out, nil
+}
+
+// EncodeVendorTLVs writes type/length/value.
+func EncodeVendorTLVs(tlvs []VendorTLV) ([]byte, error) {
+	n := 0
+	for _, t := range tlvs {
+		if len(t.Value) > MaxValue-4-2 {
+			return nil, fmt.Errorf("%w: type %d value %d", ErrVSAValueLong, t.Type, len(t.Value))
+		}
+		n += 2 + len(t.Value)
+	}
+	if n == 0 {
+		return nil, nil
+	}
+	out := make([]byte, n)
+	off := 0
+	for _, t := range tlvs {
+		out[off] = t.Type
+		out[off+1] = byte(2 + len(t.Value))
+		copy(out[off+2:], t.Value)
+		off += 2 + len(t.Value)
+	}
+	return out, nil
+}
+
+// MicrosoftVSA encodes one RFC 2548 Microsoft TLV as type 26.
+func MicrosoftVSA(vendorType uint8, value []byte) (Attr, error) {
+	payload, err := EncodeVendorTLVs([]VendorTLV{{Type: vendorType, Value: value}})
+	if err != nil {
+		return Attr{}, err
+	}
+	return (VSA{Vendor: VendorMicrosoft, Payload: payload}).Attr()
+}

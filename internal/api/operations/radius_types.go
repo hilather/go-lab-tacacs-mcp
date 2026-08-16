@@ -20,7 +20,7 @@ type RadiusAccessTestRequest struct {
 }
 
 // RadiusAuthMethod is the RADIUS diagnostic method tagged union.
-// type is pap or chap (RADIUS names). pap maps to domain.AuthMethodPassword.
+// type is pap, chap, mschapv1, or mschapv2. pap maps to domain.AuthMethodPassword.
 type RadiusAuthMethod struct {
 	Type      string `json:"type"`
 	Password  string `json:"password,omitempty"`
@@ -59,7 +59,7 @@ var RadiusAccessTestReasonCodes = []string{
 }
 
 // RadiusPolicyEvaluateRequest explains the compiled RADIUS engine.
-// Method is pap or chap. Credentials are not verified.
+// Method is pap, chap, mschapv1, or mschapv2. Credentials are not verified.
 type RadiusPolicyEvaluateRequest struct {
 	ClientID          string                 `json:"client_id,omitempty"`
 	UserID            string                 `json:"user_id"`

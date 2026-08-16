@@ -22,4 +22,10 @@ var (
 
 	// ErrCHAPPasswordLength is a CHAP-Password that is not 17 octets.
 	ErrCHAPPasswordLength = errors.New("testclient: CHAP-Password length is not 17")
+
+	// ErrMSCHAPResponseLength is an MS-CHAP-Response that is not 50 octets.
+	ErrMSCHAPResponseLength = errors.New("testclient: MS-CHAP response length is not 50")
+
+	// ErrMissingMSCHAPChallenge is an MS-CHAP response without a challenge.
+	ErrMissingMSCHAPChallenge = errors.New("testclient: MS-CHAP-Challenge is required")
 )

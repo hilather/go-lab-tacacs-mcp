@@ -112,6 +112,75 @@ func MSCHAPv2Response(password, username, authChallenge, peerChallenge []byte) [
 	return out
 }
 
+// mschapv2SuccessLen is Ident (1) + RFC 2759 AuthenticatorResponse (42).
+const mschapv2SuccessLen = 43
+
+// GenerateMSCHAPv2Success returns Ident || "S=" || 40-hex (43 bytes)
+// per RFC 2759 §8 / RFC 2548 MS-CHAP2-Success. Wipes intermediate hashes.
+func GenerateMSCHAPv2Success(ident byte, password, username, authChallenge, peerChallenge []byte) ([]byte, error) {
+	if len(authChallenge) != MSCHAPv2ChallengeLen || len(peerChallenge) != mschapPeerLen {
+		return nil, malformed()
+	}
+	nth := NtPasswordHash(password)
+	hashHash := hashNtPasswordHash(nth)
+	nt := MSCHAPv2NTResponse(password, username, authChallenge, peerChallenge)
+	authResp := generateAuthenticatorResponse(hashHash, nt, peerChallenge, authChallenge, username)
+	wipeBytes(nth)
+	wipeBytes(hashHash)
+	wipeBytes(nt)
+	out := make([]byte, mschapv2SuccessLen)
+	out[0] = ident
+	copy(out[1:], authResp)
+	return out, nil
+}
+
+// generateAuthenticatorResponse is RFC 2759 §8.7 (42 octets: "S=" + 40 hex).
+func generateAuthenticatorResponse(passwordHashHash, ntResponse, peerChallenge, authChallenge, username []byte) []byte {
+	// "Magic server to client signing constant"
+	magic1 := []byte{
+		0x4D, 0x61, 0x67, 0x69, 0x63, 0x20, 0x73, 0x65, 0x72, 0x76,
+		0x65, 0x72, 0x20, 0x74, 0x6F, 0x20, 0x63, 0x6C, 0x69, 0x65,
+		0x6E, 0x74, 0x20, 0x73, 0x69, 0x67, 0x6E, 0x69, 0x6E, 0x67,
+		0x20, 0x63, 0x6F, 0x6E, 0x73, 0x74, 0x61, 0x6E, 0x74,
+	}
+	// "Pad to make it do more than one iteration"
+	magic2 := []byte{
+		0x50, 0x61, 0x64, 0x20, 0x74, 0x6F, 0x20, 0x6D, 0x61, 0x6B,
+		0x65, 0x20, 0x69, 0x74, 0x20, 0x64, 0x6F, 0x20, 0x6D, 0x6F,
+		0x72, 0x65, 0x20, 0x74, 0x68, 0x61, 0x6E, 0x20, 0x6F, 0x6E,
+		0x65, 0x20, 0x69, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6F,
+		0x6E,
+	}
+	h := sha1.New()
+	_, _ = h.Write(passwordHashHash)
+	_, _ = h.Write(ntResponse)
+	_, _ = h.Write(magic1)
+	digest := h.Sum(nil)
+	ch := MSCHAPv2ChallengeHash(peerChallenge, authChallenge, username)
+	h.Reset()
+	_, _ = h.Write(digest)
+	_, _ = h.Write(ch)
+	_, _ = h.Write(magic2)
+	digest2 := h.Sum(nil)
+	wipeBytes(digest)
+	wipeBytes(ch)
+	const hexDigits = "0123456789ABCDEF"
+	out := make([]byte, 42)
+	out[0], out[1] = 'S', '='
+	for i := 0; i < 20; i++ {
+		out[2+i*2] = hexDigits[digest2[i]>>4]
+		out[3+i*2] = hexDigits[digest2[i]&0x0f]
+	}
+	wipeBytes(digest2)
+	return out
+}
+
+func hashNtPasswordHash(passwordHash []byte) []byte {
+	h := md4.New()
+	_, _ = h.Write(passwordHash)
+	return h.Sum(nil)
+}
+
 func verifyMSCHAPv1(password, challenge, response []byte) error {
 	if len(challenge) != MSCHAPv1ChallengeLen || len(response) != MSCHAPResponseLen {
 		return malformed()

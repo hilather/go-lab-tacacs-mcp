@@ -13,9 +13,10 @@ var (
 	ErrAttrBudget    = errors.New("radius testclient: attribute value bytes exceed budget")
 	ErrAttrValueLong = errors.New("radius testclient: attribute value exceeds 253 bytes")
 
-	ErrNotVSA       = errors.New("radius testclient: attribute is not Vendor-Specific")
-	ErrVSAShort     = errors.New("radius testclient: Vendor-Specific value is shorter than a vendor id")
-	ErrVSAValueLong = errors.New("radius testclient: Vendor-Specific payload exceeds attribute value budget")
+	ErrNotVSA             = errors.New("radius testclient: attribute is not Vendor-Specific")
+	ErrVSAShort           = errors.New("radius testclient: Vendor-Specific value is shorter than a vendor id")
+	ErrVSAValueLong       = errors.New("radius testclient: Vendor-Specific payload exceeds attribute value budget")
+	ErrVendorTLVMalformed = errors.New("radius testclient: vendor TLV is malformed")
 
 	ErrEmptySecret     = errors.New("radius testclient: shared secret is empty")
 	ErrPasswordTooLong = errors.New("radius testclient: User-Password exceeds 128 octets")

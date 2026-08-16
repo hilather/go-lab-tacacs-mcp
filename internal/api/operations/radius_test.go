@@ -160,6 +160,55 @@ func TestRadiusAccessTestCHAPAndAttributes(t *testing.T) {
 	}
 }
 
+func TestRadiusAccessTestMSCHAPAndPolicyEvaluate(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	auth := []byte{0x5b, 0x5d, 0x7c, 0x7d, 0x7b, 0x3f, 0x2f, 0x3e, 0x3c, 0x2c, 0x60, 0x21, 0x32, 0x26, 0x26, 0x28}
+	peer := []byte{0x21, 0x40, 0x23, 0x24, 0x25, 0x5e, 0x26, 0x2a, 0x28, 0x29, 0x5f, 0x2b, 0x3a, 0x33, 0x7c, 0x7e}
+	resp := credentials.MSCHAPv2Response([]byte(radiusTestChallenge), []byte("lab-admin"), auth, peer)
+	res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			ClientID: "lab-switches",
+			UserID:   "lab-admin",
+			Method: RadiusAuthMethod{
+				Type:      "mschapv2",
+				ID:        17,
+				Challenge: base64.StdEncoding.EncodeToString(auth),
+				Response:  base64.StdEncoding.EncodeToString(resp),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAccessTestResult)
+	if out.Outcome != RadiusOutcomeAccept {
+		t.Fatalf("mschapv2=%+v", out)
+	}
+	raw, _ := json.Marshal(out)
+	if strings.Contains(string(raw), "S=") || strings.Contains(strings.ToLower(string(raw)), "ms-chap") {
+		t.Fatalf("MS-CHAP2-Success leaked: %s", raw)
+	}
+
+	eval, err := reg.Invoke(context.Background(), IDRadiusPolicyEvaluate, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusPolicyEvaluateRequest{
+			ClientID: "lab-switches",
+			UserID:   "lab-admin",
+			Method:   "mschapv2",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := eval.Data.(RadiusPolicyEvaluateResult)
+	if got.Effect != domain.EffectPermit.String() {
+		t.Fatalf("evaluate mschapv2=%+v", got)
+	}
+}
+
 func TestRadiusAccessTestMustChangeReasonCode(t *testing.T) {
 	t.Parallel()
 	reg, m := radiusTestRegistry(t)
@@ -424,6 +473,7 @@ clients:
         roles: [access]
         radius:
           shared_secret: {file: ` + sec + `}
+          allowed_authentication_methods: [pap, chap, mschapv1, mschapv2]
           access_policy_id: default-radius-access
 groups:
   - id: lab-admins

@@ -2027,6 +2027,12 @@
             "type": "string"
           },
           "type": {
+            "enum": [
+              "pap",
+              "chap",
+              "mschapv1",
+              "mschapv2"
+            ],
             "type": "string"
           }
         },
@@ -2045,6 +2051,12 @@
             "type": "string"
           },
           "method": {
+            "enum": [
+              "pap",
+              "chap",
+              "mschapv1",
+              "mschapv2"
+            ],
             "type": "string"
           },
           "request_attributes": {

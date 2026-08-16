@@ -172,6 +172,42 @@
       "notes": "VSA framing only; named Cisco-AVPair is not decoded"
     },
     {
+      "name": "access-request-mschapv1",
+      "path": "packets/access-request-mschapv1.bin",
+      "raw_hex": "010900640102030405060708090a0b0c0d0e0f100106557365721a10000001370b0a0123456789abcdef1a3a00000137013409011bde2544944c9596d8c0390004e6923faef7b57dbf23ee5defc1423ba3f0a9ae4ef14af4d2dcf349a82b8931758082ef",
+      "len": 100,
+      "declared": 100,
+      "code": 1,
+      "identifier": 9,
+      "authenticator_hex": "0102030405060708090a0b0c0d0e0f10",
+      "attributes": [
+        {"type": 1, "value_hex": "55736572"},
+        {"type": 26, "value_hex": "000001370b0a0123456789abcdef", "value_note": "Microsoft vendor 311 MS-CHAP-Challenge"},
+        {"type": 26, "value_hex": "00000137013409011bde2544944c9596d8c0390004e6923faef7b57dbf23ee5defc1423ba3f0a9ae4ef14af4d2dcf349a82b8931758082ef", "value_note": "Microsoft vendor 311 MS-CHAP-Response; not TACACS START data"}
+      ],
+      "known": true,
+      "advertised": true,
+      "notes": "Independent RFC 2548 MS-CHAPv1 Access-Request. Not a TACACS START fixture."
+    },
+    {
+      "name": "access-request-mschapv2",
+      "path": "packets/access-request-mschapv2.bin",
+      "raw_hex": "0111006c0102030405060708090a0b0c0d0e0f100106557365721a18000001370b125b5d7c7d7b3f2f3e3c2c6021322626281a3a000001371934110021402324255e262a28295f2b3a337c7e000000000000000082309ecd8d708b5ea08faa3981cd83544233114a3d85d6df",
+      "len": 108,
+      "declared": 108,
+      "code": 1,
+      "identifier": 17,
+      "authenticator_hex": "0102030405060708090a0b0c0d0e0f10",
+      "attributes": [
+        {"type": 1, "value_hex": "55736572"},
+        {"type": 26, "value_hex": "000001370b125b5d7c7d7b3f2f3e3c2c602132262628", "value_note": "Microsoft vendor 311 MS-CHAP-Challenge 16 octets"},
+        {"type": 26, "value_hex": "000001371934110021402324255e262a28295f2b3a337c7e000000000000000082309ecd8d708b5ea08faa3981cd83544233114a3d85d6df", "value_note": "Microsoft vendor 311 MS-CHAP2-Response; not TACACS START data"}
+      ],
+      "known": true,
+      "advertised": true,
+      "notes": "Independent RFC 2548 MS-CHAPv2 Access-Request. Not a TACACS START fixture."
+    },
+    {
       "name": "access-request-empty-attr",
       "path": "packets/access-request-empty-attr.bin",
       "raw_hex": "01010016000000000000000000000000000000000102",

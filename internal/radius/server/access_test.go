@@ -21,6 +21,8 @@ type scriptedAuth struct {
 
 func (s *scriptedAuth) AuthenticateAccess(_ context.Context, in aaa.RadiusAccessAttempt) (aaa.RadiusAccessDecision, error) {
 	s.got = in
+	s.got.Evidence.Challenge = append([]byte(nil), in.Evidence.Challenge...)
+	s.got.Evidence.Response = append([]byte(nil), in.Evidence.Response...)
 	return s.dec, s.err
 }
 

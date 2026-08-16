@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-08-16  
 Decision owners: TacLab maintainers  
 Related tasks: RAD-EXT-003, RAD-DOM-005  
-Related conformance rows: PRJ-UL-001  
+Related conformance rows: PRJ-UL-001, PRJ-MSCHAP-001  
 Source design: [docs/designs/radius-remaining-work.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-remaining-work.md)
 
 ## Context

@@ -328,7 +328,7 @@ Give every secret class a unique canary and scan:
 
 Only the one-time newly created token response may contain its token canary.
 
-RADIUS adds two unique canaries (`CanaryRADIUSShared`, `CanaryUserPassword`) distinct from the TACACS login-password and legacy-shared canaries. `TestRADIUSCanaryMatrix` plants them in a schema-v2 client endpoint, PAP `authentication.test` input, secret-holder dumps, metrics labels, traces, events, REST/MCP export, and panic recovery. Hidden User-Password bytes are also covered by `internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors` (lab tokens `CANARY-RADIUS-SECRET-aa11` / `CANARY-UNHIDE-PASSWORD-zz99`; gitleaks regex-allowlisted, not live secrets).
+RADIUS adds unique canaries (`CanaryRADIUSShared`, `CanaryUserPassword`, `CanaryMSCHAP`) distinct from the TACACS login-password and legacy-shared canaries. `TestRADIUSCanaryMatrix` plants them in a schema-v2 client endpoint, PAP `authentication.test` / MS-CHAP `radius.access.test` input, secret-holder dumps, metrics labels, traces, events, REST/MCP export, and panic recovery. Hidden User-Password bytes are also covered by `internal/radius/crypto.TestCanaryUnhiddenPasswordNeverInErrors` (lab tokens `CANARY-RADIUS-SECRET-aa11` / `CANARY-UNHIDE-PASSWORD-zz99`; gitleaks regex-allowlisted, not live secrets).
 
 For legacy shared secrets, additionally verify that reuse detection can identify equal values without exposing a fingerprint; weak/short validation errors never echo the candidate; lifecycle warnings contain only client IDs and non-secret dates/status; and secret rotation followed by atomic reload updates the process-local comparison state and lifecycle status without leaking either old or new material.
 

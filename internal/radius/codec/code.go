@@ -11,8 +11,7 @@ const (
 	CodeAccessReject       Code = 3
 	CodeAccountingRequest  Code = 4
 	CodeAccountingResponse Code = 5
-	// CodeAccessChallenge is recognized so it can be discarded later.
-	// It is not an advertised MVP feature.
+	// CodeAccessChallenge is emitted for EAP Identity/MD5 termination.
 	CodeAccessChallenge Code = 11
 	// RFC 5176 Dynamic Authorization (DAC originate in this program).
 	CodeDisconnectRequest Code = 40
@@ -36,11 +35,11 @@ func (c Code) Known() bool {
 	}
 }
 
-// Advertised reports MVP codes. Access-Challenge is known but not advertised.
+// Advertised reports shipped Access/Accounting codes, including Challenge.
 func (c Code) Advertised() bool {
 	switch c {
 	case CodeAccessRequest, CodeAccessAccept, CodeAccessReject,
-		CodeAccountingRequest, CodeAccountingResponse,
+		CodeAccountingRequest, CodeAccountingResponse, CodeAccessChallenge,
 		CodeDisconnectRequest, CodeDisconnectACK, CodeDisconnectNAK,
 		CodeCoARequest, CodeCoAACK, CodeCoANAK:
 		return true

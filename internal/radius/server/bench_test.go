@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
@@ -10,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
 func BenchmarkRadiusAccessPAP_NoKDF(b *testing.B) {
@@ -139,6 +141,76 @@ func BenchmarkRadiusAccessMSCHAP(b *testing.B) {
 	}
 }
 
+func BenchmarkRadiusEAPIdentityIssue(b *testing.B) {
+	store := runtime.NewChallengeStore(65536, 8<<20, 0, nil)
+	pkt := encodeEAP(eapPacket{Code: eapCodeResponse, Identifier: 1, Type: eapTypeIdentity, HasType: true, Data: []byte("lab-admin")})
+	var ra [16]byte
+	ra[0] = 0x7b
+	rawPkt := codec.Packet{
+		Code:          codec.CodeAccessRequest,
+		Identifier:    1,
+		Authenticator: ra,
+		Attributes: attribute.RawSet{
+			{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+			{Type: attribute.TypeEAPMessage, Value: pkt},
+			{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)},
+		},
+	}
+	raw, err := codec.Encode(rawPkt)
+	if err != nil {
+		b.Fatal(err)
+	}
+	mac, err := crypto.MessageAuthenticator(testSecret, raw)
+	if err != nil {
+		b.Fatal(err)
+	}
+	off := codec.HeaderSize
+	for off+2 <= len(raw) {
+		alen := int(raw[off+1])
+		if raw[off] == attribute.TypeMessageAuthenticator {
+			copy(raw[off+2:off+18], mac[:])
+			break
+		}
+		off += alen
+	}
+	dec, err := codec.Decode(raw)
+	if err != nil {
+		b.Fatal(err)
+	}
+	h := Access{Store: store, Entropy: seqEntropy{}}
+	in := Request{
+		Role:                        domain.RoleAccess,
+		Packet:                      dec,
+		Declared:                    raw,
+		Secret:                      testSecret,
+		RequireMessageAuthenticator: true,
+		AllowedMethods:              []string{methodEAP},
+		ClientID:                    "lab-switches",
+		EndpointID:                  "radius-udp",
+		Peer:                        netip.MustParseAddrPort("192.0.2.10:1812"),
+		Carrier:                     domain.CarrierRADIUSUDP,
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		store.Reset()
+		res := h.Handle(context.Background(), in)
+		if res.Action != ActionReply || res.Reason != ReasonChallenge {
+			b.Fatalf("%+v", res)
+		}
+	}
+}
+
 func BenchmarkRadiusAccountingRequest(b *testing.B) {
 	BenchmarkAccountingHandle(b)
+}
+
+type seqEntropy struct{ n byte }
+
+func (s seqEntropy) Read(p []byte) (int, error) {
+	for i := range p {
+		s.n++
+		p[i] = s.n
+	}
+	return len(p), nil
 }

@@ -367,7 +367,7 @@ Every contract linked from this page, with what it covers.
 | [0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) | Keep TacLab / `taclabd` / module / image names |
 | [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md) | Force login-class lock; lab/vendor in-LOGIN GETPASS (not RFC LOGIN) |
 | [0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md) | In-memory remaining-work charter; persist cancelled; `conformance_status` stays `partial` |
-| [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md) | Access-Challenge state gate (not advertised until testclient evidence) |
+| [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md) | Access-Challenge state gate (Identity + EAP-MD5; `R65-ACCESS-004` PASS with testclient wire evidence) |
 | [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) | EAP Identity + MD5 only; must-change stays Access-Reject + generic EAP-Failure |
 | [0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md) | RADIUS MS-CHAP VSAs; independent RADIUS vectors; methods opt-in |
 | [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md) | DAC CoA uses UDP endpoint secret; inbound DAS is echo fixture only |

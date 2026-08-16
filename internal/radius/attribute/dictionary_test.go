@@ -56,6 +56,7 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		{"Event-Timestamp", TypeEventTimestamp, KindTime, CardinalitySingle, SensitivityPublic},
 		{"CHAP-Challenge", TypeCHAPChallenge, KindString, CardinalitySingle, SensitivityPublic},
 		{"NAS-Port-Type", TypeNASPortType, KindInteger, CardinalitySingle, SensitivityPublic},
+		{"EAP-Message", TypeEAPMessage, KindString, CardinalityMulti, SensitivityRestricted},
 		{"Message-Authenticator", TypeMessageAuthenticator, KindString, CardinalitySingle, SensitivitySecret},
 		{"Acct-Interim-Interval", TypeAcctInterimInterval, KindInteger, CardinalitySingle, SensitivityPublic},
 		{"NAS-IPv6-Address", TypeNASIPv6Address, KindIPv6, CardinalitySingle, SensitivityRestricted},

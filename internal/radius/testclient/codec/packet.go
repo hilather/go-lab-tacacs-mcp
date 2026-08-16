@@ -27,7 +27,9 @@ const (
 	TypeSessionTimeout       uint8 = 27
 	TypeNASIdentifier        uint8 = 32
 	TypeAcctSessionID        uint8 = 44
+	TypeState                uint8 = 24
 	TypeCHAPChallenge        uint8 = 60
+	TypeEAPMessage           uint8 = 79
 	TypeMessageAuthenticator uint8 = 80
 	TypeErrorCause           uint8 = 101
 )
@@ -41,8 +43,6 @@ const (
 	AccessReject       Code = 3
 	AccountingRequest  Code = 4
 	AccountingResponse Code = 5
-	// AccessChallenge is decoded so a later test can reject it.
-	// It is not an advertised feature.
 	AccessChallenge   Code = 11
 	DisconnectRequest Code = 40
 	DisconnectACK     Code = 41
@@ -79,10 +79,10 @@ func (c Code) Known() bool {
 	}
 }
 
-// Advertised reports MVP codes. Access-Challenge is known but not advertised.
+// Advertised reports shipped Access/Accounting codes, including Challenge.
 func (c Code) Advertised() bool {
 	switch c {
-	case AccessRequest, AccessAccept, AccessReject, AccountingRequest, AccountingResponse,
+	case AccessRequest, AccessAccept, AccessReject, AccountingRequest, AccountingResponse, AccessChallenge,
 		DisconnectRequest, DisconnectACK, DisconnectNAK, CoARequest, CoAACK, CoANAK:
 		return true
 	default:

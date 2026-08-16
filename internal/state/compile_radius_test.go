@@ -183,6 +183,28 @@ func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	}
 }
 
+func TestCompiledAccessMethodsNeverEmpty(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, mixedRADIUSYAML)
+	c, ok := m.Snapshot().Client("lab-switches")
+	if !ok {
+		t.Fatal("missing client")
+	}
+	for _, ep := range c.Client.Endpoints {
+		if ep.RADIUS == nil {
+			continue
+		}
+		if len(ep.RADIUS.AllowedAuthenticationMethods) == 0 {
+			t.Fatalf("endpoint %s compiled empty method list", ep.ID)
+		}
+		for _, method := range ep.RADIUS.AllowedAuthenticationMethods {
+			if method == config.RADIUSAuthMethodEAP {
+				t.Fatalf("eap must stay opt-in: %v", ep.RADIUS.AllowedAuthenticationMethods)
+			}
+		}
+	}
+}
+
 func TestReloadInvalidRADIUSKeepsSnapshot(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, mixedRADIUSYAML)

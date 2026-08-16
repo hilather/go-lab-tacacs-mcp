@@ -76,6 +76,8 @@ func mvpDefinitions() []Definition {
 			maskOf(PacketAccessRequest)),
 		define("NAS-Port-Type", TypeNASPortType, KindInteger, CardinalitySingle, SensitivityPublic,
 			maskOf(PacketAccessRequest, PacketAccountingRequest)),
+		define("EAP-Message", TypeEAPMessage, KindString, CardinalityMulti, SensitivityRestricted,
+			maskOf(PacketAccessRequest, PacketAccessAccept, PacketAccessReject, PacketAccessChallenge)),
 		// MA is allowed on Accounting-Request (validate-if-present) and
 		// required first on every Access and Accounting response.
 		define("Message-Authenticator", TypeMessageAuthenticator, KindString, CardinalitySingle, SensitivitySecret,

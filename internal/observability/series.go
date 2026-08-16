@@ -49,6 +49,7 @@ const (
 	MetricRADIUSSessionIndexEntries     = "taclab_radius_session_index_entries"
 	MetricRADIUSSessionIndexSaturations = "taclab_radius_session_index_saturations_total"
 	MetricRADIUSDynAuthTotal            = "taclab_radius_dynauth_total"
+	MetricRADIUSEAP                     = "taclab_radius_eap_total"
 )
 
 // Label names that may appear on any series.
@@ -69,6 +70,7 @@ const (
 	LabelResult      = "result"
 	LabelType        = "type"
 	LabelDirection   = "direction"
+	LabelEAPType     = "eap_type"
 )
 
 // Forbidden label keys: unbounded or secret-adjacent cardinality.
@@ -159,6 +161,7 @@ var allowedLabels = map[string]map[string]struct{}{
 	MetricRADIUSSessionIndexEntries:     keys(),
 	MetricRADIUSSessionIndexSaturations: keys(),
 	MetricRADIUSDynAuthTotal:            keys(LabelDirection, LabelPacketCode, LabelOutcome),
+	MetricRADIUSEAP:                     keys(LabelEAPType, LabelOutcome),
 }
 
 func keys(names ...string) map[string]struct{} {
@@ -210,15 +213,16 @@ const (
 	RoleAdmin                = "admin"
 	RoleDynamicAuthorization = "dynamic_authorization"
 
-	OutcomeAccessAccept = "access_accept"
-	OutcomeAccessReject = "access_reject"
-	OutcomeOK           = "ok"
-	OutcomeDiscard      = "discard"
-	OutcomeDrop         = "drop"
-	OutcomeError        = "error"
-	OutcomeACK          = "ack"
-	OutcomeNAK          = "nak"
-	OutcomeTimeout      = "timeout"
+	OutcomeAccessAccept    = "access_accept"
+	OutcomeAccessReject    = "access_reject"
+	OutcomeAccessChallenge = "access_challenge"
+	OutcomeOK              = "ok"
+	OutcomeDiscard         = "discard"
+	OutcomeDrop            = "drop"
+	OutcomeError           = "error"
+	OutcomeACK             = "ack"
+	OutcomeNAK             = "nak"
+	OutcomeTimeout         = "timeout"
 
 	DirectionOut = "out"
 	DirectionIn  = "in"
@@ -251,6 +255,11 @@ const (
 	AuthTypeMessageAuthenticator = "message_authenticator"
 	AuthTypeAccountingRequest    = "accounting_request"
 	AuthTypeResponse             = "response"
+
+	EAPTypeIdentity = "identity"
+	EAPTypeMD5      = "md5"
+	EAPTypeNAK      = "nak"
+	EAPTypeOther    = "other"
 )
 
 // SecretLifecycleStatuses is the closed set of lifecycle gauge labels.
@@ -309,7 +318,7 @@ func knownRole(v string) bool {
 
 func knownOutcome(v string) bool {
 	switch v {
-	case OutcomeAccessAccept, OutcomeAccessReject, OutcomeOK,
+	case OutcomeAccessAccept, OutcomeAccessReject, OutcomeAccessChallenge, OutcomeOK,
 		OutcomeDiscard, OutcomeDrop, OutcomeError:
 		return true
 	default:
@@ -355,6 +364,15 @@ func knownAuthenticatorType(v string) bool {
 	}
 }
 
+func knownEAPType(v string) bool {
+	switch v {
+	case EAPTypeIdentity, EAPTypeMD5, EAPTypeNAK, EAPTypeOther:
+		return true
+	default:
+		return false
+	}
+}
+
 // Closed §5.7 reason_code set plus documented lab extras (secret missing,
 // journal saturation sampled as a discard of a ring append, not of the ack).
 func knownReasonCode(v string) bool {
@@ -384,6 +402,8 @@ func knownReasonCode(v string) bool {
 		"reject_challenge_binding",
 		"reject_challenge_capacity",
 		"challenge",
+		"reject_unsupported_eap_method",
+		"reject_eap_too_long",
 		"internal_error",
 		"ambiguous_identity",
 		"secret_unavailable",

@@ -616,7 +616,7 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 }
 
 // DefaultRADIUSAccessMethods fills an omitted/empty access-role list with
-// [pap, chap]. MS-CHAP stays opt-in (KD-R21).
+// [pap, chap]. EAP and MS-CHAP stay opt-in (KD-R21).
 func DefaultRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
 	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
 		return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
@@ -624,11 +624,11 @@ func DefaultRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) [
 	return methods
 }
 
-// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2. Used by overlay writes.
+// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2/eap. Used by overlay writes.
 func ParseRADIUSAuthMethods(raw []string) ([]string, error) {
 	out, err := normalizeRADIUSAuthMethods(raw, "radius.allowed_methods")
 	if err != nil {
-		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2").WithPath("radius.allowed_methods")
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, or eap").WithPath("radius.allowed_methods")
 	}
 	return out, nil
 }
@@ -651,9 +651,9 @@ func normalizeRADIUSAuthMethods(raw []string, path string) ([]string, error) {
 	for i, s := range raw {
 		m := strings.ToLower(strings.TrimSpace(s))
 		switch m {
-		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2:
+		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2, RADIUSAuthMethodEAP:
 		default:
-			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2")
+			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, or eap")
 		}
 		if _, ok := seen[m]; ok {
 			continue

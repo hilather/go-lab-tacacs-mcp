@@ -21,3 +21,4 @@ rows:
       - unit:internal/radius/crypto.TestPeerMessageAuthenticatorBytes
       - golden:testdata/protocol/radius/crypto/vectors.json
       - bench:internal/radius/crypto.BenchmarkMessageAuthenticator
+      - unit:internal/radius/udp.TestIndependentTestclientEAPIdentityMD5Wire

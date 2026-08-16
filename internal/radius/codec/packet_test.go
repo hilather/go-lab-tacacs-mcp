@@ -111,8 +111,8 @@ func TestDecodeAccessChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Code != CodeAccessChallenge || got.Code.Advertised() {
-		t.Fatalf("challenge advertised or lost: %s", got)
+	if got.Code != CodeAccessChallenge || !got.Code.Advertised() {
+		t.Fatalf("challenge lost or not advertised: %s", got)
 	}
 }
 

@@ -238,7 +238,7 @@ func TestWireAccessReasonChallengeCodes(t *testing.T) {
 	t.Parallel()
 	for _, code := range []string{
 		ReasonInvalidState, ReasonChallengeExpired, ReasonChallengeBinding,
-		ReasonChallengeCapacity, ReasonChallenge,
+		ReasonChallengeCapacity, ReasonChallenge, ReasonUnsupportedEAPMethod, ReasonEAPTooLong,
 	} {
 		if got := wireAccessReason(code); got != code {
 			t.Errorf("%s collapsed to %s", code, got)

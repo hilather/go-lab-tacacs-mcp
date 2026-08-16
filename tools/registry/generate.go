@@ -210,13 +210,13 @@ func renderRADIUSQualificationSummary(tables ...*ConformanceRegistry) string {
 		}
 		b.WriteString(") |\n")
 	}
-	b.WriteString("| Advertised completeness | **Do not claim complete RADIUS** while Access-Challenge is deferred, external radclient is skipped, or any MVP row lacks evidence |\n")
+	b.WriteString("| Advertised completeness | **Do not claim complete RADIUS** while tunneled EAP / persist / proxy / DTLS remain deferred, external radclient is skipped, or any MVP row lacks evidence |\n")
 	b.WriteString("| Independent software peer | `internal/radius/testclient` (separate codec) |\n")
 	b.WriteString("| External radclient / Cisco IOL | **SKIP** unless recorded in `docs/INTEROP.md`; a skip is not RADIUS PASS |\n\n")
 	if mustOpen != 0 {
 		b.WriteString("RADIUS MVP rows remain open until linked evidence exists. Do **not** advertise complete RADIUS. TACACS 1.0 `-release` still gates only RFC 8907/9887.\n\n")
 	} else {
-		b.WriteString("RADIUS MVP MUST rows are evidenced or deferred with an ADR. Access-Challenge stays `DEFERRED_MAY`. External radclient/device interop is not claimed. Do **not** advertise complete RADIUS. TACACS 1.0 `-release` still gates only RFC 8907/9887.\n\n")
+		b.WriteString("RADIUS MVP MUST rows are evidenced or deferred with an ADR. Tunneled EAP stays `DEFERRED_MAY`. External radclient/device interop is not claimed. Do **not** advertise complete RADIUS. TACACS 1.0 `-release` still gates only RFC 8907/9887.\n\n")
 	}
 	return b.String()
 }

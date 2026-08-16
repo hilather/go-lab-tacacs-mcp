@@ -386,14 +386,17 @@ func TestReleaseGateExcludesRADIUSSkeletons(t *testing.T) {
 	}
 	radiusIssues := CheckReleaseStatuses(rep.RADIUSTables()...)
 	if len(radiusIssues) == 0 {
-		t.Fatal("R65-ACCESS-004 DEFERRED_MAY must fail CheckReleaseStatuses")
+		t.Fatal("PRJ-EAP-003 DEFERRED_MAY must fail CheckReleaseStatuses")
 	}
 	have := map[string]struct{}{}
 	for _, issue := range radiusIssues {
 		have[issue.ID] = struct{}{}
 	}
-	if _, ok := have["R65-ACCESS-004"]; !ok {
-		t.Error("expected R65-ACCESS-004 (DEFERRED_MAY) in RADIUS CheckReleaseStatuses issues")
+	if _, ok := have["PRJ-EAP-003"]; !ok {
+		t.Error("expected PRJ-EAP-003 (DEFERRED_MAY) in RADIUS CheckReleaseStatuses issues")
+	}
+	if _, ok := have["R65-ACCESS-004"]; ok {
+		t.Error("R65-ACCESS-004 is PASS and must not fail CheckReleaseStatuses")
 	}
 	for _, id := range []string{"R65-PKT-001", "PRJ-SEC-001"} {
 		if _, ok := have[id]; ok {
@@ -559,10 +562,22 @@ func TestRADIUSRowPrefixesAndDeferredEvidence(t *testing.T) {
 	if challenge == nil {
 		t.Fatal("missing R65-ACCESS-004")
 	}
-	if challenge.Status != StatusDeferredMAY {
-		t.Fatalf("R65-ACCESS-004 status %s, want %s", challenge.Status, StatusDeferredMAY)
+	if challenge.Status != StatusPass {
+		t.Fatalf("R65-ACCESS-004 status %s, want %s", challenge.Status, StatusPass)
 	}
-	if len(challenge.Evidence) != 1 || challenge.Evidence[0] != "adr:docs/decisions/0016-radius-udp-security-retransmission-and-scope.md" {
+	if len(challenge.Evidence) == 0 {
+		t.Fatal("R65-ACCESS-004 needs evidence")
+	}
+	haveADR, haveWire := false, false
+	for _, ev := range challenge.Evidence {
+		if ev == "adr:docs/decisions/0021-radius-access-challenge-state-gate.md" {
+			haveADR = true
+		}
+		if ev == "unit:internal/radius/udp.TestIndependentTestclientEAPIdentityMD5Wire" {
+			haveWire = true
+		}
+	}
+	if !haveADR || !haveWire {
 		t.Fatalf("R65-ACCESS-004 evidence %#v", challenge.Evidence)
 	}
 }

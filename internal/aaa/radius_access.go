@@ -14,8 +14,8 @@ import (
 )
 
 // RadiusAccessOutcome is the AAA decision for one Access-Request.
-// There is no Access-Error packet; after integrity the wire is Accept or Reject
-// until a Challenge provider ships. RadiusAccessChallenge is unused by PAP/CHAP.
+// There is no Access-Error packet; after integrity the wire is Accept, Reject,
+// or Challenge. RadiusAccessChallenge is unused by PAP/CHAP.
 type RadiusAccessOutcome string
 
 const (
@@ -40,6 +40,8 @@ const (
 	AccessReasonChallengeBinding       = "reject_challenge_binding"
 	AccessReasonChallengeCapacity      = "reject_challenge_capacity"
 	AccessReasonChallenge              = "challenge"
+	AccessReasonUnsupportedEAPMethod   = "reject_unsupported_eap_method"
+	AccessReasonEAPTooLong             = "reject_eap_too_long"
 )
 
 // RadiusAccessAttempt is protocol-neutral access evidence. Hidden

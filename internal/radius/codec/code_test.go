@@ -17,7 +17,7 @@ func TestCodeClassification(t *testing.T) {
 		{CodeAccessReject, true, true, true, false, false},
 		{CodeAccountingRequest, true, true, false, true, false},
 		{CodeAccountingResponse, true, true, false, true, false},
-		{CodeAccessChallenge, true, false, true, false, false},
+		{CodeAccessChallenge, true, true, true, false, false},
 		{CodeDisconnectRequest, true, true, false, false, true},
 		{CodeDisconnectACK, true, true, false, false, true},
 		{CodeDisconnectNAK, true, true, false, false, true},
@@ -36,8 +36,8 @@ func TestCodeClassification(t *testing.T) {
 			t.Fatalf("%d access=%v acct=%v dyn=%v", tc.code, tc.code.AccessFamily(), tc.code.AccountingFamily(), tc.code.DynamicAuthFamily())
 		}
 	}
-	if CodeAccessChallenge.Advertised() {
-		t.Fatal("Access-Challenge must not be advertised")
+	if !CodeAccessChallenge.Advertised() {
+		t.Fatal("Access-Challenge is advertised after EAP termination")
 	}
 	if CodeAccessChallenge.String() == "" {
 		t.Fatal("challenge needs a discard-trace name")

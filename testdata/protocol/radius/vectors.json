@@ -78,7 +78,7 @@
       "authenticator_hex": "00000000000000000000000000000000",
       "attributes": [],
       "known": true,
-      "advertised": false
+      "advertised": true
     },
     {
       "name": "unknown-code-12",

@@ -82,6 +82,7 @@ func handleGroupsCreate(deps Deps) handleFunc {
 			Services:             svcs,
 			CommandRules:         cmds,
 			DefaultCommandAction: action,
+			RADIUSPolicyID:       req.RADIUSPolicyID.patch(),
 			Override:             req.Override,
 		}, in.ExpectedRevision)
 		if err != nil {
@@ -117,6 +118,7 @@ func handleGroupsUpdate(deps Deps) handleFunc {
 			Services:             svcs,
 			CommandRules:         cmds,
 			DefaultCommandAction: action,
+			RADIUSPolicyID:       req.RADIUSPolicyID.patch(),
 		}, in.ExpectedRevision)
 		if err != nil {
 			return nil, err

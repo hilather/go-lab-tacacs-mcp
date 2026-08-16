@@ -224,6 +224,22 @@ func validateRADIUSPolicyRefs(doc *Document, groups map[string]struct{}) error {
 			return domain.NewError(domain.CodeNotFound, "fallback_radius_policy_id does not exist").WithPath("fallback_radius_policy_id")
 		}
 	}
+	for i, u := range doc.Users {
+		if id := u.RADIUSPolicyID; id != "" {
+			if _, ok := policies[id]; !ok {
+				return domain.NewError(domain.CodeConfigYAMLInvalid, "radius_policy_id does not exist").
+					WithPath(indexPath("users", i) + ".radius_policy_id")
+			}
+		}
+	}
+	for i, g := range doc.Groups {
+		if id := g.RADIUSPolicyID; id != "" {
+			if _, ok := policies[id]; !ok {
+				return domain.NewError(domain.CodeConfigYAMLInvalid, "radius_policy_id does not exist").
+					WithPath(indexPath("groups", i) + ".radius_policy_id")
+			}
+		}
+	}
 	for i, c := range doc.Clients {
 		ep := radiusEndpoint(c)
 		if ep == nil || ep.RADIUS == nil {

@@ -628,6 +628,9 @@ func schemaOf(t reflect.Type, schemas map[string]any) map[string]any {
 	if t == reflect.TypeOf(time.Time{}) {
 		return map[string]any{"type": "string", "format": "date-time"}
 	}
+	if t == reflect.TypeOf(operations.OptionalPolicyID{}) {
+		return map[string]any{"type": "string", "nullable": true}
+	}
 	switch t.Kind() {
 	case reflect.String:
 		return map[string]any{"type": "string"}
@@ -875,6 +878,9 @@ func collectNamed(t reflect.Type, seen map[string]struct{}, types map[string]ref
 	if t == reflect.TypeOf(time.Time{}) {
 		return
 	}
+	if t == reflect.TypeOf(operations.OptionalPolicyID{}) {
+		return
+	}
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map:
 		collectNamed(t.Elem(), seen, types, names)
@@ -919,6 +925,9 @@ func tsType(t reflect.Type, enums []string) string {
 	}
 	if t == reflect.TypeOf(time.Time{}) {
 		return "string"
+	}
+	if t == reflect.TypeOf(operations.OptionalPolicyID{}) {
+		return "string | null"
 	}
 	switch t.Kind() {
 	case reflect.String:

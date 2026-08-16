@@ -1,0 +1,24 @@
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+groups:
+  - id: lab-admins
+    enabled: true
+    radius_policy_id: admins-radius
+users:
+  - id: lab-admin
+    group_ids: [lab-admins]
+    radius_policy_id: admin-radius
+    credentials:
+      login:
+        verifier: {file: /run/secrets/lab-admin-login}
+radius_policies:
+  - id: admin-radius
+    rules:
+      - id: permit-admin
+        effect: permit
+  - id: admins-radius
+    rules:
+      - id: permit-admins
+        effect: permit

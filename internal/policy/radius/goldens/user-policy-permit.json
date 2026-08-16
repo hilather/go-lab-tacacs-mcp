@@ -1,0 +1,22 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "attached",
+  "client_id": "lab-switches",
+  "endpoint_id": "radius-udp",
+  "method": "password",
+  "groups": [],
+  "steps": [
+    {
+      "source": "user_policy:user-permit",
+      "rule_id": "permit-user",
+      "matched": true,
+      "reason": "matched"
+    }
+  ],
+  "winner": {
+    "source": "user_policy:user-permit",
+    "rule_id": "permit-user",
+    "effect": "permit"
+  },
+  "effect": "permit"
+}

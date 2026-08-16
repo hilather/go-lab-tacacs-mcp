@@ -464,6 +464,8 @@ type Group struct {
 	Services             []ServiceRule
 	CommandRules         []CommandRule
 	DefaultCommandAction domain.AuthorDecision
+	// RADIUSPolicyID is schema v2 only. Empty means no attached RADIUS policy.
+	RADIUSPolicyID string
 }
 
 // RuleSet is the shared services + command_rules shape (groups, users, fallback).
@@ -496,8 +498,7 @@ type StringMatch struct {
 	Pattern string
 }
 
-// RADIUSPolicy is a named first-match access policy (client or fallback).
-// User/group RADIUS rule attachment is not in this schema.
+// RADIUSPolicy is a named first-match access policy (user, group, client, or fallback).
 type RADIUSPolicy struct {
 	ID    string
 	Rules []RADIUSRule
@@ -559,6 +560,8 @@ type User struct {
 	Restrictions     UserRestrictions
 	MustChangeLogin  bool
 	MustChangeEnable bool
+	// RADIUSPolicyID is schema v2 only. Empty means no attached RADIUS policy.
+	RADIUSPolicyID string
 }
 
 // UserCredentials holds typed secret references, not verifier bytes.

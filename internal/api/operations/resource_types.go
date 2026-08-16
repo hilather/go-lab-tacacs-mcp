@@ -41,6 +41,7 @@ type CreateUserRequest struct {
 	Restrictions     *RestrictionsView  `json:"restrictions,omitempty"`
 	MustChangeLogin  *bool              `json:"must_change_login,omitempty"`
 	MustChangeEnable *bool              `json:"must_change_enable,omitempty"`
+	RADIUSPolicyID   OptionalPolicyID   `json:"radius_policy_id,omitempty"`
 	Override         bool               `json:"override,omitempty"`
 }
 
@@ -58,6 +59,7 @@ type UpdateUserRequest struct {
 	Restrictions     *RestrictionsView  `json:"restrictions,omitempty"`
 	MustChangeLogin  *bool              `json:"must_change_login,omitempty"`
 	MustChangeEnable *bool              `json:"must_change_enable,omitempty"`
+	RADIUSPolicyID   OptionalPolicyID   `json:"radius_policy_id,omitempty"`
 }
 
 // DeleteUserRequest deletes a runtime user or tombstones a baseline user.
@@ -88,6 +90,7 @@ type User struct {
 	EnableConfigured    bool      `json:"enable_configured"`
 	MustChangeLogin     bool      `json:"must_change_login"`
 	MustChangeEnable    bool      `json:"must_change_enable"`
+	RADIUSPolicyID      string    `json:"radius_policy_id,omitempty"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 }
@@ -126,6 +129,7 @@ type CreateGroupRequest struct {
 	Services             *[]ServiceRuleView `json:"services,omitempty"`
 	CommandRules         *[]CommandRuleView `json:"command_rules,omitempty"`
 	DefaultCommandAction *string            `json:"default_command_action,omitempty"`
+	RADIUSPolicyID       OptionalPolicyID   `json:"radius_policy_id,omitempty"`
 	Override             bool               `json:"override,omitempty"`
 }
 
@@ -139,6 +143,7 @@ type UpdateGroupRequest struct {
 	Services             *[]ServiceRuleView `json:"services,omitempty"`
 	CommandRules         *[]CommandRuleView `json:"command_rules,omitempty"`
 	DefaultCommandAction *string            `json:"default_command_action,omitempty"`
+	RADIUSPolicyID       OptionalPolicyID   `json:"radius_policy_id,omitempty"`
 }
 
 // DeleteGroupRequest deletes a runtime group or tombstones a baseline group.
@@ -163,6 +168,7 @@ type Group struct {
 	Services             []ServiceRuleView   `json:"services,omitempty"`
 	CommandRules         []CommandRuleView   `json:"command_rules,omitempty"`
 	DefaultCommandAction string              `json:"default_command_action,omitempty"`
+	RADIUSPolicyID       string              `json:"radius_policy_id,omitempty"`
 	CreatedAt            time.Time           `json:"created_at"`
 	UpdatedAt            time.Time           `json:"updated_at"`
 }
@@ -459,4 +465,52 @@ func (s *OptionalSecret) UnmarshalJSON(b []byte) error {
 	s.Environment = aux.Environment
 	s.Clear = aux.File == "" && aux.Environment == ""
 	return nil
+}
+
+// OptionalPolicyID is omit / set / JSON-null-clear for radius_policy_id.
+type OptionalPolicyID struct {
+	Present bool
+	Clear   bool
+	Value   string
+}
+
+// IsZero lets encoding/json omitempty skip an unset field.
+func (p OptionalPolicyID) IsZero() bool { return !p.Present }
+
+// UnmarshalJSON treats null and "" as an explicit clear.
+func (p *OptionalPolicyID) UnmarshalJSON(b []byte) error {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || bytes.Equal(b, []byte("null")) {
+		p.Present = true
+		p.Clear = true
+		p.Value = ""
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return domain.NewError(domain.CodeInvalidArgument, "radius_policy_id must be a string or null")
+	}
+	p.Present = true
+	p.Value = s
+	p.Clear = s == ""
+	return nil
+}
+
+// MarshalJSON emits null when cleared so REST/MCP parity stays exact.
+func (p OptionalPolicyID) MarshalJSON() ([]byte, error) {
+	if !p.Present || p.Clear {
+		return []byte("null"), nil
+	}
+	return json.Marshal(p.Value)
+}
+
+func (p OptionalPolicyID) patch() *string {
+	if !p.Present {
+		return nil
+	}
+	s := p.Value
+	if p.Clear {
+		s = ""
+	}
+	return &s
 }

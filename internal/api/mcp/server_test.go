@@ -753,6 +753,28 @@ func TestUsersUpdateMustChangeAndUnknownJSON(t *testing.T) {
 	if unknown.Err == nil || unknown.Err.Code != codeInvalidParams {
 		t.Fatalf("unknown field err=%+v", unknown.Err)
 	}
+	missing := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name": "taclab.users.update",
+		"arguments": map[string]any{
+			"id":                "alice",
+			"radius_policy_id":  "missing",
+			"expected_revision": sc["effective_revision"],
+		},
+	}, nil)
+	if missing.Err == nil {
+		t.Fatal("missing radius_policy_id must fail")
+	}
+	cleared := mcpRPC(t, h.HTTP, h.Token, "tools/call", map[string]any{
+		"name": "taclab.users.update",
+		"arguments": map[string]any{
+			"id":                "alice",
+			"radius_policy_id":  nil,
+			"expected_revision": sc["effective_revision"],
+		},
+	}, nil)
+	if cleared.Err != nil {
+		t.Fatalf("null radius_policy_id=%+v %s", cleared.Err, cleared.Raw)
+	}
 }
 
 func TestExpectedRevision(t *testing.T) {

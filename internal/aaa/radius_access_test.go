@@ -175,6 +175,39 @@ func TestAuthenticateAccessPermitFromCompiledPolicy(t *testing.T) {
 	}
 }
 
+func TestAuthenticateAccessUserPolicyWinsBeforeClient(t *testing.T) {
+	t.Parallel()
+	svc := testRADIUSPolicyService(t)
+	got, err := svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context:  domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:   "lab-readonly",
+		Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonPolicy {
+		t.Fatalf("unattached readonly must hit client deny: %+v", got)
+	}
+
+	rev := svc.mgr.Revision()
+	pol := "user-permit-all"
+	if _, err := svc.mgr.UpdateUser("lab-readonly", state.UpdateUser{RADIUSPolicyID: &pol}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	got, err = svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context:  domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:   "lab-readonly",
+		Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessAccept || got.Trace.Winner == nil || got.Trace.Winner.Source != "user_policy:user-permit-all" {
+		t.Fatalf("user policy must win: %+v", got)
+	}
+}
+
 func TestAuthenticateAccessMustChangeRejectsWithoutPolicy(t *testing.T) {
 	t.Parallel()
 	svc := testRADIUSPolicyService(t)
@@ -481,6 +514,11 @@ radius_policies:
       - id: deny-rest
         effect: deny
         reply_profiles: [reject-msg]
+  - id: user-permit-all
+    rules:
+      - id: permit-user
+        effect: permit
+        reply_profiles: [lab-accept]
 `
 	doc, err := config.Parse([]byte(src))
 	if err != nil {

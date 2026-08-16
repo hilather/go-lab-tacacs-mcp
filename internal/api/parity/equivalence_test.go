@@ -88,6 +88,27 @@ func parityCases() []parityCase {
 		},
 		{
 			id:  operations.IDUsersUpdate,
+			req: operations.UpdateUserRequest{ID: "alice", RADIUSPolicyID: operations.OptionalPolicyID{Present: true, Clear: true}},
+			check: func(t *testing.T, _ *world, out callOut) {
+				t.Helper()
+				m := asMap(out.Data)
+				if _, ok := m["radius_policy_id"]; ok && m["radius_policy_id"] != "" && m["radius_policy_id"] != nil {
+					t.Fatalf("cleared policy=%s", canonicalJSON(out.Data))
+				}
+			},
+		},
+		{
+			id:       operations.IDUsersUpdate,
+			req:      operations.UpdateUserRequest{ID: "alice", RADIUSPolicyID: operations.OptionalPolicyID{Present: true, Value: "missing"}},
+			wantCode: string(domain.CodeConfigYAMLInvalid),
+		},
+		{
+			id:       operations.IDGroupsUpdate,
+			req:      operations.UpdateGroupRequest{ID: "ops", RADIUSPolicyID: operations.OptionalPolicyID{Present: true, Value: "missing"}},
+			wantCode: string(domain.CodeConfigYAMLInvalid),
+		},
+		{
+			id:  operations.IDUsersUpdate,
 			req: operations.UpdateUserRequest{ID: "alice", DisplayName: strPtr("stale")},
 			opts: func(*world) callOpts {
 				bad := domain.Revision(999)

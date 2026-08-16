@@ -1648,7 +1648,7 @@ ADRs 0020–0029 are accepted. Implementation is still later PRs. Do not fold th
 - [ ] `RAD-EXT-007` Named `Cisco-AVPair` (vendor 9, vendor-type 1) with independent `testclient` fixtures. [ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) **supersedes** [ADR 0015](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0015-radius-codec-attribute-and-dictionary-boundary.md) decision 4 / IOL Revisit. IOL remains optional `interop:`; a skip is not Cisco PASS and not RADIUS PASS. Do not vendor IOL.
 - [ ] `RAD-EXT-008` RADIUS proxying / realm routing. **`DEFERRED_MAY`** ([ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). Not in this program. No `proxy` YAML key.
 - [x] `RAD-EXT-009` Persistent accounting. **Cancelled for this program** ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Memory ring/journal only. Restart / `runtime.reset` remain the restore path.
-- [ ] `RAD-EXT-010` User- and group-attached RADIUS rules (v2 `radius_policy_id`). [ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). Walk: user → `effectiveGroups` → client → fallback → default deny. v1 rejects the keys.
+- [x] `RAD-EXT-010` User- and group-attached RADIUS rules (v2 `radius_policy_id`). [ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). Walk: user → `effectiveGroups` → client → fallback → default deny. v1 rejects the keys.
 
 ## 23. User lifecycle pack (`UL-*`)
 

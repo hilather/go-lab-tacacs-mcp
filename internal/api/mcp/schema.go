@@ -44,6 +44,8 @@ func schemaOf(t reflect.Type, seen map[reflect.Type]bool) map[string]any {
 				"environment": map[string]any{"type": "string"},
 			},
 		}
+	case reflect.TypeOf(operations.OptionalPolicyID{}):
+		return map[string]any{"type": "string", "nullable": true}
 	}
 	if t == reflect.TypeOf(domain.Revision(0)) {
 		return map[string]any{"type": "integer", "minimum": 0}

@@ -7,13 +7,27 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
-// Evaluate walks client then fallback policies. First match wins.
-// No match is deny. A nil engine is an error (fail closed, never permit).
+// Evaluate walks user, then effectiveGroups, then client, then fallback.
+// First matching rule wins. No match is deny. A nil engine is an error
+// (fail closed, never permit).
 func (e *Engine) Evaluate(req Request) Result {
 	if e == nil {
 		return errorResult(newTrace(req), "policy engine is not compiled")
 	}
 	tr := newTrace(req)
+	if u, ok := e.users[req.UserID]; ok && u.enabled && u.policyID != "" {
+		if res, done := e.walk(sourceUserPrefix+u.policyID, u.policyID, req, &tr); done {
+			return res
+		}
+	}
+	for _, g := range e.effectiveGroups(req.UserID, req.ClientID) {
+		if g.policyID == "" {
+			continue
+		}
+		if res, done := e.walk(sourceGroupPrefix+g.policyID, g.policyID, req, &tr); done {
+			return res
+		}
+	}
 	if binding, ok := e.clients[req.ClientID]; ok {
 		if req.EndpointID == "" || req.EndpointID == binding.endpointID {
 			if binding.policyID != "" {

@@ -187,6 +187,89 @@ func TestV2ParsesRadiusPolicies(t *testing.T) {
 	}
 }
 
+func TestV2ParsesUserAndGroupRADIUSPolicyID(t *testing.T) {
+	t.Parallel()
+	doc := mustParseFile(t, "testdata/parse/v2_user_group_radius_policy.yaml")
+	if len(doc.Users) != 1 || doc.Users[0].RADIUSPolicyID != "admin-radius" {
+		t.Fatalf("users=%+v", doc.Users)
+	}
+	if len(doc.Groups) != 1 || doc.Groups[0].RADIUSPolicyID != "admins-radius" {
+		t.Fatalf("groups=%+v", doc.Groups)
+	}
+	if err := Validate(doc); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestV2RejectsUnknownUserRADIUSPolicyID(t *testing.T) {
+	t.Parallel()
+	_, err := parseAndValidate(t, `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+users:
+  - id: lab-admin
+    radius_policy_id: missing
+    credentials:
+      login:
+        verifier: {file: /run/secrets/lab-admin-login}
+`)
+	if err == nil {
+		t.Fatal("expected missing user radius_policy_id")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigYAMLInvalid {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(de.Path, "radius_policy_id") {
+		t.Fatalf("path=%q", de.Path)
+	}
+}
+
+func TestV2RejectsUnknownGroupRADIUSPolicyID(t *testing.T) {
+	t.Parallel()
+	_, err := parseAndValidate(t, `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+groups:
+  - id: lab-admins
+    radius_policy_id: missing
+`)
+	if err == nil {
+		t.Fatal("expected missing group radius_policy_id")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigYAMLInvalid {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(de.Path, "radius_policy_id") {
+		t.Fatalf("path=%q", de.Path)
+	}
+}
+
+func TestV2RejectsUnknownUserRADIUSPolicyField(t *testing.T) {
+	t.Parallel()
+	_, err := Parse([]byte(`
+schema_version: 2
+users:
+  - id: lab-admin
+    radius_rules: []
+`))
+	if err == nil {
+		t.Fatal("expected unknown field")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigUnknownField {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(de.Path, "radius_rules") {
+		t.Fatalf("path=%q", de.Path)
+	}
+}
+
 func TestV1RejectsAdminOnly(t *testing.T) {
 	t.Parallel()
 	_, err := Parse([]byte("schema_version: 1\nserver:\n  admin_only: true\n"))

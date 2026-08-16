@@ -32,6 +32,7 @@ func userView(u state.EffectiveUser, rev domain.Revision) User {
 		EnableConfigured:    u.Capabilities.Enable,
 		MustChangeLogin:     u.User.MustChangeLogin,
 		MustChangeEnable:    u.User.MustChangeEnable,
+		RADIUSPolicyID:      u.User.RADIUSPolicyID,
 		CreatedAt:           meta.CreatedAt,
 		UpdatedAt:           meta.UpdatedAt,
 	}
@@ -58,6 +59,7 @@ func groupView(g state.EffectiveGroup, rev domain.Revision) Group {
 		Services:             serviceViews(g.Group.Services),
 		CommandRules:         commandViews(g.Group.CommandRules),
 		DefaultCommandAction: action,
+		RADIUSPolicyID:       g.Group.RADIUSPolicyID,
 		CreatedAt:            meta.CreatedAt,
 		UpdatedAt:            meta.UpdatedAt,
 	}

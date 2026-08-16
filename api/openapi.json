@@ -678,6 +678,10 @@
           "priority": {
             "type": "integer"
           },
+          "radius_policy_id": {
+            "nullable": true,
+            "type": "string"
+          },
           "services": {
             "items": {
               "$ref": "#/components/schemas/ServiceRuleView"
@@ -769,6 +773,10 @@
           },
           "override": {
             "type": "boolean"
+          },
+          "radius_policy_id": {
+            "nullable": true,
+            "type": "string"
           },
           "restrictions": {
             "$ref": "#/components/schemas/RestrictionsView"
@@ -1380,6 +1388,9 @@
           },
           "priority": {
             "type": "integer"
+          },
+          "radius_policy_id": {
+            "type": "string"
           },
           "revision_created": {
             "type": "integer"
@@ -2654,6 +2665,10 @@
           "priority": {
             "type": "integer"
           },
+          "radius_policy_id": {
+            "nullable": true,
+            "type": "string"
+          },
           "services": {
             "items": {
               "$ref": "#/components/schemas/ServiceRuleView"
@@ -2707,6 +2722,10 @@
           },
           "must_change_login": {
             "type": "boolean"
+          },
+          "radius_policy_id": {
+            "nullable": true,
+            "type": "string"
           },
           "restrictions": {
             "$ref": "#/components/schemas/RestrictionsView"
@@ -2768,6 +2787,9 @@
           },
           "must_change_login": {
             "type": "boolean"
+          },
+          "radius_policy_id": {
+            "type": "string"
           },
           "restrictions": {
             "$ref": "#/components/schemas/RestrictionsView"

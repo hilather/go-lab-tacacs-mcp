@@ -61,13 +61,13 @@ func normalizeV2(raw *rawFileV2) (*Document, error) {
 	}
 	doc.Clients = clients
 
-	groups, err := normalizeGroups(raw.Groups)
+	groups, err := normalizeGroupsV2(raw.Groups)
 	if err != nil {
 		return nil, err
 	}
 	doc.Groups = groups
 
-	users, err := normalizeUsers(raw.Users, doc.Security.AllowEnvironmentSecrets)
+	users, err := normalizeUsersV2(raw.Users, doc.Security.AllowEnvironmentSecrets)
 	if err != nil {
 		return nil, err
 	}

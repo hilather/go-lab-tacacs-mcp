@@ -97,6 +97,7 @@ func handleUsersCreate(deps Deps) handleFunc {
 			Restrictions:     restrictionsFromView(req.Restrictions),
 			MustChangeLogin:  req.MustChangeLogin,
 			MustChangeEnable: req.MustChangeEnable,
+			RADIUSPolicyID:   req.RADIUSPolicyID.patch(),
 			Override:         req.Override,
 		}, in.ExpectedRevision)
 		if err != nil {
@@ -136,6 +137,7 @@ func handleUsersUpdate(deps Deps) handleFunc {
 			Restrictions:     restrictionsFromView(req.Restrictions),
 			MustChangeLogin:  req.MustChangeLogin,
 			MustChangeEnable: req.MustChangeEnable,
+			RADIUSPolicyID:   req.RADIUSPolicyID.patch(),
 		}, in.ExpectedRevision)
 		if err != nil {
 			return nil, err

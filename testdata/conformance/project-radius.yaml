@@ -42,6 +42,23 @@ rows:
       - unit:internal/radius/server.TestAccessIllegalAcceptAttrsFailClosed
       - unit:internal/aaa.TestAuthenticateAccessPermitFromCompiledPolicy
       - race:internal/policy/radius.TestEvaluateConcurrent
+  - id: PRJ-POL-002
+    section: access-behavior
+    section_title: Access behavior
+    level: PROJECT MUST
+    requirement: v2 users/groups attach radius_policy_id; evaluation is user then effectiveGroups then client then fallback then default deny
+    evidence_required: v1 unknown-field reject; frozen walk goldens; REST/MCP/parity
+    status: PASS
+    evidence:
+      - unit:internal/config.TestV2ParsesUserAndGroupRADIUSPolicyID
+      - unit:internal/config.TestV2RejectsUnknownUserRADIUSPolicyID
+      - unit:internal/policy/radius.TestEvaluateUserPolicyBeforeGroupAndClient
+      - unit:internal/policy/radius.TestEvaluateGroupPriorityThenID
+      - unit:internal/policy/radius.TestGoldenUserGroupTraces
+      - unit:internal/aaa.TestAuthenticateAccessUserPolicyWinsBeforeClient
+      - unit:internal/api/operations.TestUsersGroupsRADIUSPolicyIDCreateUpdateGetExport
+      - unit:internal/api/parity.TestParityRequiredEquivalence
+      - adr:docs/decisions/0029-user-group-radius-policy-attachment.md
   - id: PRJ-ERR-001
     section: access-behavior
     section_title: Access behavior

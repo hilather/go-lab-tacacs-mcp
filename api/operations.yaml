@@ -125,7 +125,7 @@ operations:
     status: PASS
 
   - id: users.list
-    description: List users in deterministic id order. Each user includes top-level must_change_login / must_change_enable.
+    description: List users in deterministic id order. Each user includes top-level must_change_login / must_change_enable and optional radius_policy_id.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -142,7 +142,7 @@ operations:
     status: PASS
 
   - id: users.get
-    description: Get one user by id. Returns top-level must_change_login / must_change_enable.
+    description: Get one user by id. Returns top-level must_change_login / must_change_enable and optional radius_policy_id.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -158,7 +158,7 @@ operations:
     status: PASS
 
   - id: users.create
-    description: Create a runtime user or override a baseline user. Accepts top-level must_change_login / must_change_enable.
+    description: Create a runtime user or override a baseline user. Accepts top-level must_change_login / must_change_enable and optional radius_policy_id (omitted keeps, JSON null clears).
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -175,7 +175,7 @@ operations:
     status: PASS
 
   - id: users.update
-    description: Apply a typed patch to a user. Accepts top-level must_change_login / must_change_enable.
+    description: Apply a typed patch to a user. Accepts top-level must_change_login / must_change_enable and optional radius_policy_id (omitted keeps, JSON null clears).
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -242,7 +242,7 @@ operations:
     status: PASS
 
   - id: groups.create
-    description: Create a runtime group or override a baseline group
+    description: Create a runtime group or override a baseline group. Accepts optional radius_policy_id (omitted keeps, JSON null clears).
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -259,7 +259,7 @@ operations:
     status: PASS
 
   - id: groups.update
-    description: Apply a typed patch to a group
+    description: Apply a typed patch to a group. Accepts optional radius_policy_id (omitted keeps, JSON null clears).
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional

@@ -209,6 +209,7 @@ export interface CreateGroupRequest {
   services?: ServiceRuleView[];
   command_rules?: CommandRuleView[];
   default_command_action?: string;
+  radius_policy_id?: string | null;
   override?: boolean;
 }
 
@@ -236,6 +237,7 @@ export interface CreateUserRequest {
   restrictions?: RestrictionsView;
   must_change_login?: boolean;
   must_change_enable?: boolean;
+  radius_policy_id?: string | null;
   override?: boolean;
 }
 
@@ -412,6 +414,7 @@ export interface Group {
   services?: ServiceRuleView[];
   command_rules?: CommandRuleView[];
   default_command_action?: string;
+  radius_policy_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -755,6 +758,7 @@ export interface UpdateGroupRequest {
   services?: ServiceRuleView[];
   command_rules?: CommandRuleView[];
   default_command_action?: string;
+  radius_policy_id?: string | null;
 }
 
 export interface UpdateUserRequest {
@@ -770,6 +774,7 @@ export interface UpdateUserRequest {
   restrictions?: RestrictionsView;
   must_change_login?: boolean;
   must_change_enable?: boolean;
+  radius_policy_id?: string | null;
 }
 
 export interface User {
@@ -791,6 +796,7 @@ export interface User {
   enable_configured: boolean;
   must_change_login: boolean;
   must_change_enable: boolean;
+  radius_policy_id?: string;
   created_at: string;
   updated_at: string;
 }

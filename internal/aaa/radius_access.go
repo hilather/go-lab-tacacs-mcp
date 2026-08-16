@@ -86,9 +86,9 @@ type RadiusAccessDecision struct {
 }
 
 // AuthenticateAccess verifies PAP/CHAP evidence, then evaluates the
-// snapshot-held RADIUS policy engine. Permit is Access-Accept with legal
-// profile attributes. Deny, default deny, and evaluator errors are
-// Access-Reject. There are no user/group RADIUS rules.
+// snapshot-held RADIUS policy engine (user, groups, client, fallback).
+// Permit is Access-Accept with legal profile attributes. Deny, default
+// deny, and evaluator errors are Access-Reject.
 func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt) (RadiusAccessDecision, error) {
 	if s == nil {
 		return rejectAccess("", AccessReasonInternal), domain.NewError(domain.CodeInternal, "aaa service is not initialized")

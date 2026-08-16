@@ -652,6 +652,143 @@ func TestUsersUpdateOmitAndK9MustChange(t *testing.T) {
 	}
 }
 
+const radiusPolicyUsersYAML = `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+clients:
+  - id: sw
+    match:
+      source_cidrs: ["10.20.0.0/16"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: /run/secrets/sw}
+groups:
+  - id: ops
+    display_name: Operators
+    priority: 10
+users:
+  - id: alice
+    display_name: Alice
+    group_ids: [ops]
+    credentials:
+      login:
+        verifier: {file: /run/secrets/alice-login}
+radius_policies:
+  - id: admin-radius
+    rules:
+      - id: permit
+        effect: permit
+`
+
+func TestUsersGroupsRADIUSPolicyIDCreateUpdateGetExport(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, radiusPolicyUsersYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write", "config:export"}}
+
+	got, err := reg.Invoke(context.Background(), IDUsersGet, m.Snapshot(), Input{Actor: writer, Request: GetUserRequest{ID: "alice"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Data.(User).RADIUSPolicyID != "" {
+		t.Fatalf("baseline user policy=%q", got.Data.(User).RADIUSPolicyID)
+	}
+
+	rev := m.Revision()
+	updated, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", RADIUSPolicyID: OptionalPolicyID{Present: true, Value: "admin-radius"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Data.(User).RADIUSPolicyID != "admin-radius" {
+		t.Fatalf("update=%+v", updated.Data)
+	}
+
+	rev = updated.Revision
+	name := "Alice Overlay"
+	named, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", DisplayName: &name},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := named.Data.(User); u.RADIUSPolicyID != "admin-radius" || u.DisplayName != name {
+		t.Fatalf("omit must keep policy: %+v", u)
+	}
+
+	rev = named.Revision
+	cleared, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", RADIUSPolicyID: OptionalPolicyID{Present: true, Clear: true}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared.Data.(User).RADIUSPolicyID != "" {
+		t.Fatalf("null must clear: %+v", cleared.Data)
+	}
+
+	rev = cleared.Revision
+	gupd, err := reg.Invoke(context.Background(), IDGroupsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateGroupRequest{ID: "ops", RADIUSPolicyID: OptionalPolicyID{Present: true, Value: "admin-radius"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gupd.Data.(Group).RADIUSPolicyID != "admin-radius" {
+		t.Fatalf("group update=%+v", gupd.Data)
+	}
+
+	created, err := reg.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), Input{
+		Actor: writer,
+		Request: CreateUserRequest{
+			ID:             "bob",
+			Enabled:        boolPtr(true),
+			Login:          OptionalSecret{Present: true, File: "/run/secrets/bob-login"},
+			RADIUSPolicyID: OptionalPolicyID{Present: true, Value: "admin-radius"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Data.(User).RADIUSPolicyID != "admin-radius" {
+		t.Fatalf("create=%+v", created.Data)
+	}
+
+	exp, err := reg.Invoke(context.Background(), IDConfigExport, m.Snapshot(), Input{Actor: writer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	yamlOut := exp.Data.(ExportConfigResult).YAML
+	if !strings.Contains(yamlOut, "radius_policy_id: admin-radius") {
+		t.Fatalf("export missing radius_policy_id:\n%s", yamlOut)
+	}
+
+	rev = created.Revision
+	_, err = reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "alice", RADIUSPolicyID: OptionalPolicyID{Present: true, Value: "missing"}},
+	})
+	if !isCode(err, domain.CodeConfigYAMLInvalid) {
+		t.Fatalf("unknown policy err=%v", err)
+	}
+}
+
 func TestUserMutationJSONRejectsUnknownFields(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{
@@ -673,6 +810,30 @@ func TestUserMutationJSONRejectsUnknownFields(t *testing.T) {
 	}
 	if req.MustChangeLogin == nil || !*req.MustChangeLogin {
 		t.Fatalf("decoded=%+v", req)
+	}
+
+	dec = json.NewDecoder(strings.NewReader(`{"id":"alice","radius_rules":[]}`))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err == nil {
+		t.Fatal("accepted unknown radius_rules")
+	}
+	dec = json.NewDecoder(strings.NewReader(`{"id":"alice","radius_policy_id":null}`))
+	dec.DisallowUnknownFields()
+	req = UpdateUserRequest{}
+	if err := dec.Decode(&req); err != nil {
+		t.Fatal(err)
+	}
+	if !req.RADIUSPolicyID.Present || !req.RADIUSPolicyID.Clear {
+		t.Fatalf("null must clear: %+v", req.RADIUSPolicyID)
+	}
+	dec = json.NewDecoder(strings.NewReader(`{"id":"alice","radius_policy_id":"admin-radius"}`))
+	dec.DisallowUnknownFields()
+	req = UpdateUserRequest{}
+	if err := dec.Decode(&req); err != nil {
+		t.Fatal(err)
+	}
+	if !req.RADIUSPolicyID.Present || req.RADIUSPolicyID.Value != "admin-radius" {
+		t.Fatalf("decoded policy=%+v", req.RADIUSPolicyID)
 	}
 }
 

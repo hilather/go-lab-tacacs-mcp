@@ -90,7 +90,7 @@ These limits are product contract, not temporary stubs. Operator text lives in [
 | CoA / Disconnect | RFC 5176 not shipped. Program ADR [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md): DAC uses the client's UDP RADIUS secret; inbound DAS is an echo fixture only. |
 | RADIUS MS-CHAP | Opt-in RFC 2548 vendor 311 VSAs (`mschapv1`/`mschapv2`). MD4-era; omitted method lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. Independent RADIUS vectors only ([ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md)). |
 | Named `Cisco-AVPair` | Not shipped. Independent `testclient` fixtures (not IOL) are the evidence path ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) supersedes ADR 0015 decision 4). Raw VSA framing is required today. |
-| Custom dictionaries | Built-in IETF MVP only (`builtin-mvp-1`) until `RAD-EXT-006` ([ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md)). |
+| Operator dictionaries | TacLab YAML, local, size-capped, fail-closed (`PRJ-DICT-001`, [ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md)). Vendors 0/9/311 and `Cisco-AVPair` / `MS-CHAP-*` reserved. `DictionaryVersion` stays `builtin-mvp-1` when no operator file compiled. Not FreeRADIUS `$INCLUDE`. |
 | Persistent accounting | **Cancelled for this program** ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Wire SUCCESS only after the in-process ring accepts the record. |
 | User/group RADIUS rules | Shipped on schema v2: `users[].radius_policy_id` / `groups[].radius_policy_id`. Walk is user → `effectiveGroups` → client → fallback → deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). v1 rejects the keys. |
 | Proxying | **Out.** `DEFERRED_MAY` ([ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). |
@@ -995,7 +995,7 @@ There is no prior implementation. The public 1.0 surface is:
 | `authentication.test` | `policy:test` | `POST /authentication/test` |
 | `radius.access.test` | `policy:test` | `POST /radius/access:test` |
 | `radius.policy.evaluate` | `policy:test` | `POST /radius/policy:evaluate` |
-| `radius.attributes.list` | `state:read` | `GET /radius/attributes` |
+| `radius.attributes.list` | `state:read` | `GET /radius/attributes` (includes `source`) |
 | `events.list` | `events:read` | `GET /events` |
 | `events.subscribe` | `events:read` | `GET /events/stream` (SSE) |
 

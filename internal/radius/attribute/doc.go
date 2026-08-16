@@ -1,5 +1,6 @@
 // Package attribute holds RADIUS raw TLV attributes, Vendor-Specific framing,
-// and the immutable built-in IETF MVP dictionary.
+// the immutable built-in IETF MVP dictionary, and fail-closed operator
+// dictionary merge (TacLab YAML only).
 //
 // Raw values stay ordered, duplicate-preserving, and binary-safe. Unknown
 // types remain raw. Type 26 is vendor-id plus an opaque payload. Named

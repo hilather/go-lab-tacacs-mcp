@@ -134,7 +134,7 @@ Program names, seams, and sequencing: [docs/designs/radius-remaining-work.md](ht
 | Inbound DAS echo fixture | `RAD-EXT-004` | still deferred | [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md) | implementing PR; default off; does not kick a NAS |
 | RadSec TLS 1.3 TCP 2083 | `RAD-EXT-005` | still deferred | [0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) | implementing PR; not a thin TLS wrap of UDP |
 | DTLS / RADIUS/1.1 | `RAD-EXT-005` residual | `DEFERRED_MAY` | [0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) Revisit | later transport ADR |
-| Operator dictionaries | `RAD-EXT-006` | still deferred | [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md) | implementing PR; vendors 0/9/311 reserved |
+| Operator dictionaries (`PRJ-DICT-001`) | `RAD-EXT-006` | `PASS` | [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md) | TacLab YAML only; vendors 0/9/311 and `Cisco-AVPair` / `MS-CHAP-*` reserved; `DictionaryVersion` stays `builtin-mvp-1` when no operator file compiled |
 | Named `Cisco-AVPair` | `RAD-EXT-007` | still deferred | [0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) (supersedes [ADR 0015](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0015-radius-codec-attribute-and-dictionary-boundary.md) decision 4 / IOL Revisit) | implementing PR; independent fixtures; IOL skip is not PASS |
 | RADIUS proxying / realm routing | `RAD-EXT-008` | `DEFERRED_MAY` | [0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md) | out of this program; no `proxy` YAML key |
 | Persistent accounting | `RAD-EXT-009` | **cancelled this program** | [0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md) | later persist ADR only |
@@ -162,7 +162,7 @@ A green row in this file does **not** make TacLab a production RADIUS server. Re
 | CoA / Disconnect deferred | RFC 5176 not shipped. DAC uses the UDP endpoint secret; inbound DAS is echo-only ([ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md)) |
 | RADIUS MS-CHAP is MD4-era | Opt-in `mschapv1`/`mschapv2` only. No `MS-CHAP-Error` / Password-Expired VSA. Independent RADIUS vectors, not TACACS fixtures |
 | Named `Cisco-AVPair` deferred | Not shipped. Evidence path is independent fixtures, **not** an IOL gate ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md)); raw VSA only today |
-| Built-in dictionary only | No operator dictionary files until `RAD-EXT-006` |
+| Operator dictionaries | TacLab YAML, local, size-capped, fail-closed ([ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md)). Not FreeRADIUS `$INCLUDE`. Vendors 0/9/311 reserved |
 | Proxying out | `DEFERRED_MAY` ([ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)) |
 | External `radclient` / IOL skip | Skip is not PASS |
 | `system.build.get` `partial` | Do not market “complete RADIUS” |

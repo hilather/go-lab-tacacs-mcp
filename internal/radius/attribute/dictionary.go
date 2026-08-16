@@ -5,8 +5,8 @@ import (
 	"strconv"
 )
 
-// DictionaryVersion is the immutable built-in view identifier stored on
-// a snapshot once RADIUS compile lands.
+// DictionaryVersion is the built-in view identifier. Snapshot version stays
+// exactly this string when no operator file is compiled (KD-R28).
 const DictionaryVersion = "builtin-mvp-1"
 
 // Dictionary is an immutable name/code/role view. Lookups are race-free.
@@ -19,7 +19,7 @@ type Dictionary struct {
 
 var builtin = mustBuiltin()
 
-// Builtin is the compiled IETF MVP dictionary. There is no operator file.
+// Builtin is the compiled IETF MVP dictionary (no operator files).
 func Builtin() Dictionary { return builtin }
 
 func mustBuiltin() Dictionary {
@@ -30,7 +30,7 @@ func mustBuiltin() Dictionary {
 		byKey:   make(map[Key]Definition, len(defs)),
 		order:   defs,
 	}
-	for _, def := range defs {
+	for i, def := range defs {
 		if def.Name == "" {
 			panic("radius dictionary: empty name")
 		}
@@ -41,8 +41,12 @@ func mustBuiltin() Dictionary {
 		if _, ok := d.byKey[k]; ok {
 			panic("radius dictionary: duplicate key " + def.Name)
 		}
+		if def.Source == "" {
+			def.Source = SourceBuiltin
+		}
 		d.byName[def.Name] = def
 		d.byKey[k] = def
+		d.order[i] = def
 	}
 	return d
 }

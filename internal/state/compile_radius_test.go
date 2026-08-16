@@ -81,8 +81,8 @@ func TestV1TACACSSnapshotEquivalent(t *testing.T) {
 	}
 	assertRADIUSIndexEmpty(t, s1)
 	assertRADIUSIndexEmpty(t, s2)
-	if !s1.Dictionary().Empty() || s1.DictionaryVersion() != "" {
-		t.Fatalf("v1 dictionary should be empty placeholder: %+v %q", s1.Dictionary(), s1.DictionaryVersion())
+	if s1.DictionaryVersion() != "builtin-mvp-1" || s1.Dictionary().Empty() {
+		t.Fatalf("v1 dictionary version=%q empty=%v", s1.DictionaryVersion(), s1.Dictionary().Empty())
 	}
 }
 
@@ -175,8 +175,8 @@ func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	if !ok || de.Code != domain.CodeNotFound {
 		t.Fatalf("unknown source: %v", err)
 	}
-	if !s.Dictionary().Empty() || s.DictionaryVersion() != "" {
-		t.Fatalf("dictionary placeholder: %+v %q", s.Dictionary(), s.DictionaryVersion())
+	if s.DictionaryVersion() != "builtin-mvp-1" || s.Dictionary().Empty() {
+		t.Fatalf("dictionary version=%q empty=%v", s.DictionaryVersion(), s.Dictionary().Empty())
 	}
 	if s.RADIUSPolicies() == nil {
 		t.Fatal("compiled RADIUS policy engine missing")

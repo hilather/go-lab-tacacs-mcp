@@ -44,6 +44,15 @@ func hashBaseline(doc *config.Document) string {
 		b.WriteString(doc.FallbackRADIUSPolicyID)
 		b.WriteByte('\n')
 	}
+	for _, d := range doc.RADIUSDictionaries {
+		b.WriteString("rd\t")
+		b.WriteString(d.ID)
+		b.WriteByte('\t')
+		b.WriteString(d.File)
+		b.WriteByte('\t')
+		b.WriteString(strconv.FormatBool(d.Enabled))
+		b.WriteByte('\n')
+	}
 	return sha256Hex(b.String())
 }
 

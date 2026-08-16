@@ -72,7 +72,7 @@ func BuildOpenAPI(reg *operations.Registry) map[string]any {
 		"/api/v1/authentication/test":    postPath(operations.IDAuthenticationTest, "Run an authentication test against the current snapshot", []string{"policy:test"}, refSchema("TestAuthenticationRequest"), envelopeRef("AuthenticationTestResult"), false),
 		"/api/v1/radius/access:test":     postPath(operations.IDRadiusAccessTest, "Simulate a RADIUS Access-Request without UDP", []string{"policy:test"}, refSchema("RadiusAccessTestRequest"), envelopeRef("RadiusAccessTestResult"), false),
 		"/api/v1/radius/policy:evaluate": postPath(operations.IDRadiusPolicyEvaluate, "Explain a RADIUS access-policy decision", []string{"policy:test"}, refSchema("RadiusPolicyEvaluateRequest"), envelopeRef("RadiusPolicyEvaluateResult"), false),
-		"/api/v1/radius/attributes":      getPath(operations.IDRadiusAttributesList, "List built-in RADIUS dictionary metadata", []string{"state:read"}, envelopeRef("RadiusAttributeList"), true),
+		"/api/v1/radius/attributes":      getPath(operations.IDRadiusAttributesList, "List RADIUS dictionary metadata including source", []string{"state:read"}, envelopeRef("RadiusAttributeList"), true),
 		"/api/v1/events":                 listEventsPath(),
 		"/api/v1/events/stream":          streamPath(),
 		"/api/v1/tokens":                 tokensCollectionPath(),

@@ -2,6 +2,7 @@
 // the atomically published snapshot.
 //
 // Compile attaches the TACACS ClientIndex, RADIUS access/accounting LPM
-// indexes, and an empty dictionary placeholder (later PRs fill the hook).
-// Reload is explicit (caller-invoked). There is no file watcher.
+// indexes, and the compiled RADIUS dictionary (builtin-mvp-1, plus
+// operator files when listed). Reload is explicit (caller-invoked).
+// There is no file watcher.
 package state

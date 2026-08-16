@@ -116,6 +116,7 @@ type RadiusAttributeList struct {
 }
 
 // RadiusAttributeMetadata is one dictionary entry. Sensitivity is metadata only.
+// Source is "builtin" or "operator:<id>". Values are never included.
 type RadiusAttributeMetadata struct {
 	Name        string   `json:"name"`
 	Code        uint8    `json:"code"`
@@ -123,4 +124,5 @@ type RadiusAttributeMetadata struct {
 	ValueKind   string   `json:"value_kind"`
 	AllowedIn   []string `json:"allowed_in"`
 	Sensitivity string   `json:"sensitivity"`
+	Source      string   `json:"source"`
 }

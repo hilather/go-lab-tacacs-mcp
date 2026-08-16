@@ -65,7 +65,7 @@ None now. After the implementing PR, v2 files may list `radius_dictionaries`. v1
 
 ## Documentation impact
 
-CONFIGURATION documents the file format and limits in the implementing PR. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) §8 keeps operator dictionaries still-deferred until then.
+CONFIGURATION documents the file format and limits. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) `PRJ-DICT-001` is PASS with compile-fail-closed evidence.
 
 ## Revisit conditions
 

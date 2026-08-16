@@ -1983,6 +1983,9 @@
           "sensitivity": {
             "type": "string"
           },
+          "source": {
+            "type": "string"
+          },
           "value_kind": {
             "type": "string"
           },
@@ -1996,7 +1999,8 @@
           "vendor",
           "value_kind",
           "allowed_in",
-          "sensitivity"
+          "sensitivity",
+          "source"
         ],
         "type": "object"
       },
@@ -2401,6 +2405,9 @@
           },
           "compiled_at": {
             "format": "date-time",
+            "type": "string"
+          },
+          "dictionary_version": {
             "type": "string"
           },
           "groups": {
@@ -5104,7 +5111,7 @@
             "cookieAuth": []
           }
         ],
-        "summary": "List built-in RADIUS dictionary metadata"
+        "summary": "List RADIUS dictionary metadata including source"
       }
     },
     "/api/v1/radius/policy:evaluate": {

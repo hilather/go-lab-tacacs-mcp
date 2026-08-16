@@ -99,6 +99,7 @@ func defaultDocument() Document {
 		FallbackRules:       RuleSet{},
 		RADIUSPolicies:      []RADIUSPolicy{},
 		RADIUSReplyProfiles: []RADIUSReplyProfile{},
+		RADIUSDictionaries:  []RADIUSDictionary{},
 		Events: Events{
 			RingBufferCapacity:              10000,
 			IncludeSuccessfulAuthentication: true,

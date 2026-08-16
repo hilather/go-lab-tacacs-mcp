@@ -3,7 +3,6 @@ package state
 import (
 	"regexp"
 	"sort"
-	"sync/atomic"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -25,40 +24,6 @@ func copyStamps(in map[string]identityStamp) map[string]identityStamp {
 		out[k] = v
 	}
 	return out
-}
-
-// compileDictionary is the optional hook later PRs fill (PR 12
-// attribute.Builtin). It must be deterministic and must not pull
-// radius/codec or radius/udp into this package. Nil keeps the empty view.
-var compileDictionary atomic.Pointer[dictionaryFunc]
-
-type dictionaryFunc func() (Dictionary, string)
-
-// SetDictionaryCompiler installs the snapshot dictionary hook. Passing nil
-// restores the empty placeholder. Intended for package init, not per-request
-// mutation.
-func SetDictionaryCompiler(fn func() (Dictionary, string)) {
-	if fn == nil {
-		compileDictionary.Store(nil)
-		return
-	}
-	f := dictionaryFunc(fn)
-	compileDictionary.Store(&f)
-}
-
-func attachedDictionary() (Dictionary, string) {
-	p := compileDictionary.Load()
-	if p == nil || *p == nil {
-		return Dictionary{}, ""
-	}
-	d, ver := (*p)()
-	if ver == "" {
-		ver = d.version
-	}
-	if d.version == "" {
-		d.version = ver
-	}
-	return d, ver
 }
 
 func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision, now time.Time, touchBaseline bool) (*Snapshot, map[string]identityStamp, error) {
@@ -126,7 +91,12 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err != nil {
 		return nil, nil, err
 	}
-	dict, dictVer := attachedDictionary()
+	view, err := config.CompileRADIUSDictionary(synth)
+	if err != nil {
+		return nil, nil, err
+	}
+	dict := Dictionary{view: view}
+	dictVer := dict.Version()
 
 	var life map[string]domain.SecretLifecycle
 	var sw []config.SecretWarning

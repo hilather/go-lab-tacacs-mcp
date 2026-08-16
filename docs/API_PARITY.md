@@ -240,7 +240,7 @@ The token value appears exactly once in the successful create response on both s
 
 `system.build.get` keeps `tacacs_conformance` and adds `protocols` (`tacacs` / `radius` → `standards` + `conformance_status`). RADIUS stays `partial` until MVP rows have evidence.
 
-RADIUS diagnostics are distinct from the TACACS `authentication.test` / `policy.evaluate` ops (KD-14). `radius.access.test` calls the same `AuthenticateAccess` path as UDP (`method.type` is `pap` or `chap`; passwords are write-only and wiped). `radius.policy.evaluate` uses the compiled RADIUS engine. `radius.attributes.list` returns dictionary metadata only (name/code/vendor/value_kind/allowed_in/sensitivity). These do not advertise complete RADIUS.
+RADIUS diagnostics are distinct from the TACACS `authentication.test` / `policy.evaluate` ops (KD-14). `radius.access.test` calls the same `AuthenticateAccess` path as UDP (`method.type` is `pap` or `chap`; passwords are write-only and wiped). `radius.policy.evaluate` uses the compiled RADIUS engine. `radius.attributes.list` returns dictionary metadata only (name/code/vendor/value_kind/allowed_in/sensitivity/source). `source` is `builtin` or `operator:<id>`. These do not advertise complete RADIUS.
 
 `events.list` optional filters `protocol`, `listener_role`, `packet_code`, and `outcome` AND with `categories`. REST SSE accepts the same query parameters. MCP listen stays URI-only; clients pull filtered bodies through `events.list`.
 

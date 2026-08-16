@@ -42,6 +42,7 @@ func handleStatus(live StatusProvider) handleFunc {
 			Clients:           len(snap.Clients()),
 			Tokens:            len(snap.Tokens()),
 			Warnings:          snap.Warnings(),
+			DictionaryVersion: snap.DictionaryVersion(),
 		}, nil
 	}
 }

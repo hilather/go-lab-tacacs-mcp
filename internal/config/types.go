@@ -80,12 +80,13 @@ type Document struct {
 	Groups        []Group
 	Users         []User
 	FallbackRules RuleSet
-	// RADIUSPolicies, RADIUSReplyProfiles, and FallbackRADIUSPolicyID are
-	// schema v2 only. v1 documents keep them empty; the v1 raw model still
-	// rejects the YAML keys.
+	// RADIUSPolicies, RADIUSReplyProfiles, FallbackRADIUSPolicyID, and
+	// RADIUSDictionaries are schema v2 only. v1 documents keep them empty;
+	// the v1 raw model still rejects the YAML keys.
 	RADIUSPolicies         []RADIUSPolicy
 	RADIUSReplyProfiles    []RADIUSReplyProfile
 	FallbackRADIUSPolicyID string
+	RADIUSDictionaries     []RADIUSDictionary
 	Events                 Events
 	Observability          Observability
 }
@@ -536,6 +537,14 @@ type RADIUSAttrMatch struct {
 type RADIUSReplyProfile struct {
 	ID         string
 	Attributes []RADIUSReplyAttr
+}
+
+// RADIUSDictionary is a v2 operator dictionary file reference (ADR 0026).
+// Files are TacLab YAML, local, size-capped, and compiled fail-closed.
+type RADIUSDictionary struct {
+	ID      string
+	File    string
+	Enabled bool
 }
 
 // RADIUSReplyAttr is one policy/config reply attribute. No secret-bearing values.

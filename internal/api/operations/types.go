@@ -112,6 +112,7 @@ type Status struct {
 	Clients           int              `json:"clients"`
 	Tokens            int              `json:"tokens"`
 	Warnings          []string         `json:"warnings,omitempty"`
+	DictionaryVersion string           `json:"dictionary_version,omitempty"`
 }
 
 // GetBuildRequest is the empty input for system.build.get.

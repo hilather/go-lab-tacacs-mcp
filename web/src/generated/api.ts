@@ -561,8 +561,9 @@ export interface RadiusAccessTestRequest {
 }
 
 export interface RadiusAccessTestResult {
-  outcome: string;
-  reason_code: "ok" | "reject_bad_credentials" | "reject_policy" | "reject_unsupported_method" | "internal_error" | "reject_password_change_required";
+  outcome: "access_accept" | "access_reject" | "access_challenge";
+  reason_code: "ok" | "reject_bad_credentials" | "reject_policy" | "reject_unsupported_method" | "internal_error" | "reject_password_change_required" | "challenge" | "reject_invalid_state" | "reject_challenge_expired" | "reject_challenge_binding" | "reject_challenge_capacity" | "reject_unsupported_eap_method" | "reject_eap_too_long";
+  state_present?: boolean;
   reply_attributes: RadiusAttributeValue[];
   trace?: RadiusPolicyTrace;
 }
@@ -591,7 +592,7 @@ export interface RadiusAttributeValue {
 }
 
 export interface RadiusAuthMethod {
-  type: "pap" | "chap" | "mschapv1" | "mschapv2";
+  type: "pap" | "chap" | "mschapv1" | "mschapv2" | "eap";
   password?: string;
   id?: number;
   challenge?: string;
@@ -615,7 +616,7 @@ export interface RadiusDynamicAuthResult {
 export interface RadiusPolicyEvaluateRequest {
   client_id?: string;
   user_id: string;
-  method?: "pap" | "chap" | "mschapv1" | "mschapv2";
+  method?: "pap" | "chap" | "mschapv1" | "mschapv2" | "eap";
   endpoint_id?: string;
   request_attributes?: RadiusAttributeValue[];
 }

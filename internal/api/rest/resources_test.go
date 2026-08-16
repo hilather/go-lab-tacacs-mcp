@@ -155,6 +155,19 @@ func TestConfigAndAuthTestREST(t *testing.T) {
 	if strings.Contains(string(radBody), "unit-test-rest-radius-canary-zz8") {
 		t.Fatal("password leaked from radius.access.test")
 	}
+
+	eap := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/radius/access:test", h.Token, []byte(`{"user_id":"alice","method":{"type":"eap"}}`), nil)
+	defer eap.Body.Close()
+	eapBody, _ := io.ReadAll(eap.Body)
+	if eap.StatusCode != http.StatusOK {
+		t.Fatalf("radius eap access test=%d %s", eap.StatusCode, eapBody)
+	}
+	if !strings.Contains(string(eapBody), `"outcome":"access_challenge"`) || !strings.Contains(string(eapBody), `"state_present":true`) {
+		t.Fatalf("radius eap challenge=%s", eapBody)
+	}
+	if strings.Contains(string(eapBody), `"State"`) || strings.Contains(string(eapBody), "EAP-Message") {
+		t.Fatal("State or EAP-Message leaked from radius.access.test")
+	}
 	attrs := doAuth(t, http.MethodGet, h.HTTP.URL+"/api/v1/radius/attributes", h.Token, nil, nil)
 	defer attrs.Body.Close()
 	if attrs.StatusCode != http.StatusOK {

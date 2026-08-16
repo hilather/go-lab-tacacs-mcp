@@ -158,6 +158,32 @@ func TestOpenAPIMustChangeEnums(t *testing.T) {
 	if !enumContains(reason, "reject_password_change_required") {
 		t.Fatalf("RadiusAccessTestResult.reason_code enum=%v", reason["enum"])
 	}
+	if !enumContains(reason, "challenge") {
+		t.Fatalf("RadiusAccessTestResult.reason_code missing challenge: %v", reason["enum"])
+	}
+	outcome := schemaProp(t, schemas, "RadiusAccessTestResult", "outcome")
+	if !enumContains(outcome, "access_challenge") || !enumContains(outcome, "access_accept") || !enumContains(outcome, "access_reject") {
+		t.Fatalf("RadiusAccessTestResult.outcome enum=%v", outcome["enum"])
+	}
+	if state := schemaProp(t, schemas, "RadiusAccessTestResult", "state_present"); state["type"] != "boolean" {
+		t.Fatalf("RadiusAccessTestResult.state_present=%v", state)
+	}
+	method := schemaProp(t, schemas, "RadiusAuthMethod", "type")
+	if !enumContains(method, "eap") || !enumContains(method, "pap") || !enumContains(method, "chap") {
+		t.Fatalf("RadiusAuthMethod.type enum=%v", method["enum"])
+	}
+	chal := schemaProp(t, schemas, "RadiusAuthMethod", "challenge")
+	if chal["writeOnly"] != true {
+		t.Fatalf("RadiusAuthMethod.challenge writeOnly=%v", chal["writeOnly"])
+	}
+	resp := schemaProp(t, schemas, "RadiusAuthMethod", "response")
+	if resp["writeOnly"] != true {
+		t.Fatalf("RadiusAuthMethod.response writeOnly=%v", resp["writeOnly"])
+	}
+	pol := schemaProp(t, schemas, "RadiusPolicyEvaluateRequest", "method")
+	if !enumContains(pol, "eap") {
+		t.Fatalf("RadiusPolicyEvaluateRequest.method enum=%v", pol["enum"])
+	}
 	user := schemaProp(t, schemas, "User", "must_change_login")
 	if user["type"] != "boolean" {
 		t.Fatalf("User.must_change_login=%v", user)

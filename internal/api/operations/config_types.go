@@ -137,10 +137,10 @@ func JSONStringEnums(typeName, field string) []string {
 		return append([]string(nil), AuthenticationTestStatuses...)
 	case "RadiusAccessTestResult.reason_code":
 		return append([]string(nil), RadiusAccessTestReasonCodes...)
-	case "RadiusAuthMethod.type":
-		return []string{"pap", "chap", "mschapv1", "mschapv2"}
-	case "RadiusPolicyEvaluateRequest.method":
-		return []string{"pap", "chap", "mschapv1", "mschapv2"}
+	case "RadiusAccessTestResult.outcome":
+		return append([]string(nil), RadiusAccessTestOutcomes...)
+	case "RadiusAuthMethod.type", "RadiusPolicyEvaluateRequest.method":
+		return append([]string(nil), RadiusAuthMethodTypes...)
 	case "RadiusDynamicAuthResult.outcome":
 		return []string{"ack", "nak", "timeout"}
 	default:

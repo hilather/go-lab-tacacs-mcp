@@ -461,7 +461,7 @@ operations:
     status: PASS
 
   - id: radius.access.test
-    description: Simulate a RADIUS Access-Request against the current snapshot without UDP. Uses the same AuthenticateAccess path as the wire. Method types are pap, chap, mschapv1, and mschapv2. Passwords and MS-CHAP material are wiped. Reason codes include reject_password_change_required. Not complete RADIUS.
+    description: Simulate a RADIUS Access-Request against the current snapshot without UDP. Uses the same AuthenticateAccess path as the wire. method.type is pap, chap, mschapv1, mschapv2, or eap. EAP Identity (no challenge/response) returns access_challenge with state_present true only; raw State and EAP payloads are never echoed. Passwords, MS-CHAP material, and EAP challenge/response are wiped. Reason codes include reject_password_change_required and challenge. Not complete RADIUS.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -478,7 +478,7 @@ operations:
     status: PASS
 
   - id: radius.policy.evaluate
-    description: Explain a RADIUS access-policy decision against the current snapshot using the same engine as the wire path. Method is pap, chap, mschapv1, or mschapv2. Not complete RADIUS.
+    description: Explain a RADIUS access-policy decision against the current snapshot using the same engine as the wire path. Method is pap, chap, mschapv1, mschapv2, or eap. Not complete RADIUS.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"

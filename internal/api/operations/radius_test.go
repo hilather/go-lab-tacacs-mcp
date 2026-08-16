@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -237,6 +238,243 @@ func TestRadiusAccessTestMustChangeReasonCode(t *testing.T) {
 	out := res.Data.(RadiusAccessTestResult)
 	if out.Outcome != RadiusOutcomeReject || out.ReasonCode != aaa.AccessReasonPasswordChangeRequired {
 		t.Fatalf("got %+v", out)
+	}
+}
+
+func TestRadiusAccessTestEAPIdentityChallenge(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			ClientID: "lab-eap",
+			UserID:   "lab-admin",
+			Method:   RadiusAuthMethod{Type: "eap"},
+			Explain:  true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAccessTestResult)
+	if out.Outcome != RadiusOutcomeChallenge || out.ReasonCode != aaa.AccessReasonChallenge {
+		t.Fatalf("got %+v", out)
+	}
+	if !out.StatePresent {
+		t.Fatal("expected state_present")
+	}
+	assertRadiusDiagRedacted(t, out)
+}
+
+func TestRadiusAccessTestEAPOptInRequired(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			ClientID: "lab-switches",
+			UserID:   "lab-admin",
+			Method:   RadiusAuthMethod{Type: "eap"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAccessTestResult)
+	if out.Outcome != RadiusOutcomeReject || out.ReasonCode != aaa.AccessReasonUnsupportedMethod {
+		t.Fatalf("got %+v", out)
+	}
+	if out.StatePresent {
+		t.Fatalf("opt-out eap must not report state: %+v", out)
+	}
+	assertRadiusDiagRedacted(t, out)
+}
+
+func TestRadiusAccessTestEAPMD5AcceptAndWipe(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	id := byte(0x11)
+	chal := []byte("eap-md5-diag-chal!")
+	resp := credentials.CHAPResponse(id, []byte(radiusTestChallenge), chal)
+	chalB64 := base64.StdEncoding.EncodeToString(chal)
+	respB64 := base64.StdEncoding.EncodeToString(resp)
+	res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			ClientID: "lab-eap",
+			UserID:   "lab-admin",
+			Method: RadiusAuthMethod{
+				Type:      "eap",
+				ID:        id,
+				Challenge: chalB64,
+				Response:  respB64,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAccessTestResult)
+	if out.Outcome != RadiusOutcomeAccept || out.ReasonCode != aaa.AccessReasonOK {
+		t.Fatalf("eap-md5=%+v", out)
+	}
+	if out.StatePresent {
+		t.Fatalf("accept must not set state_present: %+v", out)
+	}
+	raw, _ := json.Marshal(out)
+	for _, needle := range []string{chalB64, respB64, string(chal), hex.EncodeToString(resp)} {
+		if needle != "" && strings.Contains(string(raw), needle) {
+			t.Fatalf("eap payload leaked %q: %s", needle, raw)
+		}
+	}
+	assertRadiusDiagRedacted(t, out)
+}
+
+func TestRadiusAccessTestEAPMD5MustChange(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	writer := Actor{ID: "w", Scopes: []string{"state:write"}}
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	rev := m.Revision()
+	_, err := reg.Invoke(context.Background(), IDUsersUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request:          UpdateUserRequest{ID: "lab-admin", MustChangeLogin: boolPtr(true)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := byte(0x22)
+	chal := []byte("eap-md5-must-chg!!")
+	resp := credentials.CHAPResponse(id, []byte(radiusTestChallenge), chal)
+	res, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			ClientID: "lab-eap",
+			UserID:   "lab-admin",
+			Method: RadiusAuthMethod{
+				Type:      "eap",
+				ID:        id,
+				Challenge: base64.StdEncoding.EncodeToString(chal),
+				Response:  base64.StdEncoding.EncodeToString(resp),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAccessTestResult)
+	if out.Outcome != RadiusOutcomeReject || out.ReasonCode != aaa.AccessReasonPasswordChangeRequired {
+		t.Fatalf("got %+v", out)
+	}
+	if out.StatePresent || out.Outcome == RadiusOutcomeChallenge {
+		t.Fatalf("must_change must not challenge: %+v", out)
+	}
+	assertRadiusDiagRedacted(t, out)
+}
+
+func TestRadiusAccessTestEAPPartialInvalid(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	_, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			UserID: "lab-admin",
+			Method: RadiusAuthMethod{Type: "eap", Challenge: base64.StdEncoding.EncodeToString([]byte("only-chal"))},
+		},
+	})
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("partial eap err=%v", err)
+	}
+}
+
+func TestRadiusAccessTestRejectsEAPMessageAttr(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	_, err := reg.Invoke(context.Background(), IDRadiusAccessTest, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusAccessTestRequest{
+			UserID: "lab-admin",
+			Method: RadiusAuthMethod{Type: "eap"},
+			RequestAttributes: []RadiusAttributeValue{
+				{Name: "EAP-Message", ValueHex: "0201000501"},
+			},
+		},
+	})
+	if !isCode(err, domain.CodeInvalidArgument) {
+		t.Fatalf("eap-message attr err=%v", err)
+	}
+}
+
+func TestRadiusAccessResultOmitsStateAndEAP(t *testing.T) {
+	t.Parallel()
+	stateBytes := []byte{0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c}
+	out := radiusAccessResult(aaa.RadiusAccessDecision{
+		Outcome:    aaa.RadiusAccessChallenge,
+		ReasonCode: aaa.AccessReasonChallenge,
+		Challenge:  &aaa.RadiusChallenge{Method: domain.AuthMethodEAP, State: stateBytes},
+		ReplyAttributes: attribute.RawSet{
+			{Type: attribute.TypeState, Value: stateBytes},
+			{Type: attribute.TypeEAPMessage, Value: []byte{0x01, 0x01, 0x00, 0x05, 0x04}},
+			{Type: attribute.TypeSessionTimeout, Value: []byte{0, 0, 0, 60}},
+		},
+	}, false)
+	if out.Outcome != RadiusOutcomeChallenge || !out.StatePresent {
+		t.Fatalf("got %+v", out)
+	}
+	assertRadiusDiagRedacted(t, out)
+	foundTimeout := false
+	for _, a := range out.ReplyAttributes {
+		if a.Name == "Session-Timeout" {
+			foundTimeout = true
+		}
+	}
+	if !foundTimeout {
+		t.Fatalf("kept public reply=%+v", out.ReplyAttributes)
+	}
+}
+
+func TestRadiusPolicyEvaluateAcceptsEAP(t *testing.T) {
+	t.Parallel()
+	reg, m := radiusTestRegistry(t)
+	tester := Actor{ID: "t", Scopes: []string{"policy:test"}}
+	res, err := reg.Invoke(context.Background(), IDRadiusPolicyEvaluate, m.Snapshot(), Input{
+		Actor: tester,
+		Request: RadiusPolicyEvaluateRequest{
+			ClientID: "lab-eap", UserID: "lab-admin", Method: "eap",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusPolicyEvaluateResult)
+	if out.Effect != domain.EffectPermit.String() || out.ReasonCode != aaa.AccessReasonOK {
+		t.Fatalf("got %+v", out)
+	}
+	if out.Trace.Winner == nil || out.Trace.Winner.RuleID != "permit-lab-admins" {
+		t.Fatalf("trace=%+v", out.Trace)
+	}
+}
+
+func assertRadiusDiagRedacted(t *testing.T, out RadiusAccessTestResult) {
+	t.Helper()
+	raw, err := json.Marshal(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	for _, needle := range []string{`"State"`, "EAP-Message", "eap-message", `"state":`} {
+		if strings.Contains(s, needle) {
+			t.Fatalf("diagnostic leaked %q: %s", needle, s)
+		}
+	}
+	if out.StatePresent && out.Outcome != RadiusOutcomeChallenge {
+		t.Fatalf("state_present outside challenge: %+v", out)
 	}
 }
 
@@ -555,6 +793,19 @@ clients:
         radius:
           shared_secret: {file: ` + sec + `}
           allowed_authentication_methods: [pap, chap, mschapv1, mschapv2]
+          access_policy_id: default-radius-access
+  - id: lab-eap
+    priority: 20
+    match:
+      source_cidrs: ["10.0.0.0/8"]
+    endpoints:
+      - id: radius-eap
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: ` + sec + `}
+          allowed_authentication_methods: [pap, chap, eap]
           access_policy_id: default-radius-access
 groups:
   - id: lab-admins

@@ -1085,7 +1085,7 @@ Do **not** overload `authentication.test` or `policy.evaluate`. UI Auth Test pag
 }
 ```
 
-`method.type` is `pap` or `chap` (RADIUS names). `pap` maps to `domain.AuthMethodPassword` (§3). Policy evaluate requests use the same tokens. CHAP method is a tagged union: `{ "type": "chap", "id": 1, "challenge": "<base64>", "response": "<base64>" }`. Password fields write-only; handler wipes like `handleAuthenticationTest`.
+`method.type` is `pap`, `chap`, `mschapv1`, `mschapv2`, or `eap` (RADIUS names). `pap` maps to `domain.AuthMethodPassword` (§3). Policy evaluate requests use the same tokens. CHAP, MS-CHAP, and EAP-MD5 methods are tagged unions: `{ "type": "chap"|"mschapv1"|"mschapv2"|"eap", "id": 1, "challenge": "<base64>", "response": "<base64>" }`. EAP without challenge/response is Identity start and returns `access_challenge`. Password, challenge, and response fields are write-only; handler wipes like `handleAuthenticationTest`. Raw State, EAP-Message, and MS-CHAP secret VSAs are never returned; Challenge replies set `state_present: true` only.
 
 Response:
 
@@ -1097,6 +1097,17 @@ Response:
     { "vendor": 0, "code": 27, "name": "Session-Timeout", "value": "600" }
   ],
   "trace": { "evaluator": "radius_access", "steps": [] }
+}
+```
+
+Challenge example (`method.type=eap`, no challenge/response):
+
+```json
+{
+  "outcome": "access_challenge",
+  "reason_code": "challenge",
+  "state_present": true,
+  "reply_attributes": []
 }
 ```
 

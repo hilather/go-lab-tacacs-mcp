@@ -44,8 +44,8 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 			t.Errorf("missing protocol-only operation %s", id)
 		}
 	}
-	if got := len(rep.RFC8907.Rows); got != 170 {
-		t.Fatalf("RFC 8907 rows: got %d, want 170", got)
+	if got := len(rep.RFC8907.Rows); got != 171 {
+		t.Fatalf("RFC 8907 rows: got %d, want 171", got)
 	}
 	if got := len(rep.RFC9887.Rows); got != 51 {
 		t.Fatalf("RFC 9887 rows: got %d, want 51", got)
@@ -82,8 +82,8 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	tacacsIDs := ExtractConformanceIDs(doc)
-	if len(tacacsIDs) != 221 {
-		t.Fatalf("TACACS contract IDs: got %d, want 221", len(tacacsIDs))
+	if len(tacacsIDs) != 222 {
+		t.Fatalf("TACACS contract IDs: got %d, want 222", len(tacacsIDs))
 	}
 	radiusIDs := ExtractConformanceIDs(radiusDoc)
 	if len(radiusIDs) != 33 {

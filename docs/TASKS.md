@@ -1622,7 +1622,7 @@ Unchecked MVP ranges after `v1.2.0` were never expanded into per-ID acceptance t
 - [x] `RAD-API-004` `radius.policy.evaluate` uses the same compiled RADIUS engine as the wire path.
 - [x] `RAD-API-005` `radius.attributes.list` returns dictionary metadata only (no values/secrets).
 - [x] `RAD-API-006` Same-change generate (OpenAPI, MCP, frontend types, api-parity matrix).
-- [ ] Remaining `RAD-API-*` UI-adjacent admin surfaces stay with remaining-work UI rollup (`RAD-EXT-*` implementing PRs). Not a parallel MVP range.
+- [x] Remaining `RAD-API-*` UI-adjacent admin surfaces. **Superseded** into remaining-work UI rollup (`RAD-EXT-*` implementing PRs / program PR 12). Not a parallel MVP range.
 - [x] `RAD-UI-001` `RAD-UI-002` Protocol-aware UI.
 - [x] `RAD-LAB-001` Labgen, Compose, ports 1812/1813, distinct RADIUS secret, combined + RADIUS-only + TACACS-only readiness. Not advertised as complete RADIUS.
 - [x] `RAD-SEC-001` … `RAD-SEC-008` Security, redaction, observability. **Done** for MVP (canaries + MA policy). New threats attach to remaining-work ADRs 0021–0029.

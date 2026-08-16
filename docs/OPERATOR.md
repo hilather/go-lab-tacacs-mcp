@@ -2,7 +2,7 @@
 
 Status: 1.0 operator contract plus RADIUS/UDP lab profile  
 Product: TacLab (`taclabd`)  
-Last updated: 2026-08-14
+Last updated: 2026-08-16
 
 This is the operator-facing 1.0 guide. Protocol and schema details stay in [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) and [LAB_DEPLOYMENT.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/LAB_DEPLOYMENT.md). RADIUS conformance and deferred rows: [RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md).
 
@@ -186,6 +186,7 @@ How to add durable accounts and devices: [BASELINE.md](https://github.com/hilath
 - YAML `action: permit` is an alias of `permit_add`. REST/MCP writes use `permit_add` | `permit_replace` | `deny`.
 - `default_command_action` must be `deny` or omitted.
 - Explain a TACACS decision: UI Policy page or `POST /api/v1/policy/evaluate` (`policy:test`).
+- Force next-login / next-enable change, disable, account window, groups, client restriction, and overlay wipe: [§14](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md#14-qa-user-lifecycle-recipes-mcp--rest).
 
 Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=configure` → deny.
 
@@ -216,6 +217,7 @@ Local desktop clients and hosted/remote agents: **[MCP.md](https://github.com/hi
 - Same bearer + scopes as REST. Lab static bearer is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md): **no** `.well-known/oauth-protected-resource`. Clients that require OAuth PRM will not complete discovery.
 - Events: `subscriptions/listen` on `taclab://events/recent` notifies URI-only; pull bodies with `taclab.events.list`. Not a firehose.
 - RADIUS diagnostics are `taclab.radius.access.test`, `taclab.radius.policy.evaluate`, and `taclab.radius.attributes.list`. Missing tool ⇒ missing scope, not a missing feature.
+- Copy-paste QA recipes (must-change fixture / assert / rotate and existing user workflows): [§14](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md#14-qa-user-lifecycle-recipes-mcp--rest). Do not invent `taclab.qa.*` tools.
 
 MCP Streamable HTTP uses `github.com/modelcontextprotocol/go-sdk` v1.7.0 ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)). Lab static bearer is unchanged ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
 
@@ -227,6 +229,8 @@ MCP Streamable HTTP uses `github.com/modelcontextprotocol/go-sdk` v1.7.0 ([ADR 0
 | Validate only | `POST /api/v1/config/validate` or `taclabd validate` | `state:write` (not a mutation) |
 | Export redacted | `GET /api/v1/config/export` | `config:export` |
 | Drop overlay | `POST /api/v1/runtime/reset` | `runtime:reset` |
+
+`runtime.reset` restores the YAML baseline, including YAML `must_change_*` flags and YAML verifiers. MCP/REST-set flags and published in-LOGIN / CHPASS / in-ENABLE PHCs do **not** survive (K16). See [§14](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md#14-qa-user-lifecycle-recipes-mcp--rest) recipe 14.
 
 File-watch reload is **off**. Invalid reload keeps the previous snapshot. There is no `config.import` in 1.0.
 
@@ -251,6 +255,8 @@ Useful RADIUS scrapes (not a pager contract): `rate(taclab_protocol_discards_tot
 | ASCII on a challenge-only client | RESTART — start a new session with another type. |
 | RADIUS silent discard (no reply) | Unknown/ambiguous source, malformed length, invalid code for the role, invalid Accounting-Request Authenticator, missing/invalid Message-Authenticator, EAP-Message without MA, Proxy-State without MA when `limit_proxy_state`, unknown Acct-Status-Type, or `drop_overload`. Watch `taclab_protocol_discards_total` `reason`. |
 | RADIUS Access-Reject | Unknown user / bad password / disabled (`reject_bad_credentials` — no user-existence leak), conflicting PAP+CHAP, CHAP-Password length ≠ 17, method not allowed, or policy deny / default deny. |
+| RADIUS Access-Reject `reject_password_change_required` | User has `must_change_login`. Identity lock after a **good** PAP/CHAP. No Access-Challenge, no extra attributes. MCP finish is `taclab.users.update` secret rotate ([§14](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md#14-qa-user-lifecycle-recipes-mcp--rest)). |
+| TACACS FAIL `Password change required` | Good password + `must_change_login` on PAP/CHAP/MS-CHAP, or ASCII LOGIN when the client omits `ascii_chpass`. Wrong password stays empty `server_msg`. |
 | RADIUS NAS retries forever | Secret mismatch (invalid authenticator is silent). Compatibility client without MA against `required`. Published-port NAT changing source IP. |
 | Insecure RADIUS compatibility badge | Endpoint or listener inherited `allow_missing`. Restore `required` unless you are deliberately testing a warned client. |
 | Accounting-Response missing | Ring rejected the record (`internal_error`, no wire SUCCESS). Check ring capacity. |
@@ -301,3 +307,233 @@ taclabd validate --config deployments/compose/config/taclab.yaml
 ```
 
 Rollback is “keep the v1 file and the previous image digest.” Do not expect an old binary to load v2.
+
+## 14. QA user-lifecycle recipes (MCP / REST)
+
+MCP owns **fixture + assert + admin rotate**. GETPASS / CONTINUE is **NAS / `internal/tacacs/testclient` only**. Hosted MCP cannot speak ports 49/300. Do **not** invent `taclab.qa.*` tools. Use the existing `taclab.*` operations (same typed requests as REST).
+
+All mutating calls need `expected_revision` (MCP) / `If-Match` (REST). Read `effective_revision` from the last `users.get` / `clients.get` / status first. Do not invent REST wrappers around MCP.
+
+YAML field contract: [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) §7.10. ADR: [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md). MCP setup: [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
+
+The reference Compose baseline is **not** flipped to must-change. Recipes use existing `lab-admin` / `lab-readonly` / `lab-switches`. Do not add a compose fixture user.
+
+RADIUS advertised status stays **`partial`**. There is no Access-Challenge, no Microsoft Password-Expired VSA, and no named `Cisco-AVPair`. `authentication.test` `status=must_change` is **not** a TACACS or RADIUS packet status.
+
+| MCP tool | REST | Scope |
+|---|---|---|
+| `taclab.users.update` | `PATCH /api/v1/users/{id}` | `state:write` |
+| `taclab.users.get` | `GET /api/v1/users/{id}` | `state:read` |
+| `taclab.users.create` | `POST /api/v1/users` | `state:write` |
+| `taclab.users.delete` | `DELETE /api/v1/users/{id}` | `state:write` |
+| `taclab.authentication.test` | `POST /api/v1/authentication/test` | `policy:test` |
+| `taclab.clients.update` | `PATCH /api/v1/clients/{id}` | `state:write` |
+| `taclab.policy.evaluate` | `POST /api/v1/policy/evaluate` | `policy:test` |
+| `taclab.runtime.reset` | `POST /api/v1/runtime/reset` | `runtime:reset` |
+| `taclab.radius.access.test` | `POST /api/v1/radius/access:test` | `policy:test` |
+
+### Overlay vs YAML (K16)
+
+Say this in every must-change recipe.
+
+| How the flag was set | After `runtime.reset` / restart |
+|---|---|
+| YAML `must_change_login: true` | Flag **returns**; in-LOGIN / CHPASS new PHC is **gone**; old YAML verifier is back |
+| `taclab.users.update` flag only | Flag **gone**; baseline user restored |
+| In-LOGIN / CHPASS / `OverrideLoginVerifier` | New secret **gone** unless written into YAML |
+
+YAML-set flag = durable lab fixture. REST/MCP-set flag = overlay-only. After a NAS change, keep the new secret across reset only by writing it into YAML (or accept overlay-only). The YAML baseline is never rewritten.
+
+### 1. Fixture must-change (overlay)
+
+K16: this flag is overlay-only. `runtime.reset` / restart restores the YAML user (flag false unless YAML set it).
+
+- Tool: `taclab.users.update` · Scope: `state:write`
+
+```json
+{ "id": "lab-admin", "must_change_login": true, "expected_revision": 11 }
+```
+
+`must_change_login` is an **identity lock** on all login-class methods after a successful verify (ASCII, PAP, CHAP, MS-CHAP, RADIUS access). It does **not** apply to ENABLE. It is not a `restrictions` field.
+
+#### 1b. Assert fixture (does not CONTINUE)
+
+- Tool: `taclab.authentication.test` · Scope: `policy:test`
+
+```json
+{ "user_id": "lab-admin", "method": "ascii", "password": "<current>" }
+```
+
+Expect `{ "status": "must_change" }`. Same body with `"method": "pap"` or `"chap"` also `must_change` (identity lock). Wire for PAP/CHAP is FAIL, not a `must_change` packet. RADIUS assert is `taclab.radius.access.test` → `reason_code=reject_password_change_required` (Access-Reject, no extra attributes).
+
+#### 1c. MCP-only finish (no TACACS)
+
+K16: the new login PHC and cleared flag live only in overlay.
+
+```json
+{
+  "id": "lab-admin",
+  "login": { "file": "/run/secrets/new_login_argon2id" },
+  "expected_revision": 12
+}
+```
+
+Flag clears unless the same patch sets `"must_change_login": true`. Overlay-only secret.
+
+#### 1d. NAS / testclient finish
+
+ASCII LOGIN extra GETPASS (`New Password: ` / `Retype New Password: `) if the client allows `ascii_chpass` (or `allowed_methods` is empty). That is a **lab/vendor extension**, not RFC 8907 LOGIN. Client-initiated CHPASS remains the RFC change-password path (prompts stay `Password: `). **Not MCP.**
+
+If `ascii_chpass` is omitted from a non-empty allow-list: FAIL + `server_msg=Password change required`, no overlay mutation. MCP finish (1c) still works.
+
+K16: published PHC + cleared flag are overlay-only. YAML-set `must_change_login: true` returns on `runtime.reset`.
+
+### 2. Disable / re-enable
+
+- Tool: `taclab.users.update` · `state:write`
+
+```json
+{ "id": "lab-readonly", "enabled": false, "expected_revision": 20 }
+```
+
+```json
+{ "id": "lab-readonly", "enabled": true, "expected_revision": 21 }
+```
+
+Disabled + `must_change_login` stays uniform FAIL / empty `server_msg` (never `New Password: `).
+
+### 3. Expire account (not password)
+
+`restrictions.valid_before` / `valid_after` expire the **identity**, not the password. Combined with `must_change_login` still looks like uniform FAIL.
+
+```json
+{
+  "id": "lab-readonly",
+  "restrictions": { "valid_before": "2020-01-01T00:00:00Z" },
+  "expected_revision": 22
+}
+```
+
+Expect TACACS FAIL (uniform, empty `server_msg`) even if `must_change_login` is also true. Author: `user not valid at evaluation time`.
+
+Not-yet-valid:
+
+```json
+{
+  "id": "lab-readonly",
+  "restrictions": { "valid_after": "2099-01-01T00:00:00Z" },
+  "expected_revision": 23
+}
+```
+
+### 5. Fixture must-change enable
+
+K16: MCP-set `must_change_enable` is overlay-only. YAML-set flag survives `runtime.reset`; a published ENABLE PHC does not.
+
+```json
+{ "id": "lab-admin", "must_change_enable": true, "expected_revision": 24 }
+```
+
+Assert: `taclab.authentication.test` `{ "user_id": "lab-admin", "method": "enable", "password": "<enable>" }` → `must_change`. MCP finish: `"enable": { "file": "..." }` (clears the flag unless the same patch sets `"must_change_enable": true`). NAS / testclient finish is in-ENABLE GETPASS (TacLab/vendor extension, **not** RFC 8907 ENABLE). Not MCP.
+
+`must_change_login` does not apply to ENABLE.
+
+### 6. Clear / rotate secrets independently
+
+```json
+{ "id": "lab-admin", "challenge": null, "expected_revision": 25 }
+```
+
+```json
+{ "id": "lab-admin", "login": { "file": "/run/secrets/lab_admin_argon2id" }, "expected_revision": 26 }
+```
+
+JSON `null` / empty object clears (`OptionalSecret.Clear`). A non-nil login/enable patch **clears** the matching must-change flag unless the same patch sets the flag `true`. Clearing login while `must_change_login` is true is `invalid_argument`. Overlay-only (K16): reset restores the YAML verifier and YAML flag.
+
+### 7. Move groups
+
+```json
+{ "id": "lab-readonly", "group_ids": ["readonly"], "expected_revision": 27 }
+```
+
+### 8. Client restriction
+
+```json
+{
+  "id": "lab-readonly",
+  "restrictions": { "client_ids": ["lab-switches"] },
+  "expected_revision": 28
+}
+```
+
+Restricted + `must_change_login` stays uniform FAIL / empty `server_msg`.
+
+### 9. Tombstone / override / reveal
+
+Create override: `taclab.users.create` `{ "id": "lab-admin", "override": true, "display_name": "tmp", "expected_revision": N }` · `state:write`.
+
+Reveal baseline (drop OVERRIDE, no tombstone): `taclab.users.delete`
+
+```json
+{ "id": "lab-admin", "tombstone": false, "expected_revision": 29 }
+```
+
+Tombstone baseline: `"tombstone": true`.
+
+Reveal restores the YAML user, including YAML `must_change_*` (K16). Overlay flags and published PHCs vanish with the OVERRIDE.
+
+### 10 / 13. Per-client `allowed_methods`
+
+- Tool: `taclab.clients.update` · `state:write`
+
+Challenge-only NAS:
+
+```json
+{
+  "id": "lab-switches",
+  "authentication": { "allowed_methods": ["chap", "mschapv1", "mschapv2"] },
+  "expected_revision": 30
+}
+```
+
+ASCII / PAP / ENABLE / CHPASS **RESTART**. In-LOGIN change cannot run; MCP finish (1c) still works. CHAP/MS-CHAP + `must_change_login` still FAIL after a good response (identity lock).
+
+Allow ASCII login but forbid NAS password mutation:
+
+```json
+{
+  "id": "lab-switches",
+  "authentication": { "allowed_methods": ["ascii", "pap"] },
+  "expected_revision": 31
+}
+```
+
+LOGIN + `must_change_login` → FAIL + `Password change required`, no overlay PHC. Empty `allowed_methods` means all implemented methods are allowed (including `ascii_chpass`).
+
+### 12. Policy deny vs permit
+
+`must_change_*` is **not** an authorization deny. `policy.evaluate` stays the QA tool for permit/deny fixtures.
+
+- Tool: `taclab.policy.evaluate` · `policy:test`
+
+```json
+{
+  "user_id": "lab-readonly",
+  "client_id": "lab-switches",
+  "service": "shell",
+  "cmd": "configure",
+  "cmd_args": []
+}
+```
+
+Fields are `EvaluatePolicyRequest` (`user_id`, `client_id`, `service`, `cmd`, `cmd_args`).
+
+### 14. Full overlay wipe
+
+- Tool: `taclab.runtime.reset` · `runtime:reset`
+
+```json
+{ "expected_revision": 32 }
+```
+
+Restores YAML, including YAML `must_change_*` and YAML verifiers (K16). MCP-set flags and published PHCs are gone. Source files are never rewritten.

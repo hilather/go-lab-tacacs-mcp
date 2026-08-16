@@ -1666,7 +1666,7 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 ### 23.5 UI, docs, and benches
 
 - [x] `UL-UI-001` Users page badge + editor checkboxes for both flags; Auth Test page displays `must_change`. Generated types only.
-- [ ] `UL-DOC-001` OPERATOR copy-paste recipes, CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence, CHANGELOG. Recipes-only; no compose fixture user (Q1). Do not mark RADIUS complete.
+- [x] `UL-DOC-001` OPERATOR copy-paste recipes ([docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §14), CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence (`T89-FLOW-013` / `014` / `015`, `PRJ-UL-001`), CHANGELOG [Unreleased]. Recipes-only; no compose fixture user (Q1). RADIUS `conformance_status` stays `partial`.
 - [x] `UL-BEN-001` Rerun ASCII/CHAP login benches; add a must-change start bench that stops at the first extra GETPASS.
 
 ### 23.6 Merge gates

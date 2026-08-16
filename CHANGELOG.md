@@ -6,6 +6,21 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Added
 
+- Fail-closed login-class lock (`must_change_login`): after a successful verify,
+  ASCII LOGIN **may** continue with extra GETPASS new/confirm (TacLab/vendor
+  extension, not RFC 8907 LOGIN) when the client allows `ascii_chpass` (or
+  `allowed_methods` is empty); otherwise FAIL with
+  `server_msg=Password change required` and no overlay mutation. PAP / CHAP /
+  MS-CHAP FAIL with the same `server_msg`. RADIUS Access-Reject
+  `reject_password_change_required` (no extra attributes, no Access-Challenge,
+  no Microsoft Password-Expired VSA). The lock is identity-level — CHAP /
+  MS-CHAP fail even though they verify challenge material.
+  `must_change_login` does not apply to ENABLE. Combined account-expiry /
+  disabled / restricted / unknown / wrong-password stay uniform FAIL (empty
+  `server_msg`). MCP owns fixture + assert + admin rotate; GETPASS is NAS /
+  `internal/tacacs/testclient` only. YAML-set flags survive `runtime.reset`;
+  MCP-set flags and published PHCs do not. RADIUS advertised status stays
+  `partial`.
 - In-ENABLE GETPASS new/confirm after a successful ENABLE verify when
   `must_change_enable` is set (TacLab/vendor extension, not RFC 8907 ENABLE).
   Overlay-only PHC via `OverrideEnableVerifier`; YAML baseline is never
@@ -20,6 +35,12 @@ All notable changes to TacLab (`taclabd`) are documented here.
   Enabled and editor checkboxes for both flags (create/update send the bools;
   stale-write compare includes them). Authentication test displays status
   `must_change` with warn styling instead of treating it as a generic fail.
+- [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md)
+  §14 copy-paste MCP recipes for must-change fixture, assert, rotate, disable,
+  account window, groups, client restriction, tombstone/reveal,
+  `allowed_methods`, `policy.evaluate`, and `runtime.reset`. K16 overlay vs
+  YAML is documented on every must-change recipe. No compose fixture user.
+  No `taclab.qa.*` tools.
 - `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the
   HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests
   with a missing or older header pass through to the official SDK transport,

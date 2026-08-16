@@ -548,7 +548,7 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 	if err != nil {
 		return nil, err
 	}
-	methods = DefaultRADIUSAccessMethods(methods, roles)
+		methods = FillRADIUSAccessMethods(methods, roles)
 	status, err := normalizeRADIUSStatusTypes(raw.Accounting.AcceptStatusTypes, path+".accounting.accept_status_types")
 	if err != nil {
 		return nil, err
@@ -615,11 +615,17 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 	return false
 }
 
-// DefaultRADIUSAccessMethods fills an omitted/empty access-role list with
-// [pap, chap]. EAP and MS-CHAP stay opt-in (KD-R21).
-func DefaultRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
+// DefaultRADIUSAccessMethods is the compile default for an access-role
+// endpoint when allowed_authentication_methods is omitted or empty (KD-R21).
+func DefaultRADIUSAccessMethods() []string {
+	return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
+}
+
+// FillRADIUSAccessMethods applies the access-role compile default. A
+// zero-length list is never persisted on an access role.
+func FillRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
 	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
-		return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
+		return DefaultRADIUSAccessMethods()
 	}
 	return methods
 }

@@ -1,6 +1,7 @@
 package state
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -39,6 +40,30 @@ func TestOverlayRADIUSFlattenCreatesEndpoint(t *testing.T) {
 	if got.Client.Legacy.SharedSecret.File != "/run/secrets/rad-tacacs" {
 		t.Fatalf("tacacs secret=%+v", got.Client.Legacy.SharedSecret)
 	}
+	if strings.Join(radiusMethods(got.Client), ",") != "pap,chap" {
+		t.Fatalf("flatten create methods=%v", radiusMethods(got.Client))
+	}
+
+	rev = snap.Revision
+	snap, err = m.UpdateClient("rad", UpdateClient{
+		RADIUS: &RADIUSPatch{AllowedMethods: []string{}},
+	}, &rev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ = snap.Client("rad")
+	if strings.Join(radiusMethods(got.Client), ",") != "pap,chap" {
+		t.Fatalf("empty overlay methods persisted %v", radiusMethods(got.Client))
+	}
+}
+
+func radiusMethods(c config.Client) []string {
+	for _, ep := range c.Endpoints {
+		if ep.RADIUS != nil {
+			return append([]string(nil), ep.RADIUS.AllowedAuthenticationMethods...)
+		}
+	}
+	return nil
 }
 
 func TestOverlayFlattenResynthesizesTACACSEndpoints(t *testing.T) {

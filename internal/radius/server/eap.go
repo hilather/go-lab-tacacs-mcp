@@ -189,7 +189,9 @@ func (a Access) handleEAPStart(_ context.Context, in Request) Result {
 	if papOrCHAPPresent(in) {
 		return a.eapReject(in, ReasonConflictingAuth, 0, 0, false)
 	}
-	if !methodAllowed(in.AllowedMethods, methodEAP) {
+	// Empty AllowedMethods is defensive fail-closed: compile/REST/overlay
+	// must persist [pap, chap], never allow-all for EAP (KD-R21).
+	if len(in.AllowedMethods) == 0 || !methodAllowed(in.AllowedMethods, methodEAP) {
 		return replyAccess(in, codec.CodeAccessReject, ReasonUnsupportedMethod, nil)
 	}
 	raw, reason := concatEAPMessage(in.Packet.Attributes)

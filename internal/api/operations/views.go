@@ -629,10 +629,10 @@ func tacacsEndpointFromWrite(v *ClientTACACSEndpointWrite) (*config.TACACSEndpoi
 func radiusEndpointFromWrite(v *ClientRADIUSWrite, roles []domain.ListenerRole) (*config.RADIUSEndpoint, error) {
 	if v == nil {
 		rad := &config.RADIUSEndpoint{
-			RequireMessageAuthenticator: true,
-			LimitProxyState:             true,
+			RequireMessageAuthenticator:  true,
+			LimitProxyState:              true,
+			AllowedAuthenticationMethods: config.FillRADIUSAccessMethods(nil, roles),
 		}
-		rad.AllowedAuthenticationMethods = config.DefaultRADIUSAccessMethods(nil, roles)
 		return rad, nil
 	}
 	methods, err := config.ParseRADIUSAuthMethods(v.AllowedMethods)
@@ -647,7 +647,7 @@ func radiusEndpointFromWrite(v *ClientRADIUSWrite, roles []domain.ListenerRole) 
 	rad := &config.RADIUSEndpoint{
 		RequireMessageAuthenticator:  true,
 		LimitProxyState:              true,
-		AllowedAuthenticationMethods: methods,
+		AllowedAuthenticationMethods: config.FillRADIUSAccessMethods(methods, roles),
 		AcceptStatusTypes:            status,
 	}
 	if v.AccessPolicyID != nil {

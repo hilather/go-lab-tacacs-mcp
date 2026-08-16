@@ -201,6 +201,34 @@ func TestEAPTooLongRejects(t *testing.T) {
 	}
 }
 
+func TestEAPEmptyMethodsNoChallenge(t *testing.T) {
+	t.Parallel()
+	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, time.Now)
+	var ra [16]byte
+	ra[0] = 0x8b
+	in, h := eapReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		eapIdentityAttr(1, "lab-admin"),
+	}, nil, store, bytes.Repeat([]byte{1}, 32))
+	res := h.Handle(context.Background(), in)
+	if res.Reason != ReasonUnsupportedMethod || res.Response[0] != byte(codec.CodeAccessReject) {
+		t.Fatalf("empty methods must not Challenge: %+v", res)
+	}
+	pkt, err := codec.Decode(res.Response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pkt.Attributes.AllOf(attribute.TypeEAPMessage).Len() != 0 {
+		t.Fatal("empty methods must not emit EAP-Failure")
+	}
+	if _, ok := pkt.Attributes.First(attribute.TypeState); ok {
+		t.Fatal("must not Challenge")
+	}
+	if store.Len() != 0 {
+		t.Fatal("must not store")
+	}
+}
+
 func TestEAPNotAllowedNoChallenge(t *testing.T) {
 	t.Parallel()
 	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, time.Now)

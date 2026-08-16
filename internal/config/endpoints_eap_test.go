@@ -53,4 +53,21 @@ func TestRADIUSAuthMethodsEAPOptIn(t *testing.T) {
 	if len(ep.AllowedAuthenticationMethods) == 0 {
 		t.Fatal("compiled access methods must not be empty")
 	}
+
+	filled := FillRADIUSAccessMethods(nil, []domain.ListenerRole{domain.RoleAccess})
+	if strings.Join(filled, ",") != "pap,chap" {
+		t.Fatalf("fill omitted=%v", filled)
+	}
+	filled = FillRADIUSAccessMethods([]string{}, []domain.ListenerRole{domain.RoleAccess})
+	if strings.Join(filled, ",") != "pap,chap" {
+		t.Fatalf("fill empty=%v", filled)
+	}
+	kept := FillRADIUSAccessMethods([]string{RADIUSAuthMethodEAP}, []domain.ListenerRole{domain.RoleAccess})
+	if strings.Join(kept, ",") != "eap" {
+		t.Fatalf("explicit eap overwritten: %v", kept)
+	}
+	acct := FillRADIUSAccessMethods(nil, []domain.ListenerRole{domain.RoleAccounting})
+	if len(acct) != 0 {
+		t.Fatalf("accounting-only must not invent methods: %v", acct)
+	}
 }

@@ -111,9 +111,11 @@ type TestAuthenticationRequest struct {
 	Data     []byte `json:"data,omitempty"`
 }
 
-// AuthenticationTestResult is the redacted outcome. Status is pass, fail, error, or restart.
-// *_configured flags are admin capability metadata from the snapshot, not a
-// TACACS username-enumeration guarantee.
+// AuthenticationTestResult is the redacted outcome. Status is pass, fail,
+// error, restart, or must_change. must_change is not a TACACS or RADIUS
+// packet status: it means verify succeeded and the applicable must-change
+// flag is set. *_configured flags are admin capability metadata from the
+// snapshot, not a TACACS username-enumeration guarantee.
 type AuthenticationTestResult struct {
 	Status              string `json:"status"`
 	Method              string `json:"method"`

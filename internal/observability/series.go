@@ -334,6 +334,7 @@ func knownReasonCode(v string) bool {
 		"reject_chap_password_length",
 		"reject_unsupported_method",
 		"reject_bad_credentials",
+		"reject_password_change_required",
 		"reject_policy",
 		"internal_error",
 		"ambiguous_identity",

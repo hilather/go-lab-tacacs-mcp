@@ -8,7 +8,7 @@ Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml
 
 | Gate | Result |
 |---|---|
-| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (174/174 mandatory rows `PASS`) |
+| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (175/175 mandatory rows `PASS`) |
 | Independent software peer | `internal/tacacs/testclient` (separate codec) |
 | Cisco / second-NOS device interop | **SKIP** — no lab hardware; see `docs/INTEROP.md` |
 | External TLS PSK / RPK | `DEFERRED_MAY` ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)); T98-OPT-002/003/004 stay `NOT_STARTED` |
@@ -114,6 +114,7 @@ RFC 8907 TACACS+
 | T89-FLOW-012 | PROJECT MUST | PASS | CHAP challenge policy | unit:internal/aaa.TestCHAPBelowMinimumChallengeErrors; unit:internal/credentials.TestCHAPRejectsShortChallenge |
 | T89-FLOW-013 | PROJECT MUST | PASS | ASCII LOGIN after successful password + must_change_login may continue with GETPASS new/confirm (TacLab/vendor extension; not RFC 8907 LOGIN) when ascii_chpass is allowed; otherwise FAIL + Password change required | unit:internal/aaa.TestASCIILoginMustChangePromptsAndPass; unit:internal/aaa.TestASCIILoginMustChangeWhenCHPASSDisallowed; unit:internal/aaa.TestContinueASCIIDispatchesNeedNew; unit:internal/aaa.TestMustChangeDoesNotOverrideKindExpired |
 | T89-FLOW-014 | PROJECT MUST | PASS | PAP/CHAP/MS-CHAP after successful verify + must_change_login FAIL with fixed server_msg; wrong password remains empty server_msg | unit:internal/aaa.TestPAPMustChangeFailsWithServerMsg; unit:internal/aaa.TestPAPWrongPasswordEmptyServerMsg; unit:internal/aaa.TestCHAPMustChangeFailsAfterGoodResponse; unit:internal/aaa.TestMSCHAPMustChangeFailsAfterGoodResponse |
+| T89-FLOW-015 | PROJECT MUST | PASS | ENABLE after successful secret + must_change_enable continues GETPASS new/confirm (TacLab/vendor extension; not RFC 8907 ENABLE). OverrideEnableVerifier clears must_change_enable. Does not gate login-class merge. | unit:internal/aaa.TestEnableMustChangePromptsAndPass; unit:internal/aaa.TestContinueEnableDispatchesNeedNew; unit:internal/aaa.TestEnableMustChangeLoginDoesNotForceChange; unit:internal/aaa.TestCHPASSOnEnableStillFailsWithMustChangeEnable; unit:internal/state.TestOverrideEnableVerifierClearsMustChange; unit:internal/state.TestYAMLMustChangeEnableRestoredAfterSuccessfulChangeAndReset; unit:internal/state.TestOverrideEnableVerifierAndReset |
 | T89-AU-001 | MUST | PASS | Decode all request fields and preserve user, port, remote address, auth context, and ordered arguments | unit:internal/aaa.TestAuthorizePreservesRequestFieldsAndDictionary; unit:internal/tacacs/codec.TestAuthorRequestArgsOrder; golden:testdata/protocol/bodies/author-request-shell-show.bin |
 | T89-AU-002 | MUST NOT | PASS | Do not trust authen_method for policy evaluation | unit:internal/policy.TestAuthenMethodObservational; unit:internal/aaa.TestAuthenMethodCodesRecordedNotTrusted |
 | T89-AU-003 | MUST | PASS | Recognize all authen-method codes for parsing/events | unit:internal/aaa.TestAuthenMethodCodesRecordedNotTrusted; unit:internal/tacacs/server.TestBridgeAuthenMethodNotType |

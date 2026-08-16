@@ -37,6 +37,11 @@ func testPHC(t testing.TB) []byte {
 
 func writeSkeleton(t testing.TB, extra string) (string, config.SecretLookup, *state.Manager) {
 	t.Helper()
+	return writeSkeletonExtras(t, "", extra)
+}
+
+func writeSkeletonExtras(t testing.TB, adminExtra, extra string) (string, config.SecretLookup, *state.Manager) {
+	t.Helper()
 	dir := t.TempDir()
 	phc := testPHC(t)
 	en, err := credentials.DeriveArgon2id([]byte(testEnablePW), credentials.TestParams, rand.Reader)
@@ -119,6 +124,7 @@ groups:
 users:
   - id: lab-admin
     group_ids: [administrators]
+` + adminExtra + `
     credentials:
       login:
         verifier: {file: ` + login + `}

@@ -702,6 +702,7 @@ Optional top-level booleans `must_change_login` and `must_change_enable` default
 - `must_change_enable: true` is allowed only when `credentials.enable.verifier` is set, regardless of `enabled`.
 - YAML-set flags are durable (`runtime.reset` / restart restore them with the YAML verifier). Overlay-set flags and published PHCs are memory-only.
 - A non-nil login/enable secret patch (including Clear) clears the matching flag unless the same patch sets the flag `true`.
+- After a successful ENABLE verify, `must_change_enable` continues the same session with extra GETPASS new/confirm (TacLab/vendor extension; not RFC 8907 ENABLE). That path is gated only by `enable` already being allowed. `must_change_login` does not apply to ENABLE.
 
 See [ADR 0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md).
 

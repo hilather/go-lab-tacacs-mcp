@@ -78,6 +78,7 @@ types. The runtime overlay is memory-only and vanishes on restart.
 | UL-TM-01 | Username enumeration via distinct LOGIN status/prompt | Medium | Must-change branch only after `Verify*` success | `TestASCIILoginMustChangeWrongPasswordUniform` |
 | UL-TM-02 | Username enumeration via PAP `server_msg` | Medium | `Password change required` only after successful verify | `TestPAPWrongPasswordEmptyServerMsg` |
 | UL-TM-06 | Granting RADIUS/PAP access when password is expired | High | Post-verify reject in the same merge as the flag; policy not consulted | `TestAuthenticateAccessMustChangeRejectsWithoutPolicy` |
+| UL-TM-07 | ENABLE change writing login or vice versa | High | Separate `OverrideEnableVerifier`; login/challenge material stays on file refs | `TestOverrideEnableVerifierClearsMustChange`; `TestEnableMustChangePromptsAndPass` |
 | UL-TM-09 | NAS-driven login mutation when `ascii_chpass` is disallowed | High | K13 FAIL + no `OverrideLoginVerifier` | `TestASCIILoginMustChangeWhenCHPASSDisallowed` |
 
 ### 4.1 RADIUS/UDP (controlled-network profile)

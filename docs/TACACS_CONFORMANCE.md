@@ -192,6 +192,7 @@ The parser, policy model, event model, and configuration restrictions must recog
 | T89-FLOW-012 | CHAP challenge policy | 1 | configurable minimum with recommended default of 8 bytes | below-minimum challenge (no maximum; well-formed longer challenges are accepted) | [x] |
 | T89-FLOW-013 | ASCII LOGIN must-change (lab/vendor extension; not RFC 8907 LOGIN) | 0 | extra GETPASS new/confirm when `must_change_login` and `ascii_chpass` allowed | `ascii_chpass` disallowed → FAIL + `Password change required`, no mutation; wrong/unknown/expired stay uniform | [x] |
 | T89-FLOW-014 | PAP/CHAP/MS-CHAP must-change identity lock | 1 | FAIL + `Password change required` after successful verify + flag | wrong password stays empty `server_msg` | [x] |
+| T89-FLOW-015 | ENABLE must-change (TacLab/vendor extension; not RFC 8907 ENABLE) | 0 | extra GETPASS new/confirm when `must_change_enable`; `OverrideEnableVerifier`; event `enable` + `reason_code=enable_password_changed` | `must_change_login` does not force ENABLE change; `CHPASS` + ENABLE service stays FAIL; wrong secret stays uniform | [x] |
 
 Credential evidence must prove:
 

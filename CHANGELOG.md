@@ -6,6 +6,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Added
 
+- In-ENABLE GETPASS new/confirm after a successful ENABLE verify when
+  `must_change_enable` is set (TacLab/vendor extension, not RFC 8907 ENABLE).
+  Overlay-only PHC via `OverrideEnableVerifier`; YAML baseline is never
+  rewritten. `must_change_login` still does not apply to ENABLE.
 - `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the
   HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests
   with a missing or older header pass through to the official SDK transport,

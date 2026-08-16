@@ -22,6 +22,7 @@ const (
 	serverMsgPasswordChangeRequired = "Password change required"
 	reasonPasswordChanged           = "password_changed"
 	reasonPasswordChangeRequired    = "password_change_required"
+	reasonEnablePasswordChanged     = "enable_password_changed"
 )
 
 // BeginAuthentication starts an authentication conversation.
@@ -179,6 +180,9 @@ func (s *Service) continueEnable(ctx context.Context, key sessionKey, sess *auth
 		s.putSession(key, sess)
 		return passPrompt(), nil
 	}
+	if sess.needNew || sess.needConfirm {
+		return s.continueNewConfirm(ctx, key, sess, cont, "enable", s.publishEnable)
+	}
 	return s.finishPassword(ctx, key, sess, cont, true)
 }
 
@@ -206,6 +210,12 @@ func (s *Service) finishPassword(ctx context.Context, key sessionKey, sess *auth
 				s.recordAuthReason(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, kind, "fail", reasonPasswordChangeRequired)
 				return failStepMsg(serverMsgPasswordChangeRequired), nil
 			}
+			sess.needNew = true
+			sess.fails = 0
+			s.putSession(key, sess)
+			return newPassPrompt(), nil
+		}
+		if enable && userMustChangeEnable(sess.snap, sess.user) {
 			sess.needNew = true
 			sess.fails = 0
 			s.putSession(key, sess)
@@ -312,7 +322,7 @@ func (s *Service) continueNewConfirm(ctx context.Context, key sessionKey, sess *
 		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
 		return failStep(), nil
 	}
-	derived, err := sess.creds.DeriveLoginVerifier(ctx, sess.newPass)
+	phc, err := deriveChangePHC(ctx, sess.creds, sess.newPass, eventType == "enable")
 	wipe(sess.newPass)
 	sess.newPass = nil
 	if err != nil {
@@ -324,10 +334,24 @@ func (s *Service) continueNewConfirm(ctx context.Context, key sessionKey, sess *
 		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
 		return failStep(), nil
 	}
-	phc := derived.Bytes()
 	step := publish(sess, cont, phc, eventType)
 	wipe(phc)
 	return step, nil
+}
+
+func deriveChangePHC(ctx context.Context, creds *credentials.Service, password []byte, enable bool) ([]byte, error) {
+	if enable {
+		derived, err := creds.DeriveEnableVerifier(ctx, password)
+		if err != nil {
+			return nil, err
+		}
+		return derived.Bytes(), nil
+	}
+	derived, err := creds.DeriveLoginVerifier(ctx, password)
+	if err != nil {
+		return nil, err
+	}
+	return derived.Bytes(), nil
 }
 
 func (s *Service) publishLogin(sess *authSession, cont AuthenticationContinue, phc []byte, eventType string) AuthenticationStep {
@@ -351,6 +375,30 @@ func (s *Service) publishLogin(sess *authSession, cont AuthenticationContinue, p
 		return errorStep()
 	}
 	s.recordAuthReason(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "pass", reasonPasswordChanged)
+	return passStep()
+}
+
+func (s *Service) publishEnable(sess *authSession, cont AuthenticationContinue, phc []byte, eventType string) AuthenticationStep {
+	if eventType == "" {
+		eventType = "enable"
+	}
+	if s.mgr == nil {
+		s.dropSession(sessionKey{conn: cont.ConnKey, sess: cont.SessionID})
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "error")
+		return errorStep()
+	}
+	expected := sess.rev
+	_, err := s.mgr.OverrideEnableVerifier(sess.user, phc, &expected)
+	s.dropSession(sessionKey{conn: cont.ConnKey, sess: cont.SessionID})
+	if err != nil {
+		if de, ok := domain.AsError(err); ok && (de.Code == domain.CodeConflict || de.Code == domain.CodeNotFound) {
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
+			return failStep()
+		}
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "error")
+		return errorStep()
+	}
+	s.recordAuthReason(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "pass", reasonEnablePasswordChanged)
 	return passStep()
 }
 
@@ -625,6 +673,14 @@ func userMustChangeLogin(snap *state.Snapshot, userID string) bool {
 	}
 	u, ok := snap.User(userID)
 	return ok && u.User.MustChangeLogin
+}
+
+func userMustChangeEnable(snap *state.Snapshot, userID string) bool {
+	if snap == nil || userID == "" {
+		return false
+	}
+	u, ok := snap.User(userID)
+	return ok && u.User.MustChangeEnable
 }
 
 func asciiChpassAllowed(snap *state.Snapshot, clientID string) bool {

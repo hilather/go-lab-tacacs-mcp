@@ -20,6 +20,21 @@ func setMustChangeLogin(t testing.TB, mgr *state.Manager, id string, v bool) {
 	}
 }
 
+func setMustChangeEnable(t testing.TB, mgr *state.Manager, id string, v bool) {
+	t.Helper()
+	rev := mgr.Revision()
+	if _, err := mgr.UpdateUser(id, state.UpdateUser{MustChangeEnable: &v}, &rev); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func enableStart(conn uint64, sess uint32) AuthenticationStart {
+	return AuthenticationStart{
+		ConnKey: conn, SessionID: sess, UserID: "lab-admin", ClientID: "lab-switches",
+		Action: domain.AuthenActionLogin, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceEnable,
+	}
+}
+
 func asciiLoginStart(conn uint64, sess uint32) AuthenticationStart {
 	return AuthenticationStart{
 		ConnKey: conn, SessionID: sess, UserID: "lab-admin", ClientID: "lab-switches",
@@ -537,10 +552,7 @@ func TestEnableIgnoresMustChangeLogin(t *testing.T) {
 	svc, mgr, _ := testService(t)
 	setMustChangeLogin(t, mgr, "lab-admin", true)
 	ctx := context.Background()
-	if _, err := svc.BeginAuthentication(ctx, AuthenticationStart{
-		ConnKey: 58, SessionID: 1, UserID: "lab-admin", ClientID: "lab-switches",
-		Action: domain.AuthenActionLogin, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceEnable,
-	}); err != nil {
+	if _, err := svc.BeginAuthentication(ctx, enableStart(58, 1)); err != nil {
 		t.Fatal(err)
 	}
 	step, err := svc.ContinueAuthentication(ctx, continueMsg(58, 1, testEnablePW))
@@ -549,6 +561,359 @@ func TestEnableIgnoresMustChangeLogin(t *testing.T) {
 	}
 	if step.Status != domain.AuthenStatusPass {
 		t.Fatalf("ENABLE must not lock on must_change_login: %+v", step)
+	}
+	if step.ServerMsg == promptNewPass {
+		t.Fatal("must_change_login must not force ENABLE GETPASS")
+	}
+}
+
+func TestEnableMustChangePromptsAndPass(t *testing.T) {
+	t.Parallel()
+	svc, mgr, ring := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	const next = "new-enable-ok1!"
+	beforeEvents := len(ring.Snapshot())
+	step, err := svc.BeginAuthentication(ctx, enableStart(70, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusGetPass || step.ServerMsg != promptPass || !step.NoEcho {
+		t.Fatalf("old prompt=%+v", step)
+	}
+	step, err = svc.ContinueAuthentication(ctx, continueMsg(70, 1, testEnablePW))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusGetPass || step.ServerMsg != promptNewPass || !step.NoEcho {
+		t.Fatalf("new prompt=%+v", step)
+	}
+	if n := len(ring.Snapshot()); n != beforeEvents {
+		t.Fatalf("no terminal event at extra GETPASS, before=%d after=%d", beforeEvents, n)
+	}
+	step, err = svc.ContinueAuthentication(ctx, continueMsg(70, 1, next))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusGetPass || step.ServerMsg != promptConfirm || !step.NoEcho {
+		t.Fatalf("confirm prompt=%+v", step)
+	}
+	step, err = svc.ContinueAuthentication(ctx, continueMsg(70, 1, next))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass {
+		t.Fatalf("pass=%s", step.Status)
+	}
+	u, _ := mgr.Snapshot().User("lab-admin")
+	if u.User.MustChangeEnable {
+		t.Fatal("flag must clear")
+	}
+	if u.User.MustChangeLogin {
+		t.Fatal("must_change_login must stay false")
+	}
+	if u.User.Credentials.Login.Verifier.File == "" || u.User.Credentials.Login.Verifier.MemoryID != "" {
+		t.Fatalf("login must be untouched: %+v", u.User.Credentials.Login.Verifier)
+	}
+	if u.User.Credentials.Challenge.Secret.File == "" {
+		t.Fatal("challenge must be untouched")
+	}
+	if u.User.Credentials.Enable.Verifier.MemoryID == "" {
+		t.Fatal("enable runtime PHC missing")
+	}
+	var sawEnable bool
+	for _, ev := range ring.Snapshot() {
+		if ev.Type == "ascii_chpass" || ev.Type == "ascii_login" {
+			t.Fatalf("in-ENABLE must not emit %s: %+v", ev.Type, ev)
+		}
+		if ev.Type == "enable" && ev.Result == "pass" {
+			sawEnable = true
+			if ev.ReasonCode != reasonEnablePasswordChanged {
+				t.Fatalf("reason=%q", ev.ReasonCode)
+			}
+		}
+	}
+	if !sawEnable {
+		t.Fatal("missing enable pass event")
+	}
+
+	step, err = svc.BeginAuthentication(ctx, enableStart(70, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	step, err = svc.ContinueAuthentication(ctx, continueMsg(70, 2, next))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass {
+		t.Fatalf("new enable password=%s", step.Status)
+	}
+
+	if _, err := svc.BeginAuthentication(ctx, enableStart(70, 3)); err != nil {
+		t.Fatal(err)
+	}
+	step, err = svc.ContinueAuthentication(ctx, continueMsg(70, 3, testEnablePW))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status == domain.AuthenStatusPass {
+		t.Fatal("old enable password must not pass after override")
+	}
+
+	step, err = svc.BeginAuthentication(ctx, AuthenticationStart{
+		ConnKey: 70, SessionID: 4, UserID: "lab-admin", ClientID: "lab-switches",
+		Action: domain.AuthenActionLogin, Type: domain.AuthenTypePAP, Service: domain.AuthenServiceLogin,
+		Data: []byte(testPassword),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass {
+		t.Fatalf("login password must still pass: %s", step.Status)
+	}
+}
+
+func TestContinueEnableDispatchesNeedNew(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(71, 1)); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(71, 1, testEnablePW))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.ServerMsg != promptNewPass {
+		t.Fatalf("want New Password, got %+v", step)
+	}
+	step, err = svc.ContinueAuthentication(ctx, continueMsg(71, 1, "brand-new-enable"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusGetPass || step.ServerMsg != promptConfirm {
+		t.Fatalf("second CONTINUE must confirm, not re-verify: %+v", step)
+	}
+}
+
+func TestEnableMustChangeLoginDoesNotForceChange(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeLogin(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(72, 1)); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(72, 1, testEnablePW))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass || step.ServerMsg == promptNewPass {
+		t.Fatalf("must_change_login must not force ENABLE change: %+v", step)
+	}
+}
+
+func TestEnableMustChangeDoesNotBlockLogin(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, asciiLoginStart(73, 1)); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(73, 1, testPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass {
+		t.Fatalf("must_change_enable must not lock LOGIN: %+v", step)
+	}
+}
+
+func TestEnableMustChangeWrongPasswordUniform(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(74, 1)); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(74, 1, "wrong-enable"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusGetPass || step.ServerMsg != promptPass {
+		t.Fatalf("wrong enable must stay uniform GETPASS Password:, got %+v", step)
+	}
+}
+
+func TestEnableMustChangeWhenOnlyEnableAllowed(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	rev := mgr.Revision()
+	auth := config.ClientAuth{AllowedMethods: []config.AuthMethod{config.AuthMethodEnable}}
+	if _, err := mgr.UpdateClient("lab-switches", state.UpdateClient{Authentication: &auth}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(75, 1)); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(75, 1, testEnablePW))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.ServerMsg != promptNewPass {
+		t.Fatalf("in-ENABLE is gated only by enable, got %+v", step)
+	}
+}
+
+func TestEnableMustChangeAbort(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(76, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(76, 1, testEnablePW)); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.AbortAuthentication(ctx, AuthenticationAbort{ConnKey: 76, SessionID: 1, ClientID: "lab-switches"}); err != nil {
+		t.Fatal(err)
+	}
+	u, _ := mgr.Snapshot().User("lab-admin")
+	if !u.User.MustChangeEnable || u.User.Credentials.Enable.Verifier.MemoryID != "" {
+		t.Fatal("abort must not publish")
+	}
+}
+
+func TestEnableMustChangeMismatchFails(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(77, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(77, 1, testEnablePW)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(77, 1, "new-a")); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(77, 1, "new-b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusFail {
+		t.Fatalf("mismatch=%s", step.Status)
+	}
+	u, _ := mgr.Snapshot().User("lab-admin")
+	if !u.User.MustChangeEnable {
+		t.Fatal("mismatch must not clear flag")
+	}
+}
+
+func TestEnableMustChangeRevisionConflict(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	ctx := context.Background()
+	if _, err := svc.BeginAuthentication(ctx, enableStart(78, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(78, 1, testEnablePW)); err != nil {
+		t.Fatal(err)
+	}
+	name := "renamed-enable"
+	rev := mgr.Revision()
+	if _, err := mgr.UpdateUser("lab-admin", state.UpdateUser{DisplayName: &name}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(78, 1, "new-enable-ok1!")); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(78, 1, "new-enable-ok1!"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusError {
+		t.Fatalf("revision conflict should ERROR, got %s", step.Status)
+	}
+}
+
+func TestCHPASSOnEnableStillFailsWithMustChangeEnable(t *testing.T) {
+	t.Parallel()
+	svc, mgr, _ := testService(t)
+	setMustChangeEnable(t, mgr, "lab-admin", true)
+	step, err := svc.BeginAuthentication(context.Background(), AuthenticationStart{
+		ConnKey: 79, SessionID: 1, UserID: "lab-admin", ClientID: "lab-switches",
+		Action: domain.AuthenActionCHPASS, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceEnable,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusFail {
+		t.Fatalf("CHPASS+ENABLE stays FAIL: %s", step.Status)
+	}
+}
+
+func TestYAMLMustChangeEnableRestoredAfterChangeAndReset(t *testing.T) {
+	t.Parallel()
+	_, lookup, mgr := writeSkeletonExtras(t, "    must_change_enable: true\n", "")
+	ring := events.New(32, domain.SystemClock{})
+	svc, err := New(Options{
+		Manager: mgr,
+		Secrets: lookup,
+		Events:  ring,
+		Creds:   credentials.Options{Params: credentials.TestParams},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := mgr.Snapshot().User("lab-admin")
+	if !u.User.MustChangeEnable {
+		t.Fatal("YAML flag must load on lab-admin")
+	}
+	ctx := context.Background()
+	const next = "new-enable-ok1!"
+	if _, err := svc.BeginAuthentication(ctx, enableStart(80, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(80, 1, testEnablePW)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ContinueAuthentication(ctx, continueMsg(80, 1, next)); err != nil {
+		t.Fatal(err)
+	}
+	step, err := svc.ContinueAuthentication(ctx, continueMsg(80, 1, next))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != domain.AuthenStatusPass {
+		t.Fatalf("enable change=%s", step.Status)
+	}
+	u, _ = mgr.Snapshot().User("lab-admin")
+	if u.User.MustChangeEnable {
+		t.Fatal("in-ENABLE must clear overlay flag")
+	}
+	if u.User.Credentials.Enable.Verifier.MemoryID == "" {
+		t.Fatal("runtime enable PHC missing")
+	}
+	rev := mgr.Revision()
+	after, err := mgr.Reset(&rev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ = after.User("lab-admin")
+	if !u.User.MustChangeEnable {
+		t.Fatal("reset must restore YAML flag")
+	}
+	if u.User.Credentials.Enable.Verifier.MemoryID != "" || u.User.Credentials.Enable.Verifier.File == "" {
+		t.Fatalf("reset must restore YAML enable verifier: %+v", u.User.Credentials.Enable.Verifier)
 	}
 }
 

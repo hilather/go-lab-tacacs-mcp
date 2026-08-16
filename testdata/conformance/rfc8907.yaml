@@ -887,6 +887,21 @@ rows:
       - unit:internal/aaa.TestPAPWrongPasswordEmptyServerMsg
       - unit:internal/aaa.TestCHAPMustChangeFailsAfterGoodResponse
       - unit:internal/aaa.TestMSCHAPMustChangeFailsAfterGoodResponse
+  - id: T89-FLOW-015
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: "ENABLE after successful secret + must_change_enable continues GETPASS new/confirm (TacLab/vendor extension; not RFC 8907 ENABLE). OverrideEnableVerifier clears must_change_enable. Does not gate login-class merge."
+    evidence_required: "version=0; positive=GETPASS New Password / Retype New Password then PASS and runtime enable override; negative=must_change_login does not force ENABLE change, CHPASS+ENABLE stays FAIL, wrong secret stays Password:"
+    status: PASS
+    evidence:
+      - unit:internal/aaa.TestEnableMustChangePromptsAndPass
+      - unit:internal/aaa.TestContinueEnableDispatchesNeedNew
+      - unit:internal/aaa.TestEnableMustChangeLoginDoesNotForceChange
+      - unit:internal/aaa.TestCHPASSOnEnableStillFailsWithMustChangeEnable
+      - unit:internal/state.TestOverrideEnableVerifierClearsMustChange
+      - unit:internal/state.TestYAMLMustChangeEnableRestoredAfterSuccessfulChangeAndReset
+      - unit:internal/state.TestOverrideEnableVerifierAndReset
   - id: T89-AU-001
     section: 9-authorization-request-and-response-matrix
     section_title: 9. Authorization request and response matrix

@@ -1655,7 +1655,7 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 
 - [x] `UL-AAA-001` ASCII LOGIN lab-extension GETPASS after successful verify when `ascii_chpass` is allowed (or `allowed_methods` is empty). `continueASCII` must dispatch `needNew`/`needConfirm` before `finishPassword`. In-LOGIN success event is `ascii_login` + `reason_code=password_changed`. Inspect flags only after `Verify*` returns nil on the session-bound snapshot. `T89-FLOW-013`.
 - [x] `UL-AAA-002` CHPASS clears `must_change_login` and always emits `reason_code=password_changed` on PASS (Q2). CHPASS prompt goldens stay `"Password: "`. PAP/CHAP/MS-CHAP after successful verify + `must_change_login` FAIL with `server_msg=Password change required`; wrong password stays empty `server_msg`. K13: ASCII allowed without `ascii_chpass` → FAIL, no `OverrideLoginVerifier`. `T89-FLOW-014`.
-- [ ] `UL-AAA-003` ENABLE lab-extension GETPASS + `OverrideEnableVerifier` after successful enable verify + `must_change_enable`. No RFC or TacLab CHPASS analogue; `CHPASS` + ENABLE service stays FAIL. Does **not** gate `UL-AAA-001` / the login-class fail-closed merge. `T89-FLOW-015`.
+- [x] `UL-AAA-003` ENABLE lab-extension GETPASS + `OverrideEnableVerifier` after successful enable verify + `must_change_enable`. No RFC or TacLab CHPASS analogue; `CHPASS` + ENABLE service stays FAIL. Does **not** gate `UL-AAA-001` / the login-class fail-closed merge. `T89-FLOW-015`.
 
 ### 23.4 API and RADIUS
 

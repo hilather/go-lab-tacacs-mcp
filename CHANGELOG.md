@@ -4,6 +4,16 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the
+  HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests
+  with a missing or older header pass through to the official SDK transport,
+  which negotiates the protocol version during `initialize` — this lets
+  older-generation MCP clients (gateways/proxies such as MCPJungle) connect.
+  `subscriptions/listen` still requires the pinned version, and the strict
+  default behavior is unchanged.
+
 ## [1.1.0] — 2026-08-15
 
 RADIUS/UDP **lab profile** in the existing `taclabd` process. This is **not** a RADIUS completeness release. Product, module, binary, and image names are unchanged ([ADR 0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)).

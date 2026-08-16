@@ -25,7 +25,7 @@ Both paths use **identical** headers, tools, resources, and scopes.
 | Item | Rule |
 |---|---|
 | Method / path | `POST /mcp` only. `GET` and `DELETE` return **405**. |
-| Protocol header | `MCP-Protocol-Version: 2026-07-28` — exclusive. Other versions → `400` / `-32022`. |
+| Protocol header | `MCP-Protocol-Version: 2026-07-28` — exclusive. Other versions → `400` / `-32022`. Opt out with `api.mcp.allow_legacy_clients: true` (default `false`): the header check is skipped and the SDK negotiates the version during `initialize`, so older-generation clients (MCP gateways/proxies) can connect. `subscriptions/listen` always requires the pinned version. |
 | Method header | `Mcp-Method` required. Must match the JSON-RPC `method` when both are present. |
 | Name header | `Mcp-Name` required for `tools/call`, `resources/read`, and `prompts/get`. **ASCII only.** |
 | Accept | `application/json, text/event-stream`. The adapter fills a missing Accept header. |

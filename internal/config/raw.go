@@ -172,8 +172,9 @@ type rawUISession struct {
 }
 
 type rawMCP struct {
-	AllowedOrigins []string `yaml:"allowed_origins"`
-	RequireOrigin  *bool    `yaml:"require_origin"`
+	AllowedOrigins     []string `yaml:"allowed_origins"`
+	RequireOrigin      *bool    `yaml:"require_origin"`
+	AllowLegacyClients *bool    `yaml:"allow_legacy_clients"`
 }
 
 type rawBootstrapToken struct {

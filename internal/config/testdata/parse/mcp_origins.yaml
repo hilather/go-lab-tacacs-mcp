@@ -5,3 +5,4 @@ api:
       - https://lab.example
       - https://ui.example
     require_origin: true
+    allow_legacy_clients: true

@@ -146,16 +146,22 @@ func Handler(opts Options) http.Handler {
 		}
 
 		headerVer := strings.TrimSpace(r.Header.Get(headerProtocolVersion))
-		if headerVer == "" {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: headerMismatch("MCP-Protocol-Version is required")})
-			return
-		}
-		if headerVer != protocolVersion {
-			writeRPC(w, http.StatusBadRequest, rpcResponse{
-				JSONRPC: jsonRPCVersion,
-				Error:   unsupportedVersion(headerVer),
-			})
-			return
+		// api.mcp.allow_legacy_clients relaxes the HTTP-level pin: the
+		// official SDK transport negotiates the protocol version during
+		// initialize, which is what older-generation clients (gateways,
+		// proxies) rely on. subscriptions/listen below stays strict.
+		if !opts.MCP.AllowLegacyClients {
+			if headerVer == "" {
+				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, Error: headerMismatch("MCP-Protocol-Version is required")})
+				return
+			}
+			if headerVer != protocolVersion {
+				writeRPC(w, http.StatusBadRequest, rpcResponse{
+					JSONRPC: jsonRPCVersion,
+					Error:   unsupportedVersion(headerVer),
+				})
+				return
+			}
 		}
 
 		// Official streamable transport requires both Accept types.

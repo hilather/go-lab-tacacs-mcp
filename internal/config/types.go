@@ -290,6 +290,12 @@ type UISession struct {
 type MCP struct {
 	AllowedOrigins []string
 	RequireOrigin  bool
+	// AllowLegacyClients relaxes the HTTP-level MCP-Protocol-Version pin so
+	// older-generation clients (typically MCP gateways/proxies) can reach the
+	// official SDK transport, which negotiates the protocol version during
+	// initialize. Default false: the exact pinned header stays required.
+	// subscriptions/listen always requires the pinned version.
+	AllowLegacyClients bool
 }
 
 // BootstrapToken is a file-referenced lab bearer token.

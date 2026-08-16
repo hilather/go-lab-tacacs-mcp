@@ -46,6 +46,9 @@ func TestParseMinimalDefaults(t *testing.T) {
 	if doc.API.MCP.AllowedOrigins == nil || len(doc.API.MCP.AllowedOrigins) != 0 {
 		t.Fatalf("allowed_origins default=%v", doc.API.MCP.AllowedOrigins)
 	}
+	if doc.API.MCP.AllowLegacyClients {
+		t.Fatal("allow_legacy_clients must default false")
+	}
 	if doc.API.UISession.CookieSecure {
 		t.Fatal("cookie_secure must follow HTTP TLS off")
 	}
@@ -72,6 +75,9 @@ func TestParseMCPOrigins(t *testing.T) {
 	}
 	if len(doc.API.MCP.AllowedOrigins) != 2 || doc.API.MCP.AllowedOrigins[0] != "https://lab.example" {
 		t.Fatalf("origins=%v", doc.API.MCP.AllowedOrigins)
+	}
+	if !doc.API.MCP.AllowLegacyClients {
+		t.Fatal("allow_legacy_clients")
 	}
 }
 

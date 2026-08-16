@@ -44,8 +44,8 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 			t.Errorf("missing protocol-only operation %s", id)
 		}
 	}
-	if got := len(rep.RFC8907.Rows); got != 168 {
-		t.Fatalf("RFC 8907 rows: got %d, want 168", got)
+	if got := len(rep.RFC8907.Rows); got != 170 {
+		t.Fatalf("RFC 8907 rows: got %d, want 170", got)
 	}
 	if got := len(rep.RFC9887.Rows); got != 51 {
 		t.Fatalf("RFC 9887 rows: got %d, want 51", got)
@@ -65,8 +65,8 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 	if got := len(rep.RFC5080.Rows); got != 1 {
 		t.Fatalf("RFC 5080 rows: got %d, want 1", got)
 	}
-	if got := len(rep.ProjectRADIUS.Rows); got != 11 {
-		t.Fatalf("project-radius rows: got %d, want 11", got)
+	if got := len(rep.ProjectRADIUS.Rows); got != 12 {
+		t.Fatalf("project-radius rows: got %d, want 12", got)
 	}
 }
 
@@ -82,12 +82,12 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	tacacsIDs := ExtractConformanceIDs(doc)
-	if len(tacacsIDs) != 219 {
-		t.Fatalf("TACACS contract IDs: got %d, want 219", len(tacacsIDs))
+	if len(tacacsIDs) != 221 {
+		t.Fatalf("TACACS contract IDs: got %d, want 221", len(tacacsIDs))
 	}
 	radiusIDs := ExtractConformanceIDs(radiusDoc)
-	if len(radiusIDs) != 32 {
-		t.Fatalf("RADIUS contract IDs: got %d, want 32", len(radiusIDs))
+	if len(radiusIDs) != 33 {
+		t.Fatalf("RADIUS contract IDs: got %d, want 33", len(radiusIDs))
 	}
 	want := append(append([]string{}, tacacsIDs...), radiusIDs...)
 	rep, err := ValidateRoot(root)

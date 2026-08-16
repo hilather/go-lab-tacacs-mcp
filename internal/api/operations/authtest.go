@@ -101,6 +101,18 @@ func runAuthTest(ctx context.Context, deps Deps, snap *state.Snapshot, req TestA
 		err = bound.VerifyMSCHAPv2(ctx, req.UserID, id, chal, resp)
 	}
 	if err == nil {
+		if u, ok := snap.User(req.UserID); ok {
+			switch method {
+			case config.AuthMethodASCII, config.AuthMethodPAP, config.AuthMethodCHAP, config.AuthMethodMSCHAPv1, config.AuthMethodMSCHAPv2:
+				if u.User.MustChangeLogin {
+					return "must_change"
+				}
+			case config.AuthMethodEnable:
+				if u.User.MustChangeEnable {
+					return "must_change"
+				}
+			}
+		}
 		return "pass"
 	}
 	return "fail"
@@ -137,7 +149,12 @@ func (s authTestStore) Lookup(userID string) (credentials.Record, bool) {
 	if !ok {
 		return credentials.Record{}, false
 	}
-	rec := credentials.Record{ID: u.User.ID, Enabled: u.User.Enabled}
+	rec := credentials.Record{
+		ID:               u.User.ID,
+		Enabled:          u.User.Enabled,
+		MustChangeLogin:  u.User.MustChangeLogin,
+		MustChangeEnable: u.User.MustChangeEnable,
+	}
 	if len(u.User.Restrictions.ClientIDs) > 0 && s.clientID != "" {
 		allowed := false
 		for _, id := range u.User.Restrictions.ClientIDs {

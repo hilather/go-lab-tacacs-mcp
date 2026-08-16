@@ -8,14 +8,16 @@ import (
 // Record is the non-protocol material needed to verify one user.
 // Login and Enable are Argon2id PHC strings. Challenge is clear-equivalent.
 type Record struct {
-	ID          string
-	Enabled     bool
-	Restricted  bool
-	Login       LoginVerifier
-	Challenge   ChallengeSecret
-	Enable      EnableVerifier
-	ValidAfter  *time.Time
-	ValidBefore *time.Time
+	ID               string
+	Enabled          bool
+	Restricted       bool
+	Login            LoginVerifier
+	Challenge        ChallengeSecret
+	Enable           EnableVerifier
+	ValidAfter       *time.Time
+	ValidBefore      *time.Time
+	MustChangeLogin  bool
+	MustChangeEnable bool
 }
 
 // Capabilities is secret-free presence metadata.
@@ -62,12 +64,14 @@ func (m *Memory) Put(r Record) {
 
 func cloneRecord(r Record) Record {
 	out := Record{
-		ID:         r.ID,
-		Enabled:    r.Enabled,
-		Restricted: r.Restricted,
-		Login:      NewLoginVerifier(r.Login.Bytes()),
-		Challenge:  NewChallengeSecret(r.Challenge.Bytes()),
-		Enable:     NewEnableVerifier(r.Enable.Bytes()),
+		ID:               r.ID,
+		Enabled:          r.Enabled,
+		Restricted:       r.Restricted,
+		Login:            NewLoginVerifier(r.Login.Bytes()),
+		Challenge:        NewChallengeSecret(r.Challenge.Bytes()),
+		Enable:           NewEnableVerifier(r.Enable.Bytes()),
+		MustChangeLogin:  r.MustChangeLogin,
+		MustChangeEnable: r.MustChangeEnable,
 	}
 	if r.ValidAfter != nil {
 		t := r.ValidAfter.UTC()

@@ -1649,25 +1649,25 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 
 ### 23.2 Model and state
 
-- [ ] `UL-MDL-001` Add `must_change_login` / `must_change_enable` on YAML, `config.User`, snapshot, and `applyUserPatch`. Default false. Flag requires the corresponding verifier regardless of `enabled`. K9: any non-nil login/enable secret patch (including Clear) clears the matching flag unless the same patch sets it true. `userFromCreate` must pass the new `*bool` fields. Hash both flags in `writeUsers` and `hashOverlay`. YAML-set flags are durable; MCP/REST-set flags are overlay-only (K16).
+- [x] `UL-MDL-001` Add `must_change_login` / `must_change_enable` on YAML, `config.User`, snapshot, and `applyUserPatch`. Default false. Flag requires the corresponding verifier regardless of `enabled`. K9: any non-nil login/enable secret patch (including Clear) clears the matching flag unless the same patch sets it true. `userFromCreate` must pass the new `*bool` fields. Hash both flags in `writeUsers` and `hashOverlay`. YAML-set flags are durable; MCP/REST-set flags are overlay-only (K16).
 
 ### 23.3 AAA / protocol
 
-- [ ] `UL-AAA-001` ASCII LOGIN lab-extension GETPASS after successful verify when `ascii_chpass` is allowed (or `allowed_methods` is empty). `continueASCII` must dispatch `needNew`/`needConfirm` before `finishPassword`. In-LOGIN success event is `ascii_login` + `reason_code=password_changed`. Inspect flags only after `Verify*` returns nil on the session-bound snapshot. `T89-FLOW-013`.
-- [ ] `UL-AAA-002` CHPASS clears `must_change_login` and always emits `reason_code=password_changed` on PASS (Q2). CHPASS prompt goldens stay `"Password: "`. PAP/CHAP/MS-CHAP after successful verify + `must_change_login` FAIL with `server_msg=Password change required`; wrong password stays empty `server_msg`. K13: ASCII allowed without `ascii_chpass` → FAIL, no `OverrideLoginVerifier`. `T89-FLOW-014`.
+- [x] `UL-AAA-001` ASCII LOGIN lab-extension GETPASS after successful verify when `ascii_chpass` is allowed (or `allowed_methods` is empty). `continueASCII` must dispatch `needNew`/`needConfirm` before `finishPassword`. In-LOGIN success event is `ascii_login` + `reason_code=password_changed`. Inspect flags only after `Verify*` returns nil on the session-bound snapshot. `T89-FLOW-013`.
+- [x] `UL-AAA-002` CHPASS clears `must_change_login` and always emits `reason_code=password_changed` on PASS (Q2). CHPASS prompt goldens stay `"Password: "`. PAP/CHAP/MS-CHAP after successful verify + `must_change_login` FAIL with `server_msg=Password change required`; wrong password stays empty `server_msg`. K13: ASCII allowed without `ascii_chpass` → FAIL, no `OverrideLoginVerifier`. `T89-FLOW-014`.
 - [ ] `UL-AAA-003` ENABLE lab-extension GETPASS + `OverrideEnableVerifier` after successful enable verify + `must_change_enable`. No RFC or TacLab CHPASS analogue; `CHPASS` + ENABLE service stays FAIL. Does **not** gate `UL-AAA-001` / the login-class fail-closed merge. `T89-FLOW-015`.
 
 ### 23.4 API and RADIUS
 
 - [ ] `UL-API-001` Expose the flags on `users.create` / `users.update` / `users.get` / `users.list` and `exportUser`. OpenAPI/MCP + REST/MCP parity (`PARITY_REQUIRED`). Unknown JSON rejected. No `taclab.qa.*`.
-- [ ] `UL-API-002` `authentication.test` returns status `must_change` after successful verify + the applicable flag. Not a TACACS/RADIUS packet status. Handler lands in the fail-closed vertical with `UL-AAA-001`.
-- [ ] `UL-RAD-001` `AuthenticateAccess` Access-Reject `reject_password_change_required` after good PAP/CHAP + `must_change_login`; do not evaluate policy. Update `wireAccessReason`, `TestReasonTableStable`, and [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) §5.7 in the same change. References `PRJ-UL-001`. Do not invent a parallel RADIUS numbering scheme. No Microsoft VSA, named `Cisco-AVPair`, or Access-Challenge.
+- [x] `UL-API-002` `authentication.test` returns status `must_change` after successful verify + the applicable flag. Not a TACACS/RADIUS packet status. Handler lands in the fail-closed vertical with `UL-AAA-001`.
+- [x] `UL-RAD-001` `AuthenticateAccess` Access-Reject `reject_password_change_required` after good PAP/CHAP + `must_change_login`; do not evaluate policy. Update `wireAccessReason`, `TestReasonTableStable`, and [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) §5.7 in the same change. References `PRJ-UL-001`. Do not invent a parallel RADIUS numbering scheme. No Microsoft VSA, named `Cisco-AVPair`, or Access-Challenge.
 
 ### 23.5 UI, docs, and benches
 
 - [ ] `UL-UI-001` Users page badge + editor checkboxes for both flags; Auth Test page displays `must_change`. Generated types only.
 - [ ] `UL-DOC-001` OPERATOR copy-paste recipes, CONFIGURATION keys, CANONICAL_DESIGN LOGIN table (names the vendor extension), TACACS/RADIUS conformance evidence, CHANGELOG. Recipes-only; no compose fixture user (Q1). Do not mark RADIUS complete.
-- [ ] `UL-BEN-001` Rerun ASCII/CHAP login benches; add a must-change start bench that stops at the first extra GETPASS.
+- [x] `UL-BEN-001` Rerun ASCII/CHAP login benches; add a must-change start bench that stops at the first extra GETPASS.
 
 ### 23.6 Merge gates
 

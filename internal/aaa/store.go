@@ -26,11 +26,13 @@ func (s snapshotStore) Lookup(userID string) (credentials.Record, bool) {
 		return credentials.Record{}, false
 	}
 	rec := credentials.Record{
-		ID:          u.User.ID,
-		Enabled:     u.User.Enabled,
-		Restricted:  clientRestricted(u.User.Restrictions.ClientIDs, s.clientID),
-		ValidAfter:  u.User.Restrictions.ValidAfter,
-		ValidBefore: u.User.Restrictions.ValidBefore,
+		ID:               u.User.ID,
+		Enabled:          u.User.Enabled,
+		Restricted:       clientRestricted(u.User.Restrictions.ClientIDs, s.clientID),
+		ValidAfter:       u.User.Restrictions.ValidAfter,
+		ValidBefore:      u.User.Restrictions.ValidBefore,
+		MustChangeLogin:  u.User.MustChangeLogin,
+		MustChangeEnable: u.User.MustChangeEnable,
 	}
 	if ref := u.User.Credentials.Login.Verifier; ref.Set() {
 		if b, ok := resolveSecret(snap, s.secrets, ref); ok {

@@ -185,11 +185,13 @@ The parser, policy model, event model, and configuration restrictions must recog
 | T89-FLOW-005 | MS-CHAP v1 LOGIN | 1 | independent vector | challenge length, response length, wrong secret | [x] |
 | T89-FLOW-006 | MS-CHAP v2 LOGIN | 1 | independent vector | 16-byte challenge enforcement, wrong secret | [x] |
 | T89-FLOW-007 | ENABLE | 0 | target privilege granted | wrong credential, invalid service, disallowed target | [x] |
-| T89-FLOW-008 | ASCII CHPASS | 0 | runtime verifier override | wrong old password, mismatch, immutable policy, abort | [x] |
+| T89-FLOW-008 | ASCII CHPASS | 0 | runtime verifier override; clears `must_change_login`; `reason_code=password_changed` | wrong old password, mismatch, immutable policy, abort | [x] |
 | T89-FLOW-009 | Unsupported defined option | per RFC | clean fail/error | no panic, no state leak | [x] |
 | T89-FLOW-010 | ASCII CHPASS old/new prompt semantics | 0 | old password uses GETDATA; new password uses GETPASS | reversed status, secret echo, interrupted update | [x] |
 | T89-FLOW-011 | ASCII unused data fields | 0 | arbitrary data is ignored as specified | data cannot alter username/password decision | [x] |
 | T89-FLOW-012 | CHAP challenge policy | 1 | configurable minimum with recommended default of 8 bytes | below-minimum challenge (no maximum; well-formed longer challenges are accepted) | [x] |
+| T89-FLOW-013 | ASCII LOGIN must-change (lab/vendor extension; not RFC 8907 LOGIN) | 0 | extra GETPASS new/confirm when `must_change_login` and `ascii_chpass` allowed | `ascii_chpass` disallowed → FAIL + `Password change required`, no mutation; wrong/unknown/expired stay uniform | [x] |
+| T89-FLOW-014 | PAP/CHAP/MS-CHAP must-change identity lock | 1 | FAIL + `Password change required` after successful verify + flag | wrong password stays empty `server_msg` | [x] |
 
 Credential evidence must prove:
 

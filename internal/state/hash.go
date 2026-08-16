@@ -68,6 +68,10 @@ func hashOverlay(ov overlay) string {
 		b.WriteString(e.user.DisplayName)
 		b.WriteByte('\t')
 		b.WriteString(secretRefKey(e.user.Credentials.Login.Verifier))
+		b.WriteByte('\t')
+		b.WriteString(strconv.FormatBool(e.user.MustChangeLogin))
+		b.WriteByte('\t')
+		b.WriteString(strconv.FormatBool(e.user.MustChangeEnable))
 		b.WriteByte('\n')
 	}
 	gids := make([]string, 0, len(ov.groups))
@@ -137,6 +141,10 @@ func writeUsers(b *strings.Builder, users []config.User) {
 		b.WriteString(strconv.FormatBool(u.Enabled))
 		b.WriteByte('\t')
 		b.WriteString(secretRefKey(u.Credentials.Login.Verifier))
+		b.WriteByte('\t')
+		b.WriteString(strconv.FormatBool(u.MustChangeLogin))
+		b.WriteByte('\t')
+		b.WriteString(strconv.FormatBool(u.MustChangeEnable))
 		b.WriteByte('\n')
 	}
 }

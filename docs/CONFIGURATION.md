@@ -696,6 +696,15 @@ Credential capabilities are explicit:
 | Enable verifier | ENABLE verification |
 | Login verifier plus a controlled update path | ASCII password-change flow |
 
+Optional top-level booleans `must_change_login` and `must_change_enable` default to `false`. They are **not** `restrictions` fields and are **not** nested under write-only secret objects.
+
+- `must_change_login: true` is allowed only when `credentials.login.verifier` is set, regardless of `enabled`.
+- `must_change_enable: true` is allowed only when `credentials.enable.verifier` is set, regardless of `enabled`.
+- YAML-set flags are durable (`runtime.reset` / restart restore them with the YAML verifier). Overlay-set flags and published PHCs are memory-only.
+- A non-nil login/enable secret patch (including Clear) clears the matching flag unless the same patch sets the flag `true`.
+
+See [ADR 0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md).
+
 The API must refuse to claim a method is available when the required credential material is absent.
 
 ### 7.11 `events`

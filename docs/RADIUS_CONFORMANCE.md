@@ -114,6 +114,7 @@ Row IDs use pack prefixes only: `R65-` (RFC 2865), `R66-` (RFC 2866), `R69-` (RF
 | PRJ-CFG-001 | PROJECT MUST | Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax | v1 goldens unchanged | [x] |
 | PRJ-TAC-001 | PROJECT MUST | Existing TACACS legacy/TLS conformance remains green | TACACS registries stay PASS on shared-package PRs | [x] |
 | PRJ-PAR-001 | PROJECT MUST | REST/MCP/UI generated parity remains green | Same-change operations registry + generate | [x] |
+| PRJ-UL-001 | PROJECT MUST | Access-Reject `reject_password_change_required` after good PAP/CHAP + `must_change_login`; no extra attrs | `AuthenticateAccess` rejects before policy; `wireAccessReason` allowlist; [§5.7](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) | [x] |
 
 ## 8. Deferred features (no extra row IDs)
 

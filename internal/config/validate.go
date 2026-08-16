@@ -406,6 +406,12 @@ func validateUser(u User, groups, clients map[string]struct{}, path string) erro
 	if u.Restrictions.ValidAfter != nil && u.Restrictions.ValidBefore != nil && u.Restrictions.ValidAfter.After(*u.Restrictions.ValidBefore) {
 		return domain.NewError(domain.CodeInvalidArgument, "valid_after must be before valid_before").WithPath(path + ".restrictions")
 	}
+	if u.MustChangeLogin && !u.Credentials.Login.Verifier.Set() {
+		return domain.NewError(domain.CodeInvalidArgument, "must_change_login requires a login verifier").WithPath(path + ".must_change_login")
+	}
+	if u.MustChangeEnable && !u.Credentials.Enable.Verifier.Set() {
+		return domain.NewError(domain.CodeInvalidArgument, "must_change_enable requires an enable verifier").WithPath(path + ".must_change_enable")
+	}
 	return validateRuleSet(u.Rules.Services, u.Rules.CommandRules, path+".rules")
 }
 

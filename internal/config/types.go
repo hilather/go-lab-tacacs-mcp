@@ -534,14 +534,16 @@ type RADIUSReplyAttr struct {
 
 // User is a TACACS identity. ID is UsernameCasePreserved.
 type User struct {
-	ID           string
-	DisplayName  string
-	Enabled      bool
-	Labels       map[string]string
-	GroupIDs     []string
-	Rules        RuleSet
-	Credentials  UserCredentials
-	Restrictions UserRestrictions
+	ID               string
+	DisplayName      string
+	Enabled          bool
+	Labels           map[string]string
+	GroupIDs         []string
+	Rules            RuleSet
+	Credentials      UserCredentials
+	Restrictions     UserRestrictions
+	MustChangeLogin  bool
+	MustChangeEnable bool
 }
 
 // UserCredentials holds typed secret references, not verifier bytes.

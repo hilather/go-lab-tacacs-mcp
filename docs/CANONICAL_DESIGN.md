@@ -712,7 +712,7 @@ Authentication policy: the **intersection** of global, listener, client, and use
 | Internal processing failure | `ERROR` | terminate; client must treat the server as unreachable |
 | Continue ABORT | no further REPLY required after recording; if a REPLY is sent it is not PASS | terminate |
 
-Username enumeration: GETUSER/GETPASS prompts and FAIL messages MUST be uniform for unknown, disabled, and wrong-password users. Distinguish only in redacted internal events. RESTART is reserved for “try another type”, not for hiding user existence.
+Username enumeration: GETUSER/GETPASS prompts and FAIL messages MUST be uniform for unknown, disabled, restricted, account-expired (`valid_before` / `valid_after`), and wrong-password users. Inspect `must_change_login` / `must_change_enable` only after a successful verify on the session-bound snapshot. Combined account-expiry + flag stays uniform FAIL (empty `server_msg`, no `New Password: `). Distinguish only in redacted internal events. RESTART is reserved for “try another type”, not for hiding user existence.
 
 ### `internal/tacacs/codec`
 
@@ -1028,7 +1028,7 @@ No existing database. 1.0 state is process memory.
 
 **Client:** `id`, `display_name`, `priority`, `enabled`, `match.source_cidrs` (v4 and v6; match key unless `certificate_only`), `match.transports[]` (`legacy`|`tls`), `match.mode` (`address_and_certificate` default | `certificate_only`), `match.certificate` (dns_sans, ip_sans), `legacy.shared_secret` ref, `legacy.shared_secret_lifecycle`, `authentication.allowed_methods`, `authorization.default_group_ids` (appended after the user’s groups, de-duped), per-client limits/timeouts/single-connect, labels.
 
-**User:** `id` (UsernameCasePreserved), `display_name`, `enabled`, `group_ids`, optional `rules.services` / `rules.command_rules` (same schema as groups), credential refs (`login.verifier`, `challenge.secret`, `enable.verifier`), `restrictions.client_ids`, `valid_after`/`valid_before`, labels.
+**User:** `id` (UsernameCasePreserved), `display_name`, `enabled`, `group_ids`, optional `rules.services` / `rules.command_rules` (same schema as groups), credential refs (`login.verifier`, `challenge.secret`, `enable.verifier`), `restrictions.client_ids`, `valid_after`/`valid_before`, top-level `must_change_login` / `must_change_enable` (default false; not restrictions), labels.
 
 **Group:** `id`, `display_name`, `priority`, `enabled`, `services[]`, `command_rules[]`, `default_command_action` (`deny` or omitted), optional allow-lists, labels. No nesting.
 
@@ -1048,13 +1048,13 @@ Current binaries accept `schema_version: 1` and `schema_version: 2`. The loader 
 
 | Flow | minor | Shape | Notes |
 |---|---:|---|---|
-| ASCII LOGIN | 0 | START ± GETUSER ± GETPASS | `data` ignored; retries bounded (default 3); NOECHO on GETPASS |
-| PAP LOGIN | 1 | one START, one REPLY | user + password in `data` |
-| CHAP | 1 | one START, one REPLY | id+challenge+16-byte MD5 response |
-| MS-CHAP v1 | 1 | one START, one REPLY | `data = PPP_id(1) \|\| challenge(8) \|\| response(49)` |
-| MS-CHAP v2 | 1 | one START, one REPLY | `data = PPP_id(1) \|\| challenge(16) \|\| response(49)` (peer-challenge is inside the 49) |
-| ENABLE | 0 | multi-step like ASCII | `action=LOGIN`, `authen_service=ENABLE`; **ignore `authen_type`** (ASCII or PAP in START still runs ENABLE). Goldens required. |
-| ASCII CHPASS | 0 | multi-step | old password: GETDATA; new password: GETPASS (may repeat) |
+| ASCII LOGIN | 0 | START ± GETUSER ± GETPASS | `data` ignored; retries bounded (default 3); NOECHO on GETPASS. After a **successful** verify, if `must_change_login` and the client allows `ascii_chpass` (or `allowed_methods` is empty), TacLab **may** continue with extra GETPASS new/confirm (`New Password: ` / `Retype New Password: `). This is a **lab/vendor extension**, not RFC 8907 §5.4.2.1 LOGIN. If `ascii_chpass` is disallowed: FAIL, `server_msg=Password change required`, no overlay mutation. |
+| PAP LOGIN | 1 | one START, one REPLY | user + password in `data`. After successful verify + `must_change_login`: FAIL, `server_msg=Password change required`. Wrong password stays empty `server_msg`. |
+| CHAP | 1 | one START, one REPLY | id+challenge+16-byte MD5 response. Identity lock after successful verify + `must_change_login` (FAIL + `Password change required`) even though CHAP verifies challenge material. |
+| MS-CHAP v1 | 1 | one START, one REPLY | `data = PPP_id(1) \|\| challenge(8) \|\| response(49)`. Same identity lock as CHAP after successful verify + `must_change_login`. |
+| MS-CHAP v2 | 1 | one START, one REPLY | `data = PPP_id(1) \|\| challenge(16) \|\| response(49)` (peer-challenge is inside the 49). Same identity lock as CHAP after successful verify + `must_change_login`. |
+| ENABLE | 0 | multi-step like ASCII | `action=LOGIN`, `authen_service=ENABLE`; **ignore `authen_type`** (ASCII or PAP in START still runs ENABLE). Goldens required. `must_change_login` does **not** apply to ENABLE. |
+| ASCII CHPASS | 0 | multi-step | old password: GETDATA; new password: GETPASS (may repeat). Prompt text stays `Password: `. Successful publish clears `must_change_login`; event `reason_code=password_changed`. |
 
 ABORT continue flag terminates the auth session and records a redacted reason. Disallowed-but-implemented types emit **RESTART**, not FAIL (see `internal/aaa`). Wrong minor for PAP/CHAP/MS-CHAP is **FAIL**. Printable-ASCII and service-code rules are in `internal/tacacs/codec`.
 

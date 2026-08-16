@@ -299,14 +299,16 @@ type rawStringMatch struct {
 }
 
 type rawUser struct {
-	ID           string              `yaml:"id"`
-	DisplayName  string              `yaml:"display_name"`
-	Enabled      *bool               `yaml:"enabled"`
-	Labels       map[string]string   `yaml:"labels"`
-	GroupIDs     []string            `yaml:"group_ids"`
-	Rules        rawRuleSet          `yaml:"rules"`
-	Credentials  rawUserCredentials  `yaml:"credentials"`
-	Restrictions rawUserRestrictions `yaml:"restrictions"`
+	ID               string              `yaml:"id"`
+	DisplayName      string              `yaml:"display_name"`
+	Enabled          *bool               `yaml:"enabled"`
+	Labels           map[string]string   `yaml:"labels"`
+	GroupIDs         []string            `yaml:"group_ids"`
+	Rules            rawRuleSet          `yaml:"rules"`
+	Credentials      rawUserCredentials  `yaml:"credentials"`
+	Restrictions     rawUserRestrictions `yaml:"restrictions"`
+	MustChangeLogin  *bool               `yaml:"must_change_login"`
+	MustChangeEnable *bool               `yaml:"must_change_enable"`
 }
 
 type rawUserCredentials struct {

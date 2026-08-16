@@ -664,6 +664,86 @@ func TestSecretLifecycleDueSoonAndCurrent(t *testing.T) {
 	}
 }
 
+func TestMustChangeLoginRequiresVerifier(t *testing.T) {
+	t.Parallel()
+	for _, enabled := range []bool{true, false} {
+		src := `
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+users:
+  - id: alice
+    enabled: ` + boolYAML(enabled) + `
+    must_change_login: true
+`
+		_, err := parseAndValidate(t, src)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeInvalidArgument {
+			t.Fatalf("enabled=%v got %v", enabled, err)
+		}
+		if !strings.Contains(de.Path, "must_change_login") {
+			t.Fatalf("enabled=%v path=%q", enabled, de.Path)
+		}
+	}
+}
+
+func TestMustChangeEnableRequiresVerifier(t *testing.T) {
+	t.Parallel()
+	for _, enabled := range []bool{true, false} {
+		src := `
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+users:
+  - id: alice
+    enabled: ` + boolYAML(enabled) + `
+    must_change_enable: true
+    credentials:
+      login:
+        verifier: {file: /run/secrets/alice-login}
+`
+		_, err := parseAndValidate(t, src)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeInvalidArgument {
+			t.Fatalf("enabled=%v got %v", enabled, err)
+		}
+		if !strings.Contains(de.Path, "must_change_enable") {
+			t.Fatalf("enabled=%v path=%q", enabled, de.Path)
+		}
+	}
+}
+
+func TestMustChangeFlagsNormalizeWhenVerifierPresent(t *testing.T) {
+	t.Parallel()
+	doc, err := parseAndValidate(t, `
+schema_version: 1
+listeners:
+  secure_tacacs: {enabled: false}
+users:
+  - id: alice
+    must_change_login: true
+    must_change_enable: true
+    credentials:
+      login:
+        verifier: {file: /run/secrets/alice-login}
+      enable:
+        verifier: {file: /run/secrets/alice-enable}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !doc.Users[0].MustChangeLogin || !doc.Users[0].MustChangeEnable {
+		t.Fatalf("flags=%+v", doc.Users[0])
+	}
+}
+
+func boolYAML(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}
+
 func TestValidateDoesNotReadSecretFiles(t *testing.T) {
 	t.Parallel()
 	doc, err := Parse([]byte(`

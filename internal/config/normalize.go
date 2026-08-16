@@ -645,6 +645,8 @@ func normalizeUsers(raw []rawUser, allowEnv bool) ([]User, error) {
 				ValidAfter:  cloneTime(u.Restrictions.ValidAfter),
 				ValidBefore: cloneTime(u.Restrictions.ValidBefore),
 			},
+			MustChangeLogin:  boolOr(u.MustChangeLogin, false),
+			MustChangeEnable: boolOr(u.MustChangeEnable, false),
 		})
 	}
 	return out, nil

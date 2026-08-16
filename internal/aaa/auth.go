@@ -14,8 +14,14 @@ import (
 )
 
 const (
-	promptUser = "Username: "
-	promptPass = "Password: "
+	promptUser    = "Username: "
+	promptPass    = "Password: "
+	promptNewPass = "New Password: "
+	promptConfirm = "Retype New Password: "
+
+	serverMsgPasswordChangeRequired = "Password change required"
+	reasonPasswordChanged           = "password_changed"
+	reasonPasswordChangeRequired    = "password_change_required"
 )
 
 // BeginAuthentication starts an authentication conversation.
@@ -160,6 +166,9 @@ func (s *Service) continueASCII(ctx context.Context, key sessionKey, sess *authS
 		s.putSession(key, sess)
 		return passPrompt(), nil
 	}
+	if sess.needNew || sess.needConfirm {
+		return s.continueNewConfirm(ctx, key, sess, cont, "ascii_login", s.publishLogin)
+	}
 	return s.finishPassword(ctx, key, sess, cont, false)
 }
 
@@ -191,6 +200,17 @@ func (s *Service) finishPassword(ctx context.Context, key sessionKey, sess *auth
 		kind = "enable"
 	}
 	if err == nil {
+		if !enable && userMustChangeLogin(sess.snap, sess.user) {
+			if !asciiChpassAllowed(sess.snap, sess.clientID) {
+				s.dropSession(key)
+				s.recordAuthReason(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, kind, "fail", reasonPasswordChangeRequired)
+				return failStepMsg(serverMsgPasswordChangeRequired), nil
+			}
+			sess.needNew = true
+			sess.fails = 0
+			s.putSession(key, sess)
+			return newPassPrompt(), nil
+		}
 		s.dropSession(key)
 		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, kind, "pass")
 		return passStep(), nil
@@ -264,15 +284,59 @@ func (s *Service) continueCHPASS(ctx context.Context, key sessionKey, sess *auth
 		return failStep(), nil
 	}
 	phc := derived.Bytes()
-	step := s.publishLogin(sess, cont, phc)
+	step := s.publishLogin(sess, cont, phc, "ascii_chpass")
 	wipe(phc)
 	return step, nil
 }
 
-func (s *Service) publishLogin(sess *authSession, cont AuthenticationContinue, phc []byte) AuthenticationStep {
+func (s *Service) continueNewConfirm(ctx context.Context, key sessionKey, sess *authSession, cont AuthenticationContinue, eventType string, publish func(*authSession, AuthenticationContinue, []byte, string) AuthenticationStep) (AuthenticationStep, error) {
+	if sess.needNew {
+		if len(cont.UserMsg) == 0 {
+			s.dropSession(key)
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
+			return failStep(), nil
+		}
+		wipe(sess.newPass)
+		sess.newPass = append([]byte(nil), cont.UserMsg...)
+		sess.needNew = false
+		sess.needConfirm = true
+		s.putSession(key, sess)
+		return confirmPassPrompt(), nil
+	}
+	if !sess.needConfirm {
+		s.dropSession(key)
+		return errorStep(), nil
+	}
+	if subtle.ConstantTimeCompare(sess.newPass, cont.UserMsg) != 1 {
+		s.dropSession(key)
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
+		return failStep(), nil
+	}
+	derived, err := sess.creds.DeriveLoginVerifier(ctx, sess.newPass)
+	wipe(sess.newPass)
+	sess.newPass = nil
+	if err != nil {
+		s.dropSession(key)
+		if protoError(err) {
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "error")
+			return errorStep(), nil
+		}
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
+		return failStep(), nil
+	}
+	phc := derived.Bytes()
+	step := publish(sess, cont, phc, eventType)
+	wipe(phc)
+	return step, nil
+}
+
+func (s *Service) publishLogin(sess *authSession, cont AuthenticationContinue, phc []byte, eventType string) AuthenticationStep {
+	if eventType == "" {
+		eventType = "ascii_chpass"
+	}
 	if s.mgr == nil {
 		s.dropSession(sessionKey{conn: cont.ConnKey, sess: cont.SessionID})
-		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "error")
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "error")
 		return errorStep()
 	}
 	expected := sess.rev
@@ -280,13 +344,13 @@ func (s *Service) publishLogin(sess *authSession, cont AuthenticationContinue, p
 	s.dropSession(sessionKey{conn: cont.ConnKey, sess: cont.SessionID})
 	if err != nil {
 		if de, ok := domain.AsError(err); ok && (de.Code == domain.CodeConflict || de.Code == domain.CodeNotFound) {
-			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "fail")
+			s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "fail")
 			return failStep()
 		}
-		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "error")
+		s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "error")
 		return errorStep()
 	}
-	s.recordAuth(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, "ascii_chpass", "pass")
+	s.recordAuthReason(sess.snap, AuthenticationStart{ClientID: sess.clientID, SessionID: cont.SessionID, Transport: cont.Transport, Revision: cont.Revision}, sess.user, eventType, "pass", reasonPasswordChanged)
 	return passStep()
 }
 
@@ -385,6 +449,10 @@ func (s *Service) finishOneShot(snap *state.Snapshot, start AuthenticationStart,
 func (s *Service) finishOneShotOutcome(snap *state.Snapshot, start AuthenticationStart, user, kind string, outcome domain.AuthOutcome) AuthenticationStep {
 	switch outcome {
 	case domain.AuthPass:
+		if userMustChangeLogin(snap, user) {
+			s.recordAuthReason(snap, start, user, kind, "fail", reasonPasswordChangeRequired)
+			return failStepMsg(serverMsgPasswordChangeRequired)
+		}
 		s.recordAuth(snap, start, user, kind, "pass")
 		return passStep()
 	case domain.AuthError:
@@ -523,6 +591,10 @@ func eventType(flow authFlow, start AuthenticationStart) string {
 }
 
 func (s *Service) recordAuth(snap *state.Snapshot, start AuthenticationStart, user, kind, result string) {
+	s.recordAuthReason(snap, start, user, kind, result, "")
+}
+
+func (s *Service) recordAuthReason(snap *state.Snapshot, start AuthenticationStart, user, kind, result, reason string) {
 	s.metrics.Authen(string(start.Transport), kind, result)
 	if snap != nil && snap.Settings() != nil {
 		ev := snap.Settings().Events
@@ -535,15 +607,28 @@ func (s *Service) recordAuth(snap *state.Snapshot, start AuthenticationStart, us
 		}
 	}
 	s.record(events.Event{
-		Category:  events.CategoryAuthen,
-		Type:      kind,
-		Result:    result,
-		Transport: string(start.Transport),
-		ClientID:  start.ClientID,
-		SessionID: start.SessionID,
-		Revision:  start.Revision,
-		UserID:    user,
+		Category:   events.CategoryAuthen,
+		Type:       kind,
+		Result:     result,
+		Transport:  string(start.Transport),
+		ClientID:   start.ClientID,
+		SessionID:  start.SessionID,
+		Revision:   start.Revision,
+		UserID:     user,
+		ReasonCode: reason,
 	}, false)
+}
+
+func userMustChangeLogin(snap *state.Snapshot, userID string) bool {
+	if snap == nil || userID == "" {
+		return false
+	}
+	u, ok := snap.User(userID)
+	return ok && u.User.MustChangeLogin
+}
+
+func asciiChpassAllowed(snap *state.Snapshot, clientID string) bool {
+	return methodAllowed(snap, clientID, config.AuthMethodASCIIChpass)
 }
 
 func protoError(err error) bool {
@@ -592,6 +677,10 @@ func failStep() AuthenticationStep {
 	return AuthenticationStep{Status: domain.AuthenStatusFail}
 }
 
+func failStepMsg(msg string) AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusFail, ServerMsg: msg}
+}
+
 func passStep() AuthenticationStep {
 	return AuthenticationStep{Status: domain.AuthenStatusPass}
 }
@@ -606,4 +695,12 @@ func passPrompt() AuthenticationStep {
 
 func dataPrompt() AuthenticationStep {
 	return AuthenticationStep{Status: domain.AuthenStatusGetData, NoEcho: true, ServerMsg: promptPass}
+}
+
+func newPassPrompt() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusGetPass, NoEcho: true, ServerMsg: promptNewPass}
+}
+
+func confirmPassPrompt() AuthenticationStep {
+	return AuthenticationStep{Status: domain.AuthenStatusGetPass, NoEcho: true, ServerMsg: promptConfirm}
 }

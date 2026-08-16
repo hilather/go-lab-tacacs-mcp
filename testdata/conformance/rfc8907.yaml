@@ -813,13 +813,15 @@ rows:
     section_title: 8. Authentication flow matrix
     level: PROJECT MUST
     requirement: ASCII CHPASS
-    evidence_required: "version=0; positive=runtime verifier override; negative=wrong old password, mismatch, immutable policy, abort"
+    evidence_required: "version=0; positive=runtime verifier override, must_change_login cleared, reason_code=password_changed; negative=wrong old password, mismatch, immutable policy, abort"
     status: PASS
     evidence:
       - unit:internal/aaa.TestCHPASSChangeAndReset
       - unit:internal/aaa.TestCHPASSMismatchAndAbort
       - unit:internal/aaa.TestCHPASSRevisionConflict
+      - unit:internal/aaa.TestCHPASSClearsMustChangeLogin
       - unit:internal/state.TestOverrideLoginVerifierAndReset
+      - unit:internal/state.TestOverrideLoginVerifierClearsMustChange
   - id: T89-FLOW-009
     section: 8-authentication-flow-matrix
     section_title: 8. Authentication flow matrix
@@ -861,6 +863,30 @@ rows:
     evidence:
       - unit:internal/aaa.TestCHAPBelowMinimumChallengeErrors
       - unit:internal/credentials.TestCHAPRejectsShortChallenge
+  - id: T89-FLOW-013
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: "ASCII LOGIN after successful password + must_change_login may continue with GETPASS new/confirm (TacLab/vendor extension; not RFC 8907 LOGIN) when ascii_chpass is allowed; otherwise FAIL + Password change required"
+    evidence_required: "version=0; positive=GETPASS New Password / Retype New Password then PASS and runtime login override; negative=ascii_chpass disallowed no mutation, wrong password stays Password:"
+    status: PASS
+    evidence:
+      - unit:internal/aaa.TestASCIILoginMustChangePromptsAndPass
+      - unit:internal/aaa.TestASCIILoginMustChangeWhenCHPASSDisallowed
+      - unit:internal/aaa.TestContinueASCIIDispatchesNeedNew
+      - unit:internal/aaa.TestMustChangeDoesNotOverrideKindExpired
+  - id: T89-FLOW-014
+    section: 8-authentication-flow-matrix
+    section_title: 8. Authentication flow matrix
+    level: PROJECT MUST
+    requirement: "PAP/CHAP/MS-CHAP after successful verify + must_change_login FAIL with fixed server_msg; wrong password remains empty server_msg"
+    evidence_required: "version=1; positive=FAIL Password change required after good verify; negative=wrong password empty server_msg"
+    status: PASS
+    evidence:
+      - unit:internal/aaa.TestPAPMustChangeFailsWithServerMsg
+      - unit:internal/aaa.TestPAPWrongPasswordEmptyServerMsg
+      - unit:internal/aaa.TestCHAPMustChangeFailsAfterGoodResponse
+      - unit:internal/aaa.TestMSCHAPMustChangeFailsAfterGoodResponse
   - id: T89-AU-001
     section: 9-authorization-request-and-response-matrix
     section_title: 9. Authorization request and response matrix

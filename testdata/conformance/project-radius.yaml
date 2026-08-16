@@ -138,3 +138,14 @@ rows:
       - unit:internal/api/parity.TestEveryParityRequiredHasCase
       - unit:internal/api/operations.TestRadiusAccessTestPAPAcceptAndWipe
       - lab:LAB-RADIUS-002
+  - id: PRJ-UL-001
+    section: access-request
+    section_title: Access-Request
+    level: PROJECT MUST
+    requirement: Access-Reject reject_password_change_required after good PAP/CHAP + must_change_login; no extra attributes; no Access-Challenge
+    evidence_required: AuthenticateAccess rejects before policy; wireAccessReason does not collapse the code; TestReasonTableStable includes the pair
+    status: PASS
+    evidence:
+      - unit:internal/aaa.TestAuthenticateAccessMustChangeRejectsWithoutPolicy
+      - unit:internal/radius/server.TestReasonTableStable
+      - docs:docs/designs/radius-authentication.md

@@ -892,6 +892,7 @@ There is no Access-Error / Access-Reject-with-Error packet. After integrity + kn
 | CHAP-Password length ≠ 17 | `reject_chap_password_length` | Access-Reject | yes |
 | Method not allowed / no usable evidence | `reject_unsupported_method` | Access-Reject | yes |
 | User unknown, disabled, or password/CHAP mismatch | `reject_bad_credentials` | Access-Reject | yes |
+| Successful PAP/CHAP verify + `must_change_login` | `reject_password_change_required` | Access-Reject | yes |
 | Policy deny or no matching rule | `reject_policy` | Access-Reject | yes |
 | Policy permit | `ok` | Access-Accept | yes |
 | Access evaluator/internal panic after integrity | `internal_error` | Access-Reject | yes (do not re-run KDF on retry) |

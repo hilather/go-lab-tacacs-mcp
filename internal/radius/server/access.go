@@ -154,7 +154,8 @@ func wireAccessReason(code string) string {
 	case ReasonPolicy:
 		return ReasonPolicy
 	case ReasonBadCredentials, ReasonUnsupportedMethod, ReasonInternal,
-		ReasonMissingUsername, ReasonConflictingAuth, ReasonCHAPPasswordLength:
+		ReasonMissingUsername, ReasonConflictingAuth, ReasonCHAPPasswordLength,
+		ReasonPasswordChangeRequired:
 		return code
 	default:
 		return ReasonBadCredentials

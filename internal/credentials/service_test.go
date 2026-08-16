@@ -124,6 +124,23 @@ func TestVerifyUniformFailureKinds(t *testing.T) {
 	}
 }
 
+func TestLookupIgnoresMustChangeLogin(t *testing.T) {
+	t.Parallel()
+	s := mustService(t)
+	login := mustLogin(t, s, "correct-login-secret")
+	before := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	s.store.(*Memory).Put(Record{ID: "force", Enabled: true, Login: login, MustChangeLogin: true})
+	s.store.(*Memory).Put(Record{ID: "gone", Enabled: true, Login: login, MustChangeLogin: true, ValidBefore: &before})
+	if err := s.VerifyASCIIOrPAP(context.Background(), "force", []byte("correct-login-secret")); err != nil {
+		t.Fatalf("must-change must not fail lookup: %v", err)
+	}
+	err := s.VerifyASCIIOrPAP(context.Background(), "gone", []byte("correct-login-secret"))
+	var ae AuthError
+	if !errorAsAuth(err, &ae) || ae.Kind != KindExpired {
+		t.Fatalf("account window still KindExpired: %v", err)
+	}
+}
+
 func TestNoFallbackAcrossCredentialClasses(t *testing.T) {
 	t.Parallel()
 	s := mustService(t)

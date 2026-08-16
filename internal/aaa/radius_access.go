@@ -23,11 +23,12 @@ func (o RadiusAccessOutcome) String() string { return string(o) }
 
 // Wire reason_code values AuthenticateAccess returns (design §5.7).
 const (
-	AccessReasonOK                = "ok"
-	AccessReasonBadCredentials    = "reject_bad_credentials"
-	AccessReasonPolicy            = "reject_policy"
-	AccessReasonUnsupportedMethod = "reject_unsupported_method"
-	AccessReasonInternal          = "internal_error"
+	AccessReasonOK                     = "ok"
+	AccessReasonBadCredentials         = "reject_bad_credentials"
+	AccessReasonPolicy                 = "reject_policy"
+	AccessReasonUnsupportedMethod      = "reject_unsupported_method"
+	AccessReasonInternal               = "internal_error"
+	AccessReasonPasswordChangeRequired = "reject_password_change_required"
 )
 
 // RadiusAccessAttempt is protocol-neutral access evidence. Hidden
@@ -91,6 +92,9 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 
 	switch outcome {
 	case domain.AuthPass:
+		if userMustChangeLogin(snap, user) {
+			return rejectAccess(user, AccessReasonPasswordChangeRequired), nil
+		}
 		return evaluateAccess(snap, user, clientID, in.Context.EndpointID, method, reqAttrs), nil
 	case domain.AuthReject:
 		return rejectAccess(user, AccessReasonBadCredentials), nil

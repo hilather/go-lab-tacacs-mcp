@@ -18,30 +18,34 @@ type SecretPatch struct {
 
 // UpdateUser is a typed user patch. Omitted pointer fields are left unchanged.
 type UpdateUser struct {
-	DisplayName  *string
-	Enabled      *bool
-	Labels       *map[string]string
-	GroupIDs     *[]string
-	Rules        *config.RuleSet
-	Login        *SecretPatch
-	Challenge    *SecretPatch
-	Enable       *SecretPatch
-	Restrictions *config.UserRestrictions
+	DisplayName      *string
+	Enabled          *bool
+	Labels           *map[string]string
+	GroupIDs         *[]string
+	Rules            *config.RuleSet
+	Login            *SecretPatch
+	Challenge        *SecretPatch
+	Enable           *SecretPatch
+	Restrictions     *config.UserRestrictions
+	MustChangeLogin  *bool
+	MustChangeEnable *bool
 }
 
 // CreateUser creates a runtime user or an explicit baseline override.
 type CreateUser struct {
-	ID           string
-	DisplayName  *string
-	Enabled      *bool
-	Labels       *map[string]string
-	GroupIDs     *[]string
-	Rules        *config.RuleSet
-	Login        *SecretPatch
-	Challenge    *SecretPatch
-	Enable       *SecretPatch
-	Restrictions *config.UserRestrictions
-	Override     bool
+	ID               string
+	DisplayName      *string
+	Enabled          *bool
+	Labels           *map[string]string
+	GroupIDs         *[]string
+	Rules            *config.RuleSet
+	Login            *SecretPatch
+	Challenge        *SecretPatch
+	Enable           *SecretPatch
+	Restrictions     *config.UserRestrictions
+	MustChangeLogin  *bool
+	MustChangeEnable *bool
+	Override         bool
 }
 
 // UpdateGroup is a typed group patch.
@@ -192,6 +196,24 @@ func applyUserPatch(cur config.User, p UpdateUser) (config.User, error) {
 	}
 	if out.Credentials.Enable.Verifier, err = applySecret(out.Credentials.Enable.Verifier, p.Enable, false, "credentials.enable.verifier"); err != nil {
 		return config.User{}, err
+	}
+	if p.Login != nil && p.MustChangeLogin == nil {
+		out.MustChangeLogin = false
+	}
+	if p.MustChangeLogin != nil {
+		out.MustChangeLogin = *p.MustChangeLogin
+	}
+	if p.Enable != nil && p.MustChangeEnable == nil {
+		out.MustChangeEnable = false
+	}
+	if p.MustChangeEnable != nil {
+		out.MustChangeEnable = *p.MustChangeEnable
+	}
+	if out.MustChangeLogin && !out.Credentials.Login.Verifier.Set() {
+		return config.User{}, domain.NewError(domain.CodeInvalidArgument, "must_change_login requires a login verifier").WithPath("must_change_login")
+	}
+	if out.MustChangeEnable && !out.Credentials.Enable.Verifier.Set() {
+		return config.User{}, domain.NewError(domain.CodeInvalidArgument, "must_change_enable requires an enable verifier").WithPath("must_change_enable")
 	}
 	return out, nil
 }
@@ -625,15 +647,17 @@ func userFromCreate(base *config.User, req CreateUser) (config.User, error) {
 	}
 	cur.ID = req.ID
 	return applyUserPatch(cur, UpdateUser{
-		DisplayName:  req.DisplayName,
-		Enabled:      req.Enabled,
-		Labels:       req.Labels,
-		GroupIDs:     req.GroupIDs,
-		Rules:        req.Rules,
-		Login:        req.Login,
-		Challenge:    req.Challenge,
-		Enable:       req.Enable,
-		Restrictions: req.Restrictions,
+		DisplayName:      req.DisplayName,
+		Enabled:          req.Enabled,
+		Labels:           req.Labels,
+		GroupIDs:         req.GroupIDs,
+		Rules:            req.Rules,
+		Login:            req.Login,
+		Challenge:        req.Challenge,
+		Enable:           req.Enable,
+		Restrictions:     req.Restrictions,
+		MustChangeLogin:  req.MustChangeLogin,
+		MustChangeEnable: req.MustChangeEnable,
 	})
 }
 

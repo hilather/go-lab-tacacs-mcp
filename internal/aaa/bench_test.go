@@ -30,6 +30,32 @@ func BenchmarkCHAPLogin(b *testing.B) {
 	}
 }
 
+func BenchmarkASCIILoginMustChangeStart(b *testing.B) {
+	svc, mgr, _ := testService(b)
+	setMustChangeLogin(b, mgr, "lab-admin", true)
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sid := uint32(i + 1)
+		if _, err := svc.BeginAuthentication(ctx, AuthenticationStart{
+			ConnKey: 90, SessionID: sid, UserID: "lab-admin", ClientID: "lab-switches",
+			Action: domain.AuthenActionLogin, Type: domain.AuthenTypeASCII, Service: domain.AuthenServiceLogin,
+		}); err != nil {
+			b.Fatal(err)
+		}
+		step, err := svc.ContinueAuthentication(ctx, AuthenticationContinue{
+			ConnKey: 90, SessionID: sid, UserMsg: []byte(testPassword), ClientID: "lab-switches",
+		})
+		if err != nil {
+			b.Fatal(err)
+		}
+		if step.Status != domain.AuthenStatusGetPass || step.ServerMsg != promptNewPass {
+			b.Fatalf("want extra GETPASS, got %+v", step)
+		}
+	}
+}
+
 func BenchmarkRecordRADIUSAccounting(b *testing.B) {
 	svc, _, _ := testService(b)
 	rec := RADIUSAccountingRecord{

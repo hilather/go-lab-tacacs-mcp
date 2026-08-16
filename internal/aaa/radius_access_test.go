@@ -172,6 +172,45 @@ func TestAuthenticateAccessPermitFromCompiledPolicy(t *testing.T) {
 	}
 }
 
+func TestAuthenticateAccessMustChangeRejectsWithoutPolicy(t *testing.T) {
+	t.Parallel()
+	svc := testRADIUSPolicyService(t)
+	rev := svc.mgr.Revision()
+	flag := true
+	if _, err := svc.mgr.UpdateUser("lab-admin", state.UpdateUser{MustChangeLogin: &flag}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context:  domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:   "lab-admin",
+		Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonPasswordChangeRequired {
+		t.Fatalf("got %+v", got)
+	}
+	if got.ReplyAttributes.Len() != 0 {
+		t.Fatalf("must not evaluate policy reply attrs: %+v", got.ReplyAttributes)
+	}
+	if got.Trace.Winner != nil {
+		t.Fatalf("must not evaluate policy: %+v", got.Trace)
+	}
+
+	got, err = svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Context:  domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp"},
+		UserID:   "no-such-user",
+		Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonBadCredentials {
+		t.Fatalf("unknown user=%+v", got)
+	}
+}
+
 func TestAuthenticateAccessDenyFromCompiledPolicy(t *testing.T) {
 	t.Parallel()
 	svc := testRADIUSPolicyService(t)

@@ -8,7 +8,7 @@ Sources: `testdata/conformance/rfc8907.yaml`, `testdata/conformance/rfc9887.yaml
 
 | Gate | Result |
 |---|---|
-| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (172/172 mandatory rows `PASS`) |
+| RFC `MUST` / `MUST NOT` / `PROJECT MUST` | **PASS** (174/174 mandatory rows `PASS`) |
 | Independent software peer | `internal/tacacs/testclient` (separate codec) |
 | Cisco / second-NOS device interop | **SKIP** — no lab hardware; see `docs/INTEROP.md` |
 | External TLS PSK / RPK | `DEFERRED_MAY` ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)); T98-OPT-002/003/004 stay `NOT_STARTED` |
@@ -19,7 +19,7 @@ Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Devi
 
 | Gate | Result |
 |---|---|
-| RADIUS / project MVP rows | **PASS** (32/32 mandatory rows `PASS` or deferred with ADR evidence) |
+| RADIUS / project MVP rows | **PASS** (33/33 mandatory rows `PASS` or deferred with ADR evidence) |
 | Advertised completeness | **Do not claim complete RADIUS** while Access-Challenge is deferred, external radclient is skipped, or any MVP row lacks evidence |
 | Independent software peer | `internal/radius/testclient` (separate codec) |
 | External radclient / Cisco IOL | **SKIP** unless recorded in `docs/INTEROP.md`; a skip is not RADIUS PASS |
@@ -107,11 +107,13 @@ RFC 8907 TACACS+
 | T89-FLOW-005 | PROJECT MUST | PASS | MS-CHAP v1 LOGIN | unit:internal/aaa.TestMSCHAPv1AndV2Vectors; unit:internal/credentials.TestMSCHAPv1IndependentVectorIncludesPPPId; unit:internal/tacacs/codec.TestMSCHAPExactLengths |
 | T89-FLOW-006 | PROJECT MUST | PASS | MS-CHAP v2 LOGIN | unit:internal/aaa.TestMSCHAPv1AndV2Vectors; unit:internal/credentials.TestMSCHAPv2RFC2759VectorIncludesPPPId; unit:internal/aaa.TestMSCHAPv2MalformedIndependentOfUser |
 | T89-FLOW-007 | PROJECT MUST | PASS | ENABLE | unit:internal/aaa.TestEnableIgnoresTypeGoldens; unit:internal/aaa.TestEnableWrongAndMissingVerifier; golden:testdata/protocol/bodies/authen-start-enable-ascii.bin; lab:LAB-AUTH-007 |
-| T89-FLOW-008 | PROJECT MUST | PASS | ASCII CHPASS | unit:internal/aaa.TestCHPASSChangeAndReset; unit:internal/aaa.TestCHPASSMismatchAndAbort; unit:internal/aaa.TestCHPASSRevisionConflict; unit:internal/state.TestOverrideLoginVerifierAndReset |
+| T89-FLOW-008 | PROJECT MUST | PASS | ASCII CHPASS | unit:internal/aaa.TestCHPASSChangeAndReset; unit:internal/aaa.TestCHPASSMismatchAndAbort; unit:internal/aaa.TestCHPASSRevisionConflict; unit:internal/aaa.TestCHPASSClearsMustChangeLogin; unit:internal/state.TestOverrideLoginVerifierAndReset; unit:internal/state.TestOverrideLoginVerifierClearsMustChange |
 | T89-FLOW-009 | PROJECT MUST | PASS | Unsupported defined option | unit:internal/aaa.TestUnsupportedOptionsError; unit:internal/tacacs/server.TestSendAuthRejected; unit:internal/tacacs/server.TestEOFIsNotPanic |
 | T89-FLOW-010 | PROJECT MUST | PASS | ASCII CHPASS old/new prompt semantics | unit:internal/aaa.TestCHPASSOldIsGetDataNewIsGetPass; unit:internal/aaa.TestCHPASSMismatchAndAbort; unit:internal/credentials.TestChangeASCIIPasswordDoesNotTouchChallenge |
 | T89-FLOW-011 | PROJECT MUST | PASS | ASCII unused data fields | unit:internal/aaa.TestASCIIIgnoresStartData |
 | T89-FLOW-012 | PROJECT MUST | PASS | CHAP challenge policy | unit:internal/aaa.TestCHAPBelowMinimumChallengeErrors; unit:internal/credentials.TestCHAPRejectsShortChallenge |
+| T89-FLOW-013 | PROJECT MUST | PASS | ASCII LOGIN after successful password + must_change_login may continue with GETPASS new/confirm (TacLab/vendor extension; not RFC 8907 LOGIN) when ascii_chpass is allowed; otherwise FAIL + Password change required | unit:internal/aaa.TestASCIILoginMustChangePromptsAndPass; unit:internal/aaa.TestASCIILoginMustChangeWhenCHPASSDisallowed; unit:internal/aaa.TestContinueASCIIDispatchesNeedNew; unit:internal/aaa.TestMustChangeDoesNotOverrideKindExpired |
+| T89-FLOW-014 | PROJECT MUST | PASS | PAP/CHAP/MS-CHAP after successful verify + must_change_login FAIL with fixed server_msg; wrong password remains empty server_msg | unit:internal/aaa.TestPAPMustChangeFailsWithServerMsg; unit:internal/aaa.TestPAPWrongPasswordEmptyServerMsg; unit:internal/aaa.TestCHAPMustChangeFailsAfterGoodResponse; unit:internal/aaa.TestMSCHAPMustChangeFailsAfterGoodResponse |
 | T89-AU-001 | MUST | PASS | Decode all request fields and preserve user, port, remote address, auth context, and ordered arguments | unit:internal/aaa.TestAuthorizePreservesRequestFieldsAndDictionary; unit:internal/tacacs/codec.TestAuthorRequestArgsOrder; golden:testdata/protocol/bodies/author-request-shell-show.bin |
 | T89-AU-002 | MUST NOT | PASS | Do not trust authen_method for policy evaluation | unit:internal/policy.TestAuthenMethodObservational; unit:internal/aaa.TestAuthenMethodCodesRecordedNotTrusted |
 | T89-AU-003 | MUST | PASS | Recognize all authen-method codes for parsing/events | unit:internal/aaa.TestAuthenMethodCodesRecordedNotTrusted; unit:internal/tacacs/server.TestBridgeAuthenMethodNotType |
@@ -332,4 +334,5 @@ Project RADIUS completeness
 | PRJ-CFG-001 | PROJECT MUST | PASS | Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax | unit:internal/config.TestV1AndV2TACACSEquivalent; unit:internal/config.TestV1FixturesKeepTACACSAndDisableRADIUS; unit:internal/config.TestRejectFixtures; unit:internal/state.TestV1TACACSSnapshotEquivalent |
 | PRJ-TAC-001 | PROJECT MUST | PASS | Existing TACACS legacy/TLS conformance remains green | unit:tools/registry.TestReleaseValidationPassesQualifiedRegistries; unit:tools/registry.TestReleaseGateExcludesRADIUSSkeletons; docs:docs/generated/conformance.md |
 | PRJ-PAR-001 | PROJECT MUST | PASS | REST/MCP/UI generated parity remains green | unit:internal/api/parity.TestParityRequiredEquivalence; unit:internal/api/parity.TestEveryParityRequiredHasCase; unit:internal/api/operations.TestRadiusAccessTestPAPAcceptAndWipe; lab:LAB-RADIUS-002 |
+| PRJ-UL-001 | PROJECT MUST | PASS | Access-Reject reject_password_change_required after good PAP/CHAP + must_change_login; no extra attributes; no Access-Challenge | unit:internal/aaa.TestAuthenticateAccessMustChangeRejectsWithoutPolicy; unit:internal/radius/server.TestReasonTableStable; docs:docs/designs/radius-authentication.md |
 

@@ -186,6 +186,7 @@ func (m *Manager) CreateUser(req CreateUser, expected *domain.Revision) (*Snapsh
 
 // OverrideLoginVerifier publishes a runtime Argon2id login verifier. It does
 // not derive or replace challenge or ENABLE material and does not edit files.
+// It clears MustChangeLogin in the same mutate.
 func (m *Manager) OverrideLoginVerifier(userID string, verifier []byte, expected *domain.Revision) (*Snapshot, error) {
 	if err := credentials.ValidatePHC(verifier); err != nil {
 		return nil, domain.NewError(domain.CodeInvalidArgument, "login verifier is not a valid argon2id PHC string")
@@ -215,6 +216,7 @@ func (m *Manager) OverrideLoginVerifier(userID string, verifier []byte, expected
 			Purpose:  credentials.PurposeLoginVerifier,
 			MemoryID: key,
 		}
+		next.MustChangeLogin = false
 		src := domain.SourceRuntime
 		var shadows domain.ObjectSource
 		if inBase {

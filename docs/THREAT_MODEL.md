@@ -69,12 +69,16 @@ types. The runtime overlay is memory-only and vanishes on restart.
 | TM-12 | mTLS identity mix-up | High | SAN + CIDR; unique client; CRL; `VerifyConnection` | tls identity/resume tests |
 | TM-13 | Event subscriber resource abuse | Medium | Bounded queues; disconnect slow consumers | events ring tests; reset metric |
 | TM-14 | SPA path traversal / embed abuse | Medium | `go:embed` allowlist | rest static tests (PR-19+) |
-| TM-15 | Username enumeration | Medium | Uniform FAIL / prompts | aaa auth-flow tests |
+| TM-15 | Username enumeration | Medium | Uniform FAIL / prompts; must-change inspected only after successful verify (UL-TM-01/02/08) | aaa auth-flow + must-change tests |
 | TM-16 | DNS rebinding on `/mcp` | Medium | Origin validation | mcp origin tests |
 | TM-17 | Metric cardinality explosion | Medium | Closed label allowlists; no username/IP/command; no `client_id` on lifecycle | `TestForbiddenLabelsDropped` |
 | TM-18 | pprof / tracing exposure | Medium | Both off by default; pprof never on admin mux | `TestPprofOffByDefault`, `TestComposedAdminMuxOmitsPprof` |
 | TM-19 | Parser hang / alloc blow-up | High | Fuzz time/size caps; body budget | fuzz-smoke in CI |
 | TM-20 | Timing side channel on credentials | Medium | Constant-time compare; uniform FAIL | credentials tests |
+| UL-TM-01 | Username enumeration via distinct LOGIN status/prompt | Medium | Must-change branch only after `Verify*` success | `TestASCIILoginMustChangeWrongPasswordUniform` |
+| UL-TM-02 | Username enumeration via PAP `server_msg` | Medium | `Password change required` only after successful verify | `TestPAPWrongPasswordEmptyServerMsg` |
+| UL-TM-06 | Granting RADIUS/PAP access when password is expired | High | Post-verify reject in the same merge as the flag; policy not consulted | `TestAuthenticateAccessMustChangeRejectsWithoutPolicy` |
+| UL-TM-09 | NAS-driven login mutation when `ascii_chpass` is disallowed | High | K13 FAIL + no `OverrideLoginVerifier` | `TestASCIILoginMustChangeWhenCHPASSDisallowed` |
 
 ### 4.1 RADIUS/UDP (controlled-network profile)
 

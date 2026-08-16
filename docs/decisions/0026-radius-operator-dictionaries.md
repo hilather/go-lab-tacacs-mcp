@@ -51,11 +51,11 @@ Rejected. `dictionary_test.go` locks `builtin-mvp-1`.
 
 ## Compatibility impact
 
-No dictionary loader ships in this documentation change. Empty operator list keeps `builtin-mvp-1`.
+The implementing PR ships the fail-closed loader. Empty operator list keeps `DictionaryVersion` exactly `builtin-mvp-1`.
 
 ## Migration
 
-None now. After the implementing PR, v2 files may list `radius_dictionaries`. v1 files that contain that key fail unknown-field. Comment out before downgrade.
+v2 files may list `radius_dictionaries`. v1 files that contain that key fail unknown-field. Comment out before downgrade.
 
 ## Test impact
 

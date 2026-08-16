@@ -116,7 +116,7 @@ What ships when a v2 file enables the sockets:
 | Policy | User `radius_policy_id`, then each `effectiveGroups` policy, then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. |
 | Accounting | Start, Stop, Interim-Update, Accounting-On, Accounting-Off. SUCCESS on the wire only after the ring accepts the record. |
 | Retransmission | Exact-response cache. Accounting also has a semantic journal that ignores Acct-Delay-Time. |
-| Dictionary | Built-in IETF MVP (`builtin-mvp-1`). Unknown attributes and VSAs stay raw. |
+| Dictionary | Built-in IETF MVP (`builtin-mvp-1`). Optional v2 `radius_dictionaries` merge named vendor attributes as metadata (`source=operator:<id>`). Unknown wire attributes and VSAs stay raw. Named `Cisco-AVPair` decode is not in this profile. |
 
 Weaker Access `message_authenticator: allow_missing` (or per-endpoint `require_message_authenticator: false`) is explicit, produces a validation warning, a `Status.Warnings` entry, and a UI “insecure RADIUS compatibility” badge. There is no global off switch.
 

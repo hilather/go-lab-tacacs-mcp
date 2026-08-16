@@ -11,6 +11,8 @@ import {
   listenerState,
   listenerStateLabel,
   radiusInsecureCompatibility,
+  isRadiusTLSListener,
+  RADSEC_HINT,
   UDP_RADIUS_HINT,
   warningLooksInsecureRADIUS,
 } from "../ui/radius";
@@ -165,6 +167,9 @@ export function DashboardPage() {
 
       <section className="panel" aria-labelledby="listeners-heading">
         <h2 id="listeners-heading">Listeners</h2>
+        {status.listeners.some((l) => l.enabled && isRadiusTLSListener(l)) ? (
+          <p className="hint">{RADSEC_HINT}</p>
+        ) : null}
         <table className="data">
           <caption>Configured listener identity from the published snapshot, with live ready state</caption>
           <thead>

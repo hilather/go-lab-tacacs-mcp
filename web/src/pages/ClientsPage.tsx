@@ -37,7 +37,14 @@ import {
   TRANSPORTS,
 } from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
-import { clientHasRADIUS, clientRADIUS, radiusInsecureCompatibility } from "../ui/radius";
+import {
+  clientHasRADIUS,
+  clientHasRADIUSTLS,
+  clientHasRADIUSUDP,
+  clientRADIUS,
+  RADSEC_HINT,
+  radiusInsecureCompatibility,
+} from "../ui/radius";
 
 type EditorMode = { kind: "create" } | { kind: "edit"; client: Client };
 
@@ -52,7 +59,7 @@ function ClientProtocolCell({ client }: { client: Client }) {
       {clientHasRADIUS(client) ? (
         <>
           <ProtocolBadge protocol="radius" />
-          <UDPWarningBadge />
+          {clientHasRADIUSUDP(client) ? <UDPWarningBadge /> : null}
           {(radius?.roles ?? []).map((role) => (
             <RoleBadge key={role} role={role} />
           ))}
@@ -137,8 +144,9 @@ function ClientsBody() {
       <h1>Clients</h1>
       <p>
         Client match is fail-closed: transport, certificate constraints, longest CIDR, then lowest priority. Ties are a
-        configuration error. Shared-secret values are never displayed. RADIUS endpoints are UDP-only in this lab
-        profile and are not complete RADIUS.
+        configuration error. Shared-secret values are never displayed. Flatten RADIUS writes the UDP endpoint only.
+        Optional RadSec is <code>transport: tls</code> on TCP 2083 (YAML or <code>endpoints[]</code> in this slice)
+        and is not complete RADIUS.
       </p>
       {warnings.length > 0 ? (
         <section className="banner banner--warn" aria-labelledby="client-warn-heading">
@@ -603,9 +611,15 @@ function ClientEditor({
         <fieldset className="fieldset">
           <legend>RADIUS endpoint</legend>
           <p className="hint">
-            Flattened RADIUS write. Secret values are write-only and are cleared after submit. UDP is not a secure
-            transport.
+            Flattened RADIUS write applies to the UDP endpoint only (DAC). Secret values are write-only and are
+            cleared after submit. UDP is not a secure transport. {RADSEC_HINT}
           </p>
+          {existing && clientHasRADIUSTLS(existing) ? (
+            <p className="hint">
+              This client already has a RADIUS/TLS endpoint. The flatten checkbox only edits a UDP endpoint; leave
+              it unchecked so a save stays TLS-only.
+            </p>
+          ) : null}
           <label className="check">
             <input type="checkbox" checked={radiusEnabled} onChange={(ev) => setRadiusEnabled(ev.target.checked)} />
             Enable RADIUS/UDP

@@ -42,35 +42,35 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 	_ = nc.SetDeadline(l.now().Add(hs))
 	tlsConn := tls.Server(nc, l.tlsCfg)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
-		l.note(reasonUnknownClient)
+		l.note(reasonUnknownClient, domain.RoleAccess)
 		return
 	}
 	_ = tlsConn.SetDeadline(time.Time{})
 	cs := tlsConn.ConnectionState()
 	if len(cs.PeerCertificates) == 0 {
-		l.note(reasonUnknownClient)
+		l.note(reasonUnknownClient, domain.RoleAccess)
 		return
 	}
 	leaf := cs.PeerCertificates[0]
 	snap := l.opts.Snapshot()
 	if snap == nil {
-		l.note(reasonSecretMissing)
+		l.note(reasonSecretMissing, domain.RoleAccess)
 		return
 	}
 	ip := peerIP(tlsConn.RemoteAddr())
 	client, endpointID, err := matchTLSClient(snap, ip, certIdentity(leaf))
 	if err != nil {
 		if isAmbiguous(err) {
-			l.note(reasonAmbiguousClient)
+			l.note(reasonAmbiguousClient, domain.RoleAccess)
 			return
 		}
-		l.note(reasonUnknownClient)
+		l.note(reasonUnknownClient, domain.RoleAccess)
 		return
 	}
 	secret, err := lookupRADIUSSecret(l.opts.Secrets, client, endpointID)
 	if err != nil || len(secret) == 0 {
 		wipe(secret)
-		l.note(reasonSecretMissing)
+		l.note(reasonSecretMissing, domain.RoleAccess)
 		return
 	}
 	defer wipe(secret)
@@ -98,7 +98,7 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				return
 			}
-			l.note(codec.ReasonInvalidLength)
+			l.note(codec.ReasonInvalidLength, domain.RoleAccess)
 			return
 		}
 		l.inflight.Add(1)
@@ -134,17 +134,17 @@ func matchTLSClient(snap *state.Snapshot, ip net.IP, cert *config.CertIdentity) 
 func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound boundConn) {
 	pkt, err := codec.DecodeBounded(body, l.bounds)
 	if err != nil {
-		l.note(codec.DiscardReason(err))
+		l.note(codec.DiscardReason(err), domain.RoleAccess)
 		return
 	}
 	role, ok := roleForCode(pkt.Code)
 	if !ok || !endpointHasRole(bound.client, bound.endpointID, role) {
-		l.note(server.ReasonInvalidCode)
+		l.note(server.ReasonInvalidCode, role)
 		return
 	}
 	if role == domain.RoleAccounting {
 		if reason := server.CheckAccountingIntegrity(bound.secret, body, pkt); reason != "" {
-			l.note(reason)
+			l.note(reason, role)
 			return
 		}
 	}
@@ -168,7 +168,7 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 		Sampler:                     l.sampler,
 	}
 	if reason := server.CheckIntegrity(req); reason != "" {
-		l.note(reason)
+		l.note(reason, role)
 		return
 	}
 	key := slotKey{
@@ -187,7 +187,7 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 	case lookupPending:
 		return
 	case lookupSaturated:
-		l.note(reasonOverload)
+		l.note(reasonOverload, role)
 		return
 	}
 	handler := l.access
@@ -200,7 +200,7 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 	if res.Action != server.ActionReply || len(res.Response) == 0 {
 		l.cache.Abandon(key, fp)
 		if res.Reason != "" {
-			l.note(res.Reason)
+			l.note(res.Reason, role)
 		}
 		return
 	}
@@ -297,7 +297,7 @@ func errorsIsClosed(err error) bool {
 	return err != nil && (err == net.ErrClosed || err == io.ErrUnexpectedEOF)
 }
 
-func (l *Listener) note(reason string) {
+func (l *Listener) note(reason string, role domain.ListenerRole) {
 	if reason == "" {
 		return
 	}
@@ -306,7 +306,7 @@ func (l *Listener) note(reason string) {
 	if l.opts.Metrics == nil {
 		return
 	}
-	l.opts.Metrics.ProtocolDiscard(observability.ProtocolRADIUS, observability.TransportTLS, observability.RoleAccess, reason)
+	l.opts.Metrics.ProtocolDiscard(observability.ProtocolRADIUS, observability.TransportTLS, l.metricRole(role), reason)
 }
 
 func (l *Listener) observeRequest(reqCode codec.Code, res server.Result, seconds float64) {
@@ -314,7 +314,18 @@ func (l *Listener) observeRequest(reqCode codec.Code, res server.Result, seconds
 		return
 	}
 	code, outcome := replyLabels(reqCode, res)
-	l.opts.Metrics.ProtocolRequest(observability.ProtocolRADIUS, observability.TransportTLS, observability.RoleAccess, code, outcome, seconds)
+	role := observability.RoleAccess
+	if reqCode == codec.CodeAccountingRequest {
+		role = observability.RoleAccounting
+	}
+	l.opts.Metrics.ProtocolRequest(observability.ProtocolRADIUS, observability.TransportTLS, role, code, outcome, seconds)
+}
+
+func (l *Listener) metricRole(role domain.ListenerRole) string {
+	if role == domain.RoleAccounting {
+		return observability.RoleAccounting
+	}
+	return observability.RoleAccess
 }
 
 func (l *Listener) now() time.Time {

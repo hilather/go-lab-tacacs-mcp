@@ -98,6 +98,57 @@ func TestUnknownClientCertClosesWithoutReply(t *testing.T) {
 	}
 }
 
+func TestIndependentTestclientAccountingOnRadSec(t *testing.T) {
+	t.Parallel()
+	ln, _ := startRadSecPolicy(t)
+	cfg := clientTLS(t, ln.pki)
+	c, err := tctls.Dial(ln.Addr().String(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	secret := []byte(labSecret)
+	acctReq, err := testclient.EncodeAccountingRequest(secret, testclient.AccountingRequest{
+		Identifier: 12,
+		StatusType: testclient.AcctStart,
+		SessionID:  "radsec-1",
+		IncludeMA:  true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt, err := tcodec.Decode(acctReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WritePacket(acctReq); err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.ReadPacket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := testclient.DecodeAccountingResponse(secret, pkt.Authenticator, got)
+	if err != nil {
+		t.Fatalf("independent client rejected Accounting-Response: %v", err)
+	}
+	if reply.Identifier != 12 {
+		t.Fatalf("id=%d", reply.Identifier)
+	}
+}
+
+func TestRadSecRejectsTLS12Client(t *testing.T) {
+	t.Parallel()
+	ln, _ := startRadSecPolicy(t)
+	cfg := clientTLS(t, ln.pki)
+	cfg.MinVersion = tls.VersionTLS12
+	cfg.MaxVersion = tls.VersionTLS12
+	_, err := tctls.Dial(ln.Addr().String(), cfg)
+	if err == nil {
+		t.Fatal("TLS 1.2 client must not complete a RadSec handshake")
+	}
+}
+
 func TestTLSOnlyClientHasNoUDPEndpoint(t *testing.T) {
 	t.Parallel()
 	_, mgr := startRadSecPolicy(t)
@@ -161,6 +212,7 @@ func startRadSecPolicy(t *testing.T) (*radSecLab, *state.Manager) {
 		Snapshot: mgr.Snapshot,
 		Secrets:  lookup,
 		Access:   server.Access{AAA: svc},
+		Recorder: svc,
 	})
 	if err != nil {
 		t.Fatal(err)

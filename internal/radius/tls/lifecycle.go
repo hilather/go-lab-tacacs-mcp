@@ -54,7 +54,7 @@ func (l *Listener) Serve(ctx context.Context) error {
 		}
 		if !l.track(c) {
 			_ = c.Close()
-			l.note("drop_overload")
+			l.note("drop_overload", domain.RoleAccess)
 			continue
 		}
 		l.connWG.Add(1)

@@ -441,7 +441,7 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 		return nil
 	}
 	if p.Enabled != nil && !*p.Enabled {
-		c.Endpoints = removeRADIUSEndpoints(c.Endpoints)
+		c.Endpoints = removeRADIUSUDPEndpoints(c.Endpoints)
 		return nil
 	}
 	roles := p.Roles
@@ -457,6 +457,10 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 	}
 	ep := radiusEndpointPtr(c)
 	if ep == nil {
+		if hasRADIUSTLSEndpoint(c) {
+			// Flatten is UDP-only. Do not invent radius-udp beside TLS.
+			return nil
+		}
 		if len(c.Endpoints) == 0 {
 			c.Endpoints = config.SynthesizeTACACSEndpoints(*c)
 		}
@@ -554,13 +558,25 @@ func endpointHasRole(roles []domain.ListenerRole, want domain.ListenerRole) bool
 	return false
 }
 
-func removeRADIUSEndpoints(in []config.ClientEndpoint) []config.ClientEndpoint {
+func hasRADIUSTLSEndpoint(c *config.Client) bool {
+	if c == nil {
+		return false
+	}
+	for _, ep := range c.Endpoints {
+		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil && ep.Transport == config.EndpointTransportTLS {
+			return true
+		}
+	}
+	return false
+}
+
+func removeRADIUSUDPEndpoints(in []config.ClientEndpoint) []config.ClientEndpoint {
 	if len(in) == 0 {
 		return nil
 	}
 	out := make([]config.ClientEndpoint, 0, len(in))
 	for _, ep := range in {
-		if ep.Protocol == domain.ProtocolRADIUS {
+		if ep.Protocol == domain.ProtocolRADIUS && ep.Transport == config.EndpointTransportUDP {
 			continue
 		}
 		out = append(out, ep)

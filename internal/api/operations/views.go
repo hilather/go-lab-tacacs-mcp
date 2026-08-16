@@ -257,7 +257,10 @@ func clientProtocolsView(c state.EffectiveClient) ClientProtocolsView {
 }
 
 func clientRADIUSView(c config.Client, life domain.SecretLifecycle) ClientRADIUSProtocolView {
-	ep := radiusEndpointOf(c)
+	return radiusProtocolView(radiusEndpointOf(c), life)
+}
+
+func radiusProtocolView(ep *config.ClientEndpoint, life domain.SecretLifecycle) ClientRADIUSProtocolView {
 	if ep == nil || ep.RADIUS == nil {
 		return ClientRADIUSProtocolView{}
 	}
@@ -310,7 +313,7 @@ func clientEndpointViews(c config.Client, radLife domain.SecretLifecycle) []Clie
 			}
 		}
 		if ep.RADIUS != nil {
-			rad := clientRADIUSView(config.Client{Endpoints: []config.ClientEndpoint{ep}}, radLife)
+			rad := radiusProtocolView(&ep, radLife)
 			item.RADIUS = &rad
 		}
 		out = append(out, item)
@@ -319,20 +322,14 @@ func clientEndpointViews(c config.Client, radLife domain.SecretLifecycle) []Clie
 }
 
 func radiusEndpointOf(c config.Client) *config.ClientEndpoint {
-	var tls *config.ClientEndpoint
+	// Flatten view is the UDP RADIUS endpoint only (DAC / overlay).
 	for i := range c.Endpoints {
 		ep := &c.Endpoints[i]
-		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
-			continue
-		}
-		if ep.Transport == config.EndpointTransportUDP {
+		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil && ep.Transport == config.EndpointTransportUDP {
 			return ep
 		}
-		if ep.Transport == config.EndpointTransportTLS {
-			tls = ep
-		}
 	}
-	return tls
+	return nil
 }
 
 func hasTransport(ts []domain.Transport, want domain.Transport) bool {
@@ -510,7 +507,7 @@ func clientEndpointsFromView(in *[]ClientEndpointWrite) (*[]config.ClientEndpoin
 	}
 	out := make([]config.ClientEndpoint, 0, len(*in))
 	seen := map[string]struct{}{}
-	var radiusCount int
+	var radiusUDP, radiusTLS int
 	for i, raw := range *in {
 		ep, err := clientEndpointFromWrite(raw, i)
 		if err != nil {
@@ -521,9 +518,17 @@ func clientEndpointsFromView(in *[]ClientEndpointWrite) (*[]config.ClientEndpoin
 		}
 		seen[ep.ID] = struct{}{}
 		if ep.Protocol == domain.ProtocolRADIUS {
-			radiusCount++
-			if radiusCount > 1 {
-				return nil, domain.NewError(domain.CodeInvalidArgument, "a client may have at most one RADIUS UDP endpoint").WithPath("endpoints").WithDetail("index", i)
+			switch ep.Transport {
+			case config.EndpointTransportUDP:
+				radiusUDP++
+				if radiusUDP > 1 {
+					return nil, domain.NewError(domain.CodeInvalidArgument, "a client may have at most one RADIUS UDP endpoint").WithPath("endpoints").WithDetail("index", i)
+				}
+			case config.EndpointTransportTLS:
+				radiusTLS++
+				if radiusTLS > 1 {
+					return nil, domain.NewError(domain.CodeInvalidArgument, "a client may have at most one RADIUS TLS endpoint").WithPath("endpoints").WithDetail("index", i)
+				}
 			}
 		}
 		out = append(out, ep)
@@ -547,8 +552,8 @@ func clientEndpointFromWrite(raw ClientEndpointWrite, index int) (config.ClientE
 			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "tacacs transport must be tcp or tls").WithPath(path).WithDetail("index", index)
 		}
 	case domain.ProtocolRADIUS:
-		if transport != config.EndpointTransportUDP {
-			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "radius transport must be udp").WithPath(path).WithDetail("index", index)
+		if transport != config.EndpointTransportUDP && transport != config.EndpointTransportTLS {
+			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "radius transport must be udp or tls").WithPath(path).WithDetail("index", index)
 		}
 	}
 	roles, err := listenerRolesFromView(raw.Roles, proto, path)

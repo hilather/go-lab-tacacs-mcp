@@ -334,13 +334,15 @@ RADIUS advertised status stays **`partial`**. There is no Access-Challenge, no M
 
 ### Overlay vs YAML (K16)
 
-Say this in every must-change recipe.
+Applies to every must-change recipe below.
 
 | How the flag was set | After `runtime.reset` / restart |
 |---|---|
 | YAML `must_change_login: true` | Flag **returns**; in-LOGIN / CHPASS new PHC is **gone**; old YAML verifier is back |
+| YAML `must_change_enable: true` | Flag **returns**; in-ENABLE new PHC is **gone**; old YAML enable verifier is back |
 | `taclab.users.update` flag only | Flag **gone**; baseline user restored |
-| In-LOGIN / CHPASS / `OverrideLoginVerifier` | New secret **gone** unless written into YAML |
+| In-LOGIN / CHPASS / `OverrideLoginVerifier` | New login secret **gone** unless written into YAML |
+| In-ENABLE / `OverrideEnableVerifier` | New enable secret **gone** unless written into YAML |
 
 YAML-set flag = durable lab fixture. REST/MCP-set flag = overlay-only. After a NAS change, keep the new secret across reset only by writing it into YAML (or accept overlay-only). The YAML baseline is never rewritten.
 
@@ -364,21 +366,39 @@ K16: this flag is overlay-only. `runtime.reset` / restart restores the YAML user
 { "user_id": "lab-admin", "method": "ascii", "password": "<current>" }
 ```
 
-Expect `{ "status": "must_change" }`. Same body with `"method": "pap"` or `"chap"` also `must_change` (identity lock). Wire for PAP/CHAP is FAIL, not a `must_change` packet. RADIUS assert is `taclab.radius.access.test` → `reason_code=reject_password_change_required` (Access-Reject, no extra attributes).
+Expect `{ "status": "must_change" }`. Same body with `"method": "pap"` also `must_change` (identity lock). Do **not** copy this body with `"method": "chap"` or `"mschapv1"` / `"mschapv2"` — those methods require a challenge/response `data` blob, not `password`; missing `data` returns `status=error`, not `must_change`. Assert CHAP/MS-CHAP on the wire (FAIL + `Password change required`) after a good response.
+
+RADIUS PAP assert (not the `authentication.test` shape — `method` is an object):
+
+- Tool: `taclab.radius.access.test` · Scope: `policy:test`
+
+```json
+{
+  "user_id": "lab-admin",
+  "client_id": "lab-switches",
+  "method": { "type": "pap", "password": "<current>" }
+}
+```
+
+Expect `reason_code=reject_password_change_required` and `outcome=access_reject` with no extra attributes. RADIUS CHAP uses `{ "type": "chap", "id": …, "challenge": "<base64>", "response": "<base64>" }`, not `password`. This is **not** complete RADIUS and is not Access-Challenge.
 
 #### 1c. MCP-only finish (no TACACS)
 
 K16: the new login PHC and cleared flag live only in overlay.
 
+Write a new Argon2id PHC first ([BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md) §4.1 **B. Durable PHC file**), mount it as a Compose secret, then rotate. `labgen` does **not** create this file. Do not invent a compose fixture user.
+
+- Tool: `taclab.users.update` · Scope: `state:write`
+
 ```json
 {
   "id": "lab-admin",
-  "login": { "file": "/run/secrets/new_login_argon2id" },
+  "login": { "file": "/run/secrets/lab_admin_rotated_argon2id" },
   "expected_revision": 12
 }
 ```
 
-Flag clears unless the same patch sets `"must_change_login": true`. Overlay-only secret.
+Flag clears unless the same patch sets `"must_change_login": true`. Overlay-only secret. `/run/secrets/lab_admin_argon2id` is the existing labgen login verifier — reuse it only to point back at the baseline file.
 
 #### 1d. NAS / testclient finish
 
@@ -390,7 +410,7 @@ K16: published PHC + cleared flag are overlay-only. YAML-set `must_change_login:
 
 ### 2. Disable / re-enable
 
-- Tool: `taclab.users.update` · `state:write`
+- Tool: `taclab.users.update` · Scope: `state:write`
 
 ```json
 { "id": "lab-readonly", "enabled": false, "expected_revision": 20 }
@@ -404,12 +424,19 @@ Disabled + `must_change_login` stays uniform FAIL / empty `server_msg` (never `N
 
 ### 3. Expire account (not password)
 
+- Tool: `taclab.users.update` · Scope: `state:write`
+
 `restrictions.valid_before` / `valid_after` expire the **identity**, not the password. Combined with `must_change_login` still looks like uniform FAIL.
+
+`restrictions` is replace-as-a-struct (typed patch, not JSON Merge Patch). Sending only `valid_before` would drop baseline `lab-readonly` `client_ids`. Keep the current allow-list in the same object.
 
 ```json
 {
   "id": "lab-readonly",
-  "restrictions": { "valid_before": "2020-01-01T00:00:00Z" },
+  "restrictions": {
+    "client_ids": ["lab-switches", "secure-routers"],
+    "valid_before": "2020-01-01T00:00:00Z"
+  },
   "expected_revision": 22
 }
 ```
@@ -421,7 +448,10 @@ Not-yet-valid:
 ```json
 {
   "id": "lab-readonly",
-  "restrictions": { "valid_after": "2099-01-01T00:00:00Z" },
+  "restrictions": {
+    "client_ids": ["lab-switches", "secure-routers"],
+    "valid_after": "2099-01-01T00:00:00Z"
+  },
   "expected_revision": 23
 }
 ```
@@ -430,15 +460,19 @@ Not-yet-valid:
 
 K16: MCP-set `must_change_enable` is overlay-only. YAML-set flag survives `runtime.reset`; a published ENABLE PHC does not.
 
+- Tool: `taclab.users.update` · Scope: `state:write`
+
 ```json
 { "id": "lab-admin", "must_change_enable": true, "expected_revision": 24 }
 ```
 
-Assert: `taclab.authentication.test` `{ "user_id": "lab-admin", "method": "enable", "password": "<enable>" }` → `must_change`. MCP finish: `"enable": { "file": "..." }` (clears the flag unless the same patch sets `"must_change_enable": true`). NAS / testclient finish is in-ENABLE GETPASS (TacLab/vendor extension, **not** RFC 8907 ENABLE). Not MCP.
+Assert: `taclab.authentication.test` `{ "user_id": "lab-admin", "method": "enable", "password": "<enable>" }` → `must_change`. MCP finish: `"enable": { "file": "/run/secrets/lab_admin_rotated_enable_argon2id" }` after writing a new PHC ([BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md) §4.1 **B**); the flag clears unless the same patch sets `"must_change_enable": true`. NAS / testclient finish is in-ENABLE GETPASS (TacLab/vendor extension, **not** RFC 8907 ENABLE). Not MCP.
 
 `must_change_login` does not apply to ENABLE.
 
 ### 6. Clear / rotate secrets independently
+
+- Tool: `taclab.users.update` · Scope: `state:write`
 
 ```json
 { "id": "lab-admin", "challenge": null, "expected_revision": 25 }
@@ -452,11 +486,17 @@ JSON `null` / empty object clears (`OptionalSecret.Clear`). A non-nil login/enab
 
 ### 7. Move groups
 
+- Tool: `taclab.users.update` · Scope: `state:write`
+
 ```json
 { "id": "lab-readonly", "group_ids": ["readonly"], "expected_revision": 27 }
 ```
 
 ### 8. Client restriction
+
+- Tool: `taclab.users.update` · Scope: `state:write`
+
+`restrictions` is replace-as-a-struct. This JSON sets the allow-list and clears any account window.
 
 ```json
 {
@@ -470,12 +510,20 @@ Restricted + `must_change_login` stays uniform FAIL / empty `server_msg`.
 
 ### 9. Tombstone / override / reveal
 
-Create override: `taclab.users.create` `{ "id": "lab-admin", "override": true, "display_name": "tmp", "expected_revision": N }` · `state:write`.
+Create override:
 
-Reveal baseline (drop OVERRIDE, no tombstone): `taclab.users.delete`
+- Tool: `taclab.users.create` · Scope: `state:write`
 
 ```json
-{ "id": "lab-admin", "tombstone": false, "expected_revision": 29 }
+{ "id": "lab-admin", "override": true, "display_name": "tmp", "expected_revision": 29 }
+```
+
+Reveal baseline (drop OVERRIDE, no tombstone):
+
+- Tool: `taclab.users.delete` · Scope: `state:write`
+
+```json
+{ "id": "lab-admin", "tombstone": false, "expected_revision": 30 }
 ```
 
 Tombstone baseline: `"tombstone": true`.
@@ -484,14 +532,19 @@ Reveal restores the YAML user, including YAML `must_change_*` (K16). Overlay fla
 
 ### 10 / 13. Per-client `allowed_methods`
 
-- Tool: `taclab.clients.update` · `state:write`
+- Tool: `taclab.clients.update` · Scope: `state:write`
+
+`authentication` is replace-as-a-struct. Include `default_service` so the lab client stays equivalent except for `allowed_methods`. Baseline `lab-switches` uses `login`.
 
 Challenge-only NAS:
 
 ```json
 {
   "id": "lab-switches",
-  "authentication": { "allowed_methods": ["chap", "mschapv1", "mschapv2"] },
+  "authentication": {
+    "allowed_methods": ["chap", "mschapv1", "mschapv2"],
+    "default_service": "login"
+  },
   "expected_revision": 30
 }
 ```
@@ -503,7 +556,10 @@ Allow ASCII login but forbid NAS password mutation:
 ```json
 {
   "id": "lab-switches",
-  "authentication": { "allowed_methods": ["ascii", "pap"] },
+  "authentication": {
+    "allowed_methods": ["ascii", "pap"],
+    "default_service": "login"
+  },
   "expected_revision": 31
 }
 ```
@@ -514,7 +570,7 @@ LOGIN + `must_change_login` → FAIL + `Password change required`, no overlay PH
 
 `must_change_*` is **not** an authorization deny. `policy.evaluate` stays the QA tool for permit/deny fixtures.
 
-- Tool: `taclab.policy.evaluate` · `policy:test`
+- Tool: `taclab.policy.evaluate` · Scope: `policy:test`
 
 ```json
 {
@@ -530,7 +586,7 @@ Fields are `EvaluatePolicyRequest` (`user_id`, `client_id`, `service`, `cmd`, `c
 
 ### 14. Full overlay wipe
 
-- Tool: `taclab.runtime.reset` · `runtime:reset`
+- Tool: `taclab.runtime.reset` · Scope: `runtime:reset`
 
 ```json
 { "expected_revision": 32 }

@@ -331,6 +331,7 @@ Every contract linked from this page, with what it covers.
 | [Architecture](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/ARCHITECTURE.md) | Package boundaries and dependency direction |
 | [TACACS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) | RFC 8907 / 9887 matrix |
 | [RADIUS conformance](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) | RFC 2865/2866/2869/3579/5080 lab-profile checklist — **not** complete RADIUS |
+| [RADIUS remaining work](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-remaining-work.md) | In-memory remaining-work program (ADRs 0020–0029; not shipped until impl PRs) |
 | [REST/MCP API parity](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/API_PARITY.md) | Parity dispositions and operation contract |
 | [Testing and benchmarks](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TESTING_AND_BENCHMARKS.md) | Race, fuzz, benches, freeze policy |
 | [Threat model](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/THREAT_MODEL.md) | Trust boundaries and abuse cases |
@@ -358,6 +359,16 @@ Every contract linked from this page, with what it covers.
 | [0017](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0017-config-schema-v2-with-v1-migration.md) | Schema v2; `config.export` never emits v2 for a v1 source without `normalize=true` |
 | [0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) | Keep TacLab / `taclabd` / module / image names |
 | [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md) | Force login-class lock; lab/vendor in-LOGIN GETPASS (not RFC LOGIN) |
+| [0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md) | In-memory remaining-work charter; persist cancelled; `conformance_status` stays `partial` |
+| [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md) | Access-Challenge state gate (not advertised until testclient evidence) |
+| [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) | EAP Identity + MD5 only; must-change stays Access-Reject + generic EAP-Failure |
+| [0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md) | RADIUS MS-CHAP VSAs; independent RADIUS vectors; methods opt-in |
+| [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md) | DAC CoA uses UDP endpoint secret; inbound DAS is echo fixture only |
+| [0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) | RadSec TLS 1.3 TCP 2083 first slice; DTLS/1.1 deferred |
+| [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md) | Fail-closed operator dictionary YAML; reserve vendors 0/9/311 |
+| [0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) | Named `Cisco-AVPair` via independent fixtures; supersedes ADR 0015 IOL gate |
+| [0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md) | RADIUS proxying / realm routing `DEFERRED_MAY` |
+| [0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md) | v2 user/group `radius_policy_id`; walk user → groups → client → fallback → deny |
 
 ### Operator / maintainer
 

@@ -212,7 +212,7 @@ Authorization rules are part of user/group resources for 1.0 unless implementati
 
 Shared-secret values and certificate private material are write-only references and never appear in outputs. Non-secret shared-secret lifecycle metadata, `current`/`due_soon`/`overdue`/`unknown` status, validation warnings, and reuse-warning client IDs must be equivalent on REST and MCP. A secret fingerprint is never part of either public contract.
 
-Client objects are additive: existing TACACS flatten fields stay. `endpoints` is the canonical protocol model. `protocols.tacacs` and `protocols.radius` are sanitized views of those endpoints (RADIUS includes `enabled`, `roles`, `shared_secret_configured`, `secret_lifecycle`, Message-Authenticator flags, `allowed_methods`, `access_policy_id`). Create/update accept optional `endpoints[]` and/or a flattened `radius` object with write-only `shared_secret`. Sending both that disagree is `invalid_argument`. Omitted RADIUS secret retains previous material. Explicit null while a RADIUS endpoint remains enabled is `RADIUS_SECRET_MISSING`.
+Client objects are additive: existing TACACS flatten fields stay. `endpoints` is the canonical protocol model. `protocols.tacacs` is a sanitized view of TACACS endpoints. Flatten `protocols.radius` and flatten `radius` writes are the **UDP** RADIUS endpoint only (DAC / overlay). A TLS-only client has `protocols.radius.enabled=false`. RADIUS/TLS (RadSec) policy is on `endpoints[]` with `transport: tls` (at most one UDP and one TLS RADIUS endpoint). Create/update accept optional `endpoints[]` and/or a flattened `radius` object with write-only `shared_secret`. Flatten `radius.enabled=false` removes only the UDP endpoint. Sending both that disagree is `invalid_argument`. Omitted RADIUS secret retains previous material. Explicit null while a **UDP** RADIUS endpoint remains enabled is `RADIUS_SECRET_MISSING`. TLS secret rotate is via `endpoints[]`.
 
 ### 9.5 API tokens
 
@@ -239,7 +239,7 @@ The token value appears exactly once in the successful create response on both s
 | `events.list` | `events:read` | `GET /api/v1/events` | tool `taclab.events.list`; resource `taclab://events/recent` | PARITY_REQUIRED |
 | `events.subscribe` | `events:read` | `GET /api/v1/events/stream` using SSE | MCP resource/subscription/listen mechanism | PARITY_DIFFERENT_BINDING |
 
-`system.status.get` listeners are additive: existing `id`/`enabled`/`bind`/`transport` stay. New fields are `protocol`, `carrier`, `roles`, `ready`, `required`, `inflight`, `queue_depth`, and `last_error_code`. RADIUS listeners appear after the three TACACS/HTTP sockets when configured. `transport` for RADIUS is `udp` and is not a `domain.Transport` value.
+`system.status.get` listeners are additive: existing `id`/`enabled`/`bind`/`transport` stay. New fields are `protocol`, `carrier`, `roles`, `ready`, `required`, `inflight`, `queue_depth`, and `last_error_code`. RADIUS listeners appear after the three TACACS/HTTP sockets when configured. RADIUS listener `transport` is `udp` or `tls` and is not a `domain.Transport` value (`carrier` is `radius_udp` or `radius_tls`).
 
 `system.build.get` keeps `tacacs_conformance` and adds `protocols` (`tacacs` / `radius` → `standards` + `conformance_status`). RADIUS stays `partial` until MVP rows have evidence.
 

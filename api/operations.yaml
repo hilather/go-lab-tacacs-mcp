@@ -6,7 +6,7 @@ schema_version: 1
 title: TacLab operation registry
 operations:
   - id: system.status.get
-    description: Read listener and snapshot status. Listeners include protocol, carrier, roles, and live ready/inflight/queue_depth. RADIUS listeners appear after the TACACS/HTTP sockets when configured.
+    description: Read listener and snapshot status. Listeners include protocol, carrier, roles, and live ready/inflight/queue_depth. RADIUS listeners appear after the TACACS/HTTP sockets when configured. RADIUS transport is udp or tls (not a domain.Transport value).
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -40,7 +40,7 @@ operations:
     status: PASS
 
   - id: config.effective.get
-    description: Read the redacted effective configuration. Includes source_schema_version and effective_schema_version. Client objects expose canonical endpoints plus a flattened protocols.radius view.
+    description: Read the redacted effective configuration. Includes source_schema_version and effective_schema_version. Client objects expose canonical endpoints plus a flattened protocols.radius view of the UDP RADIUS endpoint only.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -293,7 +293,7 @@ operations:
     status: PASS
 
   - id: clients.list
-    description: List clients in deterministic id order. Additive protocols.radius and endpoints views; TACACS flatten fields stay.
+    description: List clients in deterministic id order. Additive endpoints views plus flattened protocols.radius for the UDP RADIUS endpoint only; TACACS flatten fields stay. TLS RADIUS policy is on endpoints[] transport tls.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -310,7 +310,7 @@ operations:
     status: PASS
 
   - id: clients.get
-    description: Get one client by id. Includes canonical endpoints and flattened protocols.radius.
+    description: Get one client by id. Includes canonical endpoints and flattened protocols.radius (UDP RADIUS endpoint only).
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"
@@ -326,7 +326,7 @@ operations:
     status: PASS
 
   - id: clients.create
-    description: Create a runtime client or override a baseline client. Optional endpoints[] or flattened radius object. Endpoints are canonical.
+    description: Create a runtime client or override a baseline client. Optional endpoints[] (radius transport udp or tls) or flattened radius (UDP only). Endpoints are canonical.
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional
@@ -343,7 +343,7 @@ operations:
     status: PASS
 
   - id: clients.update
-    description: Apply a typed patch to a client. Optional endpoints[] or flattened radius. Omitted RADIUS secret is retained.
+    description: Apply a typed patch to a client. Optional endpoints[] (radius transport udp or tls) or flattened radius (UDP only). Omitted RADIUS secret is retained.
     parity: PARITY_REQUIRED
     mutating: true
     idempotent: conditional

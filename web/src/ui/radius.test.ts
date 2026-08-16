@@ -7,6 +7,7 @@ import {
   isRadiusTLSListener,
   isRadiusUDPListener,
   parseAttributeLines,
+  RADSEC_HINT,
   radiusInsecureCompatibility,
   radiusRequiresMessageAuthenticator,
   warningLooksInsecureRADIUS,
@@ -73,6 +74,12 @@ describe("radius UI helpers", () => {
         queue_depth: 0,
       }),
     ).toBe(true);
+  });
+
+  it("describes RadSec as YAML or endpoints[], not YAML-only", () => {
+    expect(RADSEC_HINT).toMatch(/YAML or endpoints\[\]/);
+    expect(RADSEC_HINT).toMatch(/flatten checkbox stays UDP-only/);
+    expect(RADSEC_HINT).not.toMatch(/YAML-configured in this slice/);
   });
 
   it("does not treat a TLS-only RADIUS client as UDP", () => {

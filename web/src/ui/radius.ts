@@ -6,7 +6,7 @@ export const UDP_RADIUS_HINT =
   "RADIUS/UDP is a controlled-network lab profile. It is not TLS and is not complete RADIUS.";
 
 export const RADSEC_HINT =
-  "Optional RADIUS/TLS (RadSec) is a TLS 1.3 stream on TCP 2083 (transport: tls). It is YAML-configured in this slice and is not a TLS wrap of UDP.";
+  "Optional RADIUS/TLS (RadSec) is a TLS 1.3 stream on TCP 2083 (transport: tls). Configure it in YAML or endpoints[]; the flatten checkbox stays UDP-only. It is not a TLS wrap of UDP.";
 
 export function listenerState(listener: ListenerStatus): "ready" | "degraded" | "disabled" {
   if (!listener.enabled) {

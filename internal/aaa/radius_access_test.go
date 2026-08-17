@@ -27,6 +27,9 @@ func TestAuthenticateAccessDefaultDenyAndRejects(t *testing.T) {
 	chapID := byte(0x42)
 	chapChal := []byte("12345678")
 	chapOK := credentials.CHAPResponse(chapID, []byte(testChallenge), chapChal)
+	copyCHAP := func() (byte, []byte, []byte) {
+		return chapID, append([]byte(nil), chapChal...), append([]byte(nil), chapOK...)
+	}
 
 	type tc struct {
 		name   string
@@ -105,7 +108,7 @@ func TestAuthenticateAccessDefaultDenyAndRejects(t *testing.T) {
 		{
 			name:   "unsupported-method",
 			user:   "lab-admin",
-			ev:     CredentialEvidence{Method: domain.AuthMethod("eap")},
+			ev:     CredentialEvidence{Method: domain.AuthMethod("peap")},
 			want:   RadiusAccessReject,
 			reason: AccessReasonUnsupportedMethod,
 		},
@@ -115,8 +118,8 @@ func TestAuthenticateAccessDefaultDenyAndRejects(t *testing.T) {
 			ev: CredentialEvidence{
 				Method:    domain.AuthMethodEAP,
 				CHAPID:    chapID,
-				Challenge: chapChal,
-				Response:  chapOK,
+				Challenge: append([]byte(nil), chapChal...),
+				Response:  append([]byte(nil), chapOK...),
 			},
 			want:   RadiusAccessReject,
 			reason: AccessReasonPolicy,

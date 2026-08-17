@@ -58,7 +58,7 @@ func TestAuthMethodRoundTripAndPAPAlias(t *testing.T) {
 
 func TestParseAuthMethodRejectsPasswdAndUnknown(t *testing.T) {
 	t.Parallel()
-	for _, s := range []string{"passwd", "mschap", "ascii", "enable", "eap", ""} {
+	for _, s := range []string{"passwd", "mschap", "ascii", "enable", "peap", ""} {
 		got, err := ParseAuthMethod(s)
 		if err == nil || got != "" {
 			t.Fatalf("ParseAuthMethod(%q)=%q err=%v", s, got, err)

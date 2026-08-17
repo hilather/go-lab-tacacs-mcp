@@ -8,6 +8,21 @@ import { compact, RADIUS_AUTH_METHODS } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
 import { formatRadiusAttr, parseAttributeLines } from "../ui/radius";
 
+function methodSecretLabel(method: (typeof RADIUS_AUTH_METHODS)[number], suffix: string): string {
+  switch (method) {
+    case "chap":
+      return `CHAP ${suffix}`;
+    case "mschapv1":
+      return `MS-CHAPv1 ${suffix}`;
+    case "mschapv2":
+      return `MS-CHAPv2 ${suffix}`;
+    case "eap":
+      return suffix.startsWith("identifier") ? "EAP identifier (optional)" : `EAP ${suffix}`;
+    default:
+      return `${method} ${suffix}`;
+  }
+}
+
 export function RadiusAuthTestPage() {
   return (
     <RequireScope scope="policy:test">
@@ -82,13 +97,24 @@ function RadiusAuthTestBody() {
         type: "pap",
         password: password === "" ? undefined : password,
       });
+    } else if (method === "eap") {
+      const id = Number(chapId);
+      if (chapId.trim() !== "" && (!Number.isInteger(id) || id < 0 || id > 255)) {
+        errs.push("EAP identifier must be an integer from 0 to 255.");
+      }
+      authMethod = compact<RadiusAuthMethod>({
+        type: "eap",
+        id: chapId.trim() === "" ? undefined : id,
+        challenge: challenge === "" ? undefined : challenge,
+        response: response === "" ? undefined : response,
+      });
     } else {
       const id = Number(chapId);
       if (!Number.isInteger(id) || id < 0 || id > 255) {
-        errs.push("CHAP identifier must be an integer from 0 to 255.");
+        errs.push("Challenge identifier must be an integer from 0 to 255.");
       }
       authMethod = compact<RadiusAuthMethod>({
-        type: "chap",
+        type: method,
         id,
         challenge: challenge === "" ? undefined : challenge,
         response: response === "" ? undefined : response,
@@ -129,8 +155,9 @@ function RadiusAuthTestBody() {
     <main className="page">
       <h1>RADIUS authentication test</h1>
       <p>
-        Runs <code>radius.access.test</code> against the published snapshot using the same access path as UDP. PAP and
-        CHAP secrets are write-only and are cleared after submit. This is not complete RADIUS.
+        Runs <code>radius.access.test</code> against the published snapshot using the same access path as UDP. PAP,
+        CHAP, MS-CHAP, and EAP secrets are write-only and are cleared after submit. Challenge outcomes show{" "}
+        <code>state_present</code> only — never State bytes or EAP payload. This is not complete RADIUS.
       </p>
       <p className="visually-hidden" role="status">
         {announce}
@@ -178,7 +205,7 @@ function RadiusAuthTestBody() {
         ) : (
           <>
             <div className="field">
-              <label htmlFor={ids.chapId}>CHAP identifier</label>
+              <label htmlFor={ids.chapId}>{methodSecretLabel(method, "identifier")}</label>
               <input
                 id={ids.chapId}
                 type="number"
@@ -189,7 +216,7 @@ function RadiusAuthTestBody() {
               />
             </div>
             <div className="field">
-              <label htmlFor={ids.challenge}>CHAP challenge (base64)</label>
+              <label htmlFor={ids.challenge}>{methodSecretLabel(method, "challenge (base64)")}</label>
               <input
                 ref={challengeRef}
                 id={ids.challenge}
@@ -202,10 +229,11 @@ function RadiusAuthTestBody() {
               />
               <p id={ids.challengeHelp} className="hint">
                 Write-only. Cleared after submit.
+                {method === "eap" ? " Omit challenge and response for EAP Identity (access_challenge)." : ""}
               </p>
             </div>
             <div className="field">
-              <label htmlFor={ids.response}>CHAP response (base64)</label>
+              <label htmlFor={ids.response}>{methodSecretLabel(method, "response (base64)")}</label>
               <input
                 ref={responseRef}
                 id={ids.response}
@@ -260,6 +288,12 @@ function RadiusAuthTestBody() {
               <dt>Reason</dt>
               <dd>{result.reason_code}</dd>
             </div>
+            {result.outcome === "access_challenge" ? (
+              <div>
+                <dt>Challenge state</dt>
+                <dd>{result.state_present ? "present" : "absent"}</dd>
+              </div>
+            ) : null}
           </dl>
           {result.reply_attributes.length > 0 ? (
             <p>Reply attributes: {result.reply_attributes.map(formatRadiusAttr).join(", ")}</p>

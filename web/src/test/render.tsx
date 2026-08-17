@@ -16,6 +16,7 @@ export const ALL_SCOPES = [
   "events:sensitive",
   "tokens:manage",
   "runtime:reset",
+  "radius:dynamic",
 ];
 
 export function seedSession(scopes: string[] = ALL_SCOPES): void {

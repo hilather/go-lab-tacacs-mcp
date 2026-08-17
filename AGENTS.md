@@ -64,7 +64,7 @@ Copy-paste client JSON and a `tools/list` curl: [docs/MCP.md](https://github.com
 2. Terminate HTTPS in front of `:8080`. Do not strip `Authorization`, `MCP-Protocol-Version`, `Mcp-Method`, or `Mcp-Name`.
 3. Disable proxy buffering and raise read timeout for `subscriptions/listen`.
 4. Point the client at `https://<host>/mcp` with the same headers.
-5. Keep ports 49 and 300 (TACACS) and 1812/1813/3799 (RADIUS/UDP, when enabled) off the public internet. Inbound :3799 is an RFC 5176 echo fixture that only updates TacLab’s memory index. It does not kick a NAS.
+5. Keep ports 49 and 300 (TACACS) and 1812/1813 (RADIUS/UDP), 3799 (DAS, default off), and 2083 (RadSec, default off) off the public internet when enabled. Inbound :3799 is an RFC 5176 echo fixture that only updates TacLab’s memory index. It does not kick a NAS.
 
 Caddy/nginx snippets and the remote checklist: [docs/MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) §4.
 
@@ -213,9 +213,9 @@ Do not claim support based only on a library README. Verify behavior with indepe
 - RFC 5080 deterministic bounded duplicate/retransmission behavior.
 - Project rows `PRJ-*` for MA discard policy, unknown-client discard, deterministic policy, stable error mapping, accounting idempotency, bounded storage, runtime limits, one-datagram binding, v1/v2 config, TACACS regression, and REST/MCP parity.
 - Independent `internal/radius/testclient` codec evidence. Shared-codec loopback is not sufficient.
-- Access-Challenge, EAP methods, CoA, RadSec, proxying, MS-CHAP, and custom dictionaries stay deferred until their ADRs and tests land. Named `Cisco-AVPair` (vendor 9 type 1) is implemented; IOL skip is not PASS.
+- Tunneled EAP (PEAP/EAP-TLS), DTLS, RADIUS/1.1, proxying, and persistent accounting stay deferred. Access-Challenge, Identity+EAP-MD5, RADIUS MS-CHAP, DAC CoA, optional inbound DAS, RadSec TLS 1.3, operator dictionaries, and named `Cisco-AVPair` (vendor 9 type 1) have ADRs and tests; IOL skip is not PASS. `conformance_status` stays `partial`.
 
-Do not set RADIUS `conformance_status` to `pass` or expose a complete-RADIUS badge while any MVP row is `NOT_STARTED` or lacks evidence. UDP ports **1812** (access), **1813** (accounting), and **3799** (optional inbound DAS echo fixture, default off) are the RADIUS lab ports when listeners are enabled; they stay off the public internet. Inbound :3799 mutates the in-memory session index only and never forwards to a NAS.
+Do not set RADIUS `conformance_status` to `pass` or expose a complete-RADIUS badge while any MVP row is `NOT_STARTED` or lacks evidence. UDP ports **1812** (access), **1813** (accounting), and **3799** (DAS, default off) plus TCP **2083** (RadSec, default off) are the RADIUS lab ports when listeners are enabled; they stay off the public internet. Inbound :3799 mutates the in-memory session index only and never forwards to a NAS.
 
 ### 2.8 Fail closed and preserve old state on invalid change
 

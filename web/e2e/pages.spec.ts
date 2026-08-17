@@ -10,9 +10,12 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit alice" })).toBeVisible();
   await expect(page.getByText("CONFIG", { exact: true })).toBeVisible();
+  await expect(page.getByText("default-radius-access")).toBeVisible();
 
   await page.getByRole("button", { name: "Edit alice" }).focus();
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("RADIUS policy")).toBeVisible();
+  await expect(page.getByLabel("RADIUS policy")).toHaveValue("default-radius-access");
   const display = page.getByLabel("Display name");
   await display.focus();
   await page.keyboard.type(" Jr");
@@ -46,13 +49,38 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await page.getByRole("link", { name: "Groups" }).click();
   await expect(page.getByRole("heading", { name: "Groups" })).toBeVisible();
   await expect(page.getByText(/default-deny/i)).toBeVisible();
+  await page.getByRole("button", { name: "Edit administrators" }).click();
+  await expect(page.getByLabel("RADIUS policy")).toBeVisible();
+  await expect(page.getByLabel("RADIUS policy")).toHaveValue("admins-radius");
 
   await page.getByRole("link", { name: "Auth test", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Authentication test" })).toBeVisible();
 
+  await page.getByRole("link", { name: "RADIUS sessions" }).click();
+  await expect(page.getByRole("heading", { name: "RADIUS sessions" })).toBeVisible();
+  await expect(page.getByText("01HXSESSIONHANDLE00", { exact: true })).toBeVisible();
+  await expect(page.getByText(/RFC 5176 test fixture/i).first()).toBeVisible();
+  await expect(page.getByText(/does not kick a device/i).first()).toBeVisible();
+  await page.getByRole("button", { name: "CoA 01HXSESSIONHANDLE00" }).click();
+  const dacDialog = page.getByRole("dialog", { name: /Send CoA-Request/i });
+  await expect(dacDialog).toBeVisible();
+  await expect(dacDialog).toContainText(/UDP RADIUS secret \(DAC\)/);
+  await expect(dacDialog).not.toContainText(/does not kick a device/i);
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await page.getByRole("link", { name: "RADIUS attributes" }).click();
+  await expect(page.getByRole("heading", { name: "RADIUS attributes" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Source" })).toBeVisible();
+  await expect(page.getByText("builtin").first()).toBeVisible();
+
   await page.getByRole("link", { name: "RADIUS test", exact: true }).click();
   await expect(page.getByRole("heading", { name: "RADIUS authentication test" })).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByRole("option", { name: "pap", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("option", { name: "chap", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("option", { name: "mschapv1", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("option", { name: "mschapv2", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("option", { name: "eap", exact: true })).toHaveCount(1);
 
   await page.getByRole("link", { name: "Explain", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policy explain" })).toBeVisible();

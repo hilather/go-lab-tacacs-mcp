@@ -14,7 +14,7 @@ This page is the setup and usage guide. The parity policy lives in [API_PARITY.m
 | Who terminates TLS | Nobody (lab HTTP) | Reverse proxy or `listeners.http.tls` |
 | Token | File on this machine | Distributed out of band |
 | Origin | Usually absent | Restrict `api.mcp.allowed_origins` if browsers call `/mcp` |
-| Devices | Optional | Point NAS gear at host 49 / 300 (TACACS) and 1812 / 1813 (RADIUS/UDP, when enabled) separately. Keep 3799 off the public internet. |
+| Devices | Optional | Point NAS gear at host 49 / 300 (TACACS) and 1812 / 1813 (RADIUS/UDP, when enabled) separately. Keep 1812 / 1813 / 3799 / 2083 off the public internet. |
 
 Both paths use **identical** headers, tools, resources, and scopes.
 
@@ -258,6 +258,10 @@ docker compose -f deployments/compose/compose.yaml \
 |---|---|---|
 | 49 | Legacy devices | Lab VLAN / management VRF only |
 | 300 | TLS 1.3 devices | Same; do not publish to the internet |
+| 1812 | RADIUS access (UDP) | Default off. Keep off the public internet |
+| 1813 | RADIUS accounting (UDP) | Default off. Keep off the public internet |
+| 3799 | RADIUS inbound DAS (UDP) | Default off. RFC 5176 test fixture; does not kick a device. Keep off the public internet |
+| 2083 | RADIUS/TLS RadSec (TCP) | Default off. Keep off the public internet unless published like TACACS 300 |
 | 8080 | Operators, REST, MCP, UI | Put behind HTTPS; do not publish plaintext |
 | 9090 | Metrics | Loopback or monitor network. Off the admin listener by default |
 

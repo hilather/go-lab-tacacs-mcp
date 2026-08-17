@@ -1,4 +1,4 @@
-import type { Client, EventView, Group, TokenView, User } from "../generated/api";
+import type { Client, EventView, Group, RadiusSessionView, TokenView, User } from "../generated/api";
 
 export const sampleUser: User = {
   id: "alice",
@@ -16,6 +16,7 @@ export const sampleUser: User = {
   enable_configured: false,
   must_change_login: false,
   must_change_enable: false,
+  radius_policy_id: "default-radius-access",
   created_at: "2026-08-12T00:00:00Z",
   updated_at: "2026-08-12T00:00:00Z",
 };
@@ -31,6 +32,7 @@ export const sampleGroup: Group = {
   effective_revision: 3,
   services: [{ service: "shell", action: "permit_add", reply_attributes: [{ name: "priv-lvl", separator: "=", value: "15" }] }],
   command_rules: [{ id: "permit-all", priority: 10, action: "permit_add", command: { exact: "configure" }, arguments: {} }],
+  radius_policy_id: "admins-radius",
   created_at: "2026-08-12T00:00:00Z",
   updated_at: "2026-08-12T00:00:00Z",
 };
@@ -82,7 +84,7 @@ export const sampleRadiusClient: Client = {
       secret_lifecycle: "current",
       require_message_authenticator: false,
       limit_proxy_state: true,
-      allowed_methods: ["pap", "chap"],
+      allowed_methods: ["pap", "chap", "eap", "mschapv2"],
       access_policy_id: "default-radius-access",
       accept_status_types: ["start", "stop"],
     },
@@ -98,6 +100,41 @@ export const sampleRadiusClient: Client = {
         roles: ["access", "accounting"],
         shared_secret_configured: true,
         require_message_authenticator: false,
+        limit_proxy_state: true,
+        allowed_methods: ["pap", "chap", "eap", "mschapv2"],
+      },
+    },
+  ],
+};
+
+export const sampleCoAClient: Client = {
+  ...sampleRadiusClient,
+  id: "lab-coa",
+  display_name: "Lab CoA NAS",
+  protocols: {
+    tacacs: { legacy_enabled: false, tls_enabled: false, shared_secret_configured: false },
+    radius: {
+      enabled: true,
+      roles: ["access", "accounting", "dynamic_authorization"],
+      shared_secret_configured: true,
+      secret_lifecycle: "current",
+      require_message_authenticator: true,
+      limit_proxy_state: true,
+      allowed_methods: ["pap", "chap"],
+      access_policy_id: "default-radius-access",
+    },
+  },
+  endpoints: [
+    {
+      id: "radius-udp",
+      protocol: "radius",
+      transport: "udp",
+      roles: ["access", "accounting", "dynamic_authorization"],
+      radius: {
+        enabled: true,
+        roles: ["access", "accounting", "dynamic_authorization"],
+        shared_secret_configured: true,
+        require_message_authenticator: true,
         limit_proxy_state: true,
         allowed_methods: ["pap", "chap"],
       },
@@ -141,6 +178,19 @@ export const sampleRadSecClient: Client = {
       },
     },
   ],
+};
+
+export const sampleRadiusSession: RadiusSessionView = {
+  session_handle: "01HXSESSIONHANDLE00",
+  client_id: "lab-radius",
+  user_id: "alice",
+  endpoint_id: "radius-udp",
+  nas_ip: "192.0.2.10",
+  nas_identifier: "edge-1",
+  peer: "192.0.2.10",
+  started_at: "2026-08-12T00:00:00Z",
+  last_update: "2026-08-12T00:01:00Z",
+  acct_session_id: "sess-1",
 };
 
 export const sampleToken: TokenView = {

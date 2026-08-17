@@ -12,6 +12,8 @@ const TokensPage = lazy(async () => ({ default: (await import("./pages/TokensPag
 const EventsPage = lazy(async () => ({ default: (await import("./pages/EventsPage")).EventsPage }));
 const AuthTestPage = lazy(async () => ({ default: (await import("./pages/AuthTestPage")).AuthTestPage }));
 const RadiusAuthTestPage = lazy(async () => ({ default: (await import("./pages/RadiusAuthTestPage")).RadiusAuthTestPage }));
+const RadiusSessionsPage = lazy(async () => ({ default: (await import("./pages/RadiusSessionsPage")).RadiusSessionsPage }));
+const RadiusAttributesPage = lazy(async () => ({ default: (await import("./pages/RadiusAttributesPage")).RadiusAttributesPage }));
 const PolicyExplainPage = lazy(async () => ({ default: (await import("./pages/PolicyExplainPage")).PolicyExplainPage }));
 const RadiusExplainPage = lazy(async () => ({ default: (await import("./pages/RadiusExplainPage")).RadiusExplainPage }));
 const ConfigPage = lazy(async () => ({ default: (await import("./pages/ConfigPage")).ConfigPage }));
@@ -58,6 +60,8 @@ function Shell() {
               {hasScope("state:read") ? <NavItem to="/users">Users</NavItem> : null}
               {hasScope("state:read") ? <NavItem to="/groups">Groups</NavItem> : null}
               {hasScope("state:read") ? <NavItem to="/clients">Clients</NavItem> : null}
+              {hasScope("state:read") ? <NavItem to="/radius-sessions">RADIUS sessions</NavItem> : null}
+              {hasScope("state:read") ? <NavItem to="/radius-attributes">RADIUS attributes</NavItem> : null}
               {hasScope("tokens:manage") ? <NavItem to="/tokens">Tokens</NavItem> : null}
               {hasScope("events:read") ? <NavItem to="/events">Events</NavItem> : null}
               {hasScope("policy:test") ? <NavItem to="/auth-test">Auth test</NavItem> : null}
@@ -134,6 +138,8 @@ export function App() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/clients" element={<ClientsPage />} />
+                <Route path="/radius-sessions" element={<RadiusSessionsPage />} />
+                <Route path="/radius-attributes" element={<RadiusAttributesPage />} />
                 <Route path="/tokens" element={<TokensPage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/auth-test" element={<AuthTestPage />} />

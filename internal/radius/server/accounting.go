@@ -199,7 +199,7 @@ func buildRADIUSRecord(in Request, kind aaa.AccountingKind, sessionID string, ke
 	rec := aaa.RADIUSAccountingRecord{
 		Context: domain.RequestContext{
 			Protocol:         domain.ProtocolRADIUS,
-			Carrier:          requestCarrier(in.Carrier),
+			Carrier:          requestCarrier(in),
 			ListenerRole:     domain.RoleAccounting,
 			ListenerID:       in.ListenerID,
 			ClientID:         in.ClientID,

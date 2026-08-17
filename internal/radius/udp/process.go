@@ -105,7 +105,6 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		RequireMessageAuthenticator: requireMA,
 		LimitProxyState:             limitPS,
 		AllowedMethods:              methods,
-		Carrier:                     domain.CarrierRADIUSUDP,
 	}
 	// Invalid MA must not read, insert, or purge the retransmission cache.
 	if reason := server.CheckIntegrity(req); reason != "" {

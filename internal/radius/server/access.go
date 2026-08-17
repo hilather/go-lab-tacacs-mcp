@@ -73,7 +73,7 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 	dec, err := a.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
 		Context: domain.RequestContext{
 			Protocol:         domain.ProtocolRADIUS,
-			Carrier:          requestCarrier(in.Carrier),
+			Carrier:          requestCarrier(in),
 			ListenerRole:     domain.RoleAccess,
 			ListenerID:       in.ListenerID,
 			ClientID:         in.ClientID,
@@ -165,13 +165,6 @@ func extractAccessEvidence(in Request) (user string, ev aaa.CredentialEvidence, 
 		Method:   domain.AuthMethodPassword,
 		Password: pw,
 	}, "", wipe
-}
-
-func requestCarrier(c domain.Carrier) domain.Carrier {
-	if c == "" {
-		return domain.CarrierRADIUSUDP
-	}
-	return c
 }
 
 func methodAllowed(allowed []string, method string) bool {

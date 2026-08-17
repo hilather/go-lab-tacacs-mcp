@@ -90,7 +90,7 @@ clients:
 	if err != nil {
 		t.Fatal(err)
 	}
-	ep := radiusEndpoint(doc.Clients[0])
+	ep := radiusEndpoint(doc.Clients[0], EndpointTransportUDP)
 	if ep == nil || ep.RADIUS == nil {
 		t.Fatal("missing endpoint")
 	}

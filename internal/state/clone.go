@@ -189,6 +189,10 @@ func cloneDocument(d *config.Document) *config.Document {
 			out.RADIUSReplyProfiles[i] = cloneRADIUSReplyProfile(p)
 		}
 	}
+	if d.RADIUSDictionaries != nil {
+		out.RADIUSDictionaries = make([]config.RADIUSDictionary, len(d.RADIUSDictionaries))
+		copy(out.RADIUSDictionaries, d.RADIUSDictionaries)
+	}
 	if d.Listeners.SecureTACACS.TLS.Identities.Profiles != nil {
 		out.Listeners.SecureTACACS.TLS.Identities.Profiles = make([]config.TLSProfile, len(d.Listeners.SecureTACACS.TLS.Identities.Profiles))
 		for i, p := range d.Listeners.SecureTACACS.TLS.Identities.Profiles {

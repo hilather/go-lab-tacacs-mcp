@@ -570,6 +570,7 @@ export interface RadiusAttributeMetadata {
   value_kind: string;
   allowed_in: string[];
   sensitivity: string;
+  source: string;
 }
 
 export interface RadiusAttributeValue {
@@ -698,6 +699,7 @@ export interface Status {
   clients: number;
   tokens: number;
   warnings?: string[];
+  dictionary_version?: string;
 }
 
 export interface TestAuthenticationRequest {

@@ -92,6 +92,12 @@ func normalizeV2(raw *rawFileV2) (*Document, error) {
 	doc.RADIUSPolicies = policies
 	doc.FallbackRADIUSPolicyID = strings.TrimSpace(raw.FallbackRADIUSPolicyID)
 
+	dicts, err := normalizeRADIUSDictionaries(raw.RADIUSDictionaries)
+	if err != nil {
+		return nil, err
+	}
+	doc.RADIUSDictionaries = dicts
+
 	if err := normalizeEvents(&doc.Events, raw.Events); err != nil {
 		return nil, err
 	}

@@ -2,7 +2,7 @@
 
 Status: implementation contract  
 Applies to: config loader, validators, state compiler, REST API, MCP server, UI, export, and deployment  
-Last updated: 2026-08-14
+Last updated: 2026-08-16
 
 Operator walkthrough: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First-time users/groups/clients/secrets: [BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md).
 
@@ -22,7 +22,7 @@ validated defaults
 = immutable compiled snapshot
 ```
 
-The compiled snapshot is the only state consumed by TACACS and RADIUS request processing. It carries TACACS indexes plus RADIUS access/accounting LPM indexes, the built-in MVP dictionary (`builtin-mvp-1`), and the compiled RADIUS access-policy engine. Default example YAML keeps RADIUS listeners `enabled: false`. Enabling them is a **controlled-network lab profile**, not complete RADIUS. A failed startup, reload, or runtime mutation must never partially publish state.
+The compiled snapshot is the only state consumed by TACACS and RADIUS request processing. It carries TACACS indexes plus RADIUS access/accounting LPM indexes, the compiled RADIUS dictionary (`builtin-mvp-1`, plus operator files when listed), and the compiled RADIUS access-policy engine. Default example YAML keeps RADIUS listeners `enabled: false`. Enabling them is a **controlled-network lab profile**, not complete RADIUS. A failed startup, reload, or runtime mutation must never partially publish state.
 
 ## 2. Non-negotiable rules
 
@@ -645,6 +645,35 @@ listeners:
 v2 clients may declare `endpoints[]` (canonical protocol model). `match.source_cidrs` stays shared. v2 does not use `match.transports`; transports live on endpoints (`tacacs`+`tcp`/`tls`, `radius`+`udp`). Flatten TACACS fields (`match.transports`, `legacy`, `authentication`, `authorization`, `accounting`) are a deterministic projection of TACACS endpoints. v1 client YAML is unchanged; after load, TACACS endpoints are synthesized so the projection invariant holds. A client may have at most one RADIUS UDP endpoint (access and accounting share the secret and compile into separate role indexes). `certificate_only` is invalid unless a TACACS TLS endpoint exists. RADIUS-only clients require `source_cidrs`.
 
 v2 may declare `radius_policies`, `radius_reply_profiles`, and optional `fallback_radius_policy_id`. Evaluation order is frozen ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)): user `radius_policy_id`, then each group in `effectiveGroups` (`users[].group_ids` listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client endpoint `access_policy_id`, then optional fallback, then default deny. First matching **rule** wins. v2 `users[]` / `groups[]` accept optional `radius_policy_id`; unknown policy id is `CONFIG_YAML_INVALID`. v1 `rawUser` / `rawGroup` reject those keys. REST/MCP `users.*` / `groups.*` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). Match operators are `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), and typed request attributes (`op: equals|present|absent`). Unknown attribute names/codes fail compile (`CONFIG_YAML_INVALID`). Reply profiles are merged in listed order; two `single` attributes of the same key is a compile error. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in MVP). Named `Cisco-AVPair` is not accepted. After a credential pass, `AuthenticateAccess` evaluates the snapshot-held engine: permit is Access-Accept with those profile attributes; deny and evaluator errors are Access-Reject. This is not a complete RADIUS authorization surface.
+
+v2 may declare `radius_dictionaries` (schema v1 rejects the key). Each entry is a local TacLab YAML dictionary file, compiled fail-closed into the snapshot dictionary after `config.Validate`. There is no file watch: `config.reload` and `runtime.reset` re-read files. Remote URLs, `s3://`, and FreeRADIUS `$INCLUDE` are rejected. Paths must be absolute. When `security.strict_secret_files` is true (default), dictionary paths may not be symlinks.
+
+```yaml
+radius_dictionaries:
+  - id: lab-juniper
+    file: /etc/taclab/dicts/juniper.yaml
+    enabled: true
+```
+
+Operator file format (not FreeRADIUS language):
+
+```yaml
+schema_version: 1
+vendor:
+  id: 2636
+  name: Juniper
+attributes:
+  - name: Juniper-Local-User-Name
+    vendor_type: 1
+    kind: text          # text | string | integer | ipaddr | ipv6addr | time | octets
+    cardinality: single # single | multi (default single)
+    sensitivity: restricted  # public | restricted | secret (default restricted)
+    allowed_in: [access_accept]
+```
+
+Limits: 8 files, 64 KiB per file, 256 added attributes, 32 vendors, 64-character names. Duplicate names (builtin or a prior file) are compile errors. Vendor IDs `0` (IETF), `9` (Cisco), and `311` (Microsoft) and names `Cisco-AVPair` / `MS-CHAP-*` are reserved even before those builtins ship. Operator files cannot redefine a built-in IETF name or set `sensitivity: public` on a builtin secret. Invalid dictionary compile leaves the previous snapshot active.
+
+`DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled. When at least one enabled file merges, the snapshot version becomes `builtin-mvp-1+op:<sorted-ids>:<sha256>`. `radius.attributes.list` reports `source` `builtin` or `operator:<id>` (metadata only; no values). This is not complete RADIUS.
 
 ### 7.6 `api`
 

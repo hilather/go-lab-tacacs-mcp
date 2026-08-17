@@ -201,6 +201,23 @@ func TestV2ParsesUserAndGroupRADIUSPolicyID(t *testing.T) {
 	}
 }
 
+func TestV2ParsesRadiusDictionaries(t *testing.T) {
+	t.Parallel()
+	doc := mustParseFile(t, "testdata/parse/v2_radius_dictionaries.yaml")
+	if len(doc.RADIUSDictionaries) != 2 {
+		t.Fatalf("dicts=%+v", doc.RADIUSDictionaries)
+	}
+	if doc.RADIUSDictionaries[0].ID != "lab-juniper" || doc.RADIUSDictionaries[0].File != "/etc/taclab/dicts/juniper.yaml" || !doc.RADIUSDictionaries[0].Enabled {
+		t.Fatalf("first=%+v", doc.RADIUSDictionaries[0])
+	}
+	if doc.RADIUSDictionaries[1].ID != "lab-disabled" || doc.RADIUSDictionaries[1].Enabled {
+		t.Fatalf("disabled=%+v", doc.RADIUSDictionaries[1])
+	}
+	if err := Validate(doc); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestV2RejectsUnknownUserRADIUSPolicyID(t *testing.T) {
 	t.Parallel()
 	_, err := parseAndValidate(t, `
@@ -267,6 +284,40 @@ users:
 	}
 	if !strings.Contains(de.Path, "radius_rules") {
 		t.Fatalf("path=%q", de.Path)
+	}
+}
+
+func TestCompileRADIUSDictionaryEmptyStaysBuiltin(t *testing.T) {
+	t.Parallel()
+	doc := mustParseFile(t, "testdata/parse/v2_minimal.yaml")
+	d, err := CompileRADIUSDictionary(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Version() != "builtin-mvp-1" {
+		t.Fatalf("version=%q", d.Version())
+	}
+}
+
+func TestV2RadiusDictionariesTooMany(t *testing.T) {
+	t.Parallel()
+	var b strings.Builder
+	b.WriteString("schema_version: 2\nlisteners:\n  tacacs:\n    tls: {enabled: false}\nradius_dictionaries:\n")
+	for i := 0; i < 9; i++ {
+		b.WriteString("  - {id: d")
+		b.WriteString(strings.Repeat("x", 0))
+		b.WriteString(itoa(i))
+		b.WriteString(", file: /etc/taclab/dicts/d")
+		b.WriteString(itoa(i))
+		b.WriteString(".yaml}\n")
+	}
+	_, err := Parse([]byte(b.String()))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigYAMLInvalid {
+		t.Fatalf("err=%v", err)
 	}
 }
 

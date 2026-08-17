@@ -365,7 +365,7 @@ func TestRadiusAttributesListMetadataOnly(t *testing.T) {
 	for _, it := range out.Items {
 		if it.Name == "User-Name" {
 			sawUser = true
-			if it.Code != 1 || it.ValueKind == "" || len(it.AllowedIn) == 0 {
+			if it.Code != 1 || it.ValueKind == "" || len(it.AllowedIn) == 0 || it.Source != attribute.SourceBuiltin {
 				t.Fatalf("user-name=%+v", it)
 			}
 		}
@@ -387,6 +387,56 @@ func TestRadiusAttributesListMetadataOnly(t *testing.T) {
 		if strings.Contains(strings.ToLower(string(raw)), needle) {
 			t.Fatalf("dictionary leaked %q: %s", needle, raw)
 		}
+	}
+}
+
+func TestRadiusAttributesListOperatorSource(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "juniper.yaml")
+	if err := os.WriteFile(path, []byte(`schema_version: 1
+vendor: {id: 2636, name: Juniper}
+attributes:
+  - name: Juniper-Local-User-Name
+    vendor_type: 1
+    kind: text
+    sensitivity: restricted
+    allowed_in: [access_accept]
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snap := mustSnap(t, `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+radius_dictionaries:
+  - id: lab-juniper
+    file: `+path+`
+`)
+	reg := mustRegistry(t)
+	res, err := reg.Invoke(context.Background(), IDRadiusAttributesList, snap, Input{Actor: reader})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := res.Data.(RadiusAttributeList)
+	if !strings.HasPrefix(out.Version, attribute.DictionaryVersion+"+op:") {
+		t.Fatalf("version=%q", out.Version)
+	}
+	var sawOp, sawBuiltin bool
+	for _, it := range out.Items {
+		if it.Name == "Juniper-Local-User-Name" {
+			sawOp = true
+			if it.Source != "operator:lab-juniper" || it.Vendor != 2636 || it.Code != 1 {
+				t.Fatalf("op=%+v", it)
+			}
+		}
+		if it.Name == "User-Name" && it.Source == attribute.SourceBuiltin {
+			sawBuiltin = true
+		}
+	}
+	if !sawOp || !sawBuiltin {
+		t.Fatalf("sawOp=%v sawBuiltin=%v n=%d", sawOp, sawBuiltin, len(out.Items))
 	}
 }
 

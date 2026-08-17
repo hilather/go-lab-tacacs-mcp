@@ -18,6 +18,7 @@ type rawFileV2 struct {
 	RADIUSReplyProfiles    []rawRADIUSReplyProfile `yaml:"radius_reply_profiles"`
 	RADIUSPolicies         []rawRADIUSPolicy       `yaml:"radius_policies"`
 	FallbackRADIUSPolicyID string                  `yaml:"fallback_radius_policy_id"`
+	RADIUSDictionaries     []rawRADIUSDictionary   `yaml:"radius_dictionaries"`
 	Events                 rawEvents               `yaml:"events"`
 	Observability          rawObservability        `yaml:"observability"`
 }
@@ -169,4 +170,10 @@ type rawUserV2 struct {
 type rawGroupV2 struct {
 	rawGroup       `yaml:",inline"`
 	RADIUSPolicyID string `yaml:"radius_policy_id"`
+}
+
+type rawRADIUSDictionary struct {
+	ID      string `yaml:"id"`
+	File    string `yaml:"file"`
+	Enabled *bool  `yaml:"enabled"`
 }

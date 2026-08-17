@@ -7,8 +7,8 @@
 // started by the current process.
 //
 // Validate checks references, limits, command patterns, fail-closed TACACS
-// and RADIUS client match, and the endpoint/projection invariant. Secret
-// material is referenced (file or environment), never stored as a string on
-// Document. ReadSecret loads bytes into credentials holders, including
-// PurposeRADIUSSharedSecret.
+// and RADIUS client match, operator dictionary path rules, and the
+// endpoint/projection invariant. Secret material is referenced (file or
+// environment), never stored as a string on Document. ReadSecret loads bytes
+// into credentials holders, including PurposeRADIUSSharedSecret.
 package config

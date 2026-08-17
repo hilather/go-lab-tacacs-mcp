@@ -126,6 +126,9 @@ func validateDocument(doc *Document, schema int) error {
 	if err := validateRADIUSPolicyRefs(doc, groups); err != nil {
 		return err
 	}
+	if err := validateRADIUSDictionaries(doc); err != nil {
+		return err
+	}
 	if _, err := CompileClientIndex(doc.Clients); err != nil {
 		return err
 	}

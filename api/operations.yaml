@@ -495,7 +495,7 @@ operations:
     status: PASS
 
   - id: radius.attributes.list
-    description: List built-in RADIUS dictionary metadata. Values and secrets are omitted.
+    description: List RADIUS dictionary metadata including source (builtin or operator:<id>). Values and secrets are omitted.
     parity: PARITY_REQUIRED
     mutating: false
     idempotent: "true"

@@ -188,3 +188,20 @@ rows:
       - adr:docs/decisions/0023-radius-mschap-vsas.md
       - golden:testdata/protocol/radius/mschap/rfc2433-v1-radius.json
       - golden:testdata/protocol/radius/mschap/rfc2759-v2-radius.json
+  - id: PRJ-DICT-001
+    section: dictionary
+    section_title: Dictionary
+    level: PROJECT MUST
+    requirement: Operator dictionaries are TacLab YAML, local, size-capped, and fail-closed; reserved vendors 0/9/311 and Cisco-AVPair / MS-CHAP-* collide as compile errors; DictionaryVersion stays builtin-mvp-1 when no operator file compiled
+    evidence_required: Compile negatives; empty list keeps builtin-mvp-1; invalid dictionary leaves previous snapshot
+    status: PASS
+    evidence:
+      - unit:internal/radius/attribute.TestMergeOperatorEmptyKeepsBuiltinVersion
+      - unit:internal/radius/attribute.TestMergeOperatorRejectsReservedVendors
+      - unit:internal/radius/attribute.TestMergeOperatorRejectsReservedNames
+      - unit:internal/radius/attribute.TestMergeOperatorRejectsSecretSensitivityDowngrade
+      - unit:internal/config.TestCompileRADIUSDictionaryEmptyStaysBuiltin
+      - unit:internal/config.TestCompileRADIUSDictionaryRejectsReservedVendorFile
+      - unit:internal/state.TestReloadInvalidOperatorDictionaryKeepsSnapshot
+      - unit:internal/api/operations.TestRadiusAttributesListOperatorSource
+      - adr:docs/decisions/0026-radius-operator-dictionaries.md

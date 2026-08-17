@@ -1,0 +1,8 @@
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+radius_dictionaries:
+  - id: lab-juniper
+    file: /etc/taclab/dicts/juniper.yaml
+    include: /etc/raddb/dictionary

@@ -11,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	policyradius "github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 )
 
 // CompiledCommand is a command rule with RE2 patterns compiled at snapshot time.
@@ -60,17 +61,20 @@ type Snapshot struct {
 }
 
 // Dictionary is the compiled RADIUS attribute dictionary attached to a
-// snapshot. Until internal/radius/attribute registers a provider, the view
-// is empty (zero Version). Do not import radius/codec or radius/udp here.
+// snapshot. Version is exactly builtin-mvp-1 when no operator file compiled.
+// Do not import radius/codec or radius/udp here.
 type Dictionary struct {
-	version string
+	view attribute.Dictionary
 }
 
 // Version is the dictionary identifier, for example "builtin-mvp-1".
-func (d Dictionary) Version() string { return d.version }
+func (d Dictionary) Version() string { return d.view.Version() }
 
 // Empty reports whether no dictionary is attached.
-func (d Dictionary) Empty() bool { return d.version == "" }
+func (d Dictionary) Empty() bool { return d.view.Version() == "" }
+
+// View is the compiled attribute dictionary used by radius.attributes.list.
+func (d Dictionary) View() attribute.Dictionary { return d.view }
 
 // tokenDigestKey is a map key whose fmt output never includes digest bytes.
 type tokenDigestKey struct {
@@ -357,8 +361,7 @@ func (s *Snapshot) RADIUSPolicies() *policyradius.Engine {
 	return s.radiusPolicies
 }
 
-// Dictionary returns the compiled RADIUS dictionary view. Empty until a
-// later PR registers the built-in dictionary via SetDictionaryCompiler.
+// Dictionary returns the compiled RADIUS dictionary view.
 func (s *Snapshot) Dictionary() Dictionary {
 	if s == nil {
 		return Dictionary{}

@@ -25,6 +25,7 @@ const (
 	KindIPv4    ValueKind = "ipaddr"
 	KindIPv6    ValueKind = "ipv6addr"
 	KindTime    ValueKind = "time"
+	KindOctets  ValueKind = "octets"
 	KindVSA     ValueKind = "vsa"
 	KindUnknown ValueKind = "unknown"
 )
@@ -45,11 +46,13 @@ type Definition struct {
 	Kind        ValueKind
 	Cardinality Cardinality
 	Sensitivity Sensitivity
-	MinOctets   int
-	MaxOctets   int
-	allowed     packetMask
-	required    packetMask
-	first       packetMask
+	// Source is "builtin" or "operator:<id>". It is metadata only.
+	Source    string
+	MinOctets int
+	MaxOctets int
+	allowed   packetMask
+	required  packetMask
+	first     packetMask
 }
 
 // Key is the dictionary identity for this definition.

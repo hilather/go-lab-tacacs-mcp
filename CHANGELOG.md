@@ -13,6 +13,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - Bounded in-memory RADIUS Challenge State store (`internal/radius/runtime`): UDP source-IP and TLS cert binds, TTL, consume-on-use, capacity fail-closed. Continuation failures use `reject_invalid_state` / `reject_challenge_expired` / `reject_challenge_binding` / `reject_challenge_capacity`. **No Access-Challenge is emitted on the live listener.** PAP/CHAP and `must_change_login` stay Access-Reject. `R65-ACCESS-004` stays `DEFERRED_MAY`. Restart / `runtime.reset` wipe the store.
 - RADIUS Access-Request accepts opt-in Microsoft MS-CHAPv1/v2 VSAs (RFC 2548 vendor 311) with independent RADIUS wire vectors. Omitted `allowed_authentication_methods` still compile to `[pap, chap]`. Must-change after a good MS-CHAP verify is Access-Reject `reject_password_change_required` with no `MS-CHAP-Error` and no extra attributes. MS-CHAPv2 Accept includes `MS-CHAP2-Success`. TACACS START fixtures are not RADIUS evidence. MS-CHAP remains MD4-era and is not a complete-RADIUS claim.
 - RADIUS access evaluation order is user policy, then each `effectiveGroups` policy (same membership/order as TACACS), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). First matching rule wins.
+- Fail-closed operator RADIUS dictionaries (schema v2 `radius_dictionaries`). TacLab YAML only; local absolute files; size-capped. Cannot redefine built-in IETF attributes, cannot downgrade secret sensitivity, and cannot claim reserved vendor IDs `0` / `9` / `311` or names `Cisco-AVPair` / `MS-CHAP-*`. Remote files and FreeRADIUS `$INCLUDE` are rejected. `DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled. This is **not** complete RADIUS.
 
 ### Configuration
 
@@ -23,6 +24,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - `radius.access.test` and `radius.policy.evaluate` method unions grow `mschapv1` / `mschapv2` (`PARITY_REQUIRED`). MS-CHAP material is wiped and omitted from replies.
 - `users.create` / `users.update` / `groups.create` / `groups.update` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). List/get/export include the field on v2 views. REST and MCP share the same types. Unknown JSON is rejected. No UI selects in this change.
+- `radius.attributes.list` includes `source` (`builtin` or `operator:<id>`). Metadata only; no values. `system.status.get` reports `dictionary_version`.
 
 ## [1.2.0] — 2026-08-16
 

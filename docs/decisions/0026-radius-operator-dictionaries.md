@@ -51,11 +51,11 @@ Rejected. `dictionary_test.go` locks `builtin-mvp-1`.
 
 ## Compatibility impact
 
-No dictionary loader ships in this documentation change. Empty operator list keeps `builtin-mvp-1`.
+The implementing PR ships the fail-closed loader. Empty operator list keeps `DictionaryVersion` exactly `builtin-mvp-1`.
 
 ## Migration
 
-None now. After the implementing PR, v2 files may list `radius_dictionaries`. v1 files that contain that key fail unknown-field. Comment out before downgrade.
+v2 files may list `radius_dictionaries`. v1 files that contain that key fail unknown-field. Comment out before downgrade.
 
 ## Test impact
 
@@ -65,7 +65,7 @@ None now. After the implementing PR, v2 files may list `radius_dictionaries`. v1
 
 ## Documentation impact
 
-CONFIGURATION documents the file format and limits in the implementing PR. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) §8 keeps operator dictionaries still-deferred until then.
+CONFIGURATION documents the file format and limits. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) `PRJ-DICT-001` is PASS with compile-fail-closed evidence.
 
 ## Revisit conditions
 

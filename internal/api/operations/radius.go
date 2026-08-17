@@ -144,13 +144,21 @@ func handleRadiusAttributesList(_ context.Context, snap *state.Snapshot, _ Input
 	if snap == nil {
 		return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
 	}
-	defs := attribute.Builtin().All()
+	view := attribute.Builtin()
+	if d := snap.Dictionary(); !d.Empty() {
+		view = d.View()
+	}
+	defs := view.All()
 	items := make([]RadiusAttributeMetadata, 0, len(defs))
 	for _, def := range defs {
 		allowed := def.AllowedPackets()
 		names := make([]string, 0, len(allowed))
 		for _, code := range allowed {
 			names = append(names, radiusPacketName(code))
+		}
+		src := def.Source
+		if src == "" {
+			src = attribute.SourceBuiltin
 		}
 		items = append(items, RadiusAttributeMetadata{
 			Name:        def.Name,
@@ -159,9 +167,10 @@ func handleRadiusAttributesList(_ context.Context, snap *state.Snapshot, _ Input
 			ValueKind:   string(def.Kind),
 			AllowedIn:   names,
 			Sensitivity: string(def.Sensitivity),
+			Source:      src,
 		})
 	}
-	return RadiusAttributeList{Version: attribute.Builtin().Version(), Items: items}, nil
+	return RadiusAttributeList{Version: view.Version(), Items: items}, nil
 }
 
 func radiusEvidence(m RadiusAuthMethod) (domain.AuthMethod, aaa.CredentialEvidence, error) {

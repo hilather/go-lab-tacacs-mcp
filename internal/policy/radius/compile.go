@@ -3,6 +3,7 @@ package radius
 import (
 	"encoding/hex"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -16,18 +17,37 @@ type Input struct {
 	ReplyProfiles []config.RADIUSReplyProfile
 	FallbackID    string
 	Clients       []config.Client
+	Users         []config.User
+	Groups        []config.Group
 }
 
 // Engine is an immutable compiled RADIUS access policy.
 type Engine struct {
 	policies map[string]compiledPolicy
 	clients  map[string]compiledClient
+	users    map[string]compiledUser
+	groups   map[string]compiledGroup
 	fallback string
 }
 
 type compiledClient struct {
-	endpointID string
-	policyID   string
+	endpointID      string
+	policyID        string
+	defaultGroupIDs []string
+}
+
+type compiledUser struct {
+	id       string
+	enabled  bool
+	groupIDs []string
+	policyID string
+}
+
+type compiledGroup struct {
+	id       string
+	enabled  bool
+	priority int
+	policyID string
 }
 
 type compiledPolicy struct {
@@ -65,6 +85,8 @@ func CompileDocument(doc *config.Document) (*Engine, error) {
 		ReplyProfiles: doc.RADIUSReplyProfiles,
 		FallbackID:    doc.FallbackRADIUSPolicyID,
 		Clients:       doc.Clients,
+		Users:         doc.Users,
+		Groups:        doc.Groups,
 	})
 }
 
@@ -78,6 +100,8 @@ func Compile(in Input) (*Engine, error) {
 	e := &Engine{
 		policies: make(map[string]compiledPolicy, len(in.Policies)),
 		clients:  make(map[string]compiledClient, len(in.Clients)),
+		users:    make(map[string]compiledUser, len(in.Users)),
+		groups:   make(map[string]compiledGroup, len(in.Groups)),
 	}
 	for _, p := range in.Policies {
 		cp, err := compilePolicy(p, profiles)
@@ -112,10 +136,103 @@ func Compile(in Input) (*Engine, error) {
 						WithPath("radius_policies." + pid)
 				}
 			}
-			e.clients[c.ID] = compiledClient{endpointID: ep.ID, policyID: pid}
+			e.clients[c.ID] = compiledClient{
+				endpointID:      ep.ID,
+				policyID:        pid,
+				defaultGroupIDs: append([]string(nil), c.Authorization.DefaultGroupIDs...),
+			}
+		}
+	}
+	for _, g := range in.Groups {
+		if g.RADIUSPolicyID != "" {
+			if _, ok := e.policies[g.RADIUSPolicyID]; !ok {
+				return nil, domain.NewError(domain.CodeConfigYAMLInvalid, "radius_policy_id does not exist").
+					WithPath("groups." + g.ID + ".radius_policy_id")
+			}
+		}
+		e.groups[g.ID] = compiledGroup{
+			id:       g.ID,
+			enabled:  g.Enabled,
+			priority: g.Priority,
+			policyID: g.RADIUSPolicyID,
+		}
+	}
+	for _, u := range in.Users {
+		if u.RADIUSPolicyID != "" {
+			if _, ok := e.policies[u.RADIUSPolicyID]; !ok {
+				return nil, domain.NewError(domain.CodeConfigYAMLInvalid, "radius_policy_id does not exist").
+					WithPath("users." + u.ID + ".radius_policy_id")
+			}
+		}
+		e.users[u.ID] = compiledUser{
+			id:       u.ID,
+			enabled:  u.Enabled,
+			groupIDs: append([]string(nil), u.GroupIDs...),
+			policyID: u.RADIUSPolicyID,
 		}
 	}
 	return e, nil
+}
+
+// effectiveGroups matches policy/compile.go for enabled users: user
+// group_ids in listed order, then client default_group_ids not already
+// present, then sort by ascending group priority then id. Disabled
+// groups are omitted.
+//
+// Disabled users skip user policy and user group_ids (TACACS never
+// evaluates them). Client default_group_ids still apply so diagnostics
+// stay defined. AuthenticateAccess rejects disabled users at credential
+// verify and never calls Evaluate.
+func (e *Engine) effectiveGroups(userID, clientID string) []compiledGroup {
+	ids := make([]string, 0, 8)
+	seen := make(map[string]struct{}, 8)
+	if u, ok := e.users[userID]; ok && u.enabled {
+		for _, id := range u.groupIDs {
+			if id == "" {
+				continue
+			}
+			if _, dup := seen[id]; dup {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+	}
+	if c, ok := e.clients[clientID]; ok {
+		for _, id := range c.defaultGroupIDs {
+			if id == "" {
+				continue
+			}
+			if _, dup := seen[id]; dup {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+	}
+	out := make([]compiledGroup, 0, len(ids))
+	for _, id := range ids {
+		g, ok := e.groups[id]
+		if !ok || !g.enabled {
+			continue
+		}
+		out = append(out, g)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].priority != out[j].priority {
+			return out[i].priority < out[j].priority
+		}
+		return out[i].id < out[j].id
+	})
+	return out
+}
+
+func groupIDs(in []compiledGroup) []string {
+	out := make([]string, len(in))
+	for i, g := range in {
+		out[i] = g.id
+	}
+	return out
 }
 
 func compilePolicy(p config.RADIUSPolicy, profiles map[string]compiledProfile) (compiledPolicy, error) {

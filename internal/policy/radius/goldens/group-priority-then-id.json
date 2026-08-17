@@ -1,0 +1,25 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "priority",
+  "client_id": "lab-switches",
+  "endpoint_id": "radius-udp",
+  "method": "",
+  "groups": [
+    "ops",
+    "admins"
+  ],
+  "steps": [
+    {
+      "source": "group_policy:ops-permit",
+      "rule_id": "permit-ops",
+      "matched": true,
+      "reason": "matched"
+    }
+  ],
+  "winner": {
+    "source": "group_policy:ops-permit",
+    "rule_id": "permit-ops",
+    "effect": "permit"
+  },
+  "effect": "permit"
+}

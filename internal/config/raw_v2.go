@@ -12,8 +12,8 @@ type rawFileV2 struct {
 	API                    rawAPI                  `yaml:"api"`
 	Limits                 rawLimits               `yaml:"limits"`
 	Clients                []rawClientV2           `yaml:"clients"`
-	Groups                 []rawGroup              `yaml:"groups"`
-	Users                  []rawUser               `yaml:"users"`
+	Groups                 []rawGroupV2            `yaml:"groups"`
+	Users                  []rawUserV2             `yaml:"users"`
 	FallbackRules          rawRuleSet              `yaml:"fallback_rules"`
 	RADIUSReplyProfiles    []rawRADIUSReplyProfile `yaml:"radius_reply_profiles"`
 	RADIUSPolicies         []rawRADIUSPolicy       `yaml:"radius_policies"`
@@ -157,4 +157,16 @@ type rawRADIUSReplyAttr struct {
 	Code     *int    `yaml:"code"`
 	Value    string  `yaml:"value"`
 	ValueHex string  `yaml:"value_hex"`
+}
+
+// rawUserV2 adds radius_policy_id on schema 2. v1 rawUser rejects that field.
+type rawUserV2 struct {
+	rawUser        `yaml:",inline"`
+	RADIUSPolicyID string `yaml:"radius_policy_id"`
+}
+
+// rawGroupV2 adds radius_policy_id on schema 2. v1 rawGroup rejects that field.
+type rawGroupV2 struct {
+	rawGroup       `yaml:",inline"`
+	RADIUSPolicyID string `yaml:"radius_policy_id"`
 }

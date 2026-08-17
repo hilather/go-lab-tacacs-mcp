@@ -218,6 +218,24 @@ func TestUsersMustChangeFlagsREST(t *testing.T) {
 		b, _ := io.ReadAll(unknown.Body)
 		t.Fatalf("unknown field status=%d %s", unknown.StatusCode, b)
 	}
+	unknownPolicy := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/alice", h.Token, []byte(`{"radius_rules":[]}`), map[string]string{"If-Match": patch.Header.Get("ETag")})
+	defer unknownPolicy.Body.Close()
+	if unknownPolicy.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(unknownPolicy.Body)
+		t.Fatalf("unknown radius_rules status=%d %s", unknownPolicy.StatusCode, b)
+	}
+	missing := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/alice", h.Token, []byte(`{"radius_policy_id":"missing"}`), map[string]string{"If-Match": patch.Header.Get("ETag")})
+	defer missing.Body.Close()
+	if missing.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(missing.Body)
+		t.Fatalf("missing policy status=%d %s", missing.StatusCode, b)
+	}
+	cleared := doAuth(t, http.MethodPatch, h.HTTP.URL+"/api/v1/users/alice", h.Token, []byte(`{"radius_policy_id":null}`), map[string]string{"If-Match": patch.Header.Get("ETag")})
+	defer cleared.Body.Close()
+	if cleared.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(cleared.Body)
+		t.Fatalf("null policy status=%d %s", cleared.StatusCode, b)
+	}
 }
 
 func TestOptionalSecretUnknownFieldRejected(t *testing.T) {

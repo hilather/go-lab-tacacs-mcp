@@ -652,6 +652,36 @@ func normalizeUsers(raw []rawUser, allowEnv bool) ([]User, error) {
 	return out, nil
 }
 
+func normalizeGroupsV2(raw []rawGroupV2) ([]Group, error) {
+	base := make([]rawGroup, len(raw))
+	for i, g := range raw {
+		base[i] = g.rawGroup
+	}
+	out, err := normalizeGroups(base)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].RADIUSPolicyID = strings.TrimSpace(raw[i].RADIUSPolicyID)
+	}
+	return out, nil
+}
+
+func normalizeUsersV2(raw []rawUserV2, allowEnv bool) ([]User, error) {
+	base := make([]rawUser, len(raw))
+	for i, u := range raw {
+		base[i] = u.rawUser
+	}
+	out, err := normalizeUsers(base, allowEnv)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].RADIUSPolicyID = strings.TrimSpace(raw[i].RADIUSPolicyID)
+	}
+	return out, nil
+}
+
 func normalizeRuleSet(raw rawRuleSet, path string) (RuleSet, error) {
 	svcs, err := normalizeServiceRules(raw.Services, path+".services")
 	if err != nil {

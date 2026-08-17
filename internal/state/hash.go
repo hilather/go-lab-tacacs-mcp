@@ -72,6 +72,8 @@ func hashOverlay(ov overlay) string {
 		b.WriteString(strconv.FormatBool(e.user.MustChangeLogin))
 		b.WriteByte('\t')
 		b.WriteString(strconv.FormatBool(e.user.MustChangeEnable))
+		b.WriteByte('\t')
+		b.WriteString(e.user.RADIUSPolicyID)
 		b.WriteByte('\n')
 	}
 	gids := make([]string, 0, len(ov.groups))
@@ -87,6 +89,8 @@ func hashOverlay(ov overlay) string {
 			b.WriteString("\tD\n")
 			continue
 		}
+		b.WriteByte('\t')
+		b.WriteString(e.group.RADIUSPolicyID)
 		b.WriteByte('\n')
 	}
 	cids := make([]string, 0, len(ov.clients))
@@ -145,6 +149,8 @@ func writeUsers(b *strings.Builder, users []config.User) {
 		b.WriteString(strconv.FormatBool(u.MustChangeLogin))
 		b.WriteByte('\t')
 		b.WriteString(strconv.FormatBool(u.MustChangeEnable))
+		b.WriteByte('\t')
+		b.WriteString(u.RADIUSPolicyID)
 		b.WriteByte('\n')
 	}
 }
@@ -153,6 +159,8 @@ func writeGroups(b *strings.Builder, groups []config.Group) {
 	for _, g := range groups {
 		b.WriteString("g\t")
 		b.WriteString(g.ID)
+		b.WriteByte('\t')
+		b.WriteString(g.RADIUSPolicyID)
 		b.WriteByte('\n')
 	}
 }

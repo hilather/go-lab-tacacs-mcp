@@ -9,6 +9,8 @@ import (
 const evaluatorName = "radius_access"
 
 const (
+	sourceUserPrefix   = "user_policy:"
+	sourceGroupPrefix  = "group_policy:"
 	sourceClientPrefix = "client_policy:"
 	sourceFallback     = "fallback"
 )

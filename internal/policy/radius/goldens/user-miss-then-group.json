@@ -1,0 +1,30 @@
+{
+  "evaluator": "radius_access",
+  "user_id": "chap-user",
+  "client_id": "lab-switches",
+  "endpoint_id": "radius-udp",
+  "method": "password",
+  "groups": [
+    "admins"
+  ],
+  "steps": [
+    {
+      "source": "user_policy:user-chap-only",
+      "rule_id": "only-chap",
+      "matched": false,
+      "reason": "method mismatch"
+    },
+    {
+      "source": "group_policy:admins-permit",
+      "rule_id": "permit-admins",
+      "matched": true,
+      "reason": "matched"
+    }
+  ],
+  "winner": {
+    "source": "group_policy:admins-permit",
+    "rule_id": "permit-admins",
+    "effect": "permit"
+  },
+  "effect": "permit"
+}

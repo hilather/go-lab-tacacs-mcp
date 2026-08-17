@@ -268,6 +268,7 @@ func baselineObjects(snap *state.Snapshot) ([]User, []Group, []Client) {
 			EnableConfigured:    u.Credentials.Enable.Verifier.Set(),
 			MustChangeLogin:     u.MustChangeLogin,
 			MustChangeEnable:    u.MustChangeEnable,
+			RADIUSPolicyID:      u.RADIUSPolicyID,
 		})
 	}
 	groups := make([]Group, 0, len(settings.Groups))
@@ -291,6 +292,7 @@ func baselineObjects(snap *state.Snapshot) ([]User, []Group, []Client) {
 			Services:             serviceViews(g.Services),
 			CommandRules:         commandViews(g.CommandRules),
 			DefaultCommandAction: action,
+			RADIUSPolicyID:       g.RADIUSPolicyID,
 		})
 	}
 	clients := make([]Client, 0, len(settings.Clients))
@@ -339,6 +341,7 @@ type exportUser struct {
 	EnableConfigured    bool              `yaml:"enable_configured"`
 	MustChangeLogin     bool              `yaml:"must_change_login"`
 	MustChangeEnable    bool              `yaml:"must_change_enable"`
+	RADIUSPolicyID      string            `yaml:"radius_policy_id,omitempty"`
 	Rules               RuleSetView       `yaml:"rules,omitempty"`
 	Restrictions        RestrictionsView  `yaml:"restrictions,omitempty"`
 	Login               exportSecret      `yaml:"credentials_login,omitempty"`
@@ -357,6 +360,7 @@ type exportGroup struct {
 	Services             []ServiceRuleView `yaml:"services,omitempty"`
 	CommandRules         []CommandRuleView `yaml:"command_rules,omitempty"`
 	DefaultCommandAction string            `yaml:"default_command_action,omitempty"`
+	RADIUSPolicyID       string            `yaml:"radius_policy_id,omitempty"`
 }
 
 type exportClient struct {
@@ -424,14 +428,21 @@ func marshalExportYAML(eff EffectiveConfig, emitV2 bool) ([]byte, error) {
 		if u.EnableConfigured {
 			eu.Enable = exportSecret{Redacted: true, Source: "file"}
 		}
+		if emitV2 {
+			eu.RADIUSPolicyID = u.RADIUSPolicyID
+		}
 		doc.Users = append(doc.Users, eu)
 	}
 	for _, g := range eff.Groups {
-		doc.Groups = append(doc.Groups, exportGroup{
+		eg := exportGroup{
 			ID: g.ID, DisplayName: g.DisplayName, Enabled: g.Enabled, Priority: g.Priority,
 			Source: string(g.Source), Deleted: g.Deleted, Labels: g.Labels,
 			Services: g.Services, CommandRules: g.CommandRules, DefaultCommandAction: g.DefaultCommandAction,
-		})
+		}
+		if emitV2 {
+			eg.RADIUSPolicyID = g.RADIUSPolicyID
+		}
+		doc.Groups = append(doc.Groups, eg)
 	}
 	for _, c := range eff.Clients {
 		ec := exportClient{

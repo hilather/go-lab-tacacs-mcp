@@ -12,7 +12,6 @@ import (
 
 func TestGoldenTraces(t *testing.T) {
 	t.Parallel()
-	eng := personaEngine(t)
 	cases := []struct {
 		name string
 		req  Request
@@ -60,6 +59,58 @@ func TestGoldenTraces(t *testing.T) {
 			},
 		},
 	}
+	compareGoldens(t, personaEngine(t), cases)
+}
+
+func TestGoldenUserGroupTraces(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		req  Request
+	}{
+		{
+			name: "user-policy-permit",
+			req: Request{
+				UserID:     "attached",
+				ClientID:   "lab-switches",
+				EndpointID: "radius-udp",
+				Method:     domain.AuthMethodPassword,
+			},
+		},
+		{
+			name: "user-miss-then-group",
+			req: Request{
+				UserID:     "chap-user",
+				ClientID:   "lab-switches",
+				EndpointID: "radius-udp",
+				Method:     domain.AuthMethodPassword,
+			},
+		},
+		{
+			name: "group-before-client",
+			req: Request{
+				UserID:     "grouped",
+				ClientID:   "lab-switches",
+				EndpointID: "radius-udp",
+			},
+		},
+		{
+			name: "group-priority-then-id",
+			req: Request{
+				UserID:     "priority",
+				ClientID:   "lab-switches",
+				EndpointID: "radius-udp",
+			},
+		},
+	}
+	compareGoldens(t, userGroupEngine(t), cases)
+}
+
+func compareGoldens(t *testing.T, eng *Engine, cases []struct {
+	name string
+	req  Request
+}) {
+	t.Helper()
 	dir := filepath.Join("goldens")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)

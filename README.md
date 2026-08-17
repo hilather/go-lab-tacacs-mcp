@@ -108,7 +108,7 @@ Optional sockets. Default YAML stays `enabled: false`. Schema v2 required. Contr
 | Access | PAP and CHAP → Access-Accept or Access-Reject. No Access-Challenge. |
 | Accounting | Start / Stop / Interim / On / Off into the **memory** ring. SUCCESS only after the ring accepts. |
 | Integrity | Message-Authenticator required on Access by default; always first on responses. |
-| Policy | Client `access_policy_id`, optional fallback, default deny. No user/group RADIUS rules. |
+| Policy | User `radius_policy_id`, then `effectiveGroups`, then client `access_policy_id`, then optional fallback, then default deny. Schema v2 only; v1 rejects the keys. |
 | Dictionary | Built-in IETF MVP. Unknown attributes stay raw. Named `Cisco-AVPair` is not shipped. |
 | Deferred | EAP termination, CoA/Disconnect, RadSec/DTLS, RADIUS MS-CHAP, custom dictionaries, persistent accounting. |
 

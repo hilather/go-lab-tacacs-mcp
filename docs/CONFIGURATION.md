@@ -644,7 +644,7 @@ listeners:
 
 v2 clients may declare `endpoints[]` (canonical protocol model). `match.source_cidrs` stays shared. v2 does not use `match.transports`; transports live on endpoints (`tacacs`+`tcp`/`tls`, `radius`+`udp`). Flatten TACACS fields (`match.transports`, `legacy`, `authentication`, `authorization`, `accounting`) are a deterministic projection of TACACS endpoints. v1 client YAML is unchanged; after load, TACACS endpoints are synthesized so the projection invariant holds. A client may have at most one RADIUS UDP endpoint (access and accounting share the secret and compile into separate role indexes). `certificate_only` is invalid unless a TACACS TLS endpoint exists. RADIUS-only clients require `source_cidrs`.
 
-v2 may declare `radius_policies`, `radius_reply_profiles`, and optional `fallback_radius_policy_id`. These are **not** a complete RADIUS authorization surface: evaluation is client `access_policy_id`, then optional fallback, then default deny. There is no `users[].radius_policy_id` or `groups[].radius_rules`. Match operators are `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), and typed request attributes (`op: equals|present|absent`). Unknown attribute names/codes fail compile (`CONFIG_YAML_INVALID`). Reply profiles are merged in listed order; two `single` attributes of the same key is a compile error. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in MVP). Named `Cisco-AVPair` is not accepted. v1 documents still reject these keys. After a credential pass, `AuthenticateAccess` evaluates the snapshot-held engine: permit is Access-Accept with those profile attributes; deny and evaluator errors are Access-Reject.
+v2 may declare `radius_policies`, `radius_reply_profiles`, and optional `fallback_radius_policy_id`. Evaluation order is frozen ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)): user `radius_policy_id`, then each group in `effectiveGroups` (`users[].group_ids` listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client endpoint `access_policy_id`, then optional fallback, then default deny. First matching **rule** wins. v2 `users[]` / `groups[]` accept optional `radius_policy_id`; unknown policy id is `CONFIG_YAML_INVALID`. v1 `rawUser` / `rawGroup` reject those keys. REST/MCP `users.*` / `groups.*` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). Match operators are `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), and typed request attributes (`op: equals|present|absent`). Unknown attribute names/codes fail compile (`CONFIG_YAML_INVALID`). Reply profiles are merged in listed order; two `single` attributes of the same key is a compile error. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in MVP). Named `Cisco-AVPair` is not accepted. After a credential pass, `AuthenticateAccess` evaluates the snapshot-held engine: permit is Access-Accept with those profile attributes; deny and evaluator errors are Access-Reject. This is not a complete RADIUS authorization surface.
 
 ### 7.6 `api`
 
@@ -684,11 +684,15 @@ For a legacy connection, a selected client must have a legacy shared secret. Its
 
 Initial group relationships are flat. Nested groups are out of scope because they complicate deterministic policy explanation and cycle handling without adding value to the intended lab use.
 
+Schema v2 groups may set optional `radius_policy_id`. That named policy is walked after the user's policy and before the client policy, in `effectiveGroups` order (priority then id).
+
 Group priority controls inter-group rule order. Rule priority controls order inside a group. Duplicate priorities are permitted only when the stable rule ID produces a documented deterministic tie-breaker; the recommended validation profile rejects duplicates.
 
 ### 7.10 `users`
 
 A user can hold zero or more groups. A user with no applicable permit policy fails authorization by default.
+
+Schema v2 users may set optional `radius_policy_id`. That named policy is the first RADIUS access walk source. REST/MCP omit keeps it; JSON `null` or `""` clears it. Disabled users fail credentials before this walk. Diagnostics still apply client `default_group_ids` without the user's own groups.
 
 Credential capabilities are explicit:
 

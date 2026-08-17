@@ -209,6 +209,40 @@ func TestCompileDenyReplyRejectsRawVSA(t *testing.T) {
 	}
 }
 
+func TestCompileRejectsUnknownUserRADIUSPolicyID(t *testing.T) {
+	t.Parallel()
+	_, err := Compile(Input{
+		Users: []config.User{{ID: "u", Enabled: true, RADIUSPolicyID: "missing"}},
+	})
+	if err == nil {
+		t.Fatal("expected unknown user policy")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigYAMLInvalid {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(de.Path, "radius_policy_id") {
+		t.Fatalf("path=%q", de.Path)
+	}
+}
+
+func TestCompileRejectsUnknownGroupRADIUSPolicyID(t *testing.T) {
+	t.Parallel()
+	_, err := Compile(Input{
+		Groups: []config.Group{{ID: "g", Enabled: true, RADIUSPolicyID: "missing"}},
+	})
+	if err == nil {
+		t.Fatal("expected unknown group policy")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigYAMLInvalid {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(de.Path, "groups.g.radius_policy_id") {
+		t.Fatalf("path=%q", de.Path)
+	}
+}
+
 func TestCompileDuplicateSingleCardinality(t *testing.T) {
 	t.Parallel()
 	_, err := Compile(Input{
@@ -228,6 +262,50 @@ func TestCompileDuplicateSingleCardinality(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("duplicate single attr must fail")
+	}
+}
+
+func TestCompileMultiCardinalityAllowsDuplicates(t *testing.T) {
+	t.Parallel()
+	eng := mustCompile(t, Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{
+			{ID: "a", Attributes: []config.RADIUSReplyAttr{{Name: "Reply-Message", Value: "one"}}},
+			{ID: "b", Attributes: []config.RADIUSReplyAttr{{Name: "Reply-Message", Value: "two"}}},
+		},
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID: "r", Enabled: true, Effect: domain.EffectPermit, ReplyProfiles: []string{"a", "b"},
+			}},
+		}},
+		Clients: []config.Client{{
+			ID: "c", Enabled: true,
+			Endpoints: []config.ClientEndpoint{{
+				ID: "e", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "p"},
+			}},
+		}},
+	})
+	res := eng.Evaluate(Request{ClientID: "c", EndpointID: "e"})
+	if res.Effect != domain.EffectPermit || len(res.ReplyAttributes) != 2 {
+		t.Fatalf("multi Reply-Message must merge: %+v", res)
+	}
+}
+
+func TestCompileSingleCardinalitySameProfileTwice(t *testing.T) {
+	t.Parallel()
+	_, err := Compile(Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{
+			{ID: "a", Attributes: []config.RADIUSReplyAttr{{Name: "Session-Timeout", Value: "30"}}},
+		},
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID: "r", Enabled: true, Effect: domain.EffectPermit, ReplyProfiles: []string{"a", "a"},
+			}},
+		}},
+	})
+	if err == nil {
+		t.Fatal("same single attr from repeated profile must fail")
 	}
 }
 

@@ -1,6 +1,7 @@
 package state
 
 import (
+	"strings"
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -29,6 +30,7 @@ type UpdateUser struct {
 	Restrictions     *config.UserRestrictions
 	MustChangeLogin  *bool
 	MustChangeEnable *bool
+	RADIUSPolicyID   *string
 }
 
 // CreateUser creates a runtime user or an explicit baseline override.
@@ -45,6 +47,7 @@ type CreateUser struct {
 	Restrictions     *config.UserRestrictions
 	MustChangeLogin  *bool
 	MustChangeEnable *bool
+	RADIUSPolicyID   *string
 	Override         bool
 }
 
@@ -57,6 +60,7 @@ type UpdateGroup struct {
 	Services             *[]config.ServiceRule
 	CommandRules         *[]config.CommandRule
 	DefaultCommandAction *domain.AuthorDecision
+	RADIUSPolicyID       *string
 }
 
 // CreateGroup creates a runtime group or an explicit baseline override.
@@ -69,6 +73,7 @@ type CreateGroup struct {
 	Services             *[]config.ServiceRule
 	CommandRules         *[]config.CommandRule
 	DefaultCommandAction *domain.AuthorDecision
+	RADIUSPolicyID       *string
 	Override             bool
 }
 
@@ -215,6 +220,9 @@ func applyUserPatch(cur config.User, p UpdateUser) (config.User, error) {
 	if out.MustChangeEnable && !out.Credentials.Enable.Verifier.Set() {
 		return config.User{}, domain.NewError(domain.CodeInvalidArgument, "must_change_enable requires an enable verifier").WithPath("must_change_enable")
 	}
+	if p.RADIUSPolicyID != nil {
+		out.RADIUSPolicyID = strings.TrimSpace(*p.RADIUSPolicyID)
+	}
 	return out, nil
 }
 
@@ -240,6 +248,9 @@ func applyGroupPatch(cur config.Group, p UpdateGroup) (config.Group, error) {
 	}
 	if p.DefaultCommandAction != nil {
 		out.DefaultCommandAction = *p.DefaultCommandAction
+	}
+	if p.RADIUSPolicyID != nil {
+		out.RADIUSPolicyID = strings.TrimSpace(*p.RADIUSPolicyID)
 	}
 	return out, nil
 }
@@ -658,6 +669,7 @@ func userFromCreate(base *config.User, req CreateUser) (config.User, error) {
 		Restrictions:     req.Restrictions,
 		MustChangeLogin:  req.MustChangeLogin,
 		MustChangeEnable: req.MustChangeEnable,
+		RADIUSPolicyID:   req.RADIUSPolicyID,
 	})
 }
 
@@ -678,6 +690,7 @@ func groupFromCreate(base *config.Group, req CreateGroup) (config.Group, error) 
 		Services:             req.Services,
 		CommandRules:         req.CommandRules,
 		DefaultCommandAction: req.DefaultCommandAction,
+		RADIUSPolicyID:       req.RADIUSPolicyID,
 	})
 }
 

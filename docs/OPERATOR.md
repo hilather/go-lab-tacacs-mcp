@@ -38,7 +38,7 @@ RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than 
 | RADIUS MS-CHAP is opt-in / MD4-era | Add `mschapv1` / `mschapv2` to `allowed_authentication_methods`. Omitted lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. [ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
 | Deferred named `Cisco-AVPair` | Not shipped. Raw Vendor-Specific framing is preserved. Named decode evidence is independent `testclient` fixtures, **not** an IOL gate ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) supersedes [ADR 0015](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0015-radius-codec-attribute-and-dictionary-boundary.md) decision 4). An IOL skip is not PASS. |
 | Built-in dictionary only | No operator dictionary files. Unknown attributes stay raw. Program ADR [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md). |
-| No user/group RADIUS rules | Client `access_policy_id`, optional `fallback_radius_policy_id`, then default deny. Program ADR [0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). |
+| User/group RADIUS rules (v2) | Optional `users[].radius_policy_id` / `groups[].radius_policy_id`. Walk is user → `effectiveGroups` → client → fallback → default deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). v1 rejects the keys. |
 | Proxying out | Not offered (`DEFERRED_MAY`, [ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). |
 | External `radclient` / IOL skip | A skip is **not** RADIUS PASS. |
 
@@ -113,7 +113,7 @@ What ships when a v2 file enables the sockets:
 |---|---|
 | Access | PAP, CHAP, and opt-in MS-CHAPv1/v2 (`mschapv1` / `mschapv2` on `allowed_authentication_methods`; omitted lists stay `[pap, chap]`). Access-Accept or Access-Reject after integrity + known client. No Access-Challenge. Must-change is Access-Reject with no `MS-CHAP-Error`. |
 | Message-Authenticator | Required on Access-Request by default. Always inserted first on Access-Accept, Access-Reject, and Accounting-Response. Accounting-Request MA is validate-if-present. |
-| Policy | Client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. |
+| Policy | User `radius_policy_id`, then each `effectiveGroups` policy, then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. |
 | Accounting | Start, Stop, Interim-Update, Accounting-On, Accounting-Off. SUCCESS on the wire only after the ring accepts the record. |
 | Retransmission | Exact-response cache. Accounting also has a semantic journal that ignores Acct-Delay-Time. |
 | Dictionary | Built-in IETF MVP (`builtin-mvp-1`). Unknown attributes and VSAs stay raw. |
@@ -174,7 +174,7 @@ Requires `schema_version: 2` and enabled `listeners.radius.access` (and `account
 3. Leave `require_message_authenticator: true` and `limit_proxy_state: true` unless you are deliberately exercising a warned compatibility client.
 4. Point the NAS at host UDP 1812 (access) and 1813 (accounting). Configure the same secret. Enable Message-Authenticator on the NAS when the vendor supports it.
 5. PAP needs a login verifier on the user. CHAP needs a challenge secret. Both methods must be listed on `allowed_authentication_methods`.
-6. Attach `access_policy_id` (or rely on `fallback_radius_policy_id`). No match → Access-Reject.
+6. Attach a user or group `radius_policy_id`, or a client `access_policy_id` (or rely on `fallback_radius_policy_id`). No match → Access-Reject.
 
 `certificate_only` is invalid on a RADIUS-only client. RADIUS-only clients require `source_cidrs`.
 
@@ -193,7 +193,9 @@ Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=confi
 
 ### 6.1 RADIUS access policy
 
-Evaluation order is client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. There is no `users[].radius_policy_id` or `groups[].radius_rules`.
+Evaluation order is user `radius_policy_id`, then each group in `effectiveGroups` (same order as TACACS: user `group_ids`, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. Schema v2 only; v1 files reject `radius_policy_id`. REST/MCP omit keeps the current id; JSON `null` clears it. There are no UI selects for this field yet.
+
+Disabled users fail credentials before policy on Access-Request. `radius.policy.evaluate` still skips that user's policy and group_ids but walks client `default_group_ids`.
 
 Match keys: `groups_any`, `method` (`password` canonical, `pap` alias stored as `password`, or `chap`), typed request attributes (`equals` / `present` / `absent`). No regex. Unknown attribute names fail compile.
 

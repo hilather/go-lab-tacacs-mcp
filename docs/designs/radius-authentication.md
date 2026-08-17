@@ -598,15 +598,19 @@ type Result struct {
 }
 ```
 
-**MVP evaluation order** (user/group RADIUS rule attachment is **deferred**; pack docs/04 asked for it but never shipped a schema, and v1 `User`/`Group` stay TACACS-only):
+**Evaluation order** ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md); v2 only):
 
-1. Client endpoint `access_policy_id` rules, declared order.
-2. Global `radius_policies` named by `fallback_radius_policy_id` (optional; default empty).
-3. Default deny.
+1. User `radius_policy_id` (source `user_policy:<id>`), if set.
+2. Each group in `effectiveGroups` that sets `radius_policy_id` (source `group_policy:<id>`).
+3. Client endpoint `access_policy_id` rules, declared order (`client_policy:<id>`).
+4. Global `radius_policies` named by `fallback_radius_policy_id` (optional; default empty).
+5. Default deny.
 
-A later ADR may add `users[].radius_policy_id` / `groups[].radius_policy_id`. If that ships, group walk **must** reuse `policy.Engine.effectiveGroups` in `internal/policy/compile.go`: user `group_ids` in listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then group `id`. Equal priorities are **legal**. Do **not** add a compile reject for equal group priority. Client-match ties remain `CLIENT_MATCH_AMBIGUOUS` (C1); that rule does not apply to groups.
+`effectiveGroups` **must** match `policy.Engine.effectiveGroups` in `internal/policy/compile.go` for **enabled** users: user `group_ids` in listed order, then client `default_group_ids` not already present, then sort by ascending group `priority` then group `id`. Equal priorities are **legal**. Do **not** add a compile reject for equal group priority. Client-match ties remain `CLIENT_MATCH_AMBIGUOUS` (C1); that rule does not apply to groups. v1 `User` / `Group` stay TACACS-shaped and reject `radius_policy_id`.
 
-First matching rule wins. Traces include source (`client_policy:<id>`, `fallback`), rule id, matched, reason. Secrets and sensitive attribute values never appear in traces.
+Disabled users fail credentials before `Evaluate` on the Access-Request path (`reject_bad_credentials`). TACACS never calls `effectiveGroups` for them. Diagnostics (`radius.policy.evaluate`) still skip user policy and user `group_ids` but keep client `default_group_ids`. `groups_any` uses that same compiled membership when the user is in the engine.
+
+First matching rule wins. Traces include source (`user_policy:<id>`, `group_policy:<id>`, `client_policy:<id>`, `fallback`), rule id, matched, reason. Secrets and sensitive attribute values never appear in traces.
 
 **Match dialect (frozen for client + fallback policies):**
 

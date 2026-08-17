@@ -4,8 +4,9 @@
 // (authen_type ignored), and ASCII CHPASS. One-shot PAP/CHAP go through
 // VerifyCredentials (AuthPass/AuthReject/AuthError) and map onto the same
 // TACACS AuthenticationStep statuses as before. AuthenticateAccess verifies
-// PAP/CHAP then evaluates the snapshot-held RADIUS policy engine (permit
-// Accept, deny/default-deny/error Reject). There are no user/group RADIUS rules.
+// PAP/CHAP then evaluates the snapshot-held RADIUS policy engine (user,
+// effectiveGroups, client, fallback; permit Accept, deny/default-deny/error
+// Reject). Disabled users fail credentials before that walk.
 // Authorization uses the two policy evaluators. The full RFC 8907
 // accounting flag table (START, STOP, WATCHDOG, WATCHDOG+update) is accepted;
 // SUCCESS is returned only after the event ring accepts the record.

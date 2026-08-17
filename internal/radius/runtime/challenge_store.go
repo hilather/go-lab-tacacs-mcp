@@ -64,10 +64,14 @@ func (b ChallengeBind) match(other ChallengeBind) bool {
 type ChallengeStep string
 
 const (
-	StepIdentity     ChallengeStep = "identity"
-	StepMD5Challenge ChallengeStep = "md5_challenge"
-	StepPEAPStart    ChallengeStep = "peap_start"
-	StepDone         ChallengeStep = "done"
+	StepIdentity      ChallengeStep = "identity"
+	StepMD5Challenge  ChallengeStep = "md5_challenge"
+	StepPEAPStart     ChallengeStep = "peap_start"
+	StepPEAPHandshake ChallengeStep = "peap_handshake"
+	StepPEAPInner     ChallengeStep = "peap_inner"
+	StepPEAPMSCHAP    ChallengeStep = "peap_mschap"
+	StepPEAPFinish    ChallengeStep = "peap_finish"
+	StepDone          ChallengeStep = "done"
 )
 
 // ChallengeIssue is the adapter-built insert. Raw State is hashed and is
@@ -83,6 +87,7 @@ type ChallengeIssue struct {
 	EAPType      byte
 	Step         ChallengeStep
 	MD5Challenge []byte
+	TunnelID     string
 	Revision     domain.Revision
 }
 
@@ -111,6 +116,7 @@ type ChallengeRecord struct {
 	EAPType      byte
 	Step         ChallengeStep
 	MD5Challenge []byte
+	TunnelID     string
 	Expires      time.Time
 	Revision     domain.Revision
 }
@@ -158,6 +164,7 @@ type challengeEntry struct {
 	eapType    byte
 	step       ChallengeStep
 	md5        []byte
+	tunnelID   string
 	expires    time.Time
 	revision   domain.Revision
 	bytes      int
@@ -221,7 +228,7 @@ func entryBytes(e *challengeEntry) int {
 	if e == nil {
 		return 0
 	}
-	return 32 + len(e.endpointID) + len(e.clientID) + len(e.userID) + len(e.method) + len(e.md5) + 64
+	return 32 + len(e.endpointID) + len(e.clientID) + len(e.userID) + len(e.method) + len(e.md5) + len(e.tunnelID) + 64
 }
 
 func (s *ChallengeStore) issueValid(in ChallengeIssue) bool {
@@ -271,6 +278,7 @@ func (s *ChallengeStore) Issue(in ChallengeIssue) IssueResult {
 		eapType:    in.EAPType,
 		step:       in.Step,
 		md5:        append([]byte(nil), in.MD5Challenge...),
+		tunnelID:   in.TunnelID,
 		expires:    now.Add(s.ttl),
 		revision:   in.Revision,
 	}
@@ -318,6 +326,7 @@ func (s *ChallengeStore) Consume(endpointID string, state []byte, clientID strin
 		EAPType:      e.eapType,
 		Step:         e.step,
 		MD5Challenge: append([]byte(nil), e.md5...),
+		TunnelID:     e.tunnelID,
 		Expires:      e.expires,
 		Revision:     e.revision,
 	}

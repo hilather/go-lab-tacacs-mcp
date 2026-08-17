@@ -1653,10 +1653,10 @@ ADRs 0020–0029 are accepted. In-scope EXT rows through lab/CHANGELOG rollup (`
 
 ### 22.5 PEAP start (`RAD-PEAP-*`)
 
-[ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md) revisits [ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) for an opt-in PEAP **start**. This is not complete PEAPv0. `PRJ-EAP-003` stays `DEFERRED_MAY`. `conformance_status` stays `partial`. Empty `allowed_authentication_methods` stays `[pap, chap]`. `radius.access.test` / `radius.policy.evaluate` `method.type` do not grow `peap` in this increment.
+[ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md) revisits [ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) for opt-in PEAP. This is not complete tunneled EAP. `PRJ-EAP-003` stays `DEFERRED_MAY`. `conformance_status` stays `partial`. Empty `allowed_authentication_methods` stays `[pap, chap]`. `radius.access.test` / `radius.policy.evaluate` `method.type` do not grow `peap`.
 
-- [x] `RAD-PEAP-001` Outer PEAP (type 25) + TLS-in-EAP flags L/M/S + `NewServer` TLS 1.3 + Identity→PEAP Start when `peap` is opted in. Type 25 without `peap` still fail-closes. Independent `testclient` UDP Identity→Challenge (type 25, S flag). Handshake continuation and inner EAP are out of scope.
-- [ ] `RAD-PEAP-002` PEAP TLS handshake pump + inner EAP (PEAPv0/EAP-MSCHAPv2 first). Not this increment. No PEAPv1/GTC, PEAP-EAP-TLS, crypto-binding, or Windows interop PASS until evidenced.
+- [x] `RAD-PEAP-001` Outer PEAP (type 25) + TLS-in-EAP flags L/M/S + `NewServer` TLS 1.3 + Identity→PEAP Start when `peap` is opted in. Type 25 without `peap` still fail-closes. Independent `testclient` UDP Identity→Challenge (type 25, S flag).
+- [x] `RAD-PEAP-002` PEAP TLS handshake pump + inner PEAPv0 EAP-MSCHAPv2 via existing AAA. Independent `testclient` UDP Accept. No PEAPv1/GTC, PEAP-EAP-TLS, crypto-binding, or Windows interop PASS. `PRJ-EAP-003` stays deferred.
 
 ## 23. User lifecycle pack (`UL-*`)
 

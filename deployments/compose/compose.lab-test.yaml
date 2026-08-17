@@ -1,6 +1,7 @@
 # Overlay for make lab-test / CI. High host ports so 49/300/8080 need not be free.
-# RADIUS/UDP host maps are also raised (11812/11813/13799) to avoid CI collisions.
-# Integration tests talk on the compose network (taclab:4949/4300/8080/1812/1813/3799).
+# RADIUS/UDP host maps are also raised (11812/11813/13799/12083) to avoid CI collisions.
+# Integration tests talk on the compose network (taclab:4949/4300/8080/1812/1813/3799/2083).
+# Dynauth and RadSec stay default-off; LAB-RADIUS-DYNAUTH / LAB-RADIUS-RADSEC SKIP when disabled.
 # Source-IP on this path is the test container address — see LAB_DEPLOYMENT §4.3.
 services:
   taclab:
@@ -24,6 +25,9 @@ services:
       - target: 3799
         published: ${TACLAB_RADIUS_DYNAUTH_PORT:-13799}
         protocol: udp
+      - target: 2083
+        published: ${TACLAB_RADIUS_RADSEC_PORT:-12083}
+        protocol: tcp
 
   integration-tests:
     image: ${TACLAB_LABTEST_IMAGE:-ghcr.io/hilather/go-lab-tacacs-mcp:labtest}

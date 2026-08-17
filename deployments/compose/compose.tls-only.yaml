@@ -19,6 +19,9 @@ services:
       - target: 3799
         published: ${TACLAB_RADIUS_DYNAUTH_PORT:-3799}
         protocol: udp
+      - target: 2083
+        published: ${TACLAB_RADIUS_RADSEC_PORT:-2083}
+        protocol: tcp
     volumes: !override
       - type: bind
         source: ./config/taclab.tls-only.yaml

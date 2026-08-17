@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -122,10 +123,17 @@ func run(args []string) int {
 		err := sc.Fn()
 		item := ScenarioResult{ID: sc.ID, DurationMS: time.Since(start).Milliseconds()}
 		if err != nil {
-			ok = false
-			item.OK = false
-			item.Error = err.Error()
-			fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", sc.ID, err)
+			if errors.Is(err, errSkip) {
+				item.OK = true
+				item.Skip = true
+				item.Error = err.Error()
+				fmt.Fprintf(os.Stderr, "SKIP %s: %v\n", sc.ID, err)
+			} else {
+				ok = false
+				item.OK = false
+				item.Error = err.Error()
+				fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", sc.ID, err)
+			}
 		} else {
 			item.OK = true
 			fmt.Fprintf(os.Stderr, "PASS %s\n", sc.ID)

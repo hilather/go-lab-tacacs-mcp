@@ -263,3 +263,35 @@ benches:
     ns_per_op_median: 780
     max_ns_per_op: 1600
     allocs_per_op: 7
+  - name: BenchmarkRadiusChallengeLookup
+    pkg: internal/radius/runtime
+    ns_per_op_median: 900
+    max_ns_per_op: 2000
+    allocs_per_op: 3
+  - name: BenchmarkSessionIndexLookup
+    pkg: internal/radius/runtime
+    ns_per_op_median: 260
+    max_ns_per_op: 600
+    allocs_per_op: 1
+  - name: BenchmarkRadiusAccessMSCHAP
+    pkg: internal/radius/server
+    ns_per_op_median: 5600
+    max_ns_per_op: 12000
+    allocs_per_op: 61
+    note: scripted AAA; Argon2id excluded
+  - name: BenchmarkRadiusEAPIdentityIssue
+    pkg: internal/radius/server
+    ns_per_op_median: 107000
+    max_ns_per_op: 250000
+    allocs_per_op: 58
+    note: includes challenge store reset
+  - name: BenchmarkParseVendorTLVs_CiscoAVPair
+    pkg: internal/radius/attribute
+    ns_per_op_median: 88
+    max_ns_per_op: 200
+    allocs_per_op: 2
+  - name: BenchmarkEncodeCiscoAVPair
+    pkg: internal/radius/attribute
+    ns_per_op_median: 76
+    max_ns_per_op: 160
+    allocs_per_op: 2

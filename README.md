@@ -162,6 +162,8 @@ Then open `http://127.0.0.1:8080`. The bootstrap bearer is the file `deployments
 | Combined TACACS + RADIUS/UDP (also 1812/1813) | add `-f deployments/compose/compose.combined.yaml` |
 | RADIUS-only (1812/1813/8080; no 49/300) | add `-f deployments/compose/compose.radius-only.yaml` |
 | TLS-only TACACS (no legacy 49) | add `-f deployments/compose/compose.tls-only.yaml` |
+| Optional inbound DAS port 3799 (listener still default off) | add `-f deployments/compose/compose.dynauth.yaml` |
+| Optional RadSec port 2083 (listener still default off) | add `-f deployments/compose/compose.radsec.yaml` |
 | High-port smoke (no privileged ports, no generated PKI) | `docker compose -f deployments/compose/compose.smoke.yaml up --build --abort-on-container-exit --exit-code-from smoke` |
 | Container acceptance | `make lab-test` |
 | Optional Cisco IOL | `make cisco-lab` |

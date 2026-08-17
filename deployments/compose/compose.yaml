@@ -6,6 +6,9 @@
 # TLS-only: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d
 # Combined: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.combined.yaml up -d
 # RADIUS-only: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radius-only.yaml up -d
+# Optional dynauth/RadSec port overlays (listeners stay default off):
+#   docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.dynauth.yaml up -d
+#   docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radsec.yaml up -d
 # File-watch reload is off. Reload is SIGHUP or POST /api/v1/config/reload.
 name: taclab
 

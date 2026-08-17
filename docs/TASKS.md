@@ -1637,7 +1637,7 @@ Unchecked MVP ranges after `v1.2.0` were never expanded into per-ID acceptance t
 
 ### 22.4 In-memory RADIUS remaining-work program (`RAD-EXT-*`)
 
-ADRs 0020–0029 are accepted. Operator dictionaries (`RAD-EXT-006`) are implemented. Remaining EXT rows are later PRs. Do not fold Challenge/EAP/MS-CHAP/CoA/RadSec into the UDP lab profile opportunistically. Do not advertise complete RADIUS. `conformance_status` stays `partial`. Storage stays process memory ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Independent `internal/radius/testclient` evidence is required; shared-codec loopback is not enough. Empty `allowed_authentication_methods` stays `[pap, chap]`; `eap` / `mschapv1` / `mschapv2` are opt-in.
+ADRs 0020–0029 are accepted. In-scope EXT rows through lab/CHANGELOG rollup (`RAD-EXT-011`) are implemented. `RAD-EXT-008` proxying stays `DEFERRED_MAY`. Do not advertise complete RADIUS. `conformance_status` stays `partial`. Storage stays process memory ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Independent `internal/radius/testclient` evidence is required; shared-codec loopback is not enough. Empty `allowed_authentication_methods` stays `[pap, chap]`; `eap` / `mschapv1` / `mschapv2` are opt-in.
 
 - [x] `RAD-EXT-001` Access-Challenge with complete state gate (endpoint binding, expiry, replay, capacity, provider tests). [ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). Independent testclient wire Challenge + EAP flips `R65-ACCESS-004` to `PASS`.
 - [x] `RAD-EXT-002` EAP Identity + EAP-MD5 termination only. [ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). Challenge path is a prerequisite. Unknown types fail closed. No PEAP/TLS/TTLS. No pass-through. `must_change_login` stays Access-Reject plus generic EAP-Failure teardown only.
@@ -1649,6 +1649,7 @@ ADRs 0020–0029 are accepted. Operator dictionaries (`RAD-EXT-006`) are impleme
 - [ ] `RAD-EXT-008` RADIUS proxying / realm routing. **`DEFERRED_MAY`** ([ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). Not in this program. No `proxy` YAML key.
 - [x] `RAD-EXT-009` Persistent accounting. **Cancelled for this program** ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Memory ring/journal only. Restart / `runtime.reset` remain the restore path.
 - [x] `RAD-EXT-010` User- and group-attached RADIUS rules (v2 `radius_policy_id`). [ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). Walk: user → `effectiveGroups` → client → fallback → default deny. v1 rejects the keys.
+- [x] `RAD-EXT-011` Lab-test optional dynauth/RadSec SKIP when listeners stay default-off; compose overlays publish 3799/2083 only; remaining-work benches recorded (no invented RadSec numbers); CHANGELOG `[Unreleased]` rollup. Combined and RADIUS-only labs still pass. Do not tag. `conformance_status` stays `partial`.
 
 ## 23. User lifecycle pack (`UL-*`)
 

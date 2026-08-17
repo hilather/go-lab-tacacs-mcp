@@ -127,6 +127,13 @@ listeners:
       bind: 0.0.0.0:3799
       transport: udp
       require_message_authenticator: true
+    # Optional RADIUS/TLS 1.3 stream (RadSec). Not “UDP plus TLS.”
+    # Enable plus a protocol: radius / transport: tls client endpoint.
+    radsec:
+      enabled: false
+      required: false
+      bind: 0.0.0.0:2083
+      transport: tls
   http:
     enabled: true
     bind: 0.0.0.0:8080

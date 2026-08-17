@@ -52,6 +52,8 @@ func combinedScenarios(h *harness) []scenario {
 		{ID: "LAB-HEALTH", Fn: h.labHealth},
 		{ID: "LAB-RADIUS-001", Fn: h.labRADIUSReady},
 		{ID: "LAB-RADIUS-002", Fn: h.labRADIUSAccessTest},
+		{ID: "LAB-RADIUS-DYNAUTH", Fn: h.labRADIUSDynAuth},
+		{ID: "LAB-RADIUS-RADSEC", Fn: h.labRADIUSRadSec},
 		{ID: "LAB-AUTH-001", Fn: h.labASCIISuccess},
 		{ID: "LAB-NEG-001", Fn: h.labUnauth},
 	}
@@ -63,6 +65,8 @@ func radiusOnlyScenarios(h *harness) []scenario {
 		{ID: "LAB-RADIUS-001", Fn: h.labRADIUSReady},
 		{ID: "LAB-RADIUS-002", Fn: h.labRADIUSAccessTest},
 		{ID: "LAB-RADIUS-ONLY", Fn: h.labRADIUSOnlyProfile},
+		{ID: "LAB-RADIUS-DYNAUTH", Fn: h.labRADIUSDynAuth},
+		{ID: "LAB-RADIUS-RADSEC", Fn: h.labRADIUSRadSec},
 		{ID: "LAB-NEG-001", Fn: h.labUnauth},
 	}
 }

@@ -20,6 +20,7 @@ The reference lab must support all of the following without rebuilding the image
 - Accept secure TACACS+ over TLS 1.3 on host TCP port 300.
 - Accept RADIUS/UDP access and accounting on host UDP ports 1812 and 1813 when the v2 combined or RADIUS-only profile is mounted. This is a lab profile, not complete RADIUS.
 - Optionally accept RADIUS/TLS (RadSec) on host TCP port 2083 when `listeners.radius.radsec` is enabled. Default off. Not a TLS wrap of UDP.
+- Optionally accept inbound RADIUS DAS echo on host UDP port 3799 when `listeners.radius.dynamic_authorization` is enabled. Default off. Index-only; does not kick a NAS.
 - Expose the React UI, REST API, MCP endpoint, health checks, and optional metrics endpoint.
 - Create, update, shadow, and delete runtime-only users, groups, clients, policies, and API tokens.
 - Restore the declared baseline after process restart.
@@ -44,6 +45,7 @@ Legacy network devices ---------------+--> 49 -> 4949           |   |
                                       |      |                  |   |
 TLS network devices ------------------+--> 300 -> 4300         |   |
 RADIUS NAS (combined / RADIUS-only) --+--> 1812/udp + 1813/udp  |   |
+RADIUS DAS echo (optional, default off)+--> 3799/udp            |   |
 RADIUS RadSec (optional, default off)-+--> 2083/tcp             |   |
                                       |      |  taclab process  |   |
 Optional Prometheus ------------------+--> loopback 9090        |   |
@@ -62,7 +64,7 @@ The initial product intentionally places legacy and TLS listeners in one process
 
 - Linux host capable of running OCI containers.
 - Docker Engine and Docker Compose v2, or a compatible runtime that preserves TCP source addresses as documented for the selected network mode.
-- Access to host TCP ports 49, 300, and 8080. Combined/RADIUS-only profiles also need UDP 1812 and 1813. RadSec, when enabled, uses TCP 2083. Keep 49, 300, 1812, 1813, and 2083 off the public internet.
+- Access to host TCP ports 49, 300, and 8080. Combined/RADIUS-only profiles also need UDP 1812 and 1813. Optional dynauth uses UDP 3799. RadSec, when enabled, uses TCP 2083. Keep 49, 300, 1812, 1813, 2083, and 3799 off the public internet.
 - A filesystem location for configuration, public certificates, and secret files.
 - Accurate host time for certificate validation, token expiry, events, and accounting timestamps.
 
@@ -140,7 +142,7 @@ The 1.0 image is `ghcr.io/hilather/go-lab-tacacs-mcp`. Pin a version tag or dige
 | `:<tag>-ubuntu` | Ubuntu 24.04 |
 | `:<tag>-rocky` | Rocky Linux 9 |
 
-A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test` and maps RADIUS/UDP to host `11812` / `11813`. Combined, RADIUS-only, and TACACS-only readiness are exercised by `tools/labtest` (`-phase=combined` / `-phase=radius-only` / default). Do not treat a green ready check as complete RADIUS.
+A high-port smoke file remains at `deployments/compose/compose.smoke.yaml` (host `14949` → `4949`, `18080` → `8080`) for environments that cannot publish 49/300. `compose.lab-test.yaml` uses the same high host ports for `make lab-test` and maps RADIUS/UDP to host `11812` / `11813`, dynauth to `13799`, and RadSec to `12083`. Combined, RADIUS-only, and TACACS-only readiness are exercised by `tools/labtest` (`-phase=combined` / `-phase=radius-only` / default). Optional `LAB-RADIUS-DYNAUTH` / `LAB-RADIUS-RADSEC` **SKIP** when those listeners stay default-off. Do not treat a green ready check as complete RADIUS.
 
 ### 5.4 Optional Cisco IOL lab (Containerlab)
 
@@ -520,6 +522,31 @@ Each scenario has a stable ID, setup fixture, expected protocol exchange, expect
 - Modify the mounted baseline deliberately.
 - Validate and reload.
 - Verify runtime overlay rebase or atomic rollback on conflict.
+
+### LAB-RADIUS-001: RADIUS listeners ready
+
+- Combined and RADIUS-only profiles must report `radius_access` and `radius_accounting` enabled and ready.
+- Status must not contain the RADIUS shared secret.
+
+### LAB-RADIUS-002: RADIUS access.test PAP
+
+- REST `radius.access.test` PAP accept/reject against `lab-admin` / `lab-switches`.
+- Password and RADIUS secret must not appear in the response. Not a wire-peer substitute.
+
+### LAB-RADIUS-ONLY: RADIUS-only profile
+
+- Legacy and TLS TACACS ports refuse connections.
+- RADIUS/UDP access and accounting stay ready. TACACS listeners are not ready.
+
+### LAB-RADIUS-DYNAUTH: optional inbound DAS (UDP 3799)
+
+- Default: listener absent or `enabled: false` → **SKIP**. Combined and RADIUS-only labs stay green.
+- When `listeners.radius.dynamic_authorization.enabled` is true: status `radius_dynauth` is ready, protocol `radius`, transport `udp`, no secret leak. Inbound :3799 is an RFC 5176 echo fixture and does not kick a NAS.
+
+### LAB-RADIUS-RADSEC: optional RadSec (TCP 2083)
+
+- Default: listener absent or `enabled: false` → **SKIP**. Combined and RADIUS-only labs stay green.
+- When `listeners.radius.radsec.enabled` is true: status `radius_radsec` is ready, protocol `radius`, transport `tls`, no secret leak. This is a TLS 1.3 stream, not “UDP plus TLS.”
 
 ## 14. Automated Compose test workflow
 

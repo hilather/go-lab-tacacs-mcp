@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -115,6 +116,79 @@ func TestParseStatusListeners(t *testing.T) {
 func TestParseStatusListenersMissing(t *testing.T) {
 	if _, err := parseStatusListeners([]byte(`{"data":{}}`)); err == nil {
 		t.Fatal("expected missing listeners")
+	}
+}
+
+func TestCombinedAndRadiusOnlyIncludeOptionalListeners(t *testing.T) {
+	h := &harness{}
+	for _, tc := range []struct {
+		name string
+		scs  []scenario
+	}{
+		{"combined", combinedScenarios(h)},
+		{"radius-only", radiusOnlyScenarios(h)},
+	} {
+		have := map[string]bool{}
+		for _, sc := range tc.scs {
+			have[sc.ID] = true
+		}
+		for _, id := range []string{"LAB-RADIUS-DYNAUTH", "LAB-RADIUS-RADSEC"} {
+			if !have[id] {
+				t.Errorf("%s missing %s", tc.name, id)
+			}
+		}
+	}
+}
+
+func TestOptionalListenerSkipWhenDisabled(t *testing.T) {
+	raw := []byte(`{"data":{"listeners":[{"id":"radius_access","enabled":true,"ready":true,"protocol":"radius","transport":"udp"}]}}`)
+	got, err := parseStatusListeners(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOptionalRADIUSListener(nil, got, raw, "radius_dynauth", "radius", "udp"); !errors.Is(err, errSkip) {
+		t.Fatalf("dynauth want skip, got %v", err)
+	}
+	if err := checkOptionalRADIUSListener(nil, got, raw, "radius_radsec", "radius", "tls"); !errors.Is(err, errSkip) {
+		t.Fatalf("radsec want skip, got %v", err)
+	}
+}
+
+func TestOptionalListenerReadyWhenEnabled(t *testing.T) {
+	raw := []byte(`{"data":{"listeners":[{"id":"radius_dynauth","enabled":true,"ready":true,"protocol":"radius","transport":"udp"},{"id":"radius_radsec","enabled":true,"ready":true,"protocol":"radius","transport":"tls"}]}}`)
+	got, err := parseStatusListeners(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOptionalRADIUSListener(nil, got, raw, "radius_dynauth", "radius", "udp"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOptionalRADIUSListener(nil, got, raw, "radius_radsec", "radius", "tls"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOptionalListenerEnabledNotReady(t *testing.T) {
+	raw := []byte(`{"data":{"listeners":[{"id":"radius_dynauth","enabled":true,"ready":false,"protocol":"radius","transport":"udp"}]}}`)
+	got, err := parseStatusListeners(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = checkOptionalRADIUSListener(nil, got, raw, "radius_dynauth", "radius", "udp")
+	if err == nil || errors.Is(err, errSkip) {
+		t.Fatalf("want ready failure, got %v", err)
+	}
+}
+
+func TestOptionalListenerRejectsSecret(t *testing.T) {
+	secret := []byte("lab-radius-secret-canary")
+	raw := []byte(`{"data":{"listeners":[{"id":"radius_dynauth","enabled":true,"ready":true,"protocol":"radius","transport":"udp"}],"note":"lab-radius-secret-canary"}}`)
+	got, err := parseStatusListeners(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOptionalRADIUSListener(secret, got, raw, "radius_dynauth", "radius", "udp"); err == nil {
+		t.Fatal("expected secret canary")
 	}
 }
 

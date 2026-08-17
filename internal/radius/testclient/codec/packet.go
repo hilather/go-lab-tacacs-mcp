@@ -43,13 +43,13 @@ const (
 	AccessReject       Code = 3
 	AccountingRequest  Code = 4
 	AccountingResponse Code = 5
-	AccessChallenge   Code = 11
-	DisconnectRequest Code = 40
-	DisconnectACK     Code = 41
-	DisconnectNAK     Code = 42
-	CoARequest        Code = 43
-	CoAACK            Code = 44
-	CoANAK            Code = 45
+	AccessChallenge    Code = 11
+	DisconnectRequest  Code = 40
+	DisconnectACK      Code = 41
+	DisconnectNAK      Code = 42
+	CoARequest         Code = 43
+	CoAACK             Code = 44
+	CoANAK             Code = 45
 )
 
 // Packet is one RADIUS datagram. Attrs are independent of production types.

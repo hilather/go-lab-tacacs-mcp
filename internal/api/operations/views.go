@@ -639,7 +639,7 @@ func radiusEndpointFromWrite(v *ClientRADIUSWrite, roles []domain.ListenerRole) 
 	if err != nil {
 		return nil, err
 	}
-	methods = config.DefaultRADIUSAccessMethods(methods, roles)
+	methods = config.FillRADIUSAccessMethods(methods, roles)
 	status, err := config.ParseRADIUSStatusTypes(v.AcceptStatusTypes)
 	if err != nil {
 		return nil, err

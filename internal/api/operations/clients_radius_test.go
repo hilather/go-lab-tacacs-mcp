@@ -200,7 +200,7 @@ func TestClientEndpointsRADIUSOmitsMethodsDefaultsPAPCHAP(t *testing.T) {
 				Transport: "udp",
 				Roles:     []string{"access"},
 				RADIUS: &ClientRADIUSWrite{
-			SharedSecret: OptionalSecret{Present: true, File: "/run/secrets/rad-omit"},
+					SharedSecret: OptionalSecret{Present: true, File: "/run/secrets/rad-omit"},
 				},
 			}},
 		},

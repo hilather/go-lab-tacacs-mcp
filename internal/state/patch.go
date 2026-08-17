@@ -500,7 +500,7 @@ func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch, roles []domai
 		if err != nil {
 			return err
 		}
-	rad.AllowedAuthenticationMethods = config.FillRADIUSAccessMethods(methods, roles)
+		rad.AllowedAuthenticationMethods = config.FillRADIUSAccessMethods(methods, roles)
 	}
 	if p.AccessPolicyID != nil {
 		rad.AccessPolicyID = *p.AccessPolicyID

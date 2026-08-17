@@ -548,7 +548,7 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 	if err != nil {
 		return nil, err
 	}
-		methods = FillRADIUSAccessMethods(methods, roles)
+	methods = FillRADIUSAccessMethods(methods, roles)
 	status, err := normalizeRADIUSStatusTypes(raw.Accounting.AcceptStatusTypes, path+".accounting.accept_status_types")
 	if err != nil {
 		return nil, err

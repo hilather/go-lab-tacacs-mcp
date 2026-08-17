@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Dependencies
+
+- Align the frontend Vite toolchain with `@vitejs/plugin-react` 6: Vite 8 (required peer; Vite 7 cannot resolve). Vitest 4.1 already accepts Vite 8.
+
 ## [1.2.0] — 2026-08-16
 
 User-lifecycle must-change lock and MCP client compatibility. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays `partial`.

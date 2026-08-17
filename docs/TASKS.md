@@ -1656,7 +1656,7 @@ ADRs 0020–0029 are accepted. In-scope EXT rows through lab/CHANGELOG rollup (`
 [ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md) revisits [ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) for opt-in PEAP. This is not complete tunneled EAP. `PRJ-EAP-003` stays `DEFERRED_MAY`. `conformance_status` stays `partial`. Empty `allowed_authentication_methods` stays `[pap, chap]`. `radius.access.test` / `radius.policy.evaluate` `method.type` do not grow `peap`.
 
 - [x] `RAD-PEAP-001` Outer PEAP (type 25) + TLS-in-EAP flags L/M/S + `NewServer` TLS 1.3 + Identity→PEAP Start when `peap` is opted in. Type 25 without `peap` still fail-closes. Independent `testclient` UDP Identity→Challenge (type 25, S flag).
-- [x] `RAD-PEAP-002` PEAP TLS handshake pump + inner PEAPv0 EAP-MSCHAPv2 via existing AAA. Independent `testclient` UDP Accept. No PEAPv1/GTC, PEAP-EAP-TLS, crypto-binding, or Windows interop PASS. `PRJ-EAP-003` stays deferred.
+- [x] `RAD-PEAP-002` PEAP TLS handshake pump + inner PEAPv0 EAP-MSCHAPv2 via existing AAA. Independent `testclient` UDP Accept. `taclabd` reuses the default RadSec or SecureTACACS TLS identity and does not mint ephemeral PEAP certs. No PEAPv1/GTC, PEAP-EAP-TLS, crypto-binding, or Windows interop PASS. `PRJ-EAP-003` stays deferred.
 
 ## 23. User lifecycle pack (`UL-*`)
 

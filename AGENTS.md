@@ -2,7 +2,7 @@
 
 Status: mandatory  
 Applies to: every code, configuration, test, schema, UI, deployment, and documentation change  
-Last updated: 2026-08-14
+Last updated: 2026-08-17
 
 ## 1. Mission
 
@@ -88,7 +88,7 @@ Caddy/nginx snippets and the remote checklist: [docs/MCP.md](https://github.com/
 5. [docs/TACACS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/TACACS_CONFORMANCE.md) for any TACACS protocol change.
 6. [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) and [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) for any RADIUS change. Use pack task IDs `RAD-*`.
 
-After every push, watch GitHub Actions until green (§9).
+After every push, watch GitHub Actions until green (§9). When merging multiple PRs in one session, watch only the last PR in that series (§9.1).
 
 ## 2. Non-negotiable engineering rules
 
@@ -265,7 +265,7 @@ Given the same effective configuration, runtime overlay, request, and clock-inde
 8. Update operator and design documentation.
 9. Run all required local checks.
 10. Record acceptance evidence and mark only proven checklist items complete.
-11. After every push, PR update, merge, or tag, monitor GitHub Actions until green (§9). On failure, fix and harden; do not walk away.
+11. After every push, PR update, merge, or tag, monitor GitHub Actions until green (§9). When several PRs are merged in one session, watch only the last PR — do not wait for `main` `ci-gate` after each intermediate merge. On failure, fix and harden; do not walk away.
 
 ## 4. Definition of done
 
@@ -416,6 +416,10 @@ These rules apply to every agent (main session and subagents) after a push, PR u
 5. On tags (`v*`), also wait for the `release` workflow: release notes, Ubuntu image, Rocky image, GitHub Release.
 6. On failure: read the failed job logs, fix the root cause, and **harden** so the same class of failure cannot recur (pin, allowlist, timeout, test, or workflow change). Push and watch again.
 7. After a release tag, a red run is a **release blocker**. Cut a fix commit and either move the tag after the new run is green or publish a patch tag. Do not leave a published tag pointing at a failing tree.
+8. **Merge trains.** When two or more PRs will be merged in one session, watch CI only on the **last** PR in that series:
+   - Wait for that last PR’s `pull_request` `ci-gate` SUCCESS on the head being merged.
+   - After that last merge, wait for the `main` push `ci-gate` (and `pages` if that last merge touched `site/` or `.github/workflows/pages.yml`).
+   Do **not** wait for `main` `ci-gate` after each intermediate merge, and do not serialize a full watch on every earlier PR in the same train. A single PR, a lone push, or a tag still uses items 1–7 and §9.3. If the last PR or the final `main` run is red, fix and harden; do not leave `main` on a red tip.
 
 ### 9.2 Every release must include all high-level changes between versions
 

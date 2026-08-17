@@ -1,7 +1,7 @@
 # TacLab developer workflow (1.0)
 
 Status: contributor contract  
-Last updated: 2026-08-13
+Last updated: 2026-08-17
 
 Read [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) first. This page is the 1.0 how-to for the merge gate.
 
@@ -63,7 +63,7 @@ make cisco-lab          # optional Containerlab+IOL; SKIP exit 0 without TACLAB_
 
 GitHub Actions workflow: https://github.com/hilather/go-lab-tacacs-mcp/blob/main/.github/workflows/ci.yml
 
-Required jobs for merge: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, and the aggregating `ci-gate`.
+Required jobs for merge: `lint-test-build`, `compose-lab`, `govulncheck`, `gitleaks`, and the aggregating `ci-gate`. When merging several PRs in one session, watch `ci-gate` only on the last PR ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9.1).
 
 The `pages` workflow deploys `site/` to GitHub Pages. It is not part of `ci-gate`, but a red `pages` run on `main` is still a defect. Do not “fix” it with `configure-pages` `enablement: true` (`GITHUB_TOKEN` cannot create the site). Enablement is documented in [MAINTENANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MAINTENANCE.md) §GitHub Pages. `make docs-check` rejects that input.
 

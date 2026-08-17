@@ -345,7 +345,9 @@ type ClientAcctView struct {
 }
 
 // ClientProtocolsView is the sanitized TACACS + RADIUS summary. Endpoints
-// remain canonical; this block is a view of those endpoints.
+// remain canonical. protocols.tacacs is a view of TACACS endpoints;
+// protocols.radius is the UDP RADIUS endpoint only (DAC). TLS policy
+// is on endpoints[] with transport tls.
 type ClientProtocolsView struct {
 	TACACS ClientTACACSProtocolView `json:"tacacs" yaml:"tacacs"`
 	RADIUS ClientRADIUSProtocolView `json:"radius" yaml:"radius"`
@@ -358,7 +360,8 @@ type ClientTACACSProtocolView struct {
 	SharedSecretConfigured bool `json:"shared_secret_configured" yaml:"shared_secret_configured"`
 }
 
-// ClientRADIUSProtocolView is the flattened protocols.radius view.
+// ClientRADIUSProtocolView is the flattened protocols.radius view of
+// the UDP RADIUS endpoint only. TLS/RadSec policy is on endpoints[].
 type ClientRADIUSProtocolView struct {
 	Enabled                     bool     `json:"enabled" yaml:"enabled"`
 	Roles                       []string `json:"roles,omitempty" yaml:"roles,omitempty"`

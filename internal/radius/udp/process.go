@@ -49,7 +49,7 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 	}
 	ip := peerIP(src)
 	// Source → compiled RADIUSIndex before any secret or crypto work.
-	client, endpointID, err := snap.MatchRADIUS(l.role, ip)
+	client, endpointID, err := snap.MatchRADIUS(l.role, domain.CarrierRADIUSUDP, ip)
 	if err != nil {
 		if isAmbiguous(err) {
 			l.note(reasonAmbiguousClient)
@@ -94,6 +94,7 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 	requireMA, limitPS, methods := endpointAccessPolicy(client, endpointID)
 	req := server.Request{
 		Role:                        l.role,
+		Carrier:                     domain.CarrierRADIUSUDP,
 		Packet:                      pkt,
 		Declared:                    body,
 		Secret:                      secret,
@@ -104,7 +105,6 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		RequireMessageAuthenticator: requireMA,
 		LimitProxyState:             limitPS,
 		AllowedMethods:              methods,
-		Carrier:                     domain.CarrierRADIUSUDP,
 	}
 	// Invalid MA must not read, insert, or purge the retransmission cache.
 	if reason := server.CheckIntegrity(req); reason != "" {

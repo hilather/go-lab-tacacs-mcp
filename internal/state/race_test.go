@@ -28,7 +28,7 @@ func TestConcurrentReadMutateReload(t *testing.T) {
 					}
 					_, _ = s.User("alice")
 					_, _ = s.MatchClient(domain.TransportLegacy, net.ParseIP("10.20.1.1"), nil)
-					_, _, _ = s.MatchRADIUS(domain.RoleAccess, net.ParseIP("10.20.1.1"))
+					_, _, _ = s.MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, net.ParseIP("10.20.1.1"))
 					_ = s.DictionaryVersion()
 					_ = s.Users()
 					_ = s.Warnings()

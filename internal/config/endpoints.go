@@ -260,23 +260,42 @@ func hasTACACSTLSEndpoint(c Client) bool {
 	return hasTransport(c.Match.Transports, domain.TransportTLS)
 }
 
-func radiusEndpoint(c Client) *ClientEndpoint {
+func radiusEndpoint(c Client, transport string) *ClientEndpoint {
+	want := strings.ToLower(strings.TrimSpace(transport))
 	for i := range c.Endpoints {
-		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil {
-			return &c.Endpoints[i]
+		ep := &c.Endpoints[i]
+		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+			continue
+		}
+		if want == "" || ep.Transport == want {
+			return ep
 		}
 	}
 	return nil
 }
 
+func radiusEndpoints(c Client) []*ClientEndpoint {
+	var out []*ClientEndpoint
+	for i := range c.Endpoints {
+		if c.Endpoints[i].Protocol == domain.ProtocolRADIUS && c.Endpoints[i].RADIUS != nil {
+			out = append(out, &c.Endpoints[i])
+		}
+	}
+	return out
+}
+
 func hasRADIUSEndpoint(c Client) bool {
-	return radiusEndpoint(c) != nil
+	return radiusEndpoint(c, "") != nil
+}
+
+func hasRADIUSTLSEndpoint(c Client) bool {
+	return radiusEndpoint(c, EndpointTransportTLS) != nil
 }
 
 func normalizeEndpoints(raw []rawClientEndpoint, path string, allowEnv bool, access RADIUSListener, flatten Client) ([]ClientEndpoint, error) {
 	out := make([]ClientEndpoint, 0, len(raw))
 	seen := map[string]struct{}{}
-	var radiusCount, tacacsTCP, tacacsTLS int
+	var radiusUDP, radiusTLS, tacacsTCP, tacacsTLS int
 	for i, r := range raw {
 		epath := indexPath(path+".endpoints", i)
 		ep, err := normalizeEndpoint(r, epath, allowEnv, access, flatten)
@@ -292,9 +311,17 @@ func normalizeEndpoints(raw []rawClientEndpoint, path string, allowEnv bool, acc
 		seen[ep.ID] = struct{}{}
 		switch ep.Protocol {
 		case domain.ProtocolRADIUS:
-			radiusCount++
-			if radiusCount > 1 {
-				return nil, yamlErrorAt(epath, "a client may have at most one RADIUS UDP endpoint")
+			switch ep.Transport {
+			case EndpointTransportUDP:
+				radiusUDP++
+				if radiusUDP > 1 {
+					return nil, yamlErrorAt(epath, "a client may have at most one RADIUS UDP endpoint")
+				}
+			case EndpointTransportTLS:
+				radiusTLS++
+				if radiusTLS > 1 {
+					return nil, yamlErrorAt(epath, "a client may have at most one RADIUS TLS endpoint")
+				}
 			}
 		case domain.ProtocolTACACS:
 			switch ep.Transport {
@@ -376,12 +403,12 @@ func validateEndpointPair(proto domain.Protocol, transport, path string) error {
 		}
 	case domain.ProtocolRADIUS:
 		switch transport {
-		case EndpointTransportUDP:
+		case EndpointTransportUDP, EndpointTransportTLS:
 			return nil
 		case "":
 			return yamlErrorAt(path+".transport", "transport is required")
 		default:
-			return yamlErrorAt(path+".transport", "radius transport must be udp")
+			return yamlErrorAt(path+".transport", "radius transport must be udp or tls")
 		}
 	default:
 		return yamlErrorAt(path+".protocol", "protocol must be tacacs or radius")

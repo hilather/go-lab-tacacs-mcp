@@ -31,7 +31,7 @@ func TestUnknownClientDiscardUsesCompiledRADIUSIndex(t *testing.T) {
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, radiusYAML(sec, "192.0.2.0/24", "127.0.0.1:0"))
-	idx, err := config.CompileRADIUSIndex(doc.Clients, domain.RoleAccess)
+	idx, err := config.CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestUnknownAccountingClientUsesCompiledRADIUSIndex(t *testing.T) {
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
 	doc := mustParse(t, radiusYAML(sec, "192.0.2.0/24", "127.0.0.1:0"))
-	idx, err := config.CompileRADIUSIndex(doc.Clients, domain.RoleAccounting)
+	idx, err := config.CompileRADIUSIndex(doc.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP)
 	if err != nil {
 		t.Fatal(err)
 	}

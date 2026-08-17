@@ -1,0 +1,10 @@
+# Overlay: publish RadSec TCP 2083. The listener stays off unless the mounted
+# YAML sets listeners.radius.radsec.enabled: true (default false).
+# docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radsec.yaml up -d
+# Do not advertise complete RADIUS. Keep 2083 off the public internet.
+services:
+  taclab:
+    ports:
+      - target: 2083
+        published: ${TACLAB_RADIUS_RADSEC_PORT:-2083}
+        protocol: tcp

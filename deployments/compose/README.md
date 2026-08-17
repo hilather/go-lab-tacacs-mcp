@@ -8,6 +8,7 @@ Reference deployment for `ghcr.io/hilather/go-lab-tacacs-mcp`.
 | `compose.tls-only.yaml` | Overlay: TLS-only TACACS, no host port 49 |
 | `compose.combined.yaml` | Overlay: schema v2 TACACS + RADIUS/UDP |
 | `compose.radius-only.yaml` | Overlay: RADIUS/UDP only, no host 49/300 |
+| `compose.radsec.yaml` | Overlay: publish TCP 2083; listener still default off |
 | `compose.lab-test.yaml` | Overlay: high host ports + `integration-tests` |
 | `compose.smoke.yaml` | Pre-1.0 high-port smoke without generated PKI |
 
@@ -33,7 +34,7 @@ docker compose -f deployments/compose/compose.yaml -f deployments/compose/compos
 docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d --build
 ```
 
-RADIUS/UDP is a lab profile, not complete RADIUS. Keep 1812/1813 off the public internet.
+RADIUS/UDP is a lab profile, not complete RADIUS. Keep 1812/1813/2083 off the public internet. RadSec is a TLS 1.3 stream listener, default off.
 
 The container runs as UID/GID 10001, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`. Reload is `SIGHUP` or `POST /api/v1/config/reload`. File-watch reload is off.
 

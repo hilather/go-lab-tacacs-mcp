@@ -134,10 +134,16 @@ func validateDocument(doc *Document, schema int) error {
 	if _, err := CompileClientIndex(doc.Clients); err != nil {
 		return err
 	}
-	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess); err != nil {
+	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP); err != nil {
 		return err
 	}
-	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting); err != nil {
+	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP); err != nil {
+		return err
+	}
+	if _, err := CompileRADIUSCertIndex(doc.Clients, domain.RoleAccess); err != nil {
+		return err
+	}
+	if _, err := CompileRADIUSCertIndex(doc.Clients, domain.RoleAccounting); err != nil {
 		return err
 	}
 	return nil
@@ -188,6 +194,9 @@ func validateListeners(doc *Document, paths listenerYAMLPaths) error {
 	if err := validateRADIUSListener(doc.Listeners.RADIUSAccounting, "listeners.radius.accounting", true); err != nil {
 		return err
 	}
+	if err := validateRADIUSRadSecListener(doc.Listeners.RADIUSRadSec, "listeners.radius.radsec"); err != nil {
+		return err
+	}
 	if doc.Listeners.RADIUSAccess.Enabled && doc.Listeners.RADIUSAccounting.Enabled &&
 		doc.Listeners.RADIUSAccess.Bind == doc.Listeners.RADIUSAccounting.Bind {
 		return domain.NewError(domain.CodeInvalidArgument, "RADIUS access and accounting listeners must use distinct binds").WithPath("listeners.radius")
@@ -195,17 +204,56 @@ func validateListeners(doc *Document, paths listenerYAMLPaths) error {
 	if legacy.Enabled && secure.Enabled && legacy.Bind == secure.Bind {
 		return domain.NewError(domain.CodeInvalidArgument, "legacy and secure TACACS listeners must use distinct binds").WithPath("listeners")
 	}
-	if !secure.Enabled {
+	if secure.Enabled {
+		if err := validateSecureTLS(secure.TLS, paths.Secure+".tls", "secure TACACS"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRADIUSRadSecListener(l RADIUSRadSecListener, path string) error {
+	if err := validateBind(l.Bind, path+".bind"); err != nil {
+		return err
+	}
+	if l.Transport != "" && l.Transport != EndpointTransportTLS {
+		return domain.NewError(domain.CodeInvalidArgument, "transport must be tls").WithPath(path + ".transport")
+	}
+	if l.MaxPacketBytes < RADIUSMinPacketBytes || l.MaxPacketBytes > RADIUSMaxPacketBytes {
+		return domain.NewError(domain.CodeInvalidArgument, "max_packet_bytes must be between 20 and 4096").WithPath(path + ".max_packet_bytes")
+	}
+	if l.MaxConnections <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "max_connections must be > 0").WithPath(path + ".max_connections")
+	}
+	if l.IdleTimeout <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "idle_timeout must be > 0").WithPath(path + ".idle_timeout")
+	}
+	if l.HandshakeTimeout <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "handshake_timeout must be > 0").WithPath(path + ".handshake_timeout")
+	}
+	if l.RetransmissionCacheEntries <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "retransmission_cache_entries must be > 0").WithPath(path + ".retransmission_cache_entries")
+	}
+	if l.RetransmissionCacheBytes <= 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "retransmission_cache_bytes must be > 0").WithPath(path + ".retransmission_cache_bytes")
+	}
+	if l.RetransmissionTTL < RADIUSAccessRetransmissionTTLMin || l.RetransmissionTTL > RADIUSAccessRetransmissionTTLMax {
+		return domain.NewError(domain.CodeInvalidArgument, "retransmission_ttl must be between 5s and 30s").WithPath(path + ".retransmission_ttl")
+	}
+	if !l.Enabled {
 		return nil
 	}
-	tlsPath := paths.Secure + ".tls"
-	if len(secure.TLS.Identities.Profiles) == 0 {
-		return domain.NewError(domain.CodeInvalidArgument, "secure TACACS requires at least one TLS identity profile").WithPath(tlsPath + ".identities.profiles")
+	return validateSecureTLS(l.TLS, path+".tls", "RadSec")
+}
+
+func validateSecureTLS(tls SecureTLS, tlsPath, noun string) error {
+	if len(tls.Identities.Profiles) == 0 {
+		return domain.NewError(domain.CodeInvalidArgument, noun+" requires at least one TLS identity profile").WithPath(tlsPath + ".identities.profiles")
 	}
-	if secure.TLS.Identities.DefaultID != "" {
+	if tls.Identities.DefaultID != "" {
 		found := false
-		for _, p := range secure.TLS.Identities.Profiles {
-			if p.ID == secure.TLS.Identities.DefaultID {
+		for _, p := range tls.Identities.Profiles {
+			if p.ID == tls.Identities.DefaultID {
 				found = true
 				break
 			}
@@ -214,7 +262,7 @@ func validateListeners(doc *Document, paths listenerYAMLPaths) error {
 			return domain.NewError(domain.CodeInvalidArgument, "default TLS identity is not defined").WithPath(tlsPath + ".identities.default_id")
 		}
 	}
-	for i, p := range secure.TLS.Identities.Profiles {
+	for i, p := range tls.Identities.Profiles {
 		path := indexPath(tlsPath+".identities.profiles", i)
 		if p.CertificateChain.File == "" {
 			return domain.NewError(domain.CodeInvalidArgument, "certificate chain file is required").WithPath(path + ".certificate_chain")
@@ -223,28 +271,28 @@ func validateListeners(doc *Document, paths listenerYAMLPaths) error {
 			return domain.NewError(domain.CodeAuthMethodCredentialMissing, "TLS private key is required").WithPath(path + ".private_key")
 		}
 	}
-	if secure.TLS.ClientCABundle.File == "" {
+	if tls.ClientCABundle.File == "" {
 		return domain.NewError(domain.CodeInvalidArgument, "client CA bundle is required").WithPath(tlsPath + ".client_ca_bundle")
 	}
-	if secure.TLS.Revocation.Mode == "configured_crl" && secure.TLS.Revocation.CRLBundle.File == "" {
+	if tls.Revocation.Mode == "configured_crl" && tls.Revocation.CRLBundle.File == "" {
 		return domain.NewError(domain.CodeInvalidArgument, "CRL bundle is required when revocation.mode is configured_crl").WithPath(tlsPath + ".revocation.crl_bundle")
 	}
-	if !secure.TLS.RejectEarlyData {
+	if !tls.RejectEarlyData {
 		return domain.NewError(domain.CodeInvalidArgument, "reject_early_data cannot be disabled").WithPath(tlsPath + ".reject_early_data")
 	}
-	if !secure.TLS.SessionResumption.RecheckClientRevocation {
+	if !tls.SessionResumption.RecheckClientRevocation {
 		return domain.NewError(domain.CodeInvalidArgument, "recheck_client_revocation cannot be disabled (ADR-0005)").
 			WithPath(tlsPath + ".session_resumption.recheck_client_revocation")
 	}
-	if secure.TLS.SessionResumption.Enabled {
-		life := secure.TLS.SessionResumption.TicketLifetime
+	if tls.SessionResumption.Enabled {
+		life := tls.SessionResumption.TicketLifetime
 		if life != 0 && life != TLSTicketLifetimeEnforced {
 			return domain.NewError(domain.CodeInvalidArgument, "ticket_lifetime must be 0 (disabled) or 168h (Go crypto/tls cap; ADR-0005)").
 				WithPath(tlsPath+".session_resumption.ticket_lifetime").
 				WithDetail("enforced", TLSTicketLifetimeEnforced.String())
 		}
 	}
-	for i, p := range secure.TLS.Identities.Profiles {
+	for i, p := range tls.Identities.Profiles {
 		path := indexPath(tlsPath+".identities.profiles", i)
 		for j, name := range p.ServerNames {
 			if err := ValidateWildcardServerName(name); err != nil {
@@ -384,26 +432,27 @@ func validateClient(c Client, groups map[string]struct{}, path string) error {
 		}
 	}
 	hasTACACS := len(c.Match.Transports) > 0
-	rad := radiusEndpoint(c)
-	if !hasTACACS && rad == nil {
+	if !hasTACACS && !hasRADIUSEndpoint(c) {
 		return domain.NewError(domain.CodeInvalidArgument, "at least one transport is required").WithPath(path + ".match.transports")
 	}
 	if hasTransport(c.Match.Transports, domain.TransportLegacy) && !c.Legacy.SharedSecret.Set() {
 		return domain.NewError(domain.CodeAuthMethodCredentialMissing, "legacy transport requires a shared secret").WithPath(path + ".legacy.shared_secret")
 	}
-	if c.Match.Mode == domain.MatchCertificateOnly && !hasTACACSTLSEndpoint(c) {
-		return domain.NewError(domain.CodeInvalidArgument, "certificate_only requires a TACACS TLS endpoint").WithPath(path + ".match.mode")
+	if c.Match.Mode == domain.MatchCertificateOnly && !hasTACACSTLSEndpoint(c) && !hasRADIUSTLSEndpoint(c) {
+		return domain.NewError(domain.CodeInvalidArgument, "certificate_only requires a TACACS TLS or RADIUS TLS endpoint").WithPath(path + ".match.mode")
 	}
-	if rad != nil {
-		if !rad.RADIUS.SharedSecret.Set() {
+	udp := radiusEndpoint(c, EndpointTransportUDP)
+	tls := radiusEndpoint(c, EndpointTransportTLS)
+	for _, ep := range radiusEndpoints(c) {
+		if ep.RADIUS == nil || !ep.RADIUS.SharedSecret.Set() {
 			return domain.NewError(domain.CodeRADIUSSecretMissing, "RADIUS endpoint requires a shared secret").WithPath(path + ".endpoints")
 		}
-		if len(c.Match.SourceCIDRs) == 0 {
-			return domain.NewError(domain.CodeInvalidArgument, "RADIUS clients require match.source_cidrs").WithPath(path + ".match.source_cidrs")
-		}
-		if c.Match.Mode == domain.MatchCertificateOnly && !hasTACACS {
-			return domain.NewError(domain.CodeInvalidArgument, "RADIUS-only clients cannot use certificate_only").WithPath(path + ".match.mode")
-		}
+	}
+	if udp != nil && len(c.Match.SourceCIDRs) == 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "RADIUS clients require match.source_cidrs").WithPath(path + ".match.source_cidrs")
+	}
+	if tls != nil && c.Match.Mode != domain.MatchCertificateOnly && len(c.Match.SourceCIDRs) == 0 {
+		return domain.NewError(domain.CodeInvalidArgument, "RADIUS clients with address_and_certificate require match.source_cidrs").WithPath(path + ".match.source_cidrs")
 	}
 	for i, s := range c.Match.Certificate.IPSANs {
 		if net.ParseIP(s) == nil {

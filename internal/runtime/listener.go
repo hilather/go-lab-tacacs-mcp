@@ -12,6 +12,7 @@ const (
 	IDSecureTACACS     = "secure_tacacs"
 	IDRADIUSAccess     = "radius_access"
 	IDRADIUSAccounting = "radius_accounting"
+	IDRADIUSRadSec     = "radius_radsec"
 )
 
 // Descriptor is static listener identity. Carrier is the wire binding;

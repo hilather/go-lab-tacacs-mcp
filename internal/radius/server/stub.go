@@ -19,9 +19,11 @@ const (
 	ActionReply
 )
 
-// Request is one decoded datagram plus the endpoint secret selected by source IP.
+// Request is one decoded packet plus the endpoint secret selected by the
+// listener (UDP LPM or TLS cert index).
 type Request struct {
 	Role                        domain.ListenerRole
+	Carrier                     domain.Carrier
 	Packet                      codec.Packet
 	Declared                    []byte
 	Secret                      []byte
@@ -34,7 +36,6 @@ type Request struct {
 	LimitProxyState             bool
 	AllowedMethods              []string
 	AcceptStatusTypes           []string
-	Carrier                     domain.Carrier
 	TLSCertFP                   [32]byte // BindTLSCert; tests inject a peer-cert fingerprint
 	Journal                     SemanticJournal
 	Sampler                     AmbiguousSampler

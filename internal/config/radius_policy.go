@@ -241,17 +241,18 @@ func validateRADIUSPolicyRefs(doc *Document, groups map[string]struct{}) error {
 		}
 	}
 	for i, c := range doc.Clients {
-		ep := radiusEndpoint(c)
-		if ep == nil || ep.RADIUS == nil {
-			continue
-		}
-		id := ep.RADIUS.AccessPolicyID
-		if id == "" {
-			continue
-		}
-		if _, ok := policies[id]; !ok {
-			return domain.NewError(domain.CodeNotFound, "access_policy_id does not exist").
-				WithPath(indexPath("clients", i) + ".endpoints." + ep.ID + ".radius.access_policy_id")
+		for _, ep := range radiusEndpoints(c) {
+			if ep.RADIUS == nil {
+				continue
+			}
+			id := ep.RADIUS.AccessPolicyID
+			if id == "" {
+				continue
+			}
+			if _, ok := policies[id]; !ok {
+				return domain.NewError(domain.CodeNotFound, "access_policy_id does not exist").
+					WithPath(indexPath("clients", i) + ".endpoints." + ep.ID + ".radius.access_policy_id")
+			}
 		}
 	}
 	for _, p := range doc.RADIUSPolicies {

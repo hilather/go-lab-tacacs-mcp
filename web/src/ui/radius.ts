@@ -5,6 +5,9 @@ export const INSECURE_RADIUS_LABEL = "insecure RADIUS compatibility";
 export const UDP_RADIUS_HINT =
   "RADIUS/UDP is a controlled-network lab profile. It is not TLS and is not complete RADIUS.";
 
+export const RADSEC_HINT =
+  "Optional RADIUS/TLS (RadSec) is a TLS 1.3 stream on TCP 2083 (transport: tls). Configure it in YAML or endpoints[]; the flatten checkbox stays UDP-only. It is not a TLS wrap of UDP.";
+
 export function listenerState(listener: ListenerStatus): "ready" | "degraded" | "disabled" {
   if (!listener.enabled) {
     return "disabled";
@@ -24,7 +27,11 @@ export function listenerStateLabel(state: ReturnType<typeof listenerState>): str
 }
 
 export function isRadiusUDPListener(listener: ListenerStatus): boolean {
-  return listener.protocol === "radius" || listener.transport === "udp" || listener.carrier === "radius_udp";
+  return listener.carrier === "radius_udp" || listener.transport === "udp";
+}
+
+export function isRadiusTLSListener(listener: ListenerStatus): boolean {
+  return listener.carrier === "radius_tls" || (listener.protocol === "radius" && listener.transport === "tls");
 }
 
 export function clientRADIUS(client: Client) {
@@ -38,15 +45,25 @@ export function clientHasRADIUS(client: Client): boolean {
   return (client.endpoints ?? []).some((ep) => ep.protocol === "radius" && (ep.radius?.enabled ?? true));
 }
 
+export function clientHasRADIUSUDP(client: Client): boolean {
+  if (client.protocols?.radius?.enabled) {
+    return true;
+  }
+  return (client.endpoints ?? []).some((ep) => ep.protocol === "radius" && ep.transport === "udp");
+}
+
+export function clientHasRADIUSTLS(client: Client): boolean {
+  return (client.endpoints ?? []).some((ep) => ep.protocol === "radius" && ep.transport === "tls");
+}
+
 export function radiusRequiresMessageAuthenticator(client: Client): boolean {
+  const endpoints = (client.endpoints ?? []).filter((ep) => ep.protocol === "radius" && ep.radius);
+  if (endpoints.length > 0) {
+    return endpoints.every((ep) => ep.radius?.require_message_authenticator !== false);
+  }
   const view = client.protocols?.radius;
   if (view?.enabled) {
     return view.require_message_authenticator;
-  }
-  for (const ep of client.endpoints ?? []) {
-    if (ep.protocol === "radius" && ep.radius) {
-      return ep.radius.require_message_authenticator;
-    }
   }
   return true;
 }

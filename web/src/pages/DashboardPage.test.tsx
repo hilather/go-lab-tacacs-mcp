@@ -187,4 +187,67 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("insecure RADIUS compatibility")).toBeInTheDocument();
     expect(screen.getByText("Ready")).toBeInTheDocument();
   });
+
+  it("does not treat an enabled RadSec listener as RADIUS UDP", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return json(
+            200,
+            envelope({
+              instance_id: "lab",
+              revision: 7,
+              baseline_hash: "a",
+              overlay_hash: "b",
+              compiled_at: "2026-08-12T00:00:00Z",
+              listeners: [
+                {
+                  id: "radius_radsec",
+                  enabled: true,
+                  bind: "0.0.0.0:2083",
+                  transport: "tls",
+                  protocol: "radius",
+                  carrier: "radius_tls",
+                  roles: ["access", "accounting"],
+                  ready: true,
+                  required: false,
+                  inflight: 0,
+                  queue_depth: 0,
+                },
+              ],
+              colocated_topology: false,
+              users: 0,
+              groups: 0,
+              clients: 0,
+              tokens: 0,
+            }),
+          );
+        }
+        if (url.includes("/api/v1/build")) {
+          return json(
+            200,
+            envelope({
+              version: "dev",
+              commit: "abc",
+              build_time: "now",
+              go_version: "go1.24.5",
+              ui_version: "0.0.0",
+              schema_version: 2,
+              tacacs_conformance: "RFC 8907; RFC 9887",
+              mcp_specification: "2026-07-28",
+              protocols: { radius: { standards: ["RFC 6614"], conformance_status: "partial" } },
+            }),
+          );
+        }
+        return json(403, { status: 403, title: "forbidden", detail: "no", code: "permission_denied", type: "about:blank" });
+      }),
+    );
+    renderApp(<DashboardPage />, { route: "/" });
+    expect(await screen.findByText("radius_radsec")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /RADIUS UDP/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Optional RADIUS\/TLS \(RadSec\)/i)).toBeInTheDocument();
+  });
 });

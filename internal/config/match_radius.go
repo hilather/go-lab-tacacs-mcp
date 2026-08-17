@@ -23,13 +23,17 @@ type radiusIndexClient struct {
 }
 
 // CompileRADIUSIndex builds an IPv4/IPv6 LPM for enabled clients that have a
-// RADIUS endpoint including role. Access and accounting indexes are independent.
-// A remaining same-prefix, same-priority tie is CLIENT_MATCH_AMBIGUOUS.
-func CompileRADIUSIndex(clients []Client, role domain.ListenerRole) (*RADIUSIndex, error) {
+// RADIUS UDP endpoint including role. Access and accounting indexes are
+// independent. TLS clients use CompileRADIUSCertIndex. A remaining
+// same-prefix, same-priority tie is CLIENT_MATCH_AMBIGUOUS.
+func CompileRADIUSIndex(clients []Client, role domain.ListenerRole, carrier domain.Carrier) (*RADIUSIndex, error) {
 	switch role {
 	case domain.RoleAccess, domain.RoleAccounting:
 	default:
 		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS index role must be access or accounting")
+	}
+	if carrier != domain.CarrierRADIUSUDP {
+		return nil, domain.NewError(domain.CodeInvalidArgument, "CompileRADIUSIndex is UDP-only; use CompileRADIUSCertIndex for TLS")
 	}
 	idx := &RADIUSIndex{
 		role: role,
@@ -39,7 +43,7 @@ func CompileRADIUSIndex(clients []Client, role domain.ListenerRole) (*RADIUSInde
 		if !c.Enabled {
 			continue
 		}
-		ep := radiusEndpoint(c)
+		ep := radiusEndpoint(c, EndpointTransportUDP)
 		if ep == nil || !endpointHasRole(*ep, role) {
 			continue
 		}

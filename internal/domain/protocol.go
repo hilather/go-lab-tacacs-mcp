@@ -74,7 +74,7 @@ const (
 	CarrierTACACSTLS       Carrier = "tacacs_tls"
 	CarrierRADIUSUDP       Carrier = "radius_udp"
 	CarrierHTTPTCP         Carrier = "http_tcp"
-	CarrierRADIUSTLS       Carrier = "radius_tls" // reserved
+	CarrierRADIUSTLS       Carrier = "radius_tls"
 )
 
 func (c Carrier) Valid() bool {

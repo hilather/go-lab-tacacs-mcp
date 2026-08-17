@@ -88,6 +88,19 @@ func snapshotListeners(settings *config.Document) []ListenerStatus {
 	if settings.Listeners.RADIUSAccounting.Enabled {
 		out = append(out, radiusSnapshotStatus(settings.Listeners.RADIUSAccounting, ListenerRADIUSAccounting, domain.RoleAccounting))
 	}
+	if settings.Listeners.RADIUSRadSec.Enabled {
+		rs := settings.Listeners.RADIUSRadSec
+		out = append(out, ListenerStatus{
+			ID:        ListenerRADIUSRadSec,
+			Enabled:   rs.Enabled,
+			Bind:      rs.Bind,
+			Transport: TransportTLS,
+			Protocol:  string(domain.ProtocolRADIUS),
+			Carrier:   string(domain.CarrierRADIUSTLS),
+			Roles:     []string{string(domain.RoleAccess), string(domain.RoleAccounting)},
+			Required:  rs.Required,
+		})
+	}
 	return out
 }
 

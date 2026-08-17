@@ -105,6 +105,44 @@ export const sampleRadiusClient: Client = {
   ],
 };
 
+export const sampleRadSecClient: Client = {
+  ...sampleClient,
+  id: "lab-radsec",
+  display_name: "Lab RadSec NAS",
+  match: {
+    source_cidrs: [],
+    transports: [],
+    mode: "certificate_only",
+    certificate: { dns_sans: ["nas.lab.example"] },
+  },
+  protocols: {
+    tacacs: { legacy_enabled: false, tls_enabled: false, shared_secret_configured: false },
+    radius: {
+      enabled: false,
+      roles: [],
+      shared_secret_configured: false,
+      require_message_authenticator: true,
+      limit_proxy_state: true,
+    },
+  },
+  endpoints: [
+    {
+      id: "radius-tls",
+      protocol: "radius",
+      transport: "tls",
+      roles: ["access", "accounting"],
+      radius: {
+        enabled: true,
+        roles: ["access", "accounting"],
+        shared_secret_configured: true,
+        require_message_authenticator: true,
+        limit_proxy_state: true,
+        allowed_methods: ["pap", "chap"],
+      },
+    },
+  ],
+};
+
 export const sampleToken: TokenView = {
   id: "lab",
   name: "lab",

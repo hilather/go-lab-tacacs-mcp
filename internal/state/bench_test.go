@@ -144,7 +144,7 @@ func benchmarkRADIUSLookup(b *testing.B, addr string) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, _, err := s.MatchRADIUS(domain.RoleAccess, ip); err != nil {
+		if _, _, err := s.MatchRADIUS(domain.RoleAccess, domain.CarrierRADIUSUDP, ip); err != nil {
 			b.Fatal(err)
 		}
 	}

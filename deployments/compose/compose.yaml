@@ -38,6 +38,9 @@ services:
       - target: 1813
         published: ${TACLAB_RADIUS_ACCT_PORT:-1813}
         protocol: udp
+      - target: 2083
+        published: ${TACLAB_RADIUS_RADSEC_PORT:-2083}
+        protocol: tcp
     command:
       - serve
       - --config=/etc/taclab/taclab.yaml

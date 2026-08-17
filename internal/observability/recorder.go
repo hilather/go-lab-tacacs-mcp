@@ -287,6 +287,8 @@ func boundTransport(v string) string {
 		return TransportHTTP
 	case TransportUDP, "radius_udp":
 		return TransportUDP
+	case "radius_tls":
+		return TransportTLS
 	default:
 		return TransportLegacy
 	}

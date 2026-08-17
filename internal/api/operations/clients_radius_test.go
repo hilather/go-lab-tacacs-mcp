@@ -309,6 +309,145 @@ func TestClientEndpointsDisagreeWithFlatten(t *testing.T) {
 	}
 }
 
+const tlsOnlyRADIUSClientYAML = `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+clients:
+  - id: radsec
+    display_name: RadSec NAS
+    priority: 10
+    match:
+      mode: certificate_only
+      certificate:
+        dns_sans: ["nas.lab.example"]
+    endpoints:
+      - id: radius-tls
+        protocol: radius
+        transport: tls
+        roles: [access, accounting]
+        radius:
+          shared_secret: {file: /run/secrets/tls}
+          require_message_authenticator: true
+          allowed_authentication_methods: [pap, chap]
+`
+
+func TestClientEndpointsAcceptRADIUSTransportTLS(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, tlsOnlyRADIUSClientYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	created, err := reg.Invoke(context.Background(), IDClientsCreate, m.Snapshot(), Input{
+		Actor: writer,
+		Request: CreateClientRequest{
+			ID: "radsec-api",
+			Match: &ClientMatchView{
+				Mode: "certificate_only",
+				Certificate: CertMatchView{
+					DNSSANs: []string{"nas.lab.example"},
+				},
+			},
+			Endpoints: &[]ClientEndpointWrite{{
+				ID:        "radius-tls",
+				Protocol:  "radius",
+				Transport: "tls",
+				Roles:     []string{"access"},
+				RADIUS: &ClientRADIUSWrite{
+					SharedSecret: OptionalSecret{Present: true, File: "/run/secrets/tls"},
+				},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := created.Data.(Client)
+	if c.Protocols.RADIUS.Enabled {
+		t.Fatal("flatten RADIUS view must stay UDP-only")
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0].Transport != "tls" || c.Endpoints[0].Protocol != "radius" {
+		t.Fatalf("endpoints=%+v", c.Endpoints)
+	}
+}
+
+func TestClientTLSOnlyFlattenUpdateDoesNotAddUDP(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, tlsOnlyRADIUSClientYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	rev := m.Revision()
+	enabled := true
+	updated, err := reg.Invoke(context.Background(), IDClientsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateClientRequest{
+			ID: "radsec",
+			RADIUS: &ClientRADIUSWrite{
+				Enabled: &enabled,
+				Roles:   []string{"access", "accounting"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := updated.Data.(Client)
+	if c.Protocols.RADIUS.Enabled {
+		t.Fatal("flatten must not invent a UDP RADIUS endpoint on a TLS-only client")
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0].ID != "radius-tls" || c.Endpoints[0].Transport != "tls" {
+		t.Fatalf("tls endpoint lost or UDP added: %+v", c.Endpoints)
+	}
+}
+
+func TestClientTLSOnlyFlattenDisableKeepsTLS(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, tlsOnlyRADIUSClientYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	rev := m.Revision()
+	enabled := false
+	updated, err := reg.Invoke(context.Background(), IDClientsUpdate, m.Snapshot(), Input{
+		Actor:            writer,
+		ExpectedRevision: &rev,
+		Request: UpdateClientRequest{
+			ID:     "radsec",
+			RADIUS: &ClientRADIUSWrite{Enabled: &enabled},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := updated.Data.(Client)
+	if len(c.Endpoints) != 1 || c.Endpoints[0].Transport != "tls" {
+		t.Fatalf("flatten disable must not delete TLS RADIUS: %+v", c.Endpoints)
+	}
+}
+
+func TestClientTLSOnlyViewOmitsFlattenRADIUS(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, tlsOnlyRADIUSClientYAML)
+	reg := mustStateRegistry(t, m)
+	reader := Actor{ID: "r", Scopes: []string{"state:read"}}
+	got, err := reg.Invoke(context.Background(), IDClientsGet, m.Snapshot(), Input{
+		Actor: reader, Request: GetClientRequest{ID: "radsec"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := got.Data.(Client)
+	if c.Protocols.RADIUS.Enabled {
+		t.Fatalf("TLS-only flatten view must be disabled: %+v", c.Protocols.RADIUS)
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0].Transport != "tls" {
+		t.Fatalf("endpoints=%+v", c.Endpoints)
+	}
+	if c.Endpoints[0].RADIUS == nil || !c.Endpoints[0].RADIUS.Enabled {
+		t.Fatalf("TLS endpoint view must still report RADIUS policy: %+v", c.Endpoints[0].RADIUS)
+	}
+}
+
 func TestExportV1SourceStaysV1UnlessNormalize(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, smallYAML)

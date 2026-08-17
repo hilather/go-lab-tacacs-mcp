@@ -244,3 +244,28 @@ rows:
       - adr:docs/decisions/0027-named-cisco-avpair-independent-fixtures.md
       - docs:docs/INTEROP.md
       - interop:make cisco-lab RADIUS scenario SKIP without TACLAB_IOL_IMAGE; skip is not PASS
+  - id: PRJ-RADSEC-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: RADIUS/TLS 1.3 (RadSec) is a length-prefixed TCP stream on 2083 with mTLS; shared secret still required; PAP/CHAP on the stream
+    evidence_required: Independent testclient TLS client on a live listener; framing does not stitch packets; radius/tls does not import udp
+    status: PASS
+    evidence:
+      - unit:internal/radius/tls.TestIndependentTestclientPAPOnRadSec
+      - unit:internal/radius/tls.TestReadPacketDoesNotStitch
+      - unit:internal/radius/tls.TestNoForbiddenImports
+      - unit:internal/config.TestRADIUSTransportTLSAndUDPPerCarrier
+      - unit:internal/config.TestCertificateOnlyLegalWithRADIUSTLS
+      - unit:internal/radius/server.TestAccessUsesRequestCarrier
+      - adr:docs/decisions/0025-radius-radsec-tls13-first-slice.md
+  - id: PRJ-RADSEC-002
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: RADIUS/DTLS and RADIUS/1.1 are not implemented
+    evidence_required: Documented DEFERRED_MAY; no DTLS socket; no RADIUS/1.1 ALPN
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0025-radius-radsec-tls13-first-slice.md
+      - docs:docs/RADIUS_CONFORMANCE.md

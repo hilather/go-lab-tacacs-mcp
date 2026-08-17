@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { sampleRadiusClient } from "../test/fixtures";
+import { sampleRadSecClient, sampleRadiusClient } from "../test/fixtures";
 import {
+  clientHasRADIUS,
+  clientHasRADIUSTLS,
+  clientHasRADIUSUDP,
+  isRadiusTLSListener,
+  isRadiusUDPListener,
   parseAttributeLines,
+  RADSEC_HINT,
   radiusInsecureCompatibility,
   radiusRequiresMessageAuthenticator,
   warningLooksInsecureRADIUS,
@@ -20,5 +26,66 @@ describe("radius UI helpers", () => {
     expect(radiusRequiresMessageAuthenticator(sampleRadiusClient)).toBe(false);
     expect(radiusInsecureCompatibility(sampleRadiusClient)).toBe(true);
     expect(warningLooksInsecureRADIUS("RADIUS Message-Authenticator is optional on lab-switch")).toBe(true);
+  });
+
+  it("classifies UDP listeners by carrier or udp transport only", () => {
+    expect(
+      isRadiusUDPListener({
+        id: "radius_access",
+        enabled: true,
+        bind: "0.0.0.0:1812",
+        transport: "udp",
+        protocol: "radius",
+        carrier: "radius_udp",
+        roles: ["access"],
+        ready: true,
+        required: false,
+        inflight: 0,
+        queue_depth: 0,
+      }),
+    ).toBe(true);
+    expect(
+      isRadiusUDPListener({
+        id: "radius_radsec",
+        enabled: true,
+        bind: "0.0.0.0:2083",
+        transport: "tls",
+        protocol: "radius",
+        carrier: "radius_tls",
+        roles: ["access", "accounting"],
+        ready: true,
+        required: false,
+        inflight: 0,
+        queue_depth: 0,
+      }),
+    ).toBe(false);
+    expect(
+      isRadiusTLSListener({
+        id: "radius_radsec",
+        enabled: true,
+        bind: "0.0.0.0:2083",
+        transport: "tls",
+        protocol: "radius",
+        carrier: "radius_tls",
+        roles: ["access"],
+        ready: true,
+        required: false,
+        inflight: 0,
+        queue_depth: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("describes RadSec as YAML or endpoints[], not YAML-only", () => {
+    expect(RADSEC_HINT).toMatch(/YAML or endpoints\[\]/);
+    expect(RADSEC_HINT).toMatch(/flatten checkbox stays UDP-only/);
+    expect(RADSEC_HINT).not.toMatch(/YAML-configured in this slice/);
+  });
+
+  it("does not treat a TLS-only RADIUS client as UDP", () => {
+    expect(clientHasRADIUS(sampleRadSecClient)).toBe(true);
+    expect(clientHasRADIUSUDP(sampleRadSecClient)).toBe(false);
+    expect(clientHasRADIUSTLS(sampleRadSecClient)).toBe(true);
+    expect(clientHasRADIUSUDP(sampleRadiusClient)).toBe(true);
   });
 });

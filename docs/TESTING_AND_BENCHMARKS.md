@@ -466,13 +466,19 @@ internal/radius/udp.BenchmarkJournalRemember
 internal/radius/udp.BenchmarkRadiusUDPDispatch_Parallel
 internal/radius/server.BenchmarkAccountingHandle
 internal/radius/server.BenchmarkRadiusAccessPAP_NoKDF
+internal/radius/server.BenchmarkRadiusAccessMSCHAP
+internal/radius/server.BenchmarkRadiusEAPIdentityIssue
 internal/radius/server.BenchmarkRadiusAccountingRequest
+internal/radius/runtime.BenchmarkRadiusChallengeLookup
+internal/radius/runtime.BenchmarkSessionIndexLookup
+internal/radius/attribute.BenchmarkParseVendorTLVs_CiscoAVPair
+internal/radius/attribute.BenchmarkEncodeCiscoAVPair
 internal/policy/radius.BenchmarkRadiusPolicyEvaluate
 internal/state.BenchmarkRADIUSLookup_IPv4
 internal/state.BenchmarkRADIUSLookup_IPv6
 ```
 
-These numbers are not a claim of complete RADIUS.
+No RadSec stream microbench is recorded yet. These numbers are not a claim of complete RADIUS.
 
 `make bench` compiles/runs TACACS plus `./internal/radius/...` (KDF still excluded).
 

@@ -136,6 +136,14 @@ if ! printf '%s\n' "$combined_cfg" | grep -Eq 'target:[[:space:]]*"?1813"?'; the
   echo "lab-test: combined compose missing RADIUS accounting 1813" >&2
   exit 1
 fi
+if ! printf '%s\n' "$combined_cfg" | grep -Eq 'target:[[:space:]]*"?3799"?'; then
+  echo "lab-test: combined compose missing dynauth 3799" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$combined_cfg" | grep -Eq 'target:[[:space:]]*"?2083"?'; then
+  echo "lab-test: combined compose missing radsec 2083" >&2
+  exit 1
+fi
 
 echo "lab-test: radius-only compose config (no host 49)"
 radius_cfg="$(docker compose -p "${PROJECT}-radius-cfg" \

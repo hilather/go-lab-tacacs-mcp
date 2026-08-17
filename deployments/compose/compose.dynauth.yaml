@@ -1,0 +1,11 @@
+# Overlay: publish inbound DAS UDP 3799. The listener stays off unless the mounted
+# YAML sets listeners.radius.dynamic_authorization.enabled: true (default false).
+# docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.dynauth.yaml up -d
+# Index-only RFC 5176 echo fixture; does not kick a NAS. Keep 3799 off the public internet.
+# Do not advertise complete RADIUS.
+services:
+  taclab:
+    ports:
+      - target: 3799
+        published: ${TACLAB_RADIUS_DYNAUTH_PORT:-3799}
+        protocol: udp

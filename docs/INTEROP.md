@@ -85,7 +85,7 @@ Do **not** tell peers to disable response Message-Authenticator checking.
 | Independent UDP e2e | `internal/radius/udp.TestIndependentTestclientPAPAndAccountingOnUDP` |
 | Named Cisco-AVPair | `internal/radius/testclient/codec.TestIndependentCiscoAVPairGolden` (`testdata/protocol/radius/cisco/`) |
 | External radclient | `internal/radius/udp.TestExternalRadclientAccessAndAccounting` (skip unless `radclient` is on `PATH`) |
-| Compose LAB-* | `LAB-RADIUS-001`, `LAB-RADIUS-002`, `LAB-RADIUS-ONLY` via `make lab-test` (REST diagnostic path; not a wire-peer substitute) |
+| Compose LAB-* | `LAB-RADIUS-001`, `LAB-RADIUS-002`, `LAB-RADIUS-ONLY`, `LAB-RADIUS-DYNAUTH`, `LAB-RADIUS-RADSEC` via `make lab-test` (REST diagnostic path; not a wire-peer substitute). Dynauth/RadSec **SKIP** when those listeners stay default-off. |
 
 Peer versions recorded for this freeze:
 
@@ -104,4 +104,4 @@ When `radclient` is installed (FreeRADIUS 3.2.5+ recommended):
 3. Capture sanitized traces (no secrets).
 4. Do not mark a MUST row PASS from this skip alone.
 
-Do **not** advertise complete RADIUS while Access-Challenge is `DEFERRED_MAY`, `radclient` is skipped, or `system.build.get` RADIUS status is `partial`.
+Do **not** advertise complete RADIUS while persistent accounting, PEAP/TLS, DTLS/RADIUS/1.1, or proxying remain deferred, `radclient` is skipped, or `system.build.get` RADIUS status is `partial`.

@@ -8,6 +8,7 @@ Reference deployment for `ghcr.io/hilather/go-lab-tacacs-mcp`.
 | `compose.tls-only.yaml` | Overlay: TLS-only TACACS, no host port 49 |
 | `compose.combined.yaml` | Overlay: schema v2 TACACS + RADIUS/UDP |
 | `compose.radius-only.yaml` | Overlay: RADIUS/UDP only, no host 49/300 |
+| `compose.dynauth.yaml` | Overlay: publish UDP 3799; inbound DAS listener still default off |
 | `compose.radsec.yaml` | Overlay: publish TCP 2083; listener still default off |
 | `compose.lab-test.yaml` | Overlay: high host ports + `integration-tests` |
 | `compose.smoke.yaml` | Pre-1.0 high-port smoke without generated PKI |
@@ -32,9 +33,11 @@ docker compose -f deployments/compose/compose.yaml up -d --build
 docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.combined.yaml up -d --build
 docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radius-only.yaml up -d --build
 docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d --build
+docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.dynauth.yaml up -d
+docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.radsec.yaml up -d
 ```
 
-RADIUS/UDP is a lab profile, not complete RADIUS. Keep 1812/1813/2083 off the public internet. RadSec is a TLS 1.3 stream listener, default off.
+RADIUS/UDP is a lab profile, not complete RADIUS. Keep 1812/1813/2083/3799 off the public internet. Dynauth (UDP 3799) and RadSec (TCP 2083) are optional overlays; listeners stay default off. Inbound :3799 is an RFC 5176 echo fixture and does not kick a NAS.
 
 The container runs as UID/GID 10001, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`. Reload is `SIGHUP` or `POST /api/v1/config/reload`. File-watch reload is off.
 

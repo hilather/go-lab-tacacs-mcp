@@ -4,34 +4,42 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
-### Dependencies
+In-memory RADIUS remaining-work program ([ADRs 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)–[0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). This is **not** a RADIUS completeness release. Do **not** cut a version tag from this section. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
 
-- Align the frontend Vite toolchain with `@vitejs/plugin-react` 6: Vite 8 (required peer; Vite 7 cannot resolve). Vitest 4.1 already accepts Vite 8.
+### Residual limits (prominent)
+
+- Overlay, Challenge store, CoA session index, retransmission cache, accounting journal, and the event ring stay **memory-only**. There is **no persistent accounting**. Restart / `runtime.reset` restore the YAML baseline.
+- No PEAP / EAP-TLS / EAP-TTLS / tunneled EAP. Unknown EAP types fail closed.
+- No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP, no RADIUS proxy / realm routing.
+- `system.build.get` RADIUS `conformance_status` stays `partial`. Named `Cisco-AVPair`, RadSec, and DAC CoA do not make TacLab complete RADIUS. There is no complete-RADIUS badge.
+- RadSec is an optional TLS 1.3 stream on TCP 2083, default off — not “UDP plus TLS.” Shared secret is still required on RADIUS/TLS endpoints. The informal well-known value `radsec` is not a default.
+- DAC CoA always uses the client’s **UDP** RADIUS endpoint secret. A TLS-only RADIUS client cannot originate CoA. Inbound :3799 is an RFC 5176 echo fixture and does **not** kick a NAS.
+- Empty `allowed_authentication_methods` still compiles to `[pap, chap]`; `eap` / `mschapv1` / `mschapv2` are opt-in.
 
 ### Protocol
 
-- Bounded in-memory RADIUS Challenge State store (`internal/radius/runtime`): UDP source-IP and TLS cert binds, TTL, consume-on-use, capacity fail-closed. Continuation failures use `reject_invalid_state` / `reject_challenge_expired` / `reject_challenge_binding` / `reject_challenge_capacity`. Restart / `runtime.reset` wipe the store.
-- RADIUS terminates EAP Identity (type 1) and EAP-MD5 (type 4) when a client opts in with `allowed_authentication_methods: […, eap]`. Omitted/empty lists still compile to `[pap, chap]`. Other EAP types (PEAP/TLS/TTLS/NAK/…) get generic EAP-Failure + Access-Reject (`reject_unsupported_eap_method`); oversize concatenated EAP-Message is `reject_eap_too_long`. First live Access-Challenge provider. `R65-ACCESS-004` is `PASS` with independent `internal/radius/testclient` wire evidence. `must_change_login` after a good MD5 is Access-Reject + the same generic EAP-Failure as a bad password. No PEAP/TLS. Secrets wiped.
-- RADIUS Access-Request accepts opt-in Microsoft MS-CHAPv1/v2 VSAs (RFC 2548 vendor 311) with independent RADIUS wire vectors. Omitted `allowed_authentication_methods` still compile to `[pap, chap]`. Must-change after a good MS-CHAP verify is Access-Reject `reject_password_change_required` with no `MS-CHAP-Error` and no extra attributes. MS-CHAPv2 Accept includes `MS-CHAP2-Success`. TACACS START fixtures are not RADIUS evidence. MS-CHAP remains MD4-era and is not a complete-RADIUS claim.
+- Bounded in-memory RADIUS Challenge State store: UDP source-IP and TLS cert binds, TTL, consume-on-use, capacity fail-closed. Continuation failures use `reject_invalid_state` / `reject_challenge_expired` / `reject_challenge_binding` / `reject_challenge_capacity`. Restart / `runtime.reset` wipe the store ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md)).
+- RADIUS terminates EAP Identity (type 1) and EAP-MD5 (type 4) when a client opts in with `allowed_authentication_methods: […, eap]`. Other EAP types get generic EAP-Failure + Access-Reject (`reject_unsupported_eap_method`); oversize concatenated EAP-Message is `reject_eap_too_long`. First live Access-Challenge provider. `R65-ACCESS-004` is `PASS` with independent `internal/radius/testclient` wire evidence. `must_change_login` after a good MD5 is Access-Reject + the same generic EAP-Failure as a bad password ([ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md)).
+- RADIUS Access-Request accepts opt-in Microsoft MS-CHAPv1/v2 VSAs (RFC 2548 vendor 311) with independent RADIUS wire vectors. Must-change after a good MS-CHAP verify is Access-Reject `reject_password_change_required` with no `MS-CHAP-Error`. MS-CHAPv2 Accept includes `MS-CHAP2-Success`. TACACS START fixtures are not RADIUS evidence ([ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md)).
 - RADIUS access evaluation order is user policy, then each `effectiveGroups` policy (same membership/order as TACACS), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md)). First matching rule wins.
-- Fail-closed operator RADIUS dictionaries (schema v2 `radius_dictionaries`). TacLab YAML only; local absolute files; size-capped. Cannot redefine built-in IETF attributes, cannot downgrade secret sensitivity, and cannot claim reserved vendor IDs `0` / `9` / `311` or names `Cisco-AVPair` / `MS-CHAP-*`. Remote files and FreeRADIUS `$INCLUDE` are rejected. `DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled. This is **not** complete RADIUS.
-- Named RADIUS `Cisco-AVPair` (vendor 9, vendor-type 1) decode/encode. Reply profiles accept `name: Cisco-AVPair` / `value: shell:priv-lvl=15` and the existing raw `{vendor: 9, code: 1, value_hex}` form; both produce the same wire. Unknown Cisco vendor-types stay raw. Evidence is independent `internal/radius/testclient` fixtures under `testdata/protocol/radius/cisco/`. `PRJ-CISCO-001` is PASS. Optional `make cisco-lab` RADIUS IOL snippet SKIP without `TACLAB_IOL_IMAGE`; a skip is not Cisco PASS and not RADIUS PASS. Do not vendor IOL.
-- Optional RADIUS/TLS 1.3 (RadSec) listener: length-prefixed RADIUS packets (RFC 6613 §2.6) inside TLS 1.3 mTLS on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)). Default `listeners.radius.radsec.enabled: false`.
-- A client may have one RADIUS UDP endpoint and one RADIUS TLS endpoint. `certificate_only` is legal when a TACACS TLS **or** RADIUS TLS endpoint exists.
-- `system.build.get` RADIUS standards add `RFC 6614`. Status stays `partial`. `PRJ-RADSEC-001` PASS; `PRJ-RADSEC-002` (DTLS/1.1) `DEFERRED_MAY`.
+- Fail-closed operator RADIUS dictionaries (schema v2 `radius_dictionaries`). TacLab YAML only; local absolute files; size-capped. Cannot redefine built-in IETF attributes, cannot downgrade secret sensitivity, and cannot claim reserved vendor IDs `0` / `9` / `311` or names `Cisco-AVPair` / `MS-CHAP-*`. Remote files and FreeRADIUS `$INCLUDE` are rejected. `DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled ([ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md)).
+- Named RADIUS `Cisco-AVPair` (vendor 9, vendor-type 1) decode/encode. Reply profiles accept `name: Cisco-AVPair` / `value: shell:priv-lvl=15` and the existing raw `{vendor: 9, code: 1, value_hex}` form; both produce the same wire. Unknown Cisco vendor-types stay raw. Evidence is independent `internal/radius/testclient` fixtures. `PRJ-CISCO-001` is PASS. Optional `make cisco-lab` RADIUS IOL snippet SKIP without `TACLAB_IOL_IMAGE`; a skip is not Cisco PASS and not RADIUS PASS ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md)).
+- Optional RADIUS/TLS 1.3 (RadSec) listener: length-prefixed RADIUS packets (RFC 6613 §2.6) inside TLS 1.3 mTLS on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)). Default `listeners.radius.radsec.enabled: false`. A client may have one RADIUS UDP endpoint and one RADIUS TLS endpoint. `certificate_only` is legal when a TACACS TLS **or** RADIUS TLS endpoint exists. `system.build.get` RADIUS standards add `RFC 6614`. `PRJ-RADSEC-001` PASS; `PRJ-RADSEC-002` (DTLS/1.1) `DEFERRED_MAY`.
 
-### RADIUS CoA / Disconnect (DAC)
+### RADIUS CoA / Disconnect
 
 - In-memory accounting session index fed by Start/Interim/Stop; Accounting-On/Off flush matching rows. Access-Accept never inserts. Wiped on `runtime.reset`.
 - Originate CoA-Request / Disconnect-Request (RFC 5176 codes 40–45) from REST/MCP. Message-Authenticator required. Handle path needs Accounting-Start; explicit `client_id` + destination covers access-only labs.
-- Both paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP endpoint → `RADIUS_SECRET_MISSING`.
-- New scope `radius:dynamic` in the closed set. Example `lab-admin` does **not** receive it. `sessions.list` is `state:read`; raw `acct_session_id` needs `events:sensitive`.
-- `expected_revision` is rejected on originate (not overlay CAS).
+- Both paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP endpoint → `RADIUS_SECRET_MISSING` ([ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md)).
+- New scope `radius:dynamic` in the closed set. Example `lab-admin` does **not** receive it. `sessions.list` is `state:read`; raw `acct_session_id` needs `events:sensitive`. `expected_revision` is rejected on originate (not overlay CAS).
 - Optional inbound DAS listener (`listeners.radius.dynamic_authorization`, UDP 3799, default off) is an RFC 5176 echo fixture. It mutates the in-memory session index only and never forwards to a NAS. Unknown client / missing or invalid Message-Authenticator are silent discards. Session miss is NAK Error-Cause 503. `radius:dynamic` is not required on the packet path.
 
 ### Admin surfaces
 
-- `radius.access.test` / `taclab.radius.access.test` `method.type` grows `eap` (`PARITY_REQUIRED`). EAP Identity (no challenge/response) returns `outcome=access_challenge` with `state_present: true` only — never raw State and never EAP-Message. One-shot EAP-MD5 uses write-only challenge/response (wiped). `radius.policy.evaluate` accepts `eap`. No UI widgets in this change.
+- `radius.access.test` / `taclab.radius.access.test` `method.type` grows `eap`, `mschapv1`, and `mschapv2` (`PARITY_REQUIRED`). EAP Identity (no challenge/response) returns `outcome=access_challenge` with `state_present: true` only — never raw State and never EAP-Message. One-shot EAP-MD5 uses write-only challenge/response (wiped). MS-CHAP material is wiped and omitted from replies. `radius.policy.evaluate` accepts the same method tokens.
+- `users.create` / `users.update` / `groups.create` / `groups.update` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). List/get/export include the field on v2 views. REST and MCP share the same types.
+- `radius.attributes.list` includes `source` (`builtin` or `operator:<id>`). Metadata only; no values. `system.status.get` reports `dictionary_version`.
+- UI RADIUS Sessions (`/radius-sessions`) lists the in-memory accounting index (`state:read`). CoA/Disconnect DAC buttons require `radius:dynamic` and never treat inbound :3799 as a device kick. User/group editors expose `radius_policy_id`. RADIUS Auth Test offers Challenge/EAP/MS-CHAP methods. Attribute list shows dictionary `source`.
 
 ### Configuration
 
@@ -39,18 +47,14 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - Schema v2 accepts optional `users[].radius_policy_id` and `groups[].radius_policy_id`. Unknown policy ids fail compile (`CONFIG_YAML_INVALID`). Schema v1 still rejects those keys.
 - Schema v2 additive `listeners.radius.radsec` (bind `0.0.0.0:2083`, `transport: tls`) and client `transport: tls` on `protocol: radius`. v1 documents reject those keys.
 
-### Admin surfaces
+### Lab
 
-- `radius.access.test` and `radius.policy.evaluate` method unions grow `mschapv1` / `mschapv2` (`PARITY_REQUIRED`). MS-CHAP material is wiped and omitted from replies.
-- `users.create` / `users.update` / `groups.create` / `groups.update` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). List/get/export include the field on v2 views. REST and MCP share the same types. Unknown JSON is rejected. No UI selects in this change.
-- `radius.attributes.list` includes `source` (`builtin` or `operator:<id>`). Metadata only; no values. `system.status.get` reports `dictionary_version`.
+- Optional Compose overlays `compose.dynauth.yaml` (UDP 3799) and `compose.radsec.yaml` (TCP 2083) publish ports only. Listeners stay **default off**. Combined TACACS+RADIUS and RADIUS-only labs still pass.
+- `labtest` adds `LAB-RADIUS-DYNAUTH` and `LAB-RADIUS-RADSEC`. Both **SKIP** when the listener is absent or disabled and do not require new listeners to be on. Combined/RADIUS-only reports stay green.
 
-### Residual limits (prominent)
+### Performance
 
-- `system.build.get` RADIUS `conformance_status` stays `partial`. Named `Cisco-AVPair` does not make TacLab complete RADIUS.
-- RadSec is an optional TLS 1.3 stream on TCP 2083, default off — not “UDP plus TLS.” No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP.
-- Shared secret is still required on RADIUS/TLS endpoints. The informal well-known value `radsec` is not a default.
-- DAC CoA always uses the client’s **UDP** RADIUS endpoint. A TLS-only RADIUS client cannot originate CoA.
+- Recorded Challenge / EAP Identity / MS-CHAP / session-index / Cisco-AVPair benches in [`benchmarks/budgets.yaml`](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/benchmarks/budgets.yaml). No RadSec microbench exists yet — do not invent numbers.
 
 ## [1.2.0] — 2026-08-16
 

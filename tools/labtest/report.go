@@ -1,6 +1,13 @@
 package main
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// errSkip means an optional listener is default-off. Combined and
+// RADIUS-only labs must still pass without requiring dynauth or RadSec.
+var errSkip = errors.New("optional listener disabled")
 
 // Report is the machine-readable lab-test output.
 type Report struct {
@@ -19,6 +26,7 @@ type Report struct {
 type ScenarioResult struct {
 	ID         string `json:"id"`
 	OK         bool   `json:"ok"`
+	Skip       bool   `json:"skip,omitempty"`
 	Error      string `json:"error,omitempty"`
 	DurationMS int64  `json:"duration_ms"`
 }

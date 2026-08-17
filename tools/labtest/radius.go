@@ -9,6 +9,50 @@ import (
 	"time"
 )
 
+func (h *harness) labRADIUSDynAuth() error {
+	return h.labOptionalRADIUSListener("radius_dynauth", "radius", "udp")
+}
+
+func (h *harness) labRADIUSRadSec() error {
+	return h.labOptionalRADIUSListener("radius_radsec", "radius", "tls")
+}
+
+// labOptionalRADIUSListener returns errSkip when the listener is default-off.
+func (h *harness) labOptionalRADIUSListener(id, protocol, transport string) error {
+	listeners, raw, err := h.statusListeners()
+	if err != nil {
+		return err
+	}
+	return checkOptionalRADIUSListener(h.RadiusSecret, listeners, raw, id, protocol, transport)
+}
+
+func checkOptionalRADIUSListener(secret []byte, listeners map[string]statusListener, raw []byte, id, protocol, transport string) error {
+	if err := rejectSecret(raw, secret); err != nil {
+		return err
+	}
+	l, ok := listeners[id]
+	if !ok || !l.Enabled {
+		return fmt.Errorf("%w: %s (default off)", errSkip, id)
+	}
+	if !l.Ready {
+		return fmt.Errorf("%s enabled but not ready: %+v", id, l)
+	}
+	if l.Protocol != protocol || l.Transport != transport {
+		return fmt.Errorf("%s protocol=%s transport=%s want %s/%s", id, l.Protocol, l.Transport, protocol, transport)
+	}
+	return nil
+}
+
+func rejectSecret(raw, secret []byte) error {
+	if len(secret) == 0 {
+		return nil
+	}
+	if bytes.Contains(raw, secret) {
+		return fmt.Errorf("RADIUS shared secret in status")
+	}
+	return nil
+}
+
 func (h *harness) labRADIUSReady() error {
 	listeners, raw, err := h.statusListeners()
 	if err != nil {

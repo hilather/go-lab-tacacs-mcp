@@ -27,6 +27,9 @@ func TestAuthenticateAccessDefaultDenyAndRejects(t *testing.T) {
 	chapID := byte(0x42)
 	chapChal := []byte("12345678")
 	chapOK := credentials.CHAPResponse(chapID, []byte(testChallenge), chapChal)
+	copyCHAP := func() (byte, []byte, []byte) {
+		return chapID, append([]byte(nil), chapChal...), append([]byte(nil), chapOK...)
+	}
 
 	type tc struct {
 		name   string

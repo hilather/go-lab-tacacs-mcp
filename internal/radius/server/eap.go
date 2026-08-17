@@ -248,9 +248,8 @@ func (a Access) handleEAPContinuation(ctx context.Context, in Request, rec runti
 			return a.startFromIdentity(in, pkt)
 		}
 		return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
-	case runtime.StepPEAPStart:
-		// Handshake pump and inner EAP are not implemented; do not Accept.
-		return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
+	case runtime.StepPEAPStart, runtime.StepPEAPHandshake, runtime.StepPEAPInner, runtime.StepPEAPMSCHAP, runtime.StepPEAPFinish:
+		return a.handlePEAP(ctx, in, rec, pkt)
 	case runtime.StepMD5Challenge:
 		if pkt.Type == eapTypeNAK {
 			return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
@@ -301,11 +300,21 @@ func eapRequestPEAPStart(id byte) []byte {
 }
 
 func (a Access) issuePEAPStart(in Request, user string, peerID byte) Result {
-	state, err := readRand(a.entropy(), eapStateLen)
+	if a.PEAP == nil || a.Tunnels == nil {
+		return a.eapReject(in, ReasonInternal, peerID, eapTypeIdentity, true)
+	}
+	tun, err := a.PEAP.NewTunnel()
 	if err != nil {
 		return a.eapReject(in, ReasonInternal, peerID, eapTypeIdentity, true)
 	}
+	state, err := readRand(a.entropy(), eapStateLen)
+	if err != nil {
+		tun.Close()
+		return a.eapReject(in, ReasonInternal, peerID, eapTypeIdentity, true)
+	}
 	id := peerID + 1
+	tid := tunnelIDFromState(state)
+	a.Tunnels.Put(tid, tun)
 	reason := IssueChallenge(a.Store, in, runtime.ChallengeIssue{
 		State:      state,
 		UserID:     user,
@@ -313,10 +322,13 @@ func (a Access) issuePEAPStart(in Request, user string, peerID byte) Result {
 		EAPID:      id,
 		EAPType:    eapTypePEAP,
 		Step:       runtime.StepPEAPStart,
+		TunnelID:   tid,
 		EndpointID: in.EndpointID,
 		ClientID:   in.ClientID,
 	})
 	if reason != "" {
+		a.Tunnels.Delete(tid)
+		tun.Close()
 		crypto.Wipe(state)
 		return a.eapReject(in, reason, peerID, eapTypeIdentity, true)
 	}

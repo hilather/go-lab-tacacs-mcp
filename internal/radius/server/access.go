@@ -11,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/eap/peap"
 	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
@@ -35,6 +36,8 @@ type Access struct {
 	Store   *radiusruntime.ChallengeStore
 	Entropy io.Reader
 	Metrics *observability.Recorder
+	PEAP    *peap.Server
+	Tunnels *peap.Registry
 }
 
 // Handle implements Handler. Permit is Access-Accept; deny and errors

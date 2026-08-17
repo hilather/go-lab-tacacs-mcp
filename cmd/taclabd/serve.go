@@ -162,7 +162,12 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	)
 	var radiusAccess radiusserver.Handler = radiusserver.Stub{}
 	if aaaSvc != nil {
-		radiusAccess = radiusserver.Access{AAA: aaaSvc, Store: challenges, Entropy: rand.Reader, Metrics: obs.Rec}
+		access := radiusserver.Access{AAA: aaaSvc, Store: challenges, Entropy: rand.Reader, Metrics: obs.Rec}
+		access, err = attachPEAP(access, doc, lookup)
+		if err != nil {
+			return fmt.Errorf("peap identity: %w", err)
+		}
+		radiusAccess = access
 	}
 
 	var built []runtime.Listener

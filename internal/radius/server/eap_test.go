@@ -3,7 +3,17 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"io"
+	"math/big"
+	"net"
 	"net/netip"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,7 +58,40 @@ func eapReq(t *testing.T, ra [16]byte, attrs attribute.RawSet, methods []string,
 		Entropy: bytes.NewReader(ent),
 		AAA:     &scriptedAuth{dec: aaa.RadiusAccessDecision{Outcome: aaa.RadiusAccessAccept, ReasonCode: aaa.AccessReasonOK}},
 	}
+	if methodAllowed(methods, methodPEAP) {
+		srv, err := peap.NewServer(mustTestPEAPCert(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.PEAP = srv
+		h.Tunnels = peap.NewRegistry()
+		h.Entropy = rand.Reader
+	}
 	return in, h
+}
+
+func mustTestPEAPCert(t *testing.T) tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "peap.lab.example"},
+		DNSNames:              []string{"peap.lab.example"},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
 func firstEAP(t *testing.T, wire []byte) eapPacket {
@@ -184,40 +227,79 @@ func TestEAPIdentityIssuesPEAPStartWhenPEAPAllowed(t *testing.T) {
 	}
 }
 
-func TestEAPPEAPStartContinuationRejectsWithoutInner(t *testing.T) {
+func TestEAPPEAPClientHelloChallenges(t *testing.T) {
 	t.Parallel()
-	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
-	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, func() time.Time { return now })
+	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, time.Now)
 	var ra [16]byte
 	ra[0] = 0x92
-	ent := bytes.Repeat([]byte{0x33}, 16)
 	in, h := eapReq(t, ra, attribute.RawSet{
 		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
 		eapIdentityAttr(1, "lab-admin"),
-	}, []string{methodPEAP}, store, ent)
+	}, []string{methodPEAP}, store, nil)
 	chal := h.Handle(context.Background(), in)
 	if chal.Reason != ReasonChallenge {
 		t.Fatalf("issue=%+v", chal)
 	}
 	state := firstState(t, chal.Response)
-	eap := firstEAP(t, chal.Response)
-	cont := signedAccessReq(t, ra, attribute.RawSet{
-		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
-		{Type: attribute.TypeState, Value: state},
-		eapTypeAttr(eap.Identifier, eapTypePEAP, []byte{0x00}),
-	}, true)
-	cont.AllowedMethods = []string{methodPEAP}
-	cont.ClientID = "lab-switches"
-	cont.EndpointID = "radius-udp"
-	cont.Peer = in.Peer
-	cont.Carrier = domain.CarrierRADIUSUDP
-	res := h.Handle(context.Background(), cont)
-	if res.Reason != ReasonUnsupportedEAPMethod || res.Response[0] != byte(codec.CodeAccessReject) {
-		t.Fatalf("got %+v", res)
+	start := firstEAP(t, chal.Response)
+	hello, _ := startPEAPPeer(t)
+	parts := peap.EncodeFlight(hello)
+	var res Result
+	for i, part := range parts {
+		attrs := attribute.RawSet{
+			{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+			{Type: attribute.TypeState, Value: state},
+		}
+		pkt := encodeEAP(eapPacket{Code: eapCodeResponse, Identifier: start.Identifier, Type: eapTypePEAP, HasType: true, Data: part})
+		attrs = append(attrs, eapMessageAttrs(pkt)...)
+		cont := signedAccessReq(t, ra, attrs, true)
+		cont.AllowedMethods = []string{methodPEAP}
+		cont.ClientID = "lab-switches"
+		cont.EndpointID = "radius-udp"
+		cont.Peer = in.Peer
+		cont.Carrier = domain.CarrierRADIUSUDP
+		res = h.Handle(context.Background(), cont)
+		if res.Action != ActionReply || res.Reason != ReasonChallenge || res.Response[0] != byte(codec.CodeAccessChallenge) {
+			t.Fatalf("frag %d/%d got %+v", i+1, len(parts), res)
+		}
+		if i < len(parts)-1 {
+			state = firstState(t, res.Response)
+			start = firstEAP(t, res.Response)
+		}
 	}
-	if store.Len() != 0 {
-		t.Fatalf("store should be consumed: %d", store.Len())
+	eap := firstEAP(t, res.Response)
+	if eap.Code != eapCodeRequest || eap.Type != eapTypePEAP {
+		t.Fatalf("eap=%+v", eap)
 	}
+	body, err := peap.Parse(eap.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(body.TLSData) < 1 || body.TLSData[0] != 0x16 {
+		t.Fatalf("want TLS handshake records, got %x", body.TLSData[:min(8, len(body.TLSData))])
+	}
+}
+
+func startPEAPPeer(t *testing.T) ([]byte, *tls.Conn) {
+	t.Helper()
+	in, out := newTestPipes()
+	conn := tls.Client(in, &tls.Config{
+		MinVersion:             tls.VersionTLS13,
+		MaxVersion:             tls.VersionTLS13,
+		ServerName:             "peap.lab.example",
+		InsecureSkipVerify:     true,
+		SessionTicketsDisabled: true,
+	})
+	go func() { _ = conn.Handshake() }()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if rec := out.take(); len(rec) > 0 {
+			return rec, conn
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatal("no ClientHello")
+	return nil, conn
 }
 
 func TestEAPUnsupportedTypeRejectsWithoutState(t *testing.T) {
@@ -484,3 +566,78 @@ func TestEAPGenericFailureBytes(t *testing.T) {
 		t.Fatalf("length %x", a)
 	}
 }
+
+type testPipe struct {
+	mu     sync.Mutex
+	cond   *sync.Cond
+	buf    []byte
+	closed bool
+}
+
+func newTestPipes() (net.Conn, *testPipe) {
+	in, out := &testPipe{}, &testPipe{}
+	in.cond = sync.NewCond(&in.mu)
+	out.cond = sync.NewCond(&out.mu)
+	return &testDuplex{r: in, w: out}, out
+}
+
+func (p *testPipe) take() []byte {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := p.buf
+	p.buf = nil
+	return out
+}
+
+func (p *testPipe) Read(b []byte) (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for len(p.buf) == 0 && !p.closed {
+		p.cond.Wait()
+	}
+	if len(p.buf) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(b, p.buf)
+	p.buf = append([]byte(nil), p.buf[n:]...)
+	return n, nil
+}
+
+func (p *testPipe) Write(b []byte) (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return 0, io.ErrClosedPipe
+	}
+	p.buf = append(p.buf, b...)
+	p.cond.Broadcast()
+	return len(b), nil
+}
+
+func (p *testPipe) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.closed = true
+	p.cond.Broadcast()
+	return nil
+}
+
+type testDuplex struct{ r, w *testPipe }
+
+func (d *testDuplex) Read(b []byte) (int, error)  { return d.r.Read(b) }
+func (d *testDuplex) Write(b []byte) (int, error) { return d.w.Write(b) }
+func (d *testDuplex) Close() error {
+	_ = d.r.Close()
+	_ = d.w.Close()
+	return nil
+}
+func (d *testDuplex) LocalAddr() net.Addr              { return testAddr("l") }
+func (d *testDuplex) RemoteAddr() net.Addr             { return testAddr("r") }
+func (d *testDuplex) SetDeadline(time.Time) error      { return nil }
+func (d *testDuplex) SetReadDeadline(time.Time) error  { return nil }
+func (d *testDuplex) SetWriteDeadline(time.Time) error { return nil }
+
+type testAddr string
+
+func (a testAddr) Network() string { return "test" }
+func (a testAddr) String() string  { return string(a) }

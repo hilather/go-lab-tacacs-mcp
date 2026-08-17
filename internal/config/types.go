@@ -52,6 +52,19 @@ const (
 	RADIUSChallengeBytesDefault          = 1 << 20
 	RADIUSChallengeBytesMin              = 64 << 10
 	RADIUSChallengeBytesMax              = 8 << 20
+	DefaultNASCoAPort                    = 3799
+	DefaultCoATimeout                    = 3 * time.Second
+	DefaultSessionIndexEntries           = 20000
+	DefaultSessionIndexBytes             = 8 << 20
+	DefaultSessionTTL                    = 24 * time.Hour
+	MinSessionIndexEntries               = 16
+	MaxSessionIndexEntries               = 100000
+	MinSessionIndexBytes                 = 64 << 10
+	MaxSessionIndexBytes                 = 64 << 20
+	MinSessionTTL                        = time.Minute
+	MaxSessionTTL                        = 24 * time.Hour
+	MinCoATimeout                        = 500 * time.Millisecond
+	MaxCoATimeout                        = 30 * time.Second
 )
 
 // DefaultMaxBytes is the default maximum baseline file size (4 MiB).
@@ -181,9 +194,13 @@ type RADIUSListener struct {
 	MessageAuthenticator         string
 	LimitProxyState              bool
 	// Challenge knobs apply to the access listener. Accounting ignores them.
-	ChallengeTTL     time.Duration
-	ChallengeEntries int
-	ChallengeBytes   int
+	ChallengeTTL        time.Duration
+	ChallengeEntries    int
+	ChallengeBytes      int
+	SessionIndexEntries int
+	SessionIndexBytes   int
+	SessionTTL          time.Duration
+	CoATimeout          time.Duration
 }
 
 // TACACSListener is shared legacy/secure socket settings.
@@ -394,6 +411,8 @@ type RADIUSEndpoint struct {
 	AllowedAuthenticationMethods []string
 	AccessPolicyID               string
 	AcceptStatusTypes            []string
+	NASCoAPort                   uint16
+	CoADestination               string
 }
 
 // ClientMatch is identity selection input.

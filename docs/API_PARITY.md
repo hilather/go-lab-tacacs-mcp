@@ -233,6 +233,9 @@ The token value appears exactly once in the successful create response on both s
 | `radius.access.test` | `policy:test` | `POST /api/v1/radius/access:test` | tool `taclab.radius.access.test` | PARITY_REQUIRED |
 | `radius.policy.evaluate` | `policy:test` | `POST /api/v1/radius/policy:evaluate` | tool `taclab.radius.policy.evaluate` | PARITY_REQUIRED |
 | `radius.attributes.list` | `state:read` | `GET /api/v1/radius/attributes` | tool `taclab.radius.attributes.list`; resource `taclab://radius/attributes` | PARITY_REQUIRED |
+| `radius.sessions.list` | `state:read` | `GET /api/v1/radius/sessions` | tool `taclab.radius.sessions.list`; resource `taclab://radius/sessions` | PARITY_REQUIRED |
+| `radius.disconnect.send` | `radius:dynamic` | `POST /api/v1/radius/disconnect:send` | tool `taclab.radius.disconnect.send` | PARITY_REQUIRED |
+| `radius.coa.send` | `radius:dynamic` | `POST /api/v1/radius/coa:send` | tool `taclab.radius.coa.send` | PARITY_REQUIRED |
 | `events.list` | `events:read` | `GET /api/v1/events` | tool `taclab.events.list`; resource `taclab://events/recent` | PARITY_REQUIRED |
 | `events.subscribe` | `events:read` | `GET /api/v1/events/stream` using SSE | MCP resource/subscription/listen mechanism | PARITY_DIFFERENT_BINDING |
 
@@ -245,6 +248,8 @@ RADIUS diagnostics are distinct from the TACACS `authentication.test` / `policy.
 `events.list` optional filters `protocol`, `listener_role`, `packet_code`, and `outcome` AND with `categories`. REST SSE accepts the same query parameters. MCP listen stays URI-only; clients pull filtered bodies through `events.list`.
 
 Sensitive event fields require `events:sensitive` in addition to `events:read`. Redaction is performed in the operation layer before adapter encoding. `acct_session_id` is sensitive.
+
+`radius.sessions.list` is `state:read`. Opaque `session_handle` is always returned. Raw `acct_session_id` requires `events:sensitive`. Access-Accept never inserts a row. `radius.disconnect.send` / `radius.coa.send` are `radius:dynamic` (not `state:write`). They omit `expected_revision`; a present field is `invalid_argument`. Both originate paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP RADIUS endpoint → `RADIUS_SECRET_MISSING`. Handle path requires Accounting-Start + Acct-Session-Id. Explicit path is `client_id` + destination. Inbound DAS is not in this change.
 
 ### 9.7 Protocol-only exceptions
 

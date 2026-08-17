@@ -175,6 +175,10 @@ func defaultRADIUSAccounting() RADIUSListener {
 		PerSourceRate:                100,
 		PerSourceBurst:               200,
 		AmbiguousAccountingPerMinute: 60,
+		SessionIndexEntries:          DefaultSessionIndexEntries,
+		SessionIndexBytes:            DefaultSessionIndexBytes,
+		SessionTTL:                   DefaultSessionTTL,
+		CoATimeout:                   DefaultCoATimeout,
 	}
 }
 

@@ -319,7 +319,7 @@ api:
       expires_at: null
 ```
 
-Scopes are exact. `state:write` does **not** grant `tokens:manage`, `config:reload`, or `runtime:reset`. Add `events:sensitive` only if the client may see usernames and commands.
+Scopes are exact. `state:write` does **not** grant `tokens:manage`, `config:reload`, or `runtime:reset`. Add `events:sensitive` only if the client may see usernames and commands. `radius:dynamic` (CoA/Disconnect originate) is **not** on `lab-admin` unless a lab recipe adds it.
 
 Create more tokens at runtime with `tokens:manage` (`POST /api/v1/tokens` / `taclab.tokens.create`). The bearer is returned **once**. Runtime tokens die with the process; put durable operators in `bootstrap_tokens`.
 

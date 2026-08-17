@@ -126,3 +126,47 @@ type RadiusAttributeMetadata struct {
 	Sensitivity string   `json:"sensitivity"`
 	Source      string   `json:"source"`
 }
+
+// ListRadiusSessionsRequest is a cursor page of in-memory RADIUS sessions.
+type ListRadiusSessionsRequest struct {
+	Cursor string `json:"cursor,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+}
+
+// RadiusSessionList is sessions.list output in handle order.
+type RadiusSessionList struct {
+	Items      []RadiusSessionView `json:"items"`
+	NextCursor *string             `json:"next_cursor"`
+}
+
+// RadiusSessionView is one index row. acct_session_id is events:sensitive.
+type RadiusSessionView struct {
+	SessionHandle string `json:"session_handle"`
+	ClientID      string `json:"client_id,omitempty"`
+	UserID        string `json:"user_id,omitempty"`
+	EndpointID    string `json:"endpoint_id,omitempty"`
+	NASIP         string `json:"nas_ip,omitempty"`
+	NASIdentifier string `json:"nas_identifier,omitempty"`
+	NASPort       uint32 `json:"nas_port,omitempty"`
+	Peer          string `json:"peer,omitempty"`
+	StartedAt     string `json:"started_at,omitempty"`
+	LastUpdate    string `json:"last_update,omitempty"`
+	AcctSessionID string `json:"acct_session_id,omitempty"`
+}
+
+// RadiusDynamicAuthRequest is one DAC originate shape. Exactly one of handle
+// or explicit (client_id) must be set. expected_revision is not a field.
+type RadiusDynamicAuthRequest struct {
+	SessionHandle string                 `json:"session_handle,omitempty"`
+	ClientID      string                 `json:"client_id,omitempty"`
+	Destination   string                 `json:"destination,omitempty"`
+	UserID        string                 `json:"user_id,omitempty"`
+	AcctSessionID string                 `json:"acct_session_id,omitempty"`
+	Attributes    []RadiusAttributeValue `json:"attributes,omitempty"`
+}
+
+// RadiusDynamicAuthResult is ack, nak, or timeout. Timeout is not an overlay error.
+type RadiusDynamicAuthResult struct {
+	Outcome    string `json:"outcome"`
+	ErrorCause uint32 `json:"error_cause,omitempty"`
+}

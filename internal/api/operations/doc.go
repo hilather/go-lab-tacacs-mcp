@@ -7,6 +7,7 @@
 // registered here. Implemented handlers cover status, build, config, runtime
 // reset, user/group/client/token CRUD, policy.evaluate, authentication.test,
 // radius.access.test, radius.policy.evaluate, radius.attributes.list,
+// radius.sessions.list, radius.disconnect.send, radius.coa.send,
 // events.list, events.subscribe (scope gate; SSE/listen framing stays in the
 // adapters), and session.create/delete. MCP protocol rows are adapter-only.
 package operations

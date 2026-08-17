@@ -18,7 +18,7 @@ This is the operator-facing 1.0 guide. Protocol and schema details stay in [CONF
 | RADIUS accounting | 1813/udp | RFC 2866 Start/Stop/Interim/On/Off into the memory ring. Off unless a v2 profile enables it. |
 | HTTP admin | 8080/tcp | UI, `/api/v1`, `/mcp`, health |
 
-Runtime overlay is **memory-only**. Restart or `runtime.reset` restores the YAML baseline. RADIUS retransmission cache, accounting journal, and the event ring go with the process. Do not put the overlay on a volume.
+Runtime overlay is **memory-only**. Restart or `runtime.reset` restores the YAML baseline. RADIUS retransmission cache, accounting journal, CoA session index, and the event ring go with the process. Do not put the overlay on a volume.
 
 When both TACACS listeners are enabled, status/UI/logs show a **co-located lab topology** warning. That topology is a lab convenience ([ADR 0001](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0001-all-in-one-dual-listener-lab.md)). Production-like tests should use the TLS-only Compose overlay or separate hosts.
 
@@ -34,7 +34,7 @@ RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than 
 | UDP controlled-network only | No RadSec, DTLS, RADIUS/TCP, or RADIUS/1.1 shipped. Source-IP selects the secret. RadSec first slice is [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) (not implemented yet). |
 | Deferred Access-Challenge | In-memory State store exists (UDP IP + TLS cert bind, TTL, consume-on-use, capacity fail-closed). **No Access-Challenge on the live listener** (`R65-ACCESS-004` `DEFERRED_MAY`). Program ADR [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). |
 | Deferred EAP | EAP-Message without a valid Message-Authenticator is discarded. There is no EAP method termination or pass-through. Program ADR [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). |
-| Deferred CoA / Disconnect | RFC 5176 is not shipped. Program ADR [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
+| CoA / Disconnect DAC | Originate CoA/Disconnect to the NAS via REST/MCP (`radius:dynamic`). Handle path needs Accounting-Start + Acct-Session-Id; access-only labs use explicit `client_id` + destination. Both paths sign with the client's **UDP** RADIUS secret. `lab-admin` does **not** get `radius:dynamic` by default. Inbound :3799 DAS is **not** shipped (PR 10). [ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
 | RADIUS MS-CHAP is opt-in / MD4-era | Add `mschapv1` / `mschapv2` to `allowed_authentication_methods`. Omitted lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. [ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
 | Named `Cisco-AVPair` | Shipped as vendor 9 / vendor-type 1. Reply profiles accept `name: Cisco-AVPair` or raw `{vendor: 9, code: 1, value_hex}`. Evidence is independent fixtures ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md)). An IOL skip is not PASS. |
 | Operator dictionaries | v2 `radius_dictionaries` are TacLab YAML, local absolute files, size-capped, fail-closed. Vendors 0/9/311 and `Cisco-AVPair` / `MS-CHAP-*` are reserved. Not FreeRADIUS `$INCLUDE`. Program ADR [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md). |
@@ -206,7 +206,7 @@ Explain a RADIUS decision: UI RADIUS Policy page or `POST /api/v1/radius/policy:
 ## 7. API tokens and the UI
 
 - Bootstrap tokens come from files. Create more with `tokens:manage`; the value is shown **once**.
-- Scopes are exact (`state:write` does not imply `tokens:manage`, `runtime:reset`, or `config:reload`).
+- Scopes are exact (`state:write` does not imply `tokens:manage`, `runtime:reset`, `config:reload`, or `radius:dynamic`). The example `lab-admin` token does not receive `radius:dynamic`.
 - Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnly cookie. CSRF is required on cookie mutations. The UI never stores the bearer in `localStorage`.
 - Reference Compose leaves HTTP admin without TLS (`cookie_secure` follows `listeners.http.tls.enabled`). Lab-only.
 - RADIUS pages show an insecure-compatibility badge when Message-Authenticator is not required. Secret inputs are write-only and cleared after submit.
@@ -315,7 +315,7 @@ Rollback is “keep the v1 file and the previous image digest.” Do not expect 
 
 MCP owns **fixture + assert + admin rotate**. GETPASS / CONTINUE is **NAS / `internal/tacacs/testclient` only**. Hosted MCP cannot speak ports 49/300. Do **not** invent `taclab.qa.*` tools. Use the existing `taclab.*` operations (same typed requests as REST).
 
-All mutating calls need `expected_revision` (MCP) / `If-Match` (REST). Read `effective_revision` from the last `users.get` / `clients.get` / status first. Do not invent REST wrappers around MCP.
+All mutating overlay calls need `expected_revision` (MCP) / `If-Match` (REST). Read `effective_revision` from the last `users.get` / `clients.get` / status first. CoA/Disconnect originate **rejects** `expected_revision` (not overlay CAS). Do not invent REST wrappers around MCP.
 
 YAML field contract: [CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) §7.10. ADR: [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md). MCP setup: [MCP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md).
 
@@ -334,6 +334,9 @@ RADIUS advertised status stays **`partial`**. There is no Access-Challenge and n
 | `taclab.policy.evaluate` | `POST /api/v1/policy/evaluate` | `policy:test` |
 | `taclab.runtime.reset` | `POST /api/v1/runtime/reset` | `runtime:reset` |
 | `taclab.radius.access.test` | `POST /api/v1/radius/access:test` | `policy:test` |
+| `taclab.radius.sessions.list` | `GET /api/v1/radius/sessions` | `state:read` |
+| `taclab.radius.disconnect.send` | `POST /api/v1/radius/disconnect:send` | `radius:dynamic` |
+| `taclab.radius.coa.send` | `POST /api/v1/radius/coa:send` | `radius:dynamic` |
 
 ### Overlay vs YAML (K16)
 

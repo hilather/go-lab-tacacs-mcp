@@ -12,7 +12,57 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
+
+func TestRecordRADIUSAccountingFeedsSessionIndex(t *testing.T) {
+	t.Parallel()
+	_, lookup, mgr := writeSkeleton(t, "")
+	ring := events.New(32, domain.SystemClock{})
+	idx, err := radiusruntime.NewSessionIndex(radiusruntime.Options{
+		MaxEntries: 16,
+		MaxBytes:   64 << 10,
+		TTL:        time.Hour,
+		Entropy:    bytes.NewReader(bytes.Repeat([]byte("0123456789abcdef"), 8)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := New(Options{Manager: mgr, Secrets: lookup, Events: ring, Creds: credentials.Options{Params: credentials.TestParams}, Sessions: idx})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.RecordRADIUSAccounting(context.Background(), RADIUSAccountingRecord{
+		Context: domain.RequestContext{
+			Protocol:   domain.ProtocolRADIUS,
+			ClientID:   "lab-switches",
+			EndpointID: "acct-udp",
+			Peer:       netip.MustParseAddrPort("192.0.2.10:1813"),
+		},
+		Kind:      AccountingStart,
+		UserID:    "lab-admin",
+		SessionID: "hook-sess-1",
+		NASIP:     netip.MustParseAddr("192.0.2.10"),
+	})
+	if err != nil || !res.OK {
+		t.Fatalf("%+v %v", res, err)
+	}
+	got, ok := idx.LookupKey(radiusruntime.SessionKey{EndpointID: "acct-udp", AcctSessionID: "hook-sess-1"})
+	if !ok || got.UserID != "lab-admin" {
+		t.Fatalf("index=%+v ok=%v", got, ok)
+	}
+	_, err = svc.RecordRADIUSAccounting(context.Background(), RADIUSAccountingRecord{
+		Context:   domain.RequestContext{EndpointID: "acct-udp", Peer: netip.MustParseAddrPort("192.0.2.10:1813")},
+		Kind:      AccountingOn,
+		SessionID: "",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := idx.LookupKey(radiusruntime.SessionKey{EndpointID: "acct-udp", AcctSessionID: "hook-sess-1"}); ok {
+		t.Fatal("Accounting-On must flush")
+	}
+}
 
 func TestRecordRADIUSAccountingWritesRing(t *testing.T) {
 	t.Parallel()

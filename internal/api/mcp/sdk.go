@@ -123,7 +123,7 @@ func bindSDKTools(s *sdkmcp.Server, opts Options, p auth.Principal) {
 		s.AddTool(&sdkmcp.Tool{
 			Name:         op.MCP.Name,
 			Description:  op.Description,
-			InputSchema:  schemaFor(op.Request, op.Mutating),
+			InputSchema:  schemaFor(op.Request, op.Mutating && !operations.OmitsExpectedRevision(op.ID)),
 			OutputSchema: schemaFor(op.Response, false),
 			Annotations: &sdkmcp.ToolAnnotations{
 				ReadOnlyHint:    ro,

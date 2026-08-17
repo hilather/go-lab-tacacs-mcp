@@ -9,6 +9,8 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
@@ -33,6 +35,10 @@ type Deps struct {
 	// OnRuntimeReset wipes process-memory tables that are not the overlay
 	// (Challenge State store). Listener Close must not do this.
 	OnRuntimeReset func()
+	// RADIUSSessions is the in-memory CoA session index. Wiped on reset.
+	RADIUSSessions *radiusruntime.SessionIndex
+	// Originator sends DAC CoA/Disconnect datagrams.
+	Originator *server.Originator
 }
 
 // StatusProvider is the live listener inventory from internal/runtime.
@@ -83,6 +89,9 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 		IDRadiusAccessTest:     handleRadiusAccessTest(deps),
 		IDRadiusPolicyEvaluate: handleRadiusPolicyEvaluate(deps),
 		IDRadiusAttributesList: handleRadiusAttributesList,
+		IDRadiusSessionsList:   handleRadiusSessionsList(deps),
+		IDRadiusDisconnectSend: handleRadiusDisconnectSend(deps),
+		IDRadiusCoASend:        handleRadiusCoASend(deps),
 		IDEventsList:           handleListEvents(deps.Events),
 		IDEventsSubscribe:      handleSubscribe,
 	}

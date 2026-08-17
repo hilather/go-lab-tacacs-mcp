@@ -59,6 +59,7 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		{"Message-Authenticator", TypeMessageAuthenticator, KindString, CardinalitySingle, SensitivitySecret},
 		{"Acct-Interim-Interval", TypeAcctInterimInterval, KindInteger, CardinalitySingle, SensitivityPublic},
 		{"NAS-IPv6-Address", TypeNASIPv6Address, KindIPv6, CardinalitySingle, SensitivityRestricted},
+		{"Error-Cause", TypeErrorCause, KindInteger, CardinalitySingle, SensitivityPublic},
 		{"MS-CHAP-Response", VendorTypeMSCHAPResponse, KindString, CardinalitySingle, SensitivitySecret},
 		{"MS-CHAP-Error", VendorTypeMSCHAPError, KindText, CardinalitySingle, SensitivitySecret},
 		{"MS-CHAP-Challenge", VendorTypeMSCHAPChallenge, KindString, CardinalitySingle, SensitivitySecret},

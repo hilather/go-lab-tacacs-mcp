@@ -9,18 +9,20 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/policy"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
 // Service is the protocol-independent AAA implementation.
 type Service struct {
-	mgr      *state.Manager
-	snapshot func() *state.Snapshot
-	secrets  config.SecretLookup
-	events   *events.Ring
-	creds    *credentials.Service
-	clock    domain.Clock
-	metrics  *observability.Recorder
+	mgr            *state.Manager
+	snapshot       func() *state.Snapshot
+	secrets        config.SecretLookup
+	events         *events.Ring
+	creds          *credentials.Service
+	clock          domain.Clock
+	metrics        *observability.Recorder
+	radiusSessions *radiusruntime.SessionIndex
 
 	mu       sync.Mutex
 	sessions map[sessionKey]*authSession
@@ -65,6 +67,8 @@ type Options struct {
 	Clock    domain.Clock
 	Creds    credentials.Options
 	Metrics  *observability.Recorder
+	// Sessions is the in-memory RADIUS CoA index. Optional. Wiped on reset.
+	Sessions *radiusruntime.SessionIndex
 }
 
 // New builds a Service. Snapshot or Manager is required.
@@ -87,16 +91,25 @@ func New(opts Options) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		mgr:      opts.Manager,
-		snapshot: opts.Snapshot,
-		secrets:  opts.Secrets,
-		events:   opts.Events,
-		creds:    creds,
-		clock:    opts.Clock,
-		metrics:  opts.Metrics,
-		sessions: map[sessionKey]*authSession{},
-		engines:  map[domain.Revision]*policy.Engine{},
+		mgr:            opts.Manager,
+		snapshot:       opts.Snapshot,
+		secrets:        opts.Secrets,
+		events:         opts.Events,
+		creds:          creds,
+		clock:          opts.Clock,
+		metrics:        opts.Metrics,
+		radiusSessions: opts.Sessions,
+		sessions:       map[sessionKey]*authSession{},
+		engines:        map[domain.Revision]*policy.Engine{},
 	}, nil
+}
+
+// RADIUSSessions is the CoA session index, if configured.
+func (s *Service) RADIUSSessions() *radiusruntime.SessionIndex {
+	if s == nil {
+		return nil
+	}
+	return s.radiusSessions
 }
 
 // Events returns the ring used as the accounting sink.

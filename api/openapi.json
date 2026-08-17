@@ -401,11 +401,17 @@
             },
             "type": "array"
           },
+          "coa_destination": {
+            "type": "string"
+          },
           "enabled": {
             "type": "boolean"
           },
           "limit_proxy_state": {
             "type": "boolean"
+          },
+          "nas_coa_port": {
+            "type": "integer"
           },
           "require_message_authenticator": {
             "type": "boolean"
@@ -449,11 +455,17 @@
             },
             "type": "array"
           },
+          "coa_destination": {
+            "type": "string"
+          },
           "enabled": {
             "type": "boolean"
           },
           "limit_proxy_state": {
             "type": "boolean"
+          },
+          "nas_coa_port": {
+            "type": "integer"
           },
           "require_message_authenticator": {
             "type": "boolean"
@@ -1541,6 +1553,18 @@
         "properties": {},
         "type": "object"
       },
+      "ListRadiusSessionsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "ListTokensRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2056,6 +2080,53 @@
         ],
         "type": "object"
       },
+      "RadiusDynamicAuthRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "acct_session_id": {
+            "type": "string"
+          },
+          "attributes": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusAttributeValue"
+            },
+            "type": "array"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "session_handle": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RadiusDynamicAuthResult": {
+        "additionalProperties": false,
+        "properties": {
+          "error_cause": {
+            "type": "integer"
+          },
+          "outcome": {
+            "enum": [
+              "ack",
+              "nak",
+              "timeout"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
+      },
       "RadiusPolicyEvaluateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2208,6 +2279,67 @@
           "source",
           "rule_id",
           "effect"
+        ],
+        "type": "object"
+      },
+      "RadiusSessionList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RadiusSessionView"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "RadiusSessionView": {
+        "additionalProperties": false,
+        "properties": {
+          "acct_session_id": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "endpoint_id": {
+            "type": "string"
+          },
+          "last_update": {
+            "type": "string"
+          },
+          "nas_identifier": {
+            "type": "string"
+          },
+          "nas_ip": {
+            "type": "string"
+          },
+          "nas_port": {
+            "type": "integer"
+          },
+          "peer": {
+            "type": "string"
+          },
+          "session_handle": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_handle"
         ],
         "type": "object"
       },
@@ -5114,6 +5246,204 @@
         "summary": "List RADIUS dictionary metadata including source"
       }
     },
+    "/api/v1/radius/coa:send": {
+      "post": {
+        "description": "Scopes: radius:dynamic",
+        "operationId": "radius.coa.send",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadiusDynamicAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RadiusDynamicAuthResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Originate a RADIUS CoA-Request (DAC)"
+      }
+    },
+    "/api/v1/radius/disconnect:send": {
+      "post": {
+        "description": "Scopes: radius:dynamic",
+        "operationId": "radius.disconnect.send",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadiusDynamicAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RadiusDynamicAuthResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Originate a RADIUS Disconnect-Request (DAC)"
+      }
+    },
     "/api/v1/radius/policy:evaluate": {
       "post": {
         "description": "Scopes: policy:test",
@@ -5211,6 +5541,75 @@
           }
         ],
         "summary": "Explain a RADIUS access-policy decision"
+      }
+    },
+    "/api/v1/radius/sessions": {
+      "get": {
+        "description": "Scopes: state:read",
+        "operationId": "radius.sessions.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RadiusSessionList"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "RFC 9457 problem details with TacLab code"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "List in-memory RADIUS accounting sessions"
       }
     },
     "/api/v1/runtime/reset": {

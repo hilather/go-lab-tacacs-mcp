@@ -13,6 +13,13 @@ const (
 	// PacketAccessChallenge is recognized so role checks can reject it
 	// cleanly. It is not an advertised MVP feature.
 	PacketAccessChallenge uint8 = 11
+	// RFC 5176 Dynamic Authorization packet codes.
+	PacketDisconnectRequest uint8 = 40
+	PacketDisconnectACK     uint8 = 41
+	PacketDisconnectNAK     uint8 = 42
+	PacketCoARequest        uint8 = 43
+	PacketCoAACK            uint8 = 44
+	PacketCoANAK            uint8 = 45
 )
 
 // ValueKind is the RFC 2865 / RFC 3162 / RFC 2869 wire encoding.
@@ -90,6 +97,12 @@ const (
 	bitAccountingRequest
 	bitAccountingResponse
 	bitAccessChallenge
+	bitDisconnectRequest
+	bitDisconnectACK
+	bitDisconnectNAK
+	bitCoARequest
+	bitCoAACK
+	bitCoANAK
 )
 
 func packetBit(code uint8) (packetMask, bool) {
@@ -106,6 +119,18 @@ func packetBit(code uint8) (packetMask, bool) {
 		return bitAccountingResponse, true
 	case PacketAccessChallenge:
 		return bitAccessChallenge, true
+	case PacketDisconnectRequest:
+		return bitDisconnectRequest, true
+	case PacketDisconnectACK:
+		return bitDisconnectACK, true
+	case PacketDisconnectNAK:
+		return bitDisconnectNAK, true
+	case PacketCoARequest:
+		return bitCoARequest, true
+	case PacketCoAACK:
+		return bitCoAACK, true
+	case PacketCoANAK:
+		return bitCoANAK, true
 	default:
 		return 0, false
 	}
@@ -136,8 +161,14 @@ func (m packetMask) codes() []uint8 {
 		PacketAccountingRequest,
 		PacketAccountingResponse,
 		PacketAccessChallenge,
+		PacketDisconnectRequest,
+		PacketDisconnectACK,
+		PacketDisconnectNAK,
+		PacketCoARequest,
+		PacketCoAACK,
+		PacketCoANAK,
 	}
-	out := make([]uint8, 0, 6)
+	out := make([]uint8, 0, 12)
 	for _, c := range all {
 		if m.has(c) {
 			out = append(out, c)
@@ -152,7 +183,8 @@ func knownPacket(code uint8) bool {
 }
 
 func requestPacket(code uint8) bool {
-	return code == PacketAccessRequest || code == PacketAccountingRequest
+	return code == PacketAccessRequest || code == PacketAccountingRequest ||
+		code == PacketDisconnectRequest || code == PacketCoARequest
 }
 
 func packetName(code uint8) string {
@@ -169,6 +201,18 @@ func packetName(code uint8) string {
 		return "Accounting-Response"
 	case PacketAccessChallenge:
 		return "Access-Challenge"
+	case PacketDisconnectRequest:
+		return "Disconnect-Request"
+	case PacketDisconnectACK:
+		return "Disconnect-ACK"
+	case PacketDisconnectNAK:
+		return "Disconnect-NAK"
+	case PacketCoARequest:
+		return "CoA-Request"
+	case PacketCoAACK:
+		return "CoA-ACK"
+	case PacketCoANAK:
+		return "CoA-NAK"
 	default:
 		return "Packet(" + strconv.Itoa(int(code)) + ")"
 	}

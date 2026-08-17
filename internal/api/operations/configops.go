@@ -108,6 +108,9 @@ func handleResetRuntime(deps Deps) handleFunc {
 		if deps.OnRuntimeReset != nil {
 			deps.OnRuntimeReset()
 		}
+		if deps.RADIUSSessions != nil {
+			deps.RADIUSSessions.Reset()
+		}
 		audit(deps, "api.runtime.reset", "ok", published.Revision)
 		return ResetRuntimeResult{Revision: published.Revision, BaselineHash: published.BaselineHash, OverlayHash: published.OverlayHash}, nil
 	}

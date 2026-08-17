@@ -141,6 +141,8 @@ func JSONStringEnums(typeName, field string) []string {
 		return []string{"pap", "chap", "mschapv1", "mschapv2"}
 	case "RadiusPolicyEvaluateRequest.method":
 		return []string{"pap", "chap", "mschapv1", "mschapv2"}
+	case "RadiusDynamicAuthResult.outcome":
+		return []string{"ack", "nak", "timeout"}
 	default:
 		return nil
 	}

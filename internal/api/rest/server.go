@@ -64,6 +64,9 @@ var FrozenREST = []string{
 	operations.IDRadiusAccessTest,
 	operations.IDRadiusPolicyEvaluate,
 	operations.IDRadiusAttributesList,
+	operations.IDRadiusSessionsList,
+	operations.IDRadiusDisconnectSend,
+	operations.IDRadiusCoASend,
 	operations.IDTokensList,
 	operations.IDTokensCreate,
 	operations.IDTokensRevoke,
@@ -140,6 +143,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/radius/access:test", s.testRadiusAccess)
 	mux.HandleFunc("POST /api/v1/radius/policy:evaluate", s.evaluateRadiusPolicy)
 	mux.HandleFunc("GET /api/v1/radius/attributes", s.listRadiusAttributes)
+	mux.HandleFunc("GET /api/v1/radius/sessions", s.listRadiusSessions)
+	mux.HandleFunc("POST /api/v1/radius/disconnect:send", s.sendRadiusDisconnect)
+	mux.HandleFunc("POST /api/v1/radius/coa:send", s.sendRadiusCoA)
 	mux.HandleFunc("GET /api/v1/events", s.listEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.streamEvents)
 	mux.HandleFunc("GET /api/v1/tokens", s.listTokens)

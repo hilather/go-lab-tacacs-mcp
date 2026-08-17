@@ -279,6 +279,10 @@ func parityCases() []parityCase {
 		}},
 		{id: operations.IDRadiusPolicyEvaluate, req: operations.RadiusPolicyEvaluateRequest{Method: "pap"}, wantCode: string(domain.CodeInvalidArgument)},
 		{id: operations.IDRadiusAttributesList, req: operations.ListRadiusAttributesRequest{}},
+		{id: operations.IDRadiusSessionsList, req: operations.ListRadiusSessionsRequest{}},
+		{id: operations.IDRadiusDisconnectSend, req: operations.RadiusDynamicAuthRequest{ClientID: "sw", Destination: "192.0.2.10:3799"}, wantCode: string(domain.CodeRADIUSSecretMissing)},
+		{id: operations.IDRadiusCoASend, req: operations.RadiusDynamicAuthRequest{ClientID: "sw", Destination: "192.0.2.10:3799"}, wantCode: string(domain.CodeRADIUSSecretMissing)},
+		{id: operations.IDRadiusDisconnectSend, req: operations.RadiusDynamicAuthRequest{}, wantCode: string(domain.CodeInvalidArgument)},
 		{id: operations.IDEventsList, req: operations.ListEventsRequest{Limit: 10}},
 		{
 			id:  operations.IDEventsList,

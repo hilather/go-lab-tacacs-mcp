@@ -65,8 +65,8 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 	if got := len(rep.RFC5080.Rows); got != 1 {
 		t.Fatalf("RFC 5080 rows: got %d, want 1", got)
 	}
-	if got := len(rep.ProjectRADIUS.Rows); got != 16 {
-		t.Fatalf("project-radius rows: got %d, want 16", got)
+	if got := len(rep.ProjectRADIUS.Rows); got != 17 {
+		t.Fatalf("project-radius rows: got %d, want 17", got)
 	}
 }
 
@@ -86,8 +86,8 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 		t.Fatalf("TACACS contract IDs: got %d, want 222", len(tacacsIDs))
 	}
 	radiusIDs := ExtractConformanceIDs(radiusDoc)
-	if len(radiusIDs) != 37 {
-		t.Fatalf("RADIUS contract IDs: got %d, want 37", len(radiusIDs))
+	if len(radiusIDs) != 38 {
+		t.Fatalf("RADIUS contract IDs: got %d, want 38", len(radiusIDs))
 	}
 	want := append(append([]string{}, tacacsIDs...), radiusIDs...)
 	rep, err := ValidateRoot(root)
@@ -482,7 +482,7 @@ func TestGenerateDocs(t *testing.T) {
 	}
 }
 
-const expectedOperationCount = 41
+const expectedOperationCount = 44
 
 var protocolOnlyOperationIDs = []string{
 	"health.live",

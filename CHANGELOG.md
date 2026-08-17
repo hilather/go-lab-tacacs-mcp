@@ -16,6 +16,14 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - Fail-closed operator RADIUS dictionaries (schema v2 `radius_dictionaries`). TacLab YAML only; local absolute files; size-capped. Cannot redefine built-in IETF attributes, cannot downgrade secret sensitivity, and cannot claim reserved vendor IDs `0` / `9` / `311` or names `Cisco-AVPair` / `MS-CHAP-*`. Remote files and FreeRADIUS `$INCLUDE` are rejected. `DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled. This is **not** complete RADIUS.
 - Named RADIUS `Cisco-AVPair` (vendor 9, vendor-type 1) decode/encode. Reply profiles accept `name: Cisco-AVPair` / `value: shell:priv-lvl=15` and the existing raw `{vendor: 9, code: 1, value_hex}` form; both produce the same wire. Unknown Cisco vendor-types stay raw. Evidence is independent `internal/radius/testclient` fixtures under `testdata/protocol/radius/cisco/`. `PRJ-CISCO-001` is PASS. Optional `make cisco-lab` RADIUS IOL snippet SKIP without `TACLAB_IOL_IMAGE`; a skip is not Cisco PASS and not RADIUS PASS. Do not vendor IOL.
 
+### RADIUS CoA / Disconnect (DAC)
+
+- In-memory accounting session index fed by Start/Interim/Stop; Accounting-On/Off flush matching rows. Access-Accept never inserts. Wiped on `runtime.reset`.
+- Originate CoA-Request / Disconnect-Request (RFC 5176 codes 40–45) from REST/MCP. Message-Authenticator required. Handle path needs Accounting-Start; explicit `client_id` + destination covers access-only labs.
+- Both paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP endpoint → `RADIUS_SECRET_MISSING`.
+- New scope `radius:dynamic` in the closed set. Example `lab-admin` does **not** receive it. `sessions.list` is `state:read`; raw `acct_session_id` needs `events:sensitive`.
+- `expected_revision` is rejected on originate (not overlay CAS). No inbound DAS listener yet.
+
 ### Configuration
 
 - v2 `listeners.radius.access` gains `challenge_ttl` (default `30s`, 5s–60s), `challenge_entries` (default `4096`, 16–65536), and `challenge_bytes` (default `1MiB`, 64KiB–8MiB). Accounting rejects those keys.

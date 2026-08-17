@@ -113,6 +113,9 @@ func (r *Registry) declare() {
 	r.mustCounter(MetricRADIUSChallenges, "RADIUS Challenge-State gate outcomes.")
 	r.mustGauge(MetricRADIUSChallengeEntries, "RADIUS Challenge-State store occupancy.")
 	r.mustCounter(MetricRADIUSChallengeSaturations, "RADIUS Challenge-State store saturations.")
+	r.mustGauge(MetricRADIUSSessionIndexEntries, "RADIUS accounting session-index occupancy.")
+	r.mustCounter(MetricRADIUSSessionIndexSaturations, "RADIUS session-index insert refusals.")
+	r.mustCounter(MetricRADIUSDynAuthTotal, "RADIUS CoA/Disconnect originate and inbound outcomes.")
 
 	// Always publish the closed lifecycle set so scrapes do not invent status.
 	for _, st := range SecretLifecycleStatuses {

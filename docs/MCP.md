@@ -65,11 +65,11 @@ Lab mode is `api.mode: lab_static_bearer`.
 
 3. Scopes are exact. `state:write` does not grant `tokens:manage`, `config:reload`, or `runtime:reset`.
 
-Bootstrap scopes in the reference lab:
+Bootstrap scopes in the reference lab (`lab-admin`):
 
 `state:read` · `state:write` · `config:reload` · `config:export` · `policy:test` · `events:read` · `tokens:manage` · `runtime:reset`
 
-Add `events:sensitive` if the client must see usernames and commands.
+Add `events:sensitive` if the client must see usernames and commands. Add `radius:dynamic` only when a recipe must originate CoA/Disconnect; the example `lab-admin` token does not include it.
 
 ---
 

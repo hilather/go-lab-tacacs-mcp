@@ -41,6 +41,9 @@ const (
 	IDRadiusAccessTest     = "radius.access.test"
 	IDRadiusPolicyEvaluate = "radius.policy.evaluate"
 	IDRadiusAttributesList = "radius.attributes.list"
+	IDRadiusSessionsList   = "radius.sessions.list"
+	IDRadiusDisconnectSend = "radius.disconnect.send"
+	IDRadiusCoASend        = "radius.coa.send"
 	IDEventsList           = "events.list"
 	IDEventsSubscribe      = "events.subscribe"
 )
@@ -317,6 +320,8 @@ func defaultCatalog() map[string]reflect.Type {
 		RadiusAuthMethod{}, RadiusAttributeValue{}, RadiusPolicyTrace{},
 		RadiusPolicyTraceStep{}, RadiusPolicyTraceWinner{},
 		ListRadiusAttributesRequest{}, RadiusAttributeList{}, RadiusAttributeMetadata{},
+		ListRadiusSessionsRequest{}, RadiusSessionList{}, RadiusSessionView{},
+		RadiusDynamicAuthRequest{}, RadiusDynamicAuthResult{},
 		ListEventsRequest{}, EventList{},
 		SubscribeEventsRequest{}, EventStream{},
 		HealthRequest{}, HealthResult{},

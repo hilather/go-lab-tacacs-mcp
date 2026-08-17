@@ -76,7 +76,8 @@ func TestImplementedOperations(t *testing.T) {
 		IDEventsList, IDEventsSubscribe,
 		IDGroupsCreate, IDGroupsDelete, IDGroupsGet, IDGroupsList, IDGroupsUpdate,
 		IDPolicyEvaluate,
-		IDRadiusAccessTest, IDRadiusAttributesList, IDRadiusPolicyEvaluate,
+		IDRadiusAccessTest, IDRadiusAttributesList, IDRadiusCoASend, IDRadiusDisconnectSend,
+		IDRadiusPolicyEvaluate, IDRadiusSessionsList,
 		IDRuntimeReset,
 		IDSessionCreate, IDSessionDelete,
 		IDSystemBuildGet, IDSystemStatusGet,
@@ -93,7 +94,8 @@ func TestImplementedOperations(t *testing.T) {
 			IDUsersList, IDUsersGet, IDUsersCreate, IDUsersUpdate, IDUsersDelete,
 			IDGroupsList, IDGroupsGet, IDGroupsCreate, IDGroupsUpdate, IDGroupsDelete,
 			IDClientsList, IDClientsGet, IDClientsCreate, IDClientsUpdate, IDClientsDelete,
-			IDAuthenticationTest, IDRadiusAccessTest, IDRadiusPolicyEvaluate, IDRadiusAttributesList:
+			IDAuthenticationTest, IDRadiusAccessTest, IDRadiusPolicyEvaluate, IDRadiusAttributesList,
+			IDRadiusSessionsList, IDRadiusDisconnectSend, IDRadiusCoASend:
 			if !op.Implemented {
 				t.Errorf("%s should be implemented", op.ID)
 			}

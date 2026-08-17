@@ -369,6 +369,8 @@ type ClientRADIUSProtocolView struct {
 	AllowedMethods              []string `json:"allowed_methods,omitempty" yaml:"allowed_methods,omitempty"`
 	AccessPolicyID              string   `json:"access_policy_id,omitempty" yaml:"access_policy_id,omitempty"`
 	AcceptStatusTypes           []string `json:"accept_status_types,omitempty" yaml:"accept_status_types,omitempty"`
+	NASCoAPort                  uint16   `json:"nas_coa_port,omitempty" yaml:"nas_coa_port,omitempty"`
+	CoADestination              string   `json:"coa_destination,omitempty" yaml:"coa_destination,omitempty"`
 }
 
 // ClientEndpointView is one canonical protocol binding without secret values.
@@ -421,6 +423,8 @@ type ClientRADIUSWrite struct {
 	AllowedMethods              []string        `json:"allowed_methods,omitempty"`
 	AccessPolicyID              *string         `json:"access_policy_id,omitempty"`
 	AcceptStatusTypes           []string        `json:"accept_status_types,omitempty"`
+	NASCoAPort                  *uint16         `json:"nas_coa_port,omitempty"`
+	CoADestination              *string         `json:"coa_destination,omitempty"`
 }
 
 // LifecycleWrite is non-secret rotation metadata on create/update.

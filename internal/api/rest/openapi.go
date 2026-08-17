@@ -73,6 +73,9 @@ func BuildOpenAPI(reg *operations.Registry) map[string]any {
 		"/api/v1/radius/access:test":     postPath(operations.IDRadiusAccessTest, "Simulate a RADIUS Access-Request without UDP", []string{"policy:test"}, refSchema("RadiusAccessTestRequest"), envelopeRef("RadiusAccessTestResult"), false),
 		"/api/v1/radius/policy:evaluate": postPath(operations.IDRadiusPolicyEvaluate, "Explain a RADIUS access-policy decision", []string{"policy:test"}, refSchema("RadiusPolicyEvaluateRequest"), envelopeRef("RadiusPolicyEvaluateResult"), false),
 		"/api/v1/radius/attributes":      getPath(operations.IDRadiusAttributesList, "List RADIUS dictionary metadata including source", []string{"state:read"}, envelopeRef("RadiusAttributeList"), true),
+		"/api/v1/radius/sessions":        getPath(operations.IDRadiusSessionsList, "List in-memory RADIUS accounting sessions", []string{"state:read"}, envelopeRef("RadiusSessionList"), true),
+		"/api/v1/radius/disconnect:send": postPath(operations.IDRadiusDisconnectSend, "Originate a RADIUS Disconnect-Request (DAC)", []string{"radius:dynamic"}, refSchema("RadiusDynamicAuthRequest"), envelopeRef("RadiusDynamicAuthResult"), false),
+		"/api/v1/radius/coa:send":        postPath(operations.IDRadiusCoASend, "Originate a RADIUS CoA-Request (DAC)", []string{"radius:dynamic"}, refSchema("RadiusDynamicAuthRequest"), envelopeRef("RadiusDynamicAuthResult"), false),
 		"/api/v1/events":                 listEventsPath(),
 		"/api/v1/events/stream":          streamPath(),
 		"/api/v1/tokens":                 tokensCollectionPath(),
@@ -225,6 +228,11 @@ func frozenSchemaTypes() []any {
 		operations.ListRadiusAttributesRequest{},
 		operations.RadiusAttributeList{},
 		operations.RadiusAttributeMetadata{},
+		operations.ListRadiusSessionsRequest{},
+		operations.RadiusSessionList{},
+		operations.RadiusSessionView{},
+		operations.RadiusDynamicAuthRequest{},
+		operations.RadiusDynamicAuthResult{},
 	}
 }
 

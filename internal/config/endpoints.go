@@ -520,9 +520,7 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 	if err != nil {
 		return nil, err
 	}
-	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
-		methods = []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
-	}
+	methods = DefaultRADIUSAccessMethods(methods, roles)
 	status, err := normalizeRADIUSStatusTypes(raw.Accounting.AcceptStatusTypes, path+".accounting.accept_status_types")
 	if err != nil {
 		return nil, err
@@ -553,11 +551,20 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 	return false
 }
 
-// ParseRADIUSAuthMethods accepts pap/chap only. Used by overlay writes.
+// DefaultRADIUSAccessMethods fills an omitted/empty access-role list with
+// [pap, chap]. MS-CHAP stays opt-in (KD-R21).
+func DefaultRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
+	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
+		return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
+	}
+	return methods
+}
+
+// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2. Used by overlay writes.
 func ParseRADIUSAuthMethods(raw []string) ([]string, error) {
 	out, err := normalizeRADIUSAuthMethods(raw, "radius.allowed_methods")
 	if err != nil {
-		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap or chap").WithPath("radius.allowed_methods")
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2").WithPath("radius.allowed_methods")
 	}
 	return out, nil
 }
@@ -580,9 +587,9 @@ func normalizeRADIUSAuthMethods(raw []string, path string) ([]string, error) {
 	for i, s := range raw {
 		m := strings.ToLower(strings.TrimSpace(s))
 		switch m {
-		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP:
+		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2:
 		default:
-			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap or chap")
+			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2")
 		}
 		if _, ok := seen[m]; ok {
 			continue

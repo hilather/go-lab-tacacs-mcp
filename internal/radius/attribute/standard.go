@@ -86,7 +86,24 @@ func mvpDefinitions() []Definition {
 			maskOf(PacketAccessAccept)),
 		define("NAS-IPv6-Address", TypeNASIPv6Address, KindIPv6, CardinalitySingle, SensitivityRestricted,
 			maskOf(PacketAccessRequest, PacketAccountingRequest)),
+		// RFC 2548 Microsoft VSAs (vendor 311). Named, not operator-dict.
+		defineVendor("MS-CHAP-Response", VendorMicrosoft, VendorTypeMSCHAPResponse, KindString, CardinalitySingle, SensitivitySecret,
+			maskOf(PacketAccessRequest)).withOctets(MSCHAPResponseWireLen, MSCHAPResponseWireLen),
+		defineVendor("MS-CHAP-Error", VendorMicrosoft, VendorTypeMSCHAPError, KindText, CardinalitySingle, SensitivitySecret,
+			maskOf(PacketAccessReject)),
+		defineVendor("MS-CHAP-Challenge", VendorMicrosoft, VendorTypeMSCHAPChallenge, KindString, CardinalitySingle, SensitivitySecret,
+			maskOf(PacketAccessRequest)).withOctets(MSCHAPChallengeV1Len, MSCHAPChallengeV2Len),
+		defineVendor("MS-CHAP2-Response", VendorMicrosoft, VendorTypeMSCHAP2Response, KindString, CardinalitySingle, SensitivitySecret,
+			maskOf(PacketAccessRequest)).withOctets(MSCHAPResponseWireLen, MSCHAPResponseWireLen),
+		defineVendor("MS-CHAP2-Success", VendorMicrosoft, VendorTypeMSCHAP2Success, KindString, CardinalitySingle, SensitivitySecret,
+			maskOf(PacketAccessAccept)).withOctets(MSCHAP2SuccessWireLen, MSCHAP2SuccessWireLen),
 	}
+}
+
+func defineVendor(name string, vendor uint32, code uint8, kind ValueKind, card Cardinality, sens Sensitivity, allow packetMask) Definition {
+	d := define(name, code, kind, card, sens, allow)
+	d.Vendor = vendor
+	return d
 }
 
 func define(name string, code uint8, kind ValueKind, card Cardinality, sens Sensitivity, allow packetMask) Definition {

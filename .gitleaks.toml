@@ -19,4 +19,5 @@ paths = [
 regexes = [
   '''CANARY-RADIUS-SECRET-aa11''',
   '''CANARY-UNHIDE-PASSWORD-zz99''',
+  '''unit-test-obs-mschap-password-canary-aa11''',
 ]

@@ -107,6 +107,51 @@ func TestV1SnapshotRADIUSIndexesEmpty(t *testing.T) {
 	}
 }
 
+func TestCompiledAccessEndpointsNeverHaveEmptyMethods(t *testing.T) {
+	t.Parallel()
+	src := `
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    access: {enabled: true, bind: 0.0.0.0:1812}
+clients:
+  - id: lab-switches
+    priority: 100
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: radius-udp
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: /run/secrets/lab_switches_radius_secret}
+`
+	m := mustMgr(t, src)
+	for _, ec := range m.Snapshot().Clients() {
+		for _, ep := range ec.Client.Endpoints {
+			if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+				continue
+			}
+			hasAccess := false
+			for _, r := range ep.Roles {
+				if r == domain.RoleAccess {
+					hasAccess = true
+					break
+				}
+			}
+			if !hasAccess {
+				continue
+			}
+			if len(ep.RADIUS.AllowedAuthenticationMethods) == 0 {
+				t.Fatalf("compiled access endpoint %s has empty methods", ep.ID)
+			}
+		}
+	}
+}
+
 func TestSnapshotCompilesRADIUSIndexes(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, mixedRADIUSYAML)

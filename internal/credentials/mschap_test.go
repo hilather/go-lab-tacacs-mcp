@@ -176,3 +176,73 @@ func TestMSCHAPv2WrongLengths(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func BenchmarkGenerateMSCHAPv2Success(b *testing.B) {
+	pw := []byte("clientPass")
+	user := []byte("User")
+	auth := []byte{0x5b, 0x5d, 0x7c, 0x7d, 0x7b, 0x3f, 0x2f, 0x3e, 0x3c, 0x2c, 0x60, 0x21, 0x32, 0x26, 0x26, 0x28}
+	peer := []byte{0x21, 0x40, 0x23, 0x24, 0x25, 0x5e, 0x26, 0x2a, 0x28, 0x29, 0x5f, 0x2b, 0x3a, 0x33, 0x7c, 0x7e}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got, err := GenerateMSCHAPv2Success(17, pw, user, auth, peer)
+		if err != nil || len(got) != mschapv2SuccessLen {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestGenerateMSCHAPv2SuccessRFC2759(t *testing.T) {
+	t.Parallel()
+	v := loadVectors(t)
+	pw := []byte(v.MSCHAPv2.Password)
+	user := []byte(v.MSCHAPv2.Username)
+	auth := mustHex(t, v.MSCHAPv2.ChallengeHex)
+	peer := mustHex(t, v.MSCHAPv2.PeerChallengeHex)
+	got, err := GenerateMSCHAPv2Success(v.MSCHAPv2.ID, pw, user, auth, peer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != mschapv2SuccessLen || got[0] != v.MSCHAPv2.ID {
+		t.Fatalf("len=%d id=%d", len(got), got[0])
+	}
+	if string(got[1:3]) != "S=" {
+		t.Fatalf("prefix=%q", got[1:3])
+	}
+	// Independent RFC 2759 §8.7 transcription (not a TACACS START fixture).
+	nth := testNtHash(pw)
+	hh := md4.New()
+	_, _ = hh.Write(nth)
+	hashHash := hh.Sum(nil)
+	nt := testChallengeResponse(mustHex(t, v.MSCHAPv2.ChallengeHashHex), nth)
+	magic1 := []byte("Magic server to client signing constant")
+	magic2 := []byte("Pad to make it do more than one iteration")
+	s1 := sha1.New()
+	_, _ = s1.Write(hashHash)
+	_, _ = s1.Write(nt)
+	_, _ = s1.Write(magic1)
+	d1 := s1.Sum(nil)
+	ch := mustHex(t, v.MSCHAPv2.ChallengeHashHex)
+	s2 := sha1.New()
+	_, _ = s2.Write(d1)
+	_, _ = s2.Write(ch)
+	_, _ = s2.Write(magic2)
+	d2 := s2.Sum(nil)
+	want := make([]byte, 43)
+	want[0] = v.MSCHAPv2.ID
+	want[1], want[2] = 'S', '='
+	const hexDigits = "0123456789ABCDEF"
+	for i := 0; i < 20; i++ {
+		want[3+i*2] = hexDigits[d2[i]>>4]
+		want[4+i*2] = hexDigits[d2[i]&0x0f]
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("success %x want %x", got, want)
+	}
+	if _, err := GenerateMSCHAPv2Success(1, pw, user, auth[:8], peer); err == nil || !isMalformed(err) {
+		t.Fatalf("short auth challenge: %v", err)
+	}
+	if _, err := GenerateMSCHAPv2Success(1, pw, user, auth, peer[:8]); err == nil || !isMalformed(err) {
+		t.Fatalf("short peer challenge: %v", err)
+	}
+}

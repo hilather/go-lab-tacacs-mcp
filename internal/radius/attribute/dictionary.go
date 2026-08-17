@@ -61,7 +61,7 @@ func (d Dictionary) LookupIETF(code uint8) (Definition, bool) {
 	return d.LookupKey(IETFKey(code))
 }
 
-// LookupKey looks up a vendor/code/space identity. Named VSAs are not MVP.
+// LookupKey looks up a vendor/code/space identity, including named Microsoft VSAs.
 func (d Dictionary) LookupKey(k Key) (Definition, bool) {
 	def, ok := d.byKey[k]
 	return def, ok

@@ -7,11 +7,38 @@ import (
 
 const vendorIDSize = 4
 
+// Microsoft vendor id (RFC 2548). Reserved from operator dictionaries.
+const VendorMicrosoft uint32 = 311
+
+// RFC 2548 Microsoft vendor-types used by RADIUS MS-CHAP.
+const (
+	VendorTypeMSCHAPResponse  uint8 = 1
+	VendorTypeMSCHAPError     uint8 = 2
+	VendorTypeMSCHAPChallenge uint8 = 11
+	VendorTypeMSCHAP2Response uint8 = 25
+	VendorTypeMSCHAP2Success  uint8 = 26
+)
+
+const (
+	MSCHAPChallengeV1Len  = 8
+	MSCHAPChallengeV2Len  = 16
+	MSCHAPResponseWireLen = 50
+	MSCHAP2SuccessWireLen = 43 // Ident + RFC 2759 AuthenticatorResponse
+)
+
 // VSA is Vendor-Specific (type 26) framing: a 32-bit vendor id and an
-// undistinguished payload. Nested vendor-type dictionaries are not applied.
+// undistinguished payload. Nested vendor-type dictionaries are not applied
+// here; use ParseVendorTLVs for 1-byte type/length walks.
 type VSA struct {
 	Vendor  uint32
 	Payload []byte
+}
+
+// VendorTLV is one nested vendor-type / vendor-length / value tuple.
+// Length on the wire includes the type and length octets.
+type VendorTLV struct {
+	Type  uint8
+	Value []byte
 }
 
 // ParseVSA reads vendor-id + payload from a type-26 Raw. Short or non-26
@@ -40,4 +67,92 @@ func (v VSA) Raw() (Raw, error) {
 	binary.BigEndian.PutUint32(val[:vendorIDSize], v.Vendor)
 	copy(val[vendorIDSize:], v.Payload)
 	return Raw{Type: TypeVendorSpecific, Value: val}, nil
+}
+
+// ParseVendorTLVs walks a vendor payload as 1-byte type + 1-byte length TLVs.
+// Unknown types are returned as-is. A leftover byte or illegal length is
+// malformed — callers must not guess.
+func ParseVendorTLVs(payload []byte) ([]VendorTLV, error) {
+	if len(payload) == 0 {
+		return nil, nil
+	}
+	out := make([]VendorTLV, 0, 2)
+	i := 0
+	for i < len(payload) {
+		if len(payload)-i < 2 {
+			return nil, fmt.Errorf("%w: leftover %d", ErrVendorTLVMalformed, len(payload)-i)
+		}
+		typ := payload[i]
+		n := int(payload[i+1])
+		if n < 2 {
+			return nil, fmt.Errorf("%w: type %d length %d", ErrVendorTLVMalformed, typ, n)
+		}
+		if n > len(payload)-i {
+			return nil, fmt.Errorf("%w: type %d length %d remain %d", ErrVendorTLVMalformed, typ, n, len(payload)-i)
+		}
+		var val []byte
+		if n > 2 {
+			val = make([]byte, n-2)
+			copy(val, payload[i+2:i+n])
+		}
+		out = append(out, VendorTLV{Type: typ, Value: val})
+		i += n
+	}
+	return out, nil
+}
+
+// EncodeVendorTLVs writes type/length/value. Values must fit in one TLV.
+func EncodeVendorTLVs(tlvs []VendorTLV) ([]byte, error) {
+	n := 0
+	for _, t := range tlvs {
+		if len(t.Value) > MaxValueLength-vendorIDSize-2 {
+			return nil, fmt.Errorf("%w: type %d value %d", ErrVSAValueLong, t.Type, len(t.Value))
+		}
+		n += 2 + len(t.Value)
+	}
+	if n == 0 {
+		return nil, nil
+	}
+	out := make([]byte, n)
+	off := 0
+	for _, t := range tlvs {
+		out[off] = t.Type
+		out[off+1] = byte(2 + len(t.Value))
+		copy(out[off+2:], t.Value)
+		off += 2 + len(t.Value)
+	}
+	return out, nil
+}
+
+// MicrosoftVSA encodes one RFC 2548 Microsoft TLV as type 26.
+func MicrosoftVSA(vendorType uint8, value []byte) (Raw, error) {
+	payload, err := EncodeVendorTLVs([]VendorTLV{{Type: vendorType, Value: value}})
+	if err != nil {
+		return Raw{}, err
+	}
+	return (VSA{Vendor: VendorMicrosoft, Payload: payload}).Raw()
+}
+
+// MicrosoftSecret reports whether a type-26 raw holds a Microsoft MS-CHAP
+// vendor type. Malformed vendor-311 payloads are treated as secret.
+func MicrosoftSecret(r Raw) bool {
+	if r.Type != TypeVendorSpecific {
+		return false
+	}
+	vsa, err := ParseVSA(r)
+	if err != nil || vsa.Vendor != VendorMicrosoft {
+		return false
+	}
+	tlvs, err := ParseVendorTLVs(vsa.Payload)
+	if err != nil {
+		return true
+	}
+	for _, t := range tlvs {
+		switch t.Type {
+		case VendorTypeMSCHAPResponse, VendorTypeMSCHAPError, VendorTypeMSCHAPChallenge,
+			VendorTypeMSCHAP2Response, VendorTypeMSCHAP2Success:
+			return true
+		}
+	}
+	return false
 }

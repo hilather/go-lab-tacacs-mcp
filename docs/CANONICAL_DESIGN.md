@@ -88,7 +88,7 @@ These limits are product contract, not temporary stubs. Operator text lives in [
 | Access-Challenge | `R65-ACCESS-004` is `DEFERRED_MAY`. In-memory State store exists; **no Access-Challenge on the live listener**. Program ADR [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). |
 | EAP | Validate/reject EAP-Message + Message-Authenticator only. No method termination or pass-through until `RAD-EXT-002`. Identity+MD5 only; tunneled EAP stays deferred ([ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md)). |
 | CoA / Disconnect | RFC 5176 not shipped. Program ADR [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md): DAC uses the client's UDP RADIUS secret; inbound DAS is an echo fixture only. |
-| RADIUS MS-CHAP | Not shipped. Existing TACACS MS-CHAP is not RADIUS VSA evidence ([ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md)). |
+| RADIUS MS-CHAP | Opt-in RFC 2548 vendor 311 VSAs (`mschapv1`/`mschapv2`). MD4-era; omitted method lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. Independent RADIUS vectors only ([ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md)). |
 | Named `Cisco-AVPair` | Not shipped. Independent `testclient` fixtures (not IOL) are the evidence path ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) supersedes ADR 0015 decision 4). Raw VSA framing is required today. |
 | Custom dictionaries | Built-in IETF MVP only (`builtin-mvp-1`) until `RAD-EXT-006` ([ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md)). |
 | Persistent accounting | **Cancelled for this program** ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Wire SUCCESS only after the in-process ring accepts the record. |
@@ -105,7 +105,7 @@ These limits are product contract, not temporary stubs. Operator text lives in [
 - Multi-replica or highly available runtime state.
 - Required external database. Optional SQLite accounting is post-1.0 and ADR-gated.
 - Acting as LDAP/SAML/OIDC/Kerberos IdP.
-- RADIUS EAP method termination, Access-Challenge as an advertised feature, CoA/Disconnect, RadSec/DTLS/RADIUS/1.1, proxying, MS-CHAP, custom dictionary files, named `Cisco-AVPair` decoding, persistent RADIUS accounting, or a second daemon/module rename.
+- RADIUS EAP method termination, Access-Challenge as an advertised feature, CoA/Disconnect, RadSec/DTLS/RADIUS/1.1, proxying, custom dictionary files, named `Cisco-AVPair` decoding, persistent RADIUS accounting, or a second daemon/module rename.
 - Rewriting the baseline YAML in place.
 - Implementing SENDPASS, SENDAUTH, or FOLLOW as supported features (explicit rejection is required).
 - Kubernetes as the primary deployment.

@@ -28,6 +28,7 @@ func TestCanaryMatrixObservabilitySurfaces(t *testing.T) {
 		LabelProtocol: ProtocolRADIUS, LabelTransport: TransportUDP, LabelRole: RoleAccess,
 		LabelPacketCode: CodeAccessRequest, LabelOutcome: OutcomeAccessReject,
 		"user_password": CanaryUserPassword,
+		"mschap":        CanaryMSCHAP,
 	}, 1)
 	rec.ProtocolDiscard(ProtocolRADIUS, TransportUDP, RoleAccess, "discard_unknown_client")
 
@@ -48,6 +49,7 @@ func TestCanaryMatrixObservabilitySurfaces(t *testing.T) {
 		Attr{Key: "token", Value: CanaryToken},
 		Attr{Key: "packet_body", Value: CanaryLegacyShared},
 		Attr{Key: "user_password", Value: CanaryUserPassword},
+		Attr{Key: "mschap", Value: CanaryMSCHAP},
 		Attr{Key: "radius_secret", Value: CanaryRADIUSShared},
 		Attr{Key: "transport", Value: TransportLegacy},
 	)

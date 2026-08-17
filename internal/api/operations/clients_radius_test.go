@@ -175,6 +175,67 @@ func TestClientFlattenPatchResynthesizesEndpoints(t *testing.T) {
 	}
 }
 
+func TestClientEndpointsRADIUSOmitsMethodsDefaultsPAPCHAP(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	created, err := reg.Invoke(context.Background(), IDClientsCreate, m.Snapshot(), Input{
+		Actor: writer,
+		Request: CreateClientRequest{
+			ID: "rad-ep",
+			Match: &ClientMatchView{
+				SourceCIDRs: []string{"10.9.0.0/16"},
+			},
+			Endpoints: &[]ClientEndpointWrite{{
+				ID:        "radius-udp",
+				Protocol:  "radius",
+				Transport: "udp",
+				Roles:     []string{"access"},
+				RADIUS: &ClientRADIUSWrite{
+					SharedSecret: OptionalSecret{Present: true, File: "/run/secrets/rad-radius"},
+				},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := created.Data.(Client)
+	if len(c.Endpoints) != 1 || c.Endpoints[0].RADIUS == nil {
+		t.Fatalf("endpoints=%+v", c.Endpoints)
+	}
+	got := c.Endpoints[0].RADIUS.AllowedMethods
+	if len(got) != 2 || got[0] != config.RADIUSAuthMethodPAP || got[1] != config.RADIUSAuthMethodCHAP {
+		t.Fatalf("omitted endpoints[] methods must be pap+chap: %v", got)
+	}
+	snap := m.Snapshot()
+	compiled, ok := snap.Client("rad-ep")
+	if !ok {
+		t.Fatal("missing compiled client")
+	}
+	assertAccessMethodsNonEmpty(t, compiled.Client)
+}
+
+func assertAccessMethodsNonEmpty(t *testing.T, c config.Client) {
+	t.Helper()
+	for _, ep := range c.Endpoints {
+		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
+			continue
+		}
+		hasAccess := false
+		for _, r := range ep.Roles {
+			if r == domain.RoleAccess {
+				hasAccess = true
+				break
+			}
+		}
+		if hasAccess && len(ep.RADIUS.AllowedAuthenticationMethods) == 0 {
+			t.Fatalf("access endpoint %s has empty allowed_authentication_methods", ep.ID)
+		}
+	}
+}
+
 func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
 	t.Parallel()
 	m := mustMgr(t, smallYAML)
@@ -189,7 +250,7 @@ func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
 			},
 			RADIUS: &ClientRADIUSWrite{
 				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
-				AllowedMethods: []string{"mschapv2"},
+				AllowedMethods: []string{"eap"},
 			},
 		},
 	})

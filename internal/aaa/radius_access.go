@@ -127,12 +127,23 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 	switch outcome {
 	case domain.AuthPass:
 		if userMustChangeLogin(snap, user) {
+			wipeMSCHAPEvidence(&in.Evidence)
 			return rejectAccess(user, AccessReasonPasswordChangeRequired), nil
 		}
-		return evaluateAccess(snap, user, clientID, in.Context.EndpointID, method, reqAttrs), nil
+		dec := evaluateAccess(snap, user, clientID, in.Context.EndpointID, method, reqAttrs)
+		if dec.Outcome == RadiusAccessAccept && method == domain.AuthMethodMSCHAPv2 {
+			if err := appendMSCHAP2Success(s, ctx, snap, clientID, user, &in.Evidence, &dec); err != nil {
+				wipeMSCHAPEvidence(&in.Evidence)
+				return rejectAccess(user, AccessReasonInternal), nil
+			}
+		}
+		wipeMSCHAPEvidence(&in.Evidence)
+		return dec, nil
 	case domain.AuthReject:
+		wipeMSCHAPEvidence(&in.Evidence)
 		return rejectAccess(user, AccessReasonBadCredentials), nil
 	default:
+		wipeMSCHAPEvidence(&in.Evidence)
 		return rejectAccess(user, AccessReasonInternal), nil
 	}
 }

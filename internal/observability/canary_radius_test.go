@@ -2,6 +2,7 @@ package observability_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
 	mcpapi "github.com/hilather/go-lab-tacacs-mcp/internal/api/mcp"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
@@ -35,6 +37,7 @@ func TestRADIUSCanaryMatrix(t *testing.T) {
 	legacyPath := write("legacy", observability.CanaryLegacyShared)
 	radiusPath := write("radius", observability.CanaryRADIUSShared)
 	loginPath := write("login", observability.CanaryLogin)
+	chalPath := write("challenge", observability.CanaryMSCHAP)
 	tokPath := write("bootstrap", "lab-bootstrap-token-value-32b!!")
 
 	yamlSrc := fmt.Sprintf(`
@@ -75,17 +78,18 @@ clients:
           shared_secret: {file: %s}
           require_message_authenticator: true
           limit_proxy_state: true
-          allowed_authentication_methods: [pap, chap]
+          allowed_authentication_methods: [pap, chap, mschapv1, mschapv2]
 users:
   - id: alice
     credentials:
       login: {verifier: {file: %s}}
+      challenge: {secret: {file: %s}}
 api:
   bootstrap_tokens:
     - id: lab
       token: {file: %s}
       scopes: [state:read, state:write, tokens:manage, config:export, events:read, events:sensitive, policy:test]
-`, legacyPath, radiusPath, loginPath, tokPath)
+`, legacyPath, radiusPath, loginPath, chalPath, tokPath)
 
 	doc, err := config.Parse([]byte(yamlSrc))
 	if err != nil {
@@ -114,6 +118,10 @@ api:
 	if err != nil {
 		t.Fatal(err)
 	}
+	aaaSvc, err := aaa.New(aaa.Options{Manager: mgr, Secrets: lookup, Events: ring, Creds: credentials.Options{}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	ops, err := operations.NewFromRepo(".", operations.Deps{
 		Build:    operations.BuildMeta{Version: "test", Commit: "abc", BuildTime: "2026-08-14T00:00:00Z"},
 		State:    mgr,
@@ -122,6 +130,7 @@ api:
 		Events:   ring,
 		Secrets:  lookup,
 		Creds:    creds,
+		AAA:      aaaSvc,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -155,6 +164,18 @@ api:
 	evs := do(t, http.MethodGet, ts.URL+"/api/v1/events", value, nil)
 	status := do(t, http.MethodGet, ts.URL+"/api/v1/status", value, nil)
 	users := do(t, http.MethodGet, ts.URL+"/api/v1/users", value, nil)
+	authChal := []byte{0x5b, 0x5d, 0x7c, 0x7d, 0x7b, 0x3f, 0x2f, 0x3e, 0x3c, 0x2c, 0x60, 0x21, 0x32, 0x26, 0x26, 0x28}
+	peer := []byte{0x21, 0x40, 0x23, 0x24, 0x25, 0x5e, 0x26, 0x2a, 0x28, 0x29, 0x5f, 0x2b, 0x3a, 0x33, 0x7c, 0x7e}
+	msResp := credentials.MSCHAPv2Response([]byte(observability.CanaryMSCHAP), []byte("alice"), authChal, peer)
+	msBody, _ := json.Marshal(map[string]any{
+		"user_id": "alice", "client_id": "sw",
+		"method": map[string]any{
+			"type": "mschapv2", "id": 17,
+			"challenge": base64.StdEncoding.EncodeToString(authChal),
+			"response":  base64.StdEncoding.EncodeToString(msResp),
+		},
+	})
+	mschap := do(t, http.MethodPost, ts.URL+"/api/v1/radius/access:test", value, msBody)
 
 	mcpExport := mcpCall(t, ts.URL, value, "tools/call", map[string]any{
 		"name": "taclab.config.export", "arguments": map[string]any{},
@@ -202,7 +223,7 @@ api:
 				lg.Error("recovered", "err", "panic")
 			}
 		}()
-		panic(observability.CanaryUserPassword + observability.CanaryRADIUSShared)
+		panic(observability.CanaryUserPassword + observability.CanaryRADIUSShared + observability.CanaryMSCHAP)
 	}()
 
 	surfaces := []struct {
@@ -210,6 +231,7 @@ api:
 		blob string
 	}{
 		{"rest-authn-pap", string(authn)},
+		{"rest-radius-mschap", string(mschap)},
 		{"rest-clients", string(clients)},
 		{"rest-export", string(exported)},
 		{"rest-events", string(evs)},

@@ -151,3 +151,23 @@ rows:
       - unit:internal/aaa.TestAuthenticateAccessMustChangeRejectsWithoutPolicy
       - unit:internal/radius/server.TestReasonTableStable
       - docs:docs/designs/radius-authentication.md
+  - id: PRJ-MSCHAP-001
+    section: access-request
+    section_title: Access-Request
+    level: PROJECT MUST
+    requirement: RADIUS MS-CHAPv1/v2 via RFC 2548 vendor 311 VSAs with independent RADIUS wire vectors; must_change is Access-Reject with no MS-CHAP-Error
+    evidence_required: Independent testdata/protocol/radius/mschap vectors; testclient encode/decode; live UDP acceptance; REST/MCP method union
+    status: PASS
+    evidence:
+      - unit:internal/radius/attribute.TestParseVendorTLVsRoundTripAndUnknown
+      - unit:internal/radius/attribute.TestNamedMicrosoftVSAs
+      - unit:internal/credentials.TestGenerateMSCHAPv2SuccessRFC2759
+      - unit:internal/radius/server.TestAccessExtractMSCHAPv1Maps50To49
+      - unit:internal/radius/server.TestAccessMSCHAPConflictMatrix
+      - unit:internal/aaa.TestAuthenticateAccessMSCHAPPermitAndMustChange
+      - unit:internal/radius/testclient.TestIndependentMSCHAPVSAsRoundTrip
+      - unit:internal/radius/udp.TestIndependentTestclientMSCHAPOnUDP
+      - unit:internal/api/operations.TestRadiusAccessTestMSCHAPAndPolicyEvaluate
+      - adr:docs/decisions/0023-radius-mschap-vsas.md
+      - golden:testdata/protocol/radius/mschap/rfc2433-v1-radius.json
+      - golden:testdata/protocol/radius/mschap/rfc2759-v2-radius.json

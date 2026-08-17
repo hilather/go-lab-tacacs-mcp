@@ -59,6 +59,11 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		{"Message-Authenticator", TypeMessageAuthenticator, KindString, CardinalitySingle, SensitivitySecret},
 		{"Acct-Interim-Interval", TypeAcctInterimInterval, KindInteger, CardinalitySingle, SensitivityPublic},
 		{"NAS-IPv6-Address", TypeNASIPv6Address, KindIPv6, CardinalitySingle, SensitivityRestricted},
+		{"MS-CHAP-Response", VendorTypeMSCHAPResponse, KindString, CardinalitySingle, SensitivitySecret},
+		{"MS-CHAP-Error", VendorTypeMSCHAPError, KindText, CardinalitySingle, SensitivitySecret},
+		{"MS-CHAP-Challenge", VendorTypeMSCHAPChallenge, KindString, CardinalitySingle, SensitivitySecret},
+		{"MS-CHAP2-Response", VendorTypeMSCHAP2Response, KindString, CardinalitySingle, SensitivitySecret},
+		{"MS-CHAP2-Success", VendorTypeMSCHAP2Success, KindString, CardinalitySingle, SensitivitySecret},
 	}
 	all := d.All()
 	if len(all) != len(want) {
@@ -70,9 +75,13 @@ func TestBuiltinMVPComplete(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing name %s", w.name)
 		}
-		byCode, ok := d.LookupIETF(w.code)
-		if !ok || byCode.Name != w.name {
-			t.Fatalf("lookup code %d: %+v ok=%v", w.code, byCode, ok)
+		if def.Vendor == 0 {
+			byCode, ok := d.LookupIETF(w.code)
+			if !ok || byCode.Name != w.name {
+				t.Fatalf("lookup code %d: %+v ok=%v", w.code, byCode, ok)
+			}
+		} else if def.Vendor != VendorMicrosoft {
+			t.Fatalf("%s vendor=%d", w.name, def.Vendor)
 		}
 		if def.Kind != w.kind || def.Cardinality != w.card || def.Sensitivity != w.sens || def.Code != w.code {
 			t.Fatalf("%s: kind=%s card=%s sens=%s code=%d", w.name, def.Kind, def.Cardinality, def.Sensitivity, def.Code)
@@ -87,6 +96,27 @@ func TestBuiltinMVPComplete(t *testing.T) {
 	}
 	if len(seen) != len(want) {
 		t.Fatal("duplicate names in expected table")
+	}
+}
+
+func TestNamedMicrosoftVSAs(t *testing.T) {
+	t.Parallel()
+	d := Builtin()
+	for _, name := range []string{"MS-CHAP-Challenge", "MS-CHAP-Response", "MS-CHAP2-Response", "MS-CHAP2-Success", "MS-CHAP-Error"} {
+		def, ok := d.LookupName(name)
+		if !ok || def.Vendor != VendorMicrosoft || def.Sensitivity != SensitivitySecret {
+			t.Fatalf("%s: %+v ok=%v", name, def, ok)
+		}
+		if _, ok := d.LookupKey(Key{Vendor: VendorMicrosoft, Code: uint32(def.Code), Space: SpaceVSA}); !ok {
+			t.Fatalf("lookup key %s", name)
+		}
+	}
+	if _, ok := d.LookupIETF(VendorTypeMSCHAPResponse); !ok {
+		t.Fatal("IETF type 1 remains User-Name")
+	}
+	user, _ := d.LookupIETF(1)
+	if user.Name != "User-Name" {
+		t.Fatalf("IETF 1=%s", user.Name)
 	}
 }
 

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -42,6 +44,60 @@ func TestV2ParsesRADIUSEndpoints(t *testing.T) {
 	}
 	if rad.RADIUS.AccessPolicyID != "default-radius-access" {
 		t.Fatalf("policy=%q", rad.RADIUS.AccessPolicyID)
+	}
+}
+
+func TestRADIUSAuthMethodsDefaultAndOptIn(t *testing.T) {
+	t.Parallel()
+	got, err := ParseRADIUSAuthMethods(nil)
+	if err != nil || got != nil {
+		t.Fatalf("nil=%v err=%v", got, err)
+	}
+	got, err = ParseRADIUSAuthMethods([]string{})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("empty=%v err=%v", got, err)
+	}
+	got, err = ParseRADIUSAuthMethods([]string{"pap", "chap", "mschapv1", "mschapv2"})
+	if err != nil || len(got) != 4 {
+		t.Fatalf("opt-in=%v err=%v", got, err)
+	}
+	if _, err := ParseRADIUSAuthMethods([]string{"eap"}); err == nil {
+		t.Fatal("eap is not a RADIUS compile token in this PR")
+	}
+	sec := filepath.Join(t.TempDir(), "radius")
+	if err := os.WriteFile(sec, []byte("LabRadius-Secret-32-bytes-ok!!"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    access: {enabled: true, bind: 127.0.0.1:0}
+clients:
+  - id: rad
+    match: {source_cidrs: ["192.0.2.0/24"]}
+    endpoints:
+      - id: r
+        protocol: radius
+        transport: udp
+        roles: [access]
+        radius:
+          shared_secret: {file: ` + sec + `}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ep := radiusEndpoint(doc.Clients[0])
+	if ep == nil || ep.RADIUS == nil {
+		t.Fatal("missing endpoint")
+	}
+	if len(ep.RADIUS.AllowedAuthenticationMethods) != 2 ||
+		ep.RADIUS.AllowedAuthenticationMethods[0] != RADIUSAuthMethodPAP ||
+		ep.RADIUS.AllowedAuthenticationMethods[1] != RADIUSAuthMethodCHAP {
+		t.Fatalf("omitted methods must compile to pap+chap: %v", ep.RADIUS.AllowedAuthenticationMethods)
 	}
 }
 

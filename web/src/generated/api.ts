@@ -578,7 +578,7 @@ export interface RadiusAttributeValue {
 }
 
 export interface RadiusAuthMethod {
-  type: string;
+  type: "pap" | "chap" | "mschapv1" | "mschapv2";
   password?: string;
   id?: number;
   challenge?: string;
@@ -588,7 +588,7 @@ export interface RadiusAuthMethod {
 export interface RadiusPolicyEvaluateRequest {
   client_id?: string;
   user_id: string;
-  method?: string;
+  method?: "pap" | "chap" | "mschapv1" | "mschapv2";
   endpoint_id?: string;
   request_attributes?: RadiusAttributeValue[];
 }

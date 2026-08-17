@@ -33,7 +33,7 @@ func (s *Service) VerifyCredentials(ctx context.Context, userID string, clientID
 		return domain.AuthError, err
 	}
 	if !ev.Method.Valid() {
-		return domain.AuthError, domain.NewError(domain.CodeInvalidArgument, "authentication method must be password or chap")
+		return domain.AuthError, domain.NewError(domain.CodeInvalidArgument, "authentication method must be password, pap, chap, mschapv1, or mschapv2")
 	}
 	snap := s.snap()
 	if snap == nil {
@@ -56,6 +56,10 @@ func (s *Service) verifyAgainst(ctx context.Context, snap *state.Snapshot, userI
 		ev.Password.Wipe()
 	case domain.AuthMethodCHAP:
 		err = creds.VerifyCHAP(ctx, userID, ev.CHAPID, ev.Challenge, ev.Response)
+	case domain.AuthMethodMSCHAPv1:
+		err = creds.VerifyMSCHAPv1(ctx, userID, ev.CHAPID, ev.Challenge, ev.Response)
+	case domain.AuthMethodMSCHAPv2:
+		err = creds.VerifyMSCHAPv2(ctx, userID, ev.CHAPID, ev.Challenge, ev.Response)
 	default:
 		return domain.AuthError
 	}

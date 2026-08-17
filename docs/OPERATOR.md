@@ -35,7 +35,7 @@ RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than 
 | Deferred Access-Challenge | In-memory State store exists (UDP IP + TLS cert bind, TTL, consume-on-use, capacity fail-closed). **No Access-Challenge on the live listener** (`R65-ACCESS-004` `DEFERRED_MAY`). Program ADR [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). |
 | Deferred EAP | EAP-Message without a valid Message-Authenticator is discarded. There is no EAP method termination or pass-through. Program ADR [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). |
 | Deferred CoA / Disconnect | RFC 5176 is not shipped. Program ADR [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
-| Deferred RADIUS MS-CHAP | TACACS MS-CHAP is not RADIUS VSA evidence. Program ADR [0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
+| RADIUS MS-CHAP is opt-in / MD4-era | Add `mschapv1` / `mschapv2` to `allowed_authentication_methods`. Omitted lists stay `[pap, chap]`. Must-change is Access-Reject with no `MS-CHAP-Error`. [ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md). |
 | Deferred named `Cisco-AVPair` | Not shipped. Raw Vendor-Specific framing is preserved. Named decode evidence is independent `testclient` fixtures, **not** an IOL gate ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) supersedes [ADR 0015](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0015-radius-codec-attribute-and-dictionary-boundary.md) decision 4). An IOL skip is not PASS. |
 | Built-in dictionary only | No operator dictionary files. Unknown attributes stay raw. Program ADR [0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md). |
 | No user/group RADIUS rules | Client `access_policy_id`, optional `fallback_radius_policy_id`, then default deny. Program ADR [0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). |
@@ -101,7 +101,7 @@ To require challenge methods only, set the client (or intersection of global/lis
 
 Login verifiers (Argon2id) are never used to compute CHAP/MS-CHAP. CHPASS updates only the runtime login verifier.
 
-RADIUS PAP uses the same login verifier. RADIUS CHAP uses the same challenge secret. RADIUS MS-CHAP is **not** implemented.
+RADIUS PAP uses the same login verifier. RADIUS CHAP and opt-in MS-CHAP (`mschapv1` / `mschapv2` on the RADIUS endpoint `allowed_authentication_methods`) use the same challenge secret. Omitted or empty RADIUS method lists stay `[pap, chap]`. Must-change after a good RADIUS MS-CHAP verify is Access-Reject with no `MS-CHAP-Error`.
 
 ### 3.2 RADIUS/UDP lab profile
 
@@ -111,7 +111,7 @@ What ships when a v2 file enables the sockets:
 
 | Item | Behavior |
 |---|---|
-| Access | PAP and CHAP. Access-Accept or Access-Reject after integrity + known client. No Access-Challenge. |
+| Access | PAP, CHAP, and opt-in MS-CHAPv1/v2 (`mschapv1` / `mschapv2` on `allowed_authentication_methods`; omitted lists stay `[pap, chap]`). Access-Accept or Access-Reject after integrity + known client. No Access-Challenge. Must-change is Access-Reject with no `MS-CHAP-Error`. |
 | Message-Authenticator | Required on Access-Request by default. Always inserted first on Access-Accept, Access-Reject, and Accounting-Response. Accounting-Request MA is validate-if-present. |
 | Policy | Client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. |
 | Accounting | Start, Stop, Interim-Update, Accounting-On, Accounting-Off. SUCCESS on the wire only after the ring accepts the record. |

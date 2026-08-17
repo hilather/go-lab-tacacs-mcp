@@ -564,7 +564,7 @@ func clientEndpointFromWrite(raw ClientEndpointWrite, index int) (config.ClientE
 		if raw.TACACS != nil {
 			return config.ClientEndpoint{}, domain.NewError(domain.CodeInvalidArgument, "tacacs block is not valid on a radius endpoint").WithPath(path).WithDetail("index", index)
 		}
-		rad, err := radiusEndpointFromWrite(raw.RADIUS)
+		rad, err := radiusEndpointFromWrite(raw.RADIUS, roles)
 		if err != nil {
 			return config.ClientEndpoint{}, err
 		}
@@ -609,17 +609,20 @@ func tacacsEndpointFromWrite(v *ClientTACACSEndpointWrite) (*config.TACACSEndpoi
 	return tac, nil
 }
 
-func radiusEndpointFromWrite(v *ClientRADIUSWrite) (*config.RADIUSEndpoint, error) {
+func radiusEndpointFromWrite(v *ClientRADIUSWrite, roles []domain.ListenerRole) (*config.RADIUSEndpoint, error) {
 	if v == nil {
-		return &config.RADIUSEndpoint{
+		rad := &config.RADIUSEndpoint{
 			RequireMessageAuthenticator: true,
 			LimitProxyState:             true,
-		}, nil
+		}
+		rad.AllowedAuthenticationMethods = config.DefaultRADIUSAccessMethods(nil, roles)
+		return rad, nil
 	}
 	methods, err := config.ParseRADIUSAuthMethods(v.AllowedMethods)
 	if err != nil {
 		return nil, err
 	}
+	methods = config.DefaultRADIUSAccessMethods(methods, roles)
 	status, err := config.ParseRADIUSStatusTypes(v.AcceptStatusTypes)
 	if err != nil {
 		return nil, err

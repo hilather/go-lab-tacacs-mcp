@@ -73,7 +73,7 @@ radius_policies:
 		t.Fatalf("path=%q", de.Path)
 	}
 	msg := strings.ToLower(de.Message)
-	for _, tok := range []string{"password", "pap", "chap"} {
+	for _, tok := range []string{"password", "pap", "chap", "mschapv1", "mschapv2", "eap"} {
 		if !strings.Contains(msg, tok) {
 			t.Fatalf("message must name %q: %q", tok, de.Message)
 		}

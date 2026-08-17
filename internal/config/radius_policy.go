@@ -68,7 +68,7 @@ func normalizeRADIUSMatch(raw rawRADIUSMatch, path string) (RADIUSMatch, error) 
 	if strings.TrimSpace(raw.Method) != "" {
 		m, err := domain.ParseAuthMethod(raw.Method)
 		if err != nil {
-			return RADIUSMatch{}, yamlErrorAt(path+".method", "authentication method must be password, pap, or chap")
+			return RADIUSMatch{}, yamlErrorAt(path+".method", "authentication method must be password, pap, chap, mschapv1, mschapv2, or eap")
 		}
 		method = &m
 	}
@@ -271,7 +271,7 @@ func validateRADIUSRules(p RADIUSPolicy, groups map[string]struct{}, _ *Document
 			return domain.NewError(domain.CodeInvalidArgument, "effect must be permit or deny").WithPath(base + ".effect")
 		}
 		if r.Match.Method != nil && !r.Match.Method.Valid() {
-			return domain.NewError(domain.CodeInvalidArgument, "authentication method must be password, pap, or chap").
+			return domain.NewError(domain.CodeInvalidArgument, "authentication method must be password, pap, chap, mschapv1, mschapv2, or eap").
 				WithPath(base + ".match.method")
 		}
 		for i, g := range r.Match.GroupsAny {

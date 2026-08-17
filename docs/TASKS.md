@@ -1649,7 +1649,8 @@ ADRs 0020–0029 are accepted. In-scope EXT rows through lab/CHANGELOG rollup (`
 - [ ] `RAD-EXT-008` RADIUS proxying / realm routing. **`DEFERRED_MAY`** ([ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). Not in this program. No `proxy` YAML key.
 - [x] `RAD-EXT-009` Persistent accounting. **Cancelled for this program** ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Memory ring/journal only. Restart / `runtime.reset` remain the restore path.
 - [x] `RAD-EXT-010` User- and group-attached RADIUS rules (v2 `radius_policy_id`). [ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). Walk: user → `effectiveGroups` → client → fallback → default deny. v1 rejects the keys.
-- [x] `RAD-EXT-011` Lab-test optional dynauth/RadSec SKIP when listeners stay default-off; compose overlays publish 3799/2083 only; remaining-work benches recorded (no invented RadSec numbers); CHANGELOG `[Unreleased]` rollup. Combined and RADIUS-only labs still pass. Do not tag. `conformance_status` stays `partial`.
+- [x] `RAD-EXT-011` Lab-test optional dynauth/RadSec SKIP when listeners stay default-off; compose overlays publish 3799/2083 only; remaining-work benches recorded (no invented RadSec numbers); CHANGELOG `## [1.3.0]` rollup. Combined and RADIUS-only labs still pass. `conformance_status` stays `partial`.
+- [x] `RAD-REL-008` Tag/release `v1.3.0` after CHANGELOG `## [1.3.0]` and green `ci` + `release` workflows. GitHub Release plus `ghcr.io/hilather/go-lab-tacacs-mcp:v1.3.0` / `:v1.3.0-ubuntu` / `:v1.3.0-rocky`. This is **not** complete RADIUS.
 
 ### 22.5 PEAP start (`RAD-PEAP-*`)
 

@@ -65,8 +65,8 @@ func TestCheckedInRegistriesValid(t *testing.T) {
 	if got := len(rep.RFC5080.Rows); got != 1 {
 		t.Fatalf("RFC 5080 rows: got %d, want 1", got)
 	}
-	if got := len(rep.ProjectRADIUS.Rows); got != 23 {
-		t.Fatalf("project-radius rows: got %d, want 23", got)
+	if got := len(rep.ProjectRADIUS.Rows); got != 25 {
+		t.Fatalf("project-radius rows: got %d, want 25", got)
 	}
 }
 
@@ -86,8 +86,8 @@ func TestConformanceIDsUniqueAndRequired(t *testing.T) {
 		t.Fatalf("TACACS contract IDs: got %d, want 222", len(tacacsIDs))
 	}
 	radiusIDs := ExtractConformanceIDs(radiusDoc)
-	if len(radiusIDs) != 44 {
-		t.Fatalf("RADIUS contract IDs: got %d, want 44", len(radiusIDs))
+	if len(radiusIDs) != 46 {
+		t.Fatalf("RADIUS contract IDs: got %d, want 46", len(radiusIDs))
 	}
 	want := append(append([]string{}, tacacsIDs...), radiusIDs...)
 	rep, err := ValidateRoot(root)

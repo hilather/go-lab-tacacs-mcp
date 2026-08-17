@@ -202,7 +202,7 @@ Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=confi
 
 ### 6.1 RADIUS access policy
 
-Evaluation order is user `radius_policy_id`, then each group in `effectiveGroups` (same order as TACACS: user `group_ids`, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. Schema v2 only; v1 files reject `radius_policy_id`. REST/MCP omit keeps the current id; JSON `null` clears it. The Users and Groups editors expose a `radius_policy_id` select (generated types). Unknown ids fail the mutation.
+Evaluation order is user `radius_policy_id`, then each group in `effectiveGroups` (same order as TACACS: user `group_ids`, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. Schema v2 only; v1 files reject `radius_policy_id`. REST/MCP omit keeps the current id; JSON `null` clears it. The Users and Groups editors expose a typed `radius_policy_id` field (generated types). Unknown ids fail the mutation. Unknown ids fail the mutation.
 
 Disabled users fail credentials before policy on Access-Request. `radius.policy.evaluate` still skips that user's policy and group_ids but walks client `default_group_ids`.
 

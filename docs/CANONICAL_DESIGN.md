@@ -16,8 +16,8 @@
 | Source packet | `/home/mbrewer/Downloads/tacacs-mcp` |
 | Specification baseline | RFC 8907, RFC 9887, MCP 2026-07-28; RADIUS MVP RFCs 2865/2866/2869/3579 (MA only)/5080 |
 | Target release | 1.0 lab appliance (TACACS complete). RADIUS/UDP is a controlled-network lab profile — **not advertised as complete RADIUS**. |
-| RADIUS design | [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) |
-| RADIUS ADRs | [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) |
+| RADIUS design | [docs/designs/radius-authentication.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-authentication.md) (MVP). Remaining work: [docs/designs/radius-remaining-work.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-remaining-work.md) |
+| RADIUS ADRs | [0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) (shipped MVP). Remaining-work program: [0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)–[0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md) (accepted; implementation later). Must-change: [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md) |
 | Source pin for RADIUS adoption | `3322c26bd78969498e6fa0cd6e4b30902d5c8a94` |
 
 This document is the **single implementation contract** for engineers and implementation subagents. It synthesizes the existing TacLab source packet. It does not invent a contradictory greenfield architecture. Where source documents conflict or underspecify, this document records the finding and states the binding resolution.
@@ -79,22 +79,23 @@ Pain points this design removes for implementers:
 
 ### Residual limits (RADIUS lab profile)
 
-These limits are product contract, not temporary stubs. Operator text lives in [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1.
+These limits are product contract, not temporary stubs. Operator text lives in [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) §1.1. Remaining-work names and sequencing live in [docs/designs/radius-remaining-work.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/designs/radius-remaining-work.md); ADRs [0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)–[0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md) are accepted. **Those features are not shipped until their implementation PRs attach evidence.**
 
 | Residual | Binding |
 |---|---|
-| Lab appliance | Single replica. Overlay, RADIUS cache, accounting journal, and event ring are process memory. Restart or `runtime.reset` restores the YAML baseline. |
-| UDP controlled-network only | RADIUS/UDP is MD5-era, spoofable, and mostly cleartext ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)). Keep 1812/1813 off the public internet. RadSec/DTLS/RADIUS/TCP/1.1 require a later ADR. |
-| Access-Challenge | `R65-ACCESS-004` is `DEFERRED_MAY`. Types may exist; no provider ships. |
-| EAP | Validate/reject EAP-Message + Message-Authenticator only. No method termination or pass-through. |
-| CoA / Disconnect | RFC 5176 out of this profile. |
-| RADIUS MS-CHAP | Deferred. Existing TACACS MS-CHAP is not RADIUS VSA evidence. |
-| Named `Cisco-AVPair` | Deferred until independent Cisco IOL vectors. Raw VSA framing is required. |
-| Custom dictionaries | Built-in IETF MVP only (`builtin-mvp-1`). |
-| Persistent accounting | Deferred. Wire SUCCESS only after the in-process ring accepts the record. |
-| User/group RADIUS rules | Deferred. Client policy, optional fallback, default deny. |
+| Lab appliance | Single replica. Overlay, RADIUS cache, accounting journal, event ring, and (when they land) Challenge store / CoA session index are process memory. Restart or `runtime.reset` restores the YAML baseline ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). |
+| UDP controlled-network only | RADIUS/UDP is MD5-era, spoofable, and mostly cleartext ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md)). Keep 1812/1813 off the public internet. RadSec first slice is [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) (not shipped). DTLS/RADIUS/1.1 stay deferred. |
+| Access-Challenge | `R65-ACCESS-004` is `DEFERRED_MAY`. Types may exist; no provider ships. Program ADR [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md). |
+| EAP | Validate/reject EAP-Message + Message-Authenticator only. No method termination or pass-through until `RAD-EXT-002`. Identity+MD5 only; tunneled EAP stays deferred ([ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md)). |
+| CoA / Disconnect | RFC 5176 not shipped. Program ADR [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md): DAC uses the client's UDP RADIUS secret; inbound DAS is an echo fixture only. |
+| RADIUS MS-CHAP | Not shipped. Existing TACACS MS-CHAP is not RADIUS VSA evidence ([ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0023-radius-mschap-vsas.md)). |
+| Named `Cisco-AVPair` | Not shipped. Independent `testclient` fixtures (not IOL) are the evidence path ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) supersedes ADR 0015 decision 4). Raw VSA framing is required today. |
+| Custom dictionaries | Built-in IETF MVP only (`builtin-mvp-1`) until `RAD-EXT-006` ([ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0026-radius-operator-dictionaries.md)). |
+| Persistent accounting | **Cancelled for this program** ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). Wire SUCCESS only after the in-process ring accepts the record. |
+| User/group RADIUS rules | Not shipped. Client policy, optional fallback, default deny. Program ADR [0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). |
+| Proxying | **Out.** `DEFERRED_MAY` ([ADR 0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md)). |
 | External interop skip | `radclient` / IOL skip is not RADIUS PASS. |
-| Advertisement | `system.build.get` RADIUS `conformance_status` stays `partial`. Do not market “complete RADIUS.” |
+| Advertisement | `system.build.get` RADIUS `conformance_status` stays `partial` for this entire program. Do not market “complete RADIUS.” |
 | Export | `config.export` never emits v2 for a v1 source without `normalize=true`. |
 | Naming | Product/module/binary/image names unchanged ([ADR 0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)). |
 

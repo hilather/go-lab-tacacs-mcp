@@ -75,7 +75,7 @@ No change to TACACS listeners. RADIUS UDP defaults `enabled: false` until later 
 
 ## Migration
 
-Operators who need Access-Challenge, EAP termination, CoA, or RadSec wait for a later ADR. `R65-ACCESS-004` stays `DEFERRED_MAY` until that ADR and its tests land.
+Operators who need Access-Challenge, EAP termination, CoA, or RadSec wait for a later ADR. Program ADRs are now accepted: [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md) (Challenge), [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) (EAP Identity+MD5), [0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md) (CoA), [0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) (RadSec TLS 1.3 TCP 2083). Those features are **not shipped**. `R65-ACCESS-004` stays `DEFERRED_MAY` until independent `internal/radius/testclient` wire evidence lands in an implementation PR. Do not flip the row from an ADR-only change. This ADR is **not** superseded.
 
 ## Test impact
 
@@ -90,6 +90,6 @@ This ADR is the disposition for `R65-ACCESS-004` and the UDP security posture. O
 
 ## Revisit conditions
 
-- Access-Challenge provider, bound state, and replay tests are complete.
-- A RadSec / RADIUS/1.1 ADR is accepted.
+- Access-Challenge provider, bound state, and replay tests are complete. Program ADR is [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md); `R65-ACCESS-004` stays `DEFERRED_MAY` until independent testclient wire evidence.
+- A RadSec / RADIUS/1.1 ADR is accepted. RadSec first-slice ADR is [0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md) (not shipped). DTLS / RADIUS/1.1 stay deferred.
 - BlastRADIUS or RADEXT guidance requires a stricter default.

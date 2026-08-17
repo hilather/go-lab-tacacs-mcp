@@ -31,6 +31,30 @@ func TestDynAuthRequestRoundTripMA(t *testing.T) {
 	}
 }
 
+func TestDynAuthRequestMALastRoundTrip(t *testing.T) {
+	t.Parallel()
+	secret := []byte("LabSecret-16chars!")
+	wire, err := EncodeDynAuthRequest(secret, DynAuthRequest{
+		Code:          codec.DisconnectRequest,
+		Identifier:    8,
+		AcctSessionID: "0001",
+		MALast:        true,
+	}, rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkt, err := DecodeDynAuthRequest(secret, wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pkt.Attrs[0].Type == codec.TypeMessageAuthenticator {
+		t.Fatal("MA should be last")
+	}
+	if pkt.Attrs[len(pkt.Attrs)-1].Type != codec.TypeMessageAuthenticator {
+		t.Fatal("expected MA last")
+	}
+}
+
 func TestDynAuthRequestRejectsBadMA(t *testing.T) {
 	t.Parallel()
 	secret := []byte("LabSecret-16chars!")

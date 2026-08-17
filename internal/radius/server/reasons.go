@@ -31,4 +31,7 @@ const (
 	ReasonEAPTooLong             = "reject_eap_too_long"
 	ReasonInternal               = "internal_error"
 	ReasonOK                     = "ok"
+	ReasonSessionNotFound        = "session_context_not_found"
+	ReasonUnsupportedAttribute   = "unsupported_attribute"
+	ReasonMultipleSessions       = "multiple_session_selection"
 )

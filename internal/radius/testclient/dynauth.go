@@ -14,6 +14,8 @@ type DynAuthRequest struct {
 	UserName      string
 	AcctSessionID string
 	Extra         []codec.Attr
+	// MALast puts Message-Authenticator last (RFC 5176 tools often do).
+	MALast bool
 }
 
 // DynAuthReply is an independent ACK/NAK after MA and Response Authenticator checks.
@@ -39,8 +41,11 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 			return nil, err
 		}
 	}
+	ma := codec.Attr{Type: codec.TypeMessageAuthenticator, Value: make([]byte, 16)}
 	attrs := make([]codec.Attr, 0, 4+len(req.Extra))
-	attrs = append(attrs, codec.Attr{Type: codec.TypeMessageAuthenticator, Value: make([]byte, 16)})
+	if !req.MALast {
+		attrs = append(attrs, ma)
+	}
 	if req.UserName != "" {
 		attrs = append(attrs, codec.Attr{Type: codec.TypeUserName, Value: []byte(req.UserName)})
 	}
@@ -48,6 +53,9 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 		attrs = append(attrs, codec.Attr{Type: codec.TypeAcctSessionID, Value: []byte(req.AcctSessionID)})
 	}
 	attrs = append(attrs, codec.CloneAttrs(req.Extra)...)
+	if req.MALast {
+		attrs = append(attrs, ma)
+	}
 	pkt, err := codec.Encode(codec.Packet{
 		Code:          req.Code,
 		Identifier:    req.Identifier,
@@ -61,7 +69,9 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 	if err != nil {
 		return nil, err
 	}
-	copy(pkt[codec.HeaderLen+2:codec.HeaderLen+18], mac[:])
+	if err := codec.PutMessageAuthenticator(pkt, mac); err != nil {
+		return nil, err
+	}
 	return pkt, nil
 }
 
@@ -108,6 +118,32 @@ func EncodeDynAuthReply(secret []byte, code codec.Code, id uint8, reqAuth [16]by
 	}
 	copy(pkt[4:20], ra[:])
 	return pkt, nil
+}
+
+// DecodeDynAuthReply validates MA and Response Authenticator on ACK/NAK.
+func DecodeDynAuthReply(secret []byte, reqAuth [16]byte, wire []byte) (DynAuthReply, error) {
+	pkt, err := codec.Decode(wire)
+	if err != nil {
+		return DynAuthReply{}, err
+	}
+	if pkt.Code != codec.CoAACK && pkt.Code != codec.CoANAK && pkt.Code != codec.DisconnectACK && pkt.Code != codec.DisconnectNAK {
+		return DynAuthReply{}, ErrUnexpectedCode
+	}
+	if err := validateResponseIntegrity(secret, reqAuth, wire); err != nil {
+		return DynAuthReply{}, err
+	}
+	out := DynAuthReply{
+		Code:          pkt.Code,
+		Identifier:    pkt.Identifier,
+		Authenticator: pkt.Authenticator,
+		Attrs:         pkt.Attrs,
+	}
+	for _, a := range pkt.Attrs {
+		if a.Type == codec.TypeErrorCause && len(a.Value) == 4 {
+			out.ErrorCause = uint32(a.Value[0])<<24 | uint32(a.Value[1])<<16 | uint32(a.Value[2])<<8 | uint32(a.Value[3])
+		}
+	}
+	return out, nil
 }
 
 func attrsWithMAC(in []codec.Attr, mac [16]byte) []codec.Attr {

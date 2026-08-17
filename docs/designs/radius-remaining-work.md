@@ -76,8 +76,8 @@ What already exists and must be reused, not forked:
 | AAA access | `internal/aaa/radius_access.go` | `RadiusAccessOutcome` is accept/reject/challenge/error. Challenge is issued by the EAP adapter, not PAP/CHAP. |
 | VerifyCredentials | `internal/aaa/authn.go` | Password, CHAP, RADIUS MS-CHAPv1/v2 (RFC 2548 VSAs; opt-in), and EAP-MD5 (CHAP-equivalent). |
 | Policy engine | `internal/policy/radius/evaluate.go` | User `radius_policy_id`, then `effectiveGroups`, then client `access_policy_id`, then `fallback_radius_policy_id`, then default deny. |
-| Config v2 | `internal/config/raw_v2.go`, `types.go` | Named listeners. At most one RADIUS UDP endpoint and one RADIUS TLS endpoint per client. v2 `users[]` / `groups[]` accept `radius_policy_id`. |
-| Runtime IDs | `internal/runtime/listener.go` | `IDRADIUSAccess`, `IDRADIUSAccounting` only. |
+| Config v2 | `internal/config/raw_v2.go`, `types.go` | Named listeners including optional `dynamic_authorization` and `radsec`. At most one RADIUS UDP endpoint and one RADIUS TLS endpoint per client. v2 `users[]` / `groups[]` accept `radius_policy_id`. |
+| Runtime IDs | `internal/runtime/listener.go` | `IDRADIUSAccess`, `IDRADIUSAccounting`, `IDRADIUSRadSec`, `IDRADIUSDynAuth` (optional inbound DAS). |
 | Domain taxonomy | `internal/domain/protocol.go` | `RoleDynamicAuthorization` and `CarrierRADIUSTLS` are reserved. |
 | Must-change | ADR 0019 + `PRJ-UL-001` | RADIUS is Access-Reject, no extra attrs, no Challenge. |
 | Build status | `internal/api/operations/build.go` | RADIUS `ConformanceStatusPartial` is hard-coded. Tests lock it (`handlers_test.go`). |

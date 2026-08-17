@@ -181,6 +181,7 @@ const (
 	ListenerRADIUSAccess     = "radius_access"
 	ListenerRADIUSAccounting = "radius_accounting"
 	ListenerRADIUSRadSec     = "radius_radsec"
+	ListenerRADIUSDynAuth    = "radius_dynauth"
 
 	TransportLegacy = "legacy"
 	TransportTLS    = "tls"
@@ -268,7 +269,7 @@ var SecretLifecycleStatuses = []string{StatusCurrent, StatusDueSoon, StatusOverd
 func knownListener(v string) bool {
 	switch v {
 	case ListenerLegacy, ListenerSecure, ListenerHTTP, ListenerMetrics,
-		ListenerRADIUSAccess, ListenerRADIUSAccounting, ListenerRADIUSRadSec:
+		ListenerRADIUSAccess, ListenerRADIUSAccounting, ListenerRADIUSRadSec, ListenerRADIUSDynAuth:
 		return true
 	default:
 		return false
@@ -319,7 +320,8 @@ func knownRole(v string) bool {
 func knownOutcome(v string) bool {
 	switch v {
 	case OutcomeAccessAccept, OutcomeAccessReject, OutcomeAccessChallenge, OutcomeOK,
-		OutcomeDiscard, OutcomeDrop, OutcomeError:
+		OutcomeDiscard, OutcomeDrop, OutcomeError,
+		OutcomeACK, OutcomeNAK, OutcomeTimeout:
 		return true
 	default:
 		return false
@@ -329,7 +331,18 @@ func knownOutcome(v string) bool {
 func knownPacketCode(v string) bool {
 	switch v {
 	case CodeAccessRequest, CodeAccessAccept, CodeAccessReject,
-		CodeAccountingRequest, CodeAccountingResponse, CodeAccessChallenge:
+		CodeAccountingRequest, CodeAccountingResponse, CodeAccessChallenge,
+		CodeCoARequest, CodeCoAACK, CodeCoANAK,
+		CodeDisconnectRequest, CodeDisconnectACK, CodeDisconnectNAK:
+		return true
+	default:
+		return false
+	}
+}
+
+func knownDirection(v string) bool {
+	switch v {
+	case DirectionIn, DirectionOut:
 		return true
 	default:
 		return false
@@ -407,7 +420,10 @@ func knownReasonCode(v string) bool {
 		"internal_error",
 		"ambiguous_identity",
 		"secret_unavailable",
-		"journal_saturated":
+		"journal_saturated",
+		"session_context_not_found",
+		"unsupported_attribute",
+		"multiple_session_selection":
 		return true
 	default:
 		return false

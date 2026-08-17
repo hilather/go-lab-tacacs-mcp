@@ -102,6 +102,46 @@ func TestCheckAccessIntegrityMAAndProxyState(t *testing.T) {
 	}
 }
 
+func TestCheckDynAuthIntegrityAlwaysRequiresMA(t *testing.T) {
+	t.Parallel()
+	var ra [16]byte
+	ra[0] = 0x33
+	missing := Request{
+		Role:                        domain.RoleDynamicAuthorization,
+		Packet:                      codec.Packet{Code: codec.CodeDisconnectRequest, Identifier: 1, Authenticator: ra},
+		Declared:                    mustEncode(t, codec.Packet{Code: codec.CodeDisconnectRequest, Identifier: 1, Authenticator: ra}),
+		Secret:                      testSecret,
+		RequireMessageAuthenticator: false,
+	}
+	if got := CheckIntegrity(missing); got != ReasonMissingMA {
+		t.Fatalf("missing MA: %s", got)
+	}
+
+	signed := signRequestMA(t, testSecret, codec.Packet{
+		Code:          codec.CodeCoARequest,
+		Identifier:    2,
+		Authenticator: ra,
+		Attributes:    attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}},
+	})
+	dec, err := codec.Decode(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok := Request{Role: domain.RoleDynamicAuthorization, Packet: dec, Declared: signed, Secret: testSecret}
+	if got := CheckIntegrity(ok); got != "" {
+		t.Fatalf("valid MA: %s", got)
+	}
+	signed[len(signed)-1] ^= 0xff
+	dec, err = codec.Decode(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := Request{Role: domain.RoleDynamicAuthorization, Packet: dec, Declared: signed, Secret: testSecret}
+	if got := CheckIntegrity(bad); got != ReasonInvalidMA {
+		t.Fatalf("invalid MA: %s", got)
+	}
+}
+
 func TestCheckAccountingIntegrityValidatesPresentMA(t *testing.T) {
 	t.Parallel()
 	pkt := codec.Packet{Code: codec.CodeAccountingRequest, Identifier: 1}

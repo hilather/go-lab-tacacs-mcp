@@ -77,9 +77,9 @@ func Listen(opts Options) (*Listener, error) {
 		return nil, errors.New("secret lookup is required")
 	}
 	switch opts.Role {
-	case domain.RoleAccess, domain.RoleAccounting:
+	case domain.RoleAccess, domain.RoleAccounting, domain.RoleDynamicAuthorization:
 	default:
-		return nil, errors.New("role must be access or accounting")
+		return nil, errors.New("role must be access, accounting, or dynamic_authorization")
 	}
 	opts.Settings = normalizeSettings(opts.Settings, opts.Role)
 	if opts.Bind == "" {
@@ -143,12 +143,19 @@ func normalizeSettings(s config.RADIUSListener, role domain.ListenerRole) config
 		s.MaxPacketBytes = codec.MaxPacketBytes
 	}
 	if s.QueueCapacity <= 0 {
-		s.QueueCapacity = 2048
+		if role == domain.RoleDynamicAuthorization {
+			s.QueueCapacity = 256
+		} else {
+			s.QueueCapacity = 2048
+		}
 	}
 	if s.Workers <= 0 {
-		if role == domain.RoleAccounting {
+		switch role {
+		case domain.RoleAccounting:
 			s.Workers = 16
-		} else {
+		case domain.RoleDynamicAuthorization:
+			s.Workers = 8
+		default:
 			s.Workers = 32
 		}
 	}
@@ -197,10 +204,14 @@ func normalizeSettings(s config.RADIUSListener, role domain.ListenerRole) config
 }
 
 func idForRole(role domain.ListenerRole) string {
-	if role == domain.RoleAccounting {
+	switch role {
+	case domain.RoleAccounting:
 		return runtime.IDRADIUSAccounting
+	case domain.RoleDynamicAuthorization:
+		return runtime.IDRADIUSDynAuth
+	default:
+		return runtime.IDRADIUSAccess
 	}
-	return runtime.IDRADIUSAccess
 }
 
 // Addr is the bound UDP address (port may be ephemeral).

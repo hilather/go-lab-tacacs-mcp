@@ -172,6 +172,22 @@ rows:
       - unit:internal/api/operations.TestRadiusDynAuthRejectsExpectedRevision
       - unit:internal/api/operations.TestRadiusSessionsListRedactsAcctSessionID
       - adr:docs/decisions/0024-radius-coa-disconnect.md
+  - id: PRJ-COA-002
+    section: dynamic-authorization
+    section_title: Dynamic authorization
+    level: PROJECT MUST
+    requirement: Optional inbound DAS UDP 3799 is an RFC 5176 echo fixture; index-only; never forwards to a NAS
+    evidence_required: Unknown client discard; missing/invalid MA discard with no cache mutation; session miss NAK 503; race on duplicate Identifier; radius:dynamic not required inbound
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestDynAuthUnknownClientDiscard
+      - unit:internal/radius/udp.TestDynAuthMissingAndInvalidMADiscardNoCacheMutation
+      - unit:internal/radius/udp.TestDynAuthSessionMissNAK503NeverForwards
+      - unit:internal/radius/udp.TestDynAuthDisconnectACKDeletesIndexOnly
+      - unit:internal/radius/udp.TestDynAuthDuplicateIdentifierRaceAndCacheHit
+      - unit:internal/radius/udp.TestDynAuthInboundDoesNotRequireRadiusDynamicScope
+      - unit:internal/radius/server.TestCheckDynAuthIntegrityAlwaysRequiresMA
+      - adr:docs/decisions/0024-radius-coa-disconnect.md
   - id: PRJ-UL-001
     section: access-request
     section_title: Access-Request

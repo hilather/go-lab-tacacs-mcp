@@ -42,7 +42,7 @@ const (
 	RoleAccess               ListenerRole = "access"
 	RoleAdmin                ListenerRole = "admin"
 	RoleAAA                  ListenerRole = "aaa"                   // TACACS combined auth+author+acct socket
-	RoleDynamicAuthorization ListenerRole = "dynamic_authorization" // reserved, not MVP
+	RoleDynamicAuthorization ListenerRole = "dynamic_authorization" // inbound DAS echo fixture
 )
 
 func (r ListenerRole) Valid() bool {

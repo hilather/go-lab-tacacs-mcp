@@ -13,6 +13,7 @@ const (
 	IDRADIUSAccess     = "radius_access"
 	IDRADIUSAccounting = "radius_accounting"
 	IDRADIUSRadSec     = "radius_radsec"
+	IDRADIUSDynAuth    = "radius_dynauth"
 )
 
 // Descriptor is static listener identity. Carrier is the wire binding;

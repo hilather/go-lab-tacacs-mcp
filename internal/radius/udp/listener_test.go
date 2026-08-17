@@ -353,8 +353,11 @@ func startRole(t *testing.T, doc *config.Document, role domain.ListenerRole, h s
 	}
 	settings := doc.Listeners.RADIUSAccess
 	bind := "127.0.0.1:0"
-	if role == domain.RoleAccounting {
+	switch role {
+	case domain.RoleAccounting:
 		settings = doc.Listeners.RADIUSAccounting
+	case domain.RoleDynamicAuthorization:
+		settings = doc.Listeners.RADIUSDynAuth
 	}
 	settings.Workers = 2
 	settings.QueueCapacity = 32

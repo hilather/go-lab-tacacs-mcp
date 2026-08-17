@@ -171,6 +171,23 @@ func TestReadyRequiresRequiredListener(t *testing.T) {
 	cancel()
 }
 
+func TestHasReadyAAAIgnoresDynAuth(t *testing.T) {
+	t.Parallel()
+	l := newStub("radius_dynauth", "127.0.0.1:3799", domain.CarrierRADIUSUDP)
+	l.role = domain.RoleDynamicAuthorization
+	reg, err := New(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.ready.Store(true)
+	if !l.Ready() {
+		t.Fatal("dynauth ready")
+	}
+	if reg.HasReadyAAA() {
+		t.Fatal("ready dynauth is not AAA")
+	}
+}
+
 func TestHasReadyAAAFalseWhenEmpty(t *testing.T) {
 	t.Parallel()
 	if (&Registry{}).HasReadyAAA() {
@@ -244,6 +261,7 @@ type stubListener struct {
 	id       string
 	bind     string
 	carrier  domain.Carrier
+	role     domain.ListenerRole
 	required bool
 	ready    atomic.Bool
 	closes   atomic.Int32
@@ -271,6 +289,9 @@ func (s *stubListener) Protocol() domain.Protocol {
 }
 func (s *stubListener) Carrier() domain.Carrier { return s.carrier }
 func (s *stubListener) Role() domain.ListenerRole {
+	if s.role != "" {
+		return s.role
+	}
 	if s.carrier == domain.CarrierRADIUSUDP {
 		return domain.RoleAccess
 	}

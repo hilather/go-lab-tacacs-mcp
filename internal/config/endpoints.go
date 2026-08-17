@@ -449,7 +449,7 @@ func roleLegalForProtocol(proto domain.Protocol, role domain.ListenerRole) bool 
 		}
 	case domain.ProtocolRADIUS:
 		switch role {
-		case domain.RoleAccess, domain.RoleAccounting:
+		case domain.RoleAccess, domain.RoleAccounting, domain.RoleDynamicAuthorization:
 			return true
 		default:
 			return false

@@ -8,6 +8,9 @@ export const UDP_RADIUS_HINT =
 export const RADSEC_HINT =
   "Optional RADIUS/TLS (RadSec) is a TLS 1.3 stream on TCP 2083 (transport: tls). Configure it in YAML or endpoints[]; the flatten checkbox stays UDP-only. It is not a TLS wrap of UDP.";
 
+export const UDP_DYNAUTH_HINT =
+  "Inbound :3799 is for RFC 5176 test tools. It only updates TacLab’s memory index. To disconnect a device, use Disconnect send.";
+
 export function listenerState(listener: ListenerStatus): "ready" | "degraded" | "disabled" {
   if (!listener.enabled) {
     return "disabled";

@@ -392,6 +392,8 @@ func validLabelValue(name, key, value string) bool {
 		return knownOutcome(value)
 	case LabelPacketCode:
 		return knownPacketCode(value)
+	case LabelDirection:
+		return knownDirection(value)
 	case LabelResult:
 		return knownRetransmitResult(value) || knownChallengeResult(value)
 	case LabelType:

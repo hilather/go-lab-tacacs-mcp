@@ -140,6 +140,9 @@ func validateDocument(doc *Document, schema int) error {
 	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccounting, domain.CarrierRADIUSUDP); err != nil {
 		return err
 	}
+	if _, err := CompileRADIUSIndex(doc.Clients, domain.RoleDynamicAuthorization, domain.CarrierRADIUSUDP); err != nil {
+		return err
+	}
 	if _, err := CompileRADIUSCertIndex(doc.Clients, domain.RoleAccess); err != nil {
 		return err
 	}
@@ -197,9 +200,11 @@ func validateListeners(doc *Document, paths listenerYAMLPaths) error {
 	if err := validateRADIUSRadSecListener(doc.Listeners.RADIUSRadSec, "listeners.radius.radsec"); err != nil {
 		return err
 	}
-	if doc.Listeners.RADIUSAccess.Enabled && doc.Listeners.RADIUSAccounting.Enabled &&
-		doc.Listeners.RADIUSAccess.Bind == doc.Listeners.RADIUSAccounting.Bind {
-		return domain.NewError(domain.CodeInvalidArgument, "RADIUS access and accounting listeners must use distinct binds").WithPath("listeners.radius")
+	if err := validateRADIUSDynAuth(doc.Listeners.RADIUSDynAuth, "listeners.radius.dynamic_authorization"); err != nil {
+		return err
+	}
+	if err := validateDistinctRADIUSBinds(doc.Listeners); err != nil {
+		return err
 	}
 	if legacy.Enabled && secure.Enabled && legacy.Bind == secure.Bind {
 		return domain.NewError(domain.CodeInvalidArgument, "legacy and secure TACACS listeners must use distinct binds").WithPath("listeners")
@@ -299,6 +304,39 @@ func validateSecureTLS(tls SecureTLS, tlsPath, noun string) error {
 				return domain.NewError(domain.CodeInvalidArgument, err.Error()).WithPath(indexPath(path+".server_names", j))
 			}
 		}
+	}
+	return nil
+}
+
+func validateDistinctRADIUSBinds(l Listeners) error {
+	type row struct {
+		enabled bool
+		bind    string
+		path    string
+	}
+	rows := []row{
+		{l.RADIUSAccess.Enabled, l.RADIUSAccess.Bind, "listeners.radius.access.bind"},
+		{l.RADIUSAccounting.Enabled, l.RADIUSAccounting.Bind, "listeners.radius.accounting.bind"},
+		{l.RADIUSDynAuth.Enabled, l.RADIUSDynAuth.Bind, "listeners.radius.dynamic_authorization.bind"},
+	}
+	for i := 0; i < len(rows); i++ {
+		for j := i + 1; j < len(rows); j++ {
+			if rows[i].enabled && rows[j].enabled && rows[i].bind == rows[j].bind {
+				return domain.NewError(domain.CodeInvalidArgument, "RADIUS listeners must use distinct binds").WithPath("listeners.radius")
+			}
+		}
+	}
+	return nil
+}
+
+func validateRADIUSDynAuth(l RADIUSListener, path string) error {
+	if err := validateRADIUSListener(l, path, false); err != nil {
+		return err
+	}
+	switch l.MessageAuthenticator {
+	case "", RADIUSMessageAuthenticatorRequired:
+	default:
+		return domain.NewError(domain.CodeInvalidArgument, "inbound DAS require_message_authenticator cannot be disabled").WithPath(path + ".require_message_authenticator")
 	}
 	return nil
 }

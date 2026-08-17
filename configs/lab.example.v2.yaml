@@ -119,6 +119,14 @@ listeners:
       bind: 0.0.0.0:1813
       transport: udp
       max_packet_bytes: 4096
+    # Optional RFC 5176 echo fixture. Index-only; does not kick a NAS.
+    # Enable and add dynamic_authorization to the client RADIUS endpoint roles.
+    dynamic_authorization:
+      enabled: false
+      required: false
+      bind: 0.0.0.0:3799
+      transport: udp
+      require_message_authenticator: true
   http:
     enabled: true
     bind: 0.0.0.0:8080

@@ -164,7 +164,8 @@ type SharedSecretPolicy struct {
 
 // Listeners is the named process sockets. RADIUS fields exist after v1
 // migration and on v2 documents; both default to enabled:false. When
-// enabled, cmd/taclabd registers the UDP sockets.
+// enabled, cmd/taclabd registers the UDP sockets. RADIUSDynAuth is the
+// optional inbound DAS echo fixture (UDP 3799, default off).
 type Listeners struct {
 	LegacyTACACS     TACACSListener
 	SecureTACACS     SecureTACACSListener
@@ -172,6 +173,7 @@ type Listeners struct {
 	RADIUSAccess     RADIUSListener
 	RADIUSAccounting RADIUSListener
 	RADIUSRadSec     RADIUSRadSecListener
+	RADIUSDynAuth    RADIUSListener
 }
 
 // RADIUSListener is a UDP access or accounting socket. Journal and

@@ -64,6 +64,50 @@ clients:
 	}
 }
 
+func TestRADIUSIndexDynamicAuthorizationRole(t *testing.T) {
+	t.Parallel()
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+clients:
+  - id: das
+    priority: 10
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: rad-udp
+        protocol: radius
+        transport: udp
+        roles: [access, dynamic_authorization]
+        radius:
+          shared_secret: {file: /run/secrets/a}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := CompileRADIUSIndex(doc.Clients, domain.RoleDynamicAuthorization, domain.CarrierRADIUSUDP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, epid, err := idx.Match(net.ParseIP("192.0.2.10"))
+	if err != nil || got != "das" || epid != "rad-udp" {
+		t.Fatalf("dynauth=%q ep=%q err=%v", got, epid, err)
+	}
+	if _, _, err := idx.Match(net.ParseIP("198.51.100.1")); err == nil {
+		t.Fatal("unknown source must miss")
+	}
+	acc, err := CompileRADIUSIndex(doc.Clients, domain.RoleAccess, domain.CarrierRADIUSUDP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := acc.Match(net.ParseIP("192.0.2.10")); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRADIUSIndexAmbiguousSameRole(t *testing.T) {
 	t.Parallel()
 	src := []byte(`

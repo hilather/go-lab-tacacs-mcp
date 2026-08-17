@@ -91,6 +91,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	accessOn := doc.Listeners.RADIUSAccess.Enabled
 	acctOn := doc.Listeners.RADIUSAccounting.Enabled
 	radsecOn := doc.Listeners.RADIUSRadSec.Enabled
+	dynOn := doc.Listeners.RADIUSDynAuth.Enabled
 	if !legacyOn && !secureOn && !accessOn && !acctOn && !radsecOn && !doc.Server.AdminOnly {
 		return fmt.Errorf("at least one AAA listener must be enabled")
 	}
@@ -262,6 +263,25 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 		built = append(built, radsecLn)
 	}
+	if dynOn {
+		dynLn, err := radiusudp.Listen(radiusudp.Options{
+			ID:       runtime.IDRADIUSDynAuth,
+			Role:     domain.RoleDynamicAuthorization,
+			Bind:     doc.Listeners.RADIUSDynAuth.Bind,
+			Required: doc.Listeners.RADIUSDynAuth.Required,
+			Settings: doc.Listeners.RADIUSDynAuth,
+			Snapshot: mgr.Snapshot,
+			Secrets:  lookup,
+			Handler:  radiusserver.DynamicAuth{Sessions: radiusSessionsOf(aaaSvc), Metrics: obs.Rec},
+			Logger:   logger,
+			Metrics:  obs.Rec,
+		})
+		if err != nil {
+			cleanup()
+			return err
+		}
+		built = append(built, dynLn)
+	}
 	listeners, err := runtime.New(built...)
 	if err != nil {
 		cleanup()
@@ -342,6 +362,9 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	}
 	if l := listeners.Get(runtime.IDRADIUSRadSec); l != nil {
 		fmt.Fprintf(stdout, "listening radius_radsec %s\n", l.Status().Bind)
+	}
+	if l := listeners.Get(runtime.IDRADIUSDynAuth); l != nil {
+		fmt.Fprintf(stdout, "listening radius_dynauth %s\n", l.Status().Bind)
 	}
 	fmt.Fprintln(stdout, "ready")
 
@@ -518,6 +541,13 @@ func reloadSnapshot(path string, mgr *state.Manager) error {
 	rev := mgr.Revision()
 	_, err = mgr.Reload(doc, &rev)
 	return err
+}
+
+func radiusSessionsOf(svc *aaa.Service) *radiusruntime.SessionIndex {
+	if svc == nil {
+		return nil
+	}
+	return svc.RADIUSSessions()
 }
 
 func newRADIUSSessionIndex(doc *config.Document, rec *observability.Recorder) (*radiusruntime.SessionIndex, error) {

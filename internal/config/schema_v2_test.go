@@ -133,6 +133,120 @@ listeners:
 	}
 }
 
+func TestV2DynAuthListenerDefaultsOffAndRejectsAllowMissing(t *testing.T) {
+	t.Parallel()
+	doc := mustParseFile(t, "testdata/parse/v2_radius_defaults.yaml")
+	if doc.Listeners.RADIUSDynAuth.Enabled || doc.Listeners.RADIUSDynAuth.Required {
+		t.Fatalf("dynauth must default off: %+v", doc.Listeners.RADIUSDynAuth)
+	}
+	if doc.Listeners.RADIUSDynAuth.Bind != "0.0.0.0:3799" {
+		t.Fatalf("bind=%q", doc.Listeners.RADIUSDynAuth.Bind)
+	}
+	if doc.Listeners.RADIUSDynAuth.Workers != 8 || doc.Listeners.RADIUSDynAuth.QueueCapacity != 256 {
+		t.Fatalf("workers=%d queue=%d", doc.Listeners.RADIUSDynAuth.Workers, doc.Listeners.RADIUSDynAuth.QueueCapacity)
+	}
+	if doc.Listeners.RADIUSDynAuth.MessageAuthenticator != RADIUSMessageAuthenticatorRequired {
+		t.Fatalf("MA=%q", doc.Listeners.RADIUSDynAuth.MessageAuthenticator)
+	}
+
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    dynamic_authorization:
+      enabled: true
+      bind: 0.0.0.0:3799
+      require_message_authenticator: false
+`)
+	_, err := Parse(src)
+	if err == nil || !strings.Contains(err.Error(), "require_message_authenticator") {
+		t.Fatalf("expected reject allow-missing, got %v", err)
+	}
+
+	ok := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    dynamic_authorization:
+      enabled: true
+      bind: 127.0.0.1:3799
+      workers: 8
+      queue_capacity: 256
+      retransmission_ttl: 15s
+`)
+	got, err := Parse(ok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Listeners.RADIUSDynAuth.Enabled || got.Listeners.RADIUSDynAuth.Bind != "127.0.0.1:3799" {
+		t.Fatalf("enabled dynauth=%+v", got.Listeners.RADIUSDynAuth)
+	}
+	if err := ValidateV2(got); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateV2RejectsAmbiguousDynAuthClients(t *testing.T) {
+	t.Parallel()
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+clients:
+  - id: zebra
+    priority: 10
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: r1
+        protocol: radius
+        transport: udp
+        roles: [dynamic_authorization]
+        radius:
+          shared_secret: {file: /run/secrets/a}
+  - id: alpha
+    priority: 10
+    match:
+      source_cidrs: ["192.0.2.0/24"]
+    endpoints:
+      - id: r2
+        protocol: radius
+        transport: udp
+        roles: [dynamic_authorization]
+        radius:
+          shared_secret: {file: /run/secrets/b}
+`)
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ValidateV2(doc)
+	if err == nil {
+		t.Fatal("expected CLIENT_MATCH_AMBIGUOUS")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeClientMatchAmbiguous {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestV1RejectsDynamicAuthorizationKey(t *testing.T) {
+	t.Parallel()
+	_, err := Parse([]byte("schema_version: 1\nlisteners:\n  dynamic_authorization: {enabled: true}\n"))
+	if err == nil {
+		t.Fatal("expected unknown field")
+	}
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeConfigUnknownField {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestV2AdminOnlyAndRADIUSSecretPolicy(t *testing.T) {
 	t.Parallel()
 	src := []byte(`
@@ -421,8 +535,9 @@ func assertRADIUSDisabledDefaults(t *testing.T, doc *Document) {
 	acc := doc.Listeners.RADIUSAccess
 	acct := doc.Listeners.RADIUSAccounting
 	rs := doc.Listeners.RADIUSRadSec
-	if acc.Enabled || acct.Enabled || rs.Enabled {
-		t.Fatalf("RADIUS listeners must default disabled: access=%v acct=%v radsec=%v", acc.Enabled, acct.Enabled, rs.Enabled)
+	dyn := doc.Listeners.RADIUSDynAuth
+	if acc.Enabled || acct.Enabled || rs.Enabled || dyn.Enabled {
+		t.Fatalf("RADIUS listeners must default disabled: access=%v acct=%v radsec=%v dyn=%v", acc.Enabled, acct.Enabled, rs.Enabled, dyn.Enabled)
 	}
 	if rs.Bind != "0.0.0.0:2083" || rs.Transport != EndpointTransportTLS {
 		t.Fatalf("radsec bind=%q transport=%q", rs.Bind, rs.Transport)
@@ -436,8 +551,8 @@ func assertRADIUSDisabledDefaults(t *testing.T, doc *Document) {
 	if acc.MaxPacketBytes == 4095 || acct.MaxPacketBytes == 4095 {
 		t.Fatal("max_packet_bytes must not be 4095")
 	}
-	if acc.Bind != "0.0.0.0:1812" || acct.Bind != "0.0.0.0:1813" {
-		t.Fatalf("binds access=%q acct=%q", acc.Bind, acct.Bind)
+	if acc.Bind != "0.0.0.0:1812" || acct.Bind != "0.0.0.0:1813" || dyn.Bind != "0.0.0.0:3799" {
+		t.Fatalf("binds access=%q acct=%q dyn=%q", acc.Bind, acct.Bind, dyn.Bind)
 	}
 	if acc.Transport != RADIUSTransportUDP || acct.Transport != RADIUSTransportUDP {
 		t.Fatalf("transport access=%q acct=%q", acc.Transport, acct.Transport)

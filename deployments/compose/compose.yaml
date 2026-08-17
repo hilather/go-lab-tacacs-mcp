@@ -1,5 +1,6 @@
 # Reference dual-listener lab. High container TACACS ports; host maps 49/300/8080
-# and RADIUS/UDP 1812/1813 (same numbers; unprivileged). Combined/RADIUS-only
+# and RADIUS/UDP 1812/1813 (same numbers; unprivileged). Host 3799 is
+# published for the optional inbound DAS echo fixture (default off). Combined/RADIUS-only
 # profiles use the v2 overlays. Do not advertise complete RADIUS.
 # Generate secrets/certs first: go run ./tools/labgen deployments/compose
 # TLS-only: docker compose -f deployments/compose/compose.yaml -f deployments/compose/compose.tls-only.yaml up -d
@@ -41,6 +42,9 @@ services:
       - target: 2083
         published: ${TACLAB_RADIUS_RADSEC_PORT:-2083}
         protocol: tcp
+      - target: 3799
+        published: ${TACLAB_RADIUS_DYNAUTH_PORT:-3799}
+        protocol: udp
     command:
       - serve
       - --config=/etc/taclab/taclab.yaml

@@ -14,9 +14,9 @@ This is the operator-facing 1.0 guide. Protocol and schema details stay in [CONF
 |---|---|---|
 | Legacy TACACS+ | 49 → 4949/tcp | RFC 8907, per-client shared secret, obfuscation |
 | Secure TACACS+ | 300 → 4300/tcp | RFC 9887 TLS 1.3 mTLS |
-| RADIUS access | 1812/udp | RFC 2865 PAP/CHAP Access-Accept/Reject. Off unless a v2 profile enables it. |
+| RADIUS access | 1812/udp | RFC 2865 PAP/CHAP plus opt-in EAP Identity/MD5 and MS-CHAPv1/v2. Access-Accept, Access-Reject, or Access-Challenge. Off unless a v2 profile enables it. |
 | RADIUS accounting | 1813/udp | RFC 2866 Start/Stop/Interim/On/Off into the memory ring. Off unless a v2 profile enables it. |
-| RADIUS/TLS (RadSec) | 2083/tcp | RFC 6614 TLS 1.3 mTLS stream of length-prefixed RADIUS packets. Off unless `listeners.radius.radsec.enabled` is true. PAP/CHAP only until EAP/MS-CHAP land. |
+| RADIUS/TLS (RadSec) | 2083/tcp | RFC 6614 TLS 1.3 mTLS stream of length-prefixed RADIUS packets. Off unless `listeners.radius.radsec.enabled` is true. Same opt-in methods as UDP (`eap` / `mschapv1` / `mschapv2`; omitted lists stay `[pap, chap]`). Not DTLS or RADIUS/1.1. |
 | RADIUS dynauth (DAS) | 3799/udp | Optional RFC 5176 echo fixture. **Default off.** Index-only; does not kick a NAS. |
 | HTTP admin | 8080/tcp | UI, `/api/v1`, `/mcp`, health |
 

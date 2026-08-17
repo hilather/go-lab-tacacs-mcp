@@ -166,9 +166,10 @@ describe("ClientsPage", () => {
     renderApp(<ClientsPage />, { route: "/clients" });
     expect(await screen.findByText("lab-radsec")).toBeInTheDocument();
     expect(screen.getByText("RadSec")).toBeInTheDocument();
-    expect(screen.getByText("CoA")).toBeInTheDocument();
+    expect(screen.getByText("DAS")).toBeInTheDocument();
     expect(screen.getByText("lab-coa")).toBeInTheDocument();
-    expect(screen.getByText(/does not kick a device/i)).toBeInTheDocument();
+    expect(screen.queryByText("CoA")).not.toBeInTheDocument();
+    expect(screen.queryByText(/does not kick a device/i)).not.toBeInTheDocument();
   });
 
   it("does not stamp a UDP badge on a TLS-only RADIUS client and save does not send flatten UDP", async () => {

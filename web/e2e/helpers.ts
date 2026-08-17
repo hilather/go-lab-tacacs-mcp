@@ -373,7 +373,30 @@ export async function mockAPI(
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ revision: 2, request_id: "e2e", data: { revision: 2, items: [] } }),
+        body: JSON.stringify({
+          revision: 2,
+          request_id: "e2e",
+          data: {
+            revision: 2,
+            items: [
+              {
+                id: "administrators",
+                display_name: "Admins",
+                enabled: true,
+                priority: 10,
+                source: "config",
+                revision_created: 1,
+                revision_updated: 1,
+                effective_revision: 2,
+                services: [],
+                command_rules: [],
+                radius_policy_id: "admins-radius",
+                created_at: "2026-08-12T00:00:00Z",
+                updated_at: "2026-08-12T00:00:00Z",
+              },
+            ],
+          },
+        }),
       });
       return;
     }
@@ -509,7 +532,7 @@ export async function mockAPI(
             revision: 2,
             view: "effective",
             format: "yaml",
-            yaml: "schema_version: 2\nradius_policies:\n  - id: default-radius-access\n  - id: admins-radius\n",
+            yaml: "schema_version: 2\nusers:\n  - id: alice\n    radius_policy_id: default-radius-access\ngroups:\n  - id: administrators\n    radius_policy_id: admins-radius\n",
           },
         }),
       });

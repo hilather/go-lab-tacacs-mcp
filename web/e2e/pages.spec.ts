@@ -15,7 +15,7 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await page.getByRole("button", { name: "Edit alice" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("RADIUS policy")).toBeVisible();
-  await expect(page.getByRole("option", { name: "default-radius-access" })).toHaveCount(1);
+  await expect(page.getByLabel("RADIUS policy")).toHaveValue("default-radius-access");
   const display = page.getByLabel("Display name");
   await display.focus();
   await page.keyboard.type(" Jr");
@@ -49,6 +49,9 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await page.getByRole("link", { name: "Groups" }).click();
   await expect(page.getByRole("heading", { name: "Groups" })).toBeVisible();
   await expect(page.getByText(/default-deny/i)).toBeVisible();
+  await page.getByRole("button", { name: "Edit administrators" }).click();
+  await expect(page.getByLabel("RADIUS policy")).toBeVisible();
+  await expect(page.getByLabel("RADIUS policy")).toHaveValue("admins-radius");
 
   await page.getByRole("link", { name: "Auth test", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Authentication test" })).toBeVisible();
@@ -59,7 +62,10 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   await expect(page.getByText(/RFC 5176 test fixture/i).first()).toBeVisible();
   await expect(page.getByText(/does not kick a device/i).first()).toBeVisible();
   await page.getByRole("button", { name: "CoA 01HXSESSIONHANDLE00" }).click();
-  await expect(page.getByRole("dialog", { name: /Send CoA-Request/i })).toBeVisible();
+  const dacDialog = page.getByRole("dialog", { name: /Send CoA-Request/i });
+  await expect(dacDialog).toBeVisible();
+  await expect(dacDialog).toContainText(/UDP RADIUS secret \(DAC\)/);
+  await expect(dacDialog).not.toContainText(/does not kick a device/i);
   await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.getByRole("link", { name: "RADIUS attributes" }).click();

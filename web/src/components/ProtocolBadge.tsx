@@ -1,4 +1,4 @@
-import { DAS_FIXTURE_COPY, INSECURE_RADIUS_LABEL, RADSEC_HINT, UDP_RADIUS_HINT } from "../ui/radius";
+import { INSECURE_RADIUS_LABEL, RADSEC_HINT, UDP_RADIUS_HINT } from "../ui/radius";
 
 export function ProtocolBadge({ protocol }: { protocol: string }) {
   const label = protocol.trim() === "" ? "unknown" : protocol;
@@ -45,11 +45,11 @@ export function RadSecBadge() {
   );
 }
 
-export function CoABadge() {
+export function DASBadge() {
   return (
-    <span className="role-badge" title={DAS_FIXTURE_COPY}>
-      CoA
-      <span className="visually-hidden"> — {DAS_FIXTURE_COPY}</span>
+    <span className="role-badge" title="Inbound :3799 RFC 5176 test fixture. Index-only; DAC originate is on RADIUS sessions.">
+      DAS
+      <span className="visually-hidden"> — inbound :3799 fixture</span>
     </span>
   );
 }

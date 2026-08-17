@@ -80,8 +80,10 @@ describe("RadiusSessionsPage", () => {
     expect(await screen.findByText(sampleRadiusSession.session_handle)).toBeInTheDocument();
     expect(screen.getByText("alice")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: `CoA ${sampleRadiusSession.session_handle}` }));
-    expect(await screen.findByRole("dialog", { name: /Send CoA-Request/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/does not kick a device/i).length).toBeGreaterThan(0);
+    const dialog = await screen.findByRole("dialog", { name: /Send CoA-Request/i });
+    expect(dialog).toHaveTextContent(/UDP RADIUS secret \(DAC\)/);
+    expect(dialog).not.toHaveTextContent(/does not kick a device/i);
+    expect(dialog).not.toHaveTextContent(/test fixture/i);
     await user.click(screen.getByRole("button", { name: "Send CoA" }));
     await waitFor(() => {
       expect(screen.getByText(/Last DAC outcome/i)).toBeInTheDocument();

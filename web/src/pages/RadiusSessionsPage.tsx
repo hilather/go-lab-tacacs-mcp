@@ -158,7 +158,7 @@ function RadiusSessionsBody() {
         >
           <p>
             This originates a {pending.kind === "disconnect" ? "Disconnect-Request" : "CoA-Request"} to the NAS
-            using the client&apos;s UDP RADIUS secret (DAC). {DAS_FIXTURE_COPY}
+            using the client&apos;s UDP RADIUS secret (DAC).
           </p>
         </ConfirmDialog>
       ) : null}

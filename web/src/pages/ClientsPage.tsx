@@ -17,7 +17,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ErrorSummary } from "../components/ErrorSummary";
 import { ObjectMeta } from "../components/ObjectMeta";
 import {
-  CoABadge,
+  DASBadge,
   InsecureRadiusBadge,
   ProtocolBadge,
   RadSecBadge,
@@ -71,7 +71,7 @@ function ClientProtocolCell({ client }: { client: Client }) {
           <ProtocolBadge protocol="radius" />
           {clientHasRADIUSUDP(client) ? <UDPWarningBadge /> : null}
           {clientHasRADIUSTLS(client) ? <RadSecBadge /> : null}
-          {clientHasDynAuth(client) ? <CoABadge /> : null}
+          {clientHasDynAuth(client) ? <DASBadge /> : null}
           {(radius?.roles ?? []).map((role) => (
             <RoleBadge key={role} role={role} />
           ))}

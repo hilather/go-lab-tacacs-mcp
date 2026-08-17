@@ -56,7 +56,6 @@ export function clientHasRADIUSUDP(client: Client): boolean {
   if (endpoints.some((ep) => ep.protocol === "radius" && ep.transport === "udp")) {
     return true;
   }
-  // Flatten protocols.radius is the UDP projection; never treat protocol===radius as UDP.
   if (endpoints.length === 0) {
     return client.protocols?.radius?.enabled === true;
   }
@@ -137,14 +136,12 @@ export function policyIDsFromYAML(yaml: string): string[] {
   if (yaml.trim() === "") {
     return [];
   }
-  const block = /^radius_policies:\n((?:(?:[ \t].*)?\n)*)/m.exec(`${yaml}\n`);
-  if (!block?.[1]) {
-    return [];
-  }
   const ids: string[] = [];
-  for (const match of block[1].matchAll(/^[ \t]+-[ \t]+id:[ \t]*(\S+)/gm)) {
+  // Export/effective YAML never emits a radius_policies catalog. IDs appear on users/groups
+  // (radius_policy_id) and client endpoints (access_policy_id).
+  for (const match of yaml.matchAll(/^[ \t]+(?:radius_policy_id|access_policy_id):[ \t]*(\S+)/gm)) {
     const raw = match[1]?.replace(/^['"]|['"]$/g, "") ?? "";
-    if (raw !== "") {
+    if (raw !== "" && raw !== "null" && raw !== "~") {
       ids.push(raw);
     }
   }

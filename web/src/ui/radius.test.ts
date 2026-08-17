@@ -116,19 +116,33 @@ describe("radius UI helpers", () => {
     ).toBe(false);
   });
 
-  it("collects radius_policy_id options from objects and YAML", () => {
-    expect(policyIDsFromYAML("radius_policies:\n  - id: default-radius-access\n  - id: admins-radius\n")).toEqual([
-      "default-radius-access",
-      "admins-radius",
-    ]);
+  it("collects radius_policy_id options from objects and real export YAML", () => {
+    const exportYAML = [
+      "schema_version: 2",
+      "users:",
+      "  - id: alice",
+      "    radius_policy_id: default-radius-access",
+      "groups:",
+      "  - id: administrators",
+      "    radius_policy_id: admins-radius",
+      "clients:",
+      "  - id: lab-radius",
+      "    endpoints:",
+      "      - id: radius-udp",
+      "        access_policy_id: client-radius",
+      "radius_policies:",
+      "  - id: catalog-only-must-be-ignored",
+    ].join("\n");
+    expect(policyIDsFromYAML(exportYAML)).toEqual(["default-radius-access", "admins-radius", "client-radius"]);
+    expect(policyIDsFromYAML(exportYAML)).not.toContain("catalog-only-must-be-ignored");
     expect(
       collectRadiusPolicyIDs({
         users: [sampleUser],
         clients: [sampleRadiusClient],
-        yaml: "radius_policies:\n  - id: extra-policy\n",
-        extra: ["admins-radius"],
+        yaml: exportYAML,
+        extra: ["typed-policy"],
       }),
-    ).toEqual(["admins-radius", "default-radius-access", "extra-policy"]);
+    ).toEqual(["admins-radius", "client-radius", "default-radius-access", "typed-policy"]);
   });
 
   it("describes inbound DAS as a fixture that does not kick a device", () => {

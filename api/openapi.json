@@ -1940,6 +1940,11 @@
         "additionalProperties": false,
         "properties": {
           "outcome": {
+            "enum": [
+              "access_accept",
+              "access_reject",
+              "access_challenge"
+            ],
             "type": "string"
           },
           "reason_code": {
@@ -1949,7 +1954,14 @@
               "reject_policy",
               "reject_unsupported_method",
               "internal_error",
-              "reject_password_change_required"
+              "reject_password_change_required",
+              "challenge",
+              "reject_invalid_state",
+              "reject_challenge_expired",
+              "reject_challenge_binding",
+              "reject_challenge_capacity",
+              "reject_unsupported_eap_method",
+              "reject_eap_too_long"
             ],
             "type": "string"
           },
@@ -1958,6 +1970,9 @@
               "$ref": "#/components/schemas/RadiusAttributeValue"
             },
             "type": "array"
+          },
+          "state_present": {
+            "type": "boolean"
           },
           "trace": {
             "$ref": "#/components/schemas/RadiusPolicyTrace"
@@ -2053,7 +2068,8 @@
         "additionalProperties": false,
         "properties": {
           "challenge": {
-            "type": "string"
+            "type": "string",
+            "writeOnly": true
           },
           "id": {
             "type": "integer"
@@ -2063,14 +2079,16 @@
             "writeOnly": true
           },
           "response": {
-            "type": "string"
+            "type": "string",
+            "writeOnly": true
           },
           "type": {
             "enum": [
               "pap",
               "chap",
               "mschapv1",
-              "mschapv2"
+              "mschapv2",
+              "eap"
             ],
             "type": "string"
           }
@@ -2141,7 +2159,8 @@
               "pap",
               "chap",
               "mschapv1",
-              "mschapv2"
+              "mschapv2",
+              "eap"
             ],
             "type": "string"
           },

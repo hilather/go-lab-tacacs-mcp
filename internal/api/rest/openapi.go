@@ -735,7 +735,7 @@ func walkJSONFields(t reflect.Type) []jsonField {
 		if name == "" {
 			name = f.Name
 		}
-		writeOnly := name == "password" || name == "data" || f.Type.Name() == "OptionalSecret"
+		writeOnly := name == "password" || name == "data" || name == "challenge" || name == "response" || f.Type.Name() == "OptionalSecret"
 		out = append(out, jsonField{
 			name:      name,
 			typ:       f.Type,

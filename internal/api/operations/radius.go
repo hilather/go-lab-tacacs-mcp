@@ -28,7 +28,7 @@ func handleRadiusAccessTest(deps Deps) handleFunc {
 		if req.UserID == "" {
 			return nil, domain.NewError(domain.CodeInvalidArgument, "user_id is required").WithPath("user_id")
 		}
-		_, ev, err := radiusEvidence(req.Method)
+		method, ev, err := radiusEvidence(req.Method)
 		if err != nil {
 			return nil, err
 		}
@@ -61,6 +61,21 @@ func handleRadiusAccessTest(deps Deps) handleFunc {
 		raw, err := encodeRadiusRequestAttrs(req.RequestAttributes)
 		if err != nil {
 			return nil, err
+		}
+
+		if method == domain.AuthMethodEAP && len(ev.Challenge) == 0 && len(ev.Response) == 0 {
+			out := RadiusAccessTestResult{
+				Outcome:         RadiusOutcomeChallenge,
+				ReasonCode:      aaa.AccessReasonChallenge,
+				StatePresent:    true,
+				ReplyAttributes: []RadiusAttributeValue{},
+			}
+			if req.Explain {
+				tr := radiusTraceFromAAA(aaa.RadiusAccessDecision{ReasonCode: aaa.AccessReasonChallenge})
+				out.Trace = &tr
+			}
+			audit(deps, "api.radius.access.tested", out.Outcome, snap.Revision)
+			return out, nil
 		}
 
 		if deps.AAA == nil {
@@ -195,6 +210,25 @@ func radiusEvidence(m RadiusAuthMethod) (domain.AuthMethod, aaa.CredentialEviden
 		ev.CHAPID = m.ID
 		ev.Challenge = chal
 		ev.Response = resp
+	case domain.AuthMethodEAP:
+		if m.Challenge == "" && m.Response == "" {
+			return method, ev, nil
+		}
+		if m.Challenge == "" || m.Response == "" {
+			return "", ev, domain.NewError(domain.CodeInvalidArgument, "eap continuation requires challenge and response").WithPath("method")
+		}
+		chal, err := decodeRadiusB64("method.challenge", m.Challenge)
+		if err != nil {
+			return "", ev, err
+		}
+		resp, err := decodeRadiusB64("method.response", m.Response)
+		if err != nil {
+			wipeBytes(chal)
+			return "", ev, err
+		}
+		ev.CHAPID = m.ID
+		ev.Challenge = chal
+		ev.Response = resp
 	}
 	return method, ev, nil
 }
@@ -209,8 +243,10 @@ func parseRADIUSMethod(raw, path string) (domain.AuthMethod, error) {
 		return domain.AuthMethodMSCHAPv1, nil
 	case "mschapv2":
 		return domain.AuthMethodMSCHAPv2, nil
+	case "eap":
+		return domain.AuthMethodEAP, nil
 	default:
-		return "", domain.NewError(domain.CodeInvalidArgument, "method must be pap, chap, mschapv1, or mschapv2").WithPath(path)
+		return "", domain.NewError(domain.CodeInvalidArgument, "method must be pap, chap, mschapv1, mschapv2, or eap").WithPath(path)
 	}
 }
 
@@ -254,11 +290,12 @@ func radiusEndpoint(snap *state.Snapshot, clientID string) (config.ClientEndpoin
 }
 
 func radiusMethodAllowed(ep config.ClientEndpoint, typ string) bool {
-	if ep.RADIUS == nil || len(ep.RADIUS.AllowedAuthenticationMethods) == 0 {
-		return true
+	allowed := []string{config.RADIUSAuthMethodPAP, config.RADIUSAuthMethodCHAP}
+	if ep.RADIUS != nil && len(ep.RADIUS.AllowedAuthenticationMethods) > 0 {
+		allowed = ep.RADIUS.AllowedAuthenticationMethods
 	}
 	want := strings.ToLower(strings.TrimSpace(typ))
-	for _, m := range ep.RADIUS.AllowedAuthenticationMethods {
+	for _, m := range allowed {
 		if strings.ToLower(m) == want {
 			return true
 		}
@@ -272,6 +309,9 @@ func radiusAccessResult(dec aaa.RadiusAccessDecision, explain bool) RadiusAccess
 		ReasonCode:      dec.ReasonCode,
 		ReplyAttributes: formatRadiusReply(dec.ReplyAttributes),
 	}
+	if dec.Outcome == aaa.RadiusAccessChallenge && dec.Challenge != nil && len(dec.Challenge.State) > 0 {
+		out.StatePresent = true
+	}
 	if explain {
 		tr := radiusTraceFromAAA(dec)
 		out.Trace = &tr
@@ -280,10 +320,14 @@ func radiusAccessResult(dec aaa.RadiusAccessDecision, explain bool) RadiusAccess
 }
 
 func radiusOutcome(o aaa.RadiusAccessOutcome) string {
-	if o == aaa.RadiusAccessAccept {
+	switch o {
+	case aaa.RadiusAccessAccept:
 		return RadiusOutcomeAccept
+	case aaa.RadiusAccessChallenge:
+		return RadiusOutcomeChallenge
+	default:
+		return RadiusOutcomeReject
 	}
-	return RadiusOutcomeReject
 }
 
 func radiusEffect(dec aaa.RadiusAccessDecision) string {
@@ -335,8 +379,8 @@ func encodeRadiusRequestAttrs(in []RadiusAttributeValue) (attribute.RawSet, erro
 		if err != nil {
 			return nil, err
 		}
-		if attribute.Sensitive(raw.Type) {
-			return nil, domain.NewError(domain.CodeInvalidArgument, "request attributes must not include secret types").
+		if diagnosticAttrForbidden(raw.Type) {
+			return nil, domain.NewError(domain.CodeInvalidArgument, "request attributes must not include secret or EAP payload types").
 				WithPath("request_attributes[" + strconv.Itoa(i) + "]")
 		}
 		out = append(out, raw)
@@ -390,8 +434,8 @@ func encodeRadiusAttr(a RadiusAttributeValue, path string) (attribute.Raw, error
 	if err != nil {
 		return attribute.Raw{}, err
 	}
-	if def.Sensitivity == attribute.SensitivitySecret {
-		return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "request attributes must not include secret types").WithPath(path)
+	if def.Sensitivity == attribute.SensitivitySecret || def.Code == attribute.TypeEAPMessage {
+		return attribute.Raw{}, domain.NewError(domain.CodeInvalidArgument, "request attributes must not include secret or EAP payload types").WithPath(path)
 	}
 	if def.Vendor != 0 {
 		return encodeNamedVSA(def, a.Value, a.ValueHex, path)
@@ -511,7 +555,7 @@ func formatRadiusReply(in attribute.RawSet) []RadiusAttributeValue {
 	}
 	out := make([]RadiusAttributeValue, 0, len(in))
 	for _, raw := range in {
-		if attribute.Sensitive(raw.Type) || attribute.MicrosoftSecret(raw) {
+		if diagnosticAttrForbidden(raw.Type) || attribute.MicrosoftSecret(raw) {
 			continue
 		}
 		out = append(out, formatRadiusExpanded(raw)...)
@@ -604,6 +648,10 @@ func radiusPacketName(code uint8) string {
 	default:
 		return "Packet(" + strconv.Itoa(int(code)) + ")"
 	}
+}
+
+func diagnosticAttrForbidden(typ uint8) bool {
+	return attribute.Sensitive(typ) || typ == attribute.TypeEAPMessage || typ == attribute.TypeState
 }
 
 func wipeRadiusAccessSecrets(req *RadiusAccessTestRequest) {

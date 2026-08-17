@@ -5,12 +5,24 @@ import "github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
 // RADIUS wire outcome strings returned by radius.access.test.
 // They are not domain.AuthOutcome and not advertised as complete RADIUS.
 const (
-	RadiusOutcomeAccept = "access_accept"
-	RadiusOutcomeReject = "access_reject"
+	RadiusOutcomeAccept    = "access_accept"
+	RadiusOutcomeReject    = "access_reject"
+	RadiusOutcomeChallenge = "access_challenge"
 )
 
+// RadiusAccessTestOutcomes is the closed set of radius.access.test outcome values.
+var RadiusAccessTestOutcomes = []string{
+	RadiusOutcomeAccept,
+	RadiusOutcomeReject,
+	RadiusOutcomeChallenge,
+}
+
+// RadiusAuthMethodTypes is the closed method.type union for diagnostics.
+// eap and mschapv1/mschapv2 are opt-in on the wire; omitted lists stay [pap, chap].
+var RadiusAuthMethodTypes = []string{"pap", "chap", "mschapv1", "mschapv2", "eap"}
+
 // RadiusAccessTestRequest simulates one Access-Request without UDP.
-// Method.Password is write-only and wiped after AuthenticateAccess.
+// Method.Password, Challenge, and Response are write-only and wiped.
 type RadiusAccessTestRequest struct {
 	ClientID          string                 `json:"client_id,omitempty"`
 	UserID            string                 `json:"user_id"`
@@ -20,7 +32,9 @@ type RadiusAccessTestRequest struct {
 }
 
 // RadiusAuthMethod is the RADIUS diagnostic method tagged union.
-// type is pap, chap, mschapv1, or mschapv2. pap maps to domain.AuthMethodPassword.
+// type is pap, chap, mschapv1, mschapv2, or eap (RADIUS names). pap maps to domain.AuthMethodPassword.
+// EAP without challenge/response is Identity start (access_challenge).
+// EAP with challenge+response is one-shot EAP-MD5 (CHAP-equivalent).
 type RadiusAuthMethod struct {
 	Type      string `json:"type"`
 	Password  string `json:"password,omitempty"`
@@ -39,16 +53,19 @@ type RadiusAttributeValue struct {
 	ValueHex string `json:"value_hex,omitempty"`
 }
 
-// RadiusAccessTestResult is the redacted Access-Accept/Reject decision.
+// RadiusAccessTestResult is the redacted Access-Accept/Reject/Challenge decision.
+// StatePresent is true only on access_challenge. Raw State and EAP payloads
+// are never included.
 type RadiusAccessTestResult struct {
 	Outcome         string                 `json:"outcome"`
 	ReasonCode      string                 `json:"reason_code"`
+	StatePresent    bool                   `json:"state_present,omitempty"`
 	ReplyAttributes []RadiusAttributeValue `json:"reply_attributes"`
 	Trace           *RadiusPolicyTrace     `json:"trace,omitempty"`
 }
 
 // RadiusAccessTestReasonCodes is the closed set of radius.access.test reason_code
-// values returned by AuthenticateAccess (design §5.7 access replies).
+// values (design §5.7 access replies plus Challenge/EAP codes).
 var RadiusAccessTestReasonCodes = []string{
 	aaa.AccessReasonOK,
 	aaa.AccessReasonBadCredentials,
@@ -56,10 +73,17 @@ var RadiusAccessTestReasonCodes = []string{
 	aaa.AccessReasonUnsupportedMethod,
 	aaa.AccessReasonInternal,
 	aaa.AccessReasonPasswordChangeRequired,
+	aaa.AccessReasonChallenge,
+	aaa.AccessReasonInvalidState,
+	aaa.AccessReasonChallengeExpired,
+	aaa.AccessReasonChallengeBinding,
+	aaa.AccessReasonChallengeCapacity,
+	aaa.AccessReasonUnsupportedEAPMethod,
+	aaa.AccessReasonEAPTooLong,
 }
 
 // RadiusPolicyEvaluateRequest explains the compiled RADIUS engine.
-// Method is pap, chap, mschapv1, or mschapv2. Credentials are not verified.
+// Method is pap, chap, mschapv1, mschapv2, or eap. Credentials are not verified.
 type RadiusPolicyEvaluateRequest struct {
 	ClientID          string                 `json:"client_id,omitempty"`
 	UserID            string                 `json:"user_id"`

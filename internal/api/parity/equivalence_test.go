@@ -273,6 +273,37 @@ func parityCases() []parityCase {
 				t.Fatal("password leaked from radius.access.test")
 			}
 		}},
+		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{
+			UserID: "alice", Method: operations.RadiusAuthMethod{Type: "eap"},
+		}, check: func(t *testing.T, _ *world, out callOut) {
+			t.Helper()
+			raw := canonicalJSON(out.Data)
+			if !strings.Contains(raw, `"outcome":"access_challenge"`) || !strings.Contains(raw, `"state_present":true`) {
+				t.Fatalf("eap identity challenge=%s", raw)
+			}
+			if strings.Contains(raw, `"State"`) || strings.Contains(raw, "EAP-Message") || strings.Contains(raw, `"state":`) {
+				t.Fatalf("eap identity leaked State/EAP: %s", raw)
+			}
+		}},
+		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{
+			UserID: "alice",
+			Method: operations.RadiusAuthMethod{
+				Type:      "eap",
+				Challenge: "cGFyaXR5LWVhcC1jaGFsbGVuZ2UtY2FuYXJ5",
+				Response:  "cGFyaXR5LWVhcC1yZXNwb25zZS1jYW5hcnk=",
+			},
+		}, check: func(t *testing.T, _ *world, out callOut) {
+			t.Helper()
+			raw := canonicalJSON(out.Data)
+			for _, needle := range []string{"cGFyaXR5LWVhcC1jaGFsbGVuZ2UtY2FuYXJ5", "cGFyaXR5LWVhcC1yZXNwb25zZS1jYW5hcnk=", "parity-eap-challenge-canary", "parity-eap-response-canary"} {
+				if strings.Contains(raw, needle) {
+					t.Fatalf("eap payload leaked %q: %s", needle, raw)
+				}
+			}
+			if strings.Contains(raw, `"State"`) || strings.Contains(raw, "EAP-Message") {
+				t.Fatalf("eap md5 leaked State/EAP: %s", raw)
+			}
+		}},
 		{id: operations.IDRadiusAccessTest, req: operations.RadiusAccessTestRequest{Method: operations.RadiusAuthMethod{Type: "pap"}}, wantCode: string(domain.CodeInvalidArgument)},
 		{id: operations.IDRadiusPolicyEvaluate, req: operations.RadiusPolicyEvaluateRequest{
 			UserID: "alice", ClientID: "sw", Method: "pap",

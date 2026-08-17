@@ -208,7 +208,7 @@ Match keys: `groups_any`, `method` (`password` canonical, `pap` alias stored as 
 
 Permit rules may list `reply_profiles`. Profiles concatenate in listed order; two `single` attributes of the same key fail compile. Deny rules may include only Access-Reject-legal attributes (`Reply-Message` in this profile). Named `Cisco-AVPair` (`shell:priv-lvl=15`) and raw `{vendor: 9, code: 1, value_hex}` encode to the same wire. Other named VSAs are not accepted.
 
-Explain a RADIUS decision: UI RADIUS Policy page or `POST /api/v1/radius/policy:evaluate`. Drive the same `AuthenticateAccess` path as UDP with `POST /api/v1/radius/access:test` (`method.type` is `pap` or `chap`; passwords are write-only and wiped).
+Explain a RADIUS decision: UI RADIUS Policy page or `POST /api/v1/radius/policy:evaluate`. Drive the same `AuthenticateAccess` path as UDP with `POST /api/v1/radius/access:test` (`method.type` is `pap`, `chap`, `mschapv1`, `mschapv2`, or `eap`; passwords, MS-CHAP material, and EAP challenge/response are write-only and wiped). EAP Identity returns `access_challenge` with `state_present: true` only (no raw State, no EAP payload).
 
 ## 7. API tokens and the UI
 

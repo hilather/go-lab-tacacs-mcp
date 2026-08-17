@@ -29,6 +29,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 - `expected_revision` is rejected on originate (not overlay CAS).
 - Optional inbound DAS listener (`listeners.radius.dynamic_authorization`, UDP 3799, default off) is an RFC 5176 echo fixture. It mutates the in-memory session index only and never forwards to a NAS. Unknown client / missing or invalid Message-Authenticator are silent discards. Session miss is NAK Error-Cause 503. `radius:dynamic` is not required on the packet path.
 
+### Admin surfaces
+
+- `radius.access.test` / `taclab.radius.access.test` `method.type` grows `eap` (`PARITY_REQUIRED`). EAP Identity (no challenge/response) returns `outcome=access_challenge` with `state_present: true` only — never raw State and never EAP-Message. One-shot EAP-MD5 uses write-only challenge/response (wiped). `radius.policy.evaluate` accepts `eap`. No UI widgets in this change.
+
 ### Configuration
 
 - v2 `listeners.radius.access` gains `challenge_ttl` (default `30s`, 5s–60s), `challenge_entries` (default `4096`, 16–65536), and `challenge_bytes` (default `1MiB`, 64KiB–8MiB). Accounting rejects those keys.

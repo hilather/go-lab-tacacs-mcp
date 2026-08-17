@@ -156,6 +156,8 @@ rows:
       - unit:internal/api/parity.TestParityRequiredEquivalence
       - unit:internal/api/parity.TestEveryParityRequiredHasCase
       - unit:internal/api/operations.TestRadiusAccessTestPAPAcceptAndWipe
+      - unit:internal/api/operations.TestRadiusAccessTestEAPIdentityChallenge
+      - unit:internal/api/operations.TestRadiusAccessTestEAPMD5AcceptAndWipe
       - lab:LAB-RADIUS-002
   - id: PRJ-COA-001
     section: dynamic-authorization

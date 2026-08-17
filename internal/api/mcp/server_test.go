@@ -282,8 +282,23 @@ func TestMCPDiscoverAndTools(t *testing.T) {
 			}
 		case "taclab.radius.access.test":
 			reason, _ := outputProp(m, "reason_code")
-			if !schemaEnumContains(reason, "reject_password_change_required") {
+			if !schemaEnumContains(reason, "reject_password_change_required") || !schemaEnumContains(reason, "challenge") {
 				t.Fatalf("radius.access.test reason_code enum=%v", reason["enum"])
+			}
+			outcome, _ := outputProp(m, "outcome")
+			if !schemaEnumContains(outcome, "access_challenge") {
+				t.Fatalf("radius.access.test outcome enum=%v", outcome["enum"])
+			}
+			if state, ok := outputProp(m, "state_present"); !ok || state["type"] != "boolean" {
+				t.Fatalf("radius.access.test state_present=%v ok=%v", state, ok)
+			}
+			in, _ := m["inputSchema"].(map[string]any)
+			props, _ := in["properties"].(map[string]any)
+			method, _ := props["method"].(map[string]any)
+			mprops, _ := method["properties"].(map[string]any)
+			typ, _ := mprops["type"].(map[string]any)
+			if !schemaEnumContains(typ, "eap") {
+				t.Fatalf("radius.access.test method.type enum=%v", typ["enum"])
 			}
 		case "taclab.users.get":
 			if _, ok := outputProp(m, "must_change_login"); !ok {

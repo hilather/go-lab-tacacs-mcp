@@ -8,6 +8,14 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - Align the frontend Vite toolchain with `@vitejs/plugin-react` 6: Vite 8 (required peer; Vite 7 cannot resolve). Vitest 4.1 already accepts Vite 8.
 
+### Protocol
+
+- Bounded in-memory RADIUS Challenge State store (`internal/radius/runtime`): UDP source-IP and TLS cert binds, TTL, consume-on-use, capacity fail-closed. Continuation failures use `reject_invalid_state` / `reject_challenge_expired` / `reject_challenge_binding` / `reject_challenge_capacity`. **No Access-Challenge is emitted on the live listener.** PAP/CHAP and `must_change_login` stay Access-Reject. `R65-ACCESS-004` stays `DEFERRED_MAY`. Restart / `runtime.reset` wipe the store.
+
+### Configuration
+
+- v2 `listeners.radius.access` gains `challenge_ttl` (default `30s`, 5s–60s), `challenge_entries` (default `4096`, 16–65536), and `challenge_bytes` (default `1MiB`, 64KiB–8MiB). Accounting rejects those keys.
+
 ## [1.2.0] — 2026-08-16
 
 User-lifecycle must-change lock and MCP client compatibility. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays `partial`.

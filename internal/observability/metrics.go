@@ -110,6 +110,9 @@ func (r *Registry) declare() {
 	r.mustCounter(MetricRADIUSCacheSaturations, "RADIUS retransmission-cache saturation drops.")
 	r.mustCounter(MetricRADIUSJournalSaturations, "RADIUS accounting journal saturations.")
 	r.mustCounter(MetricRADIUSAuthenticatorFail, "RADIUS authenticator validation failures.")
+	r.mustCounter(MetricRADIUSChallenges, "RADIUS Challenge-State gate outcomes.")
+	r.mustGauge(MetricRADIUSChallengeEntries, "RADIUS Challenge-State store occupancy.")
+	r.mustCounter(MetricRADIUSChallengeSaturations, "RADIUS Challenge-State store saturations.")
 
 	// Always publish the closed lifecycle set so scrapes do not invent status.
 	for _, st := range SecretLifecycleStatuses {
@@ -386,7 +389,7 @@ func validLabelValue(name, key, value string) bool {
 	case LabelPacketCode:
 		return knownPacketCode(value)
 	case LabelResult:
-		return knownRetransmitResult(value)
+		return knownRetransmitResult(value) || knownChallengeResult(value)
 	case LabelType:
 		return knownAuthenticatorType(value)
 	default:

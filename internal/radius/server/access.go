@@ -9,6 +9,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
 const (
@@ -24,8 +25,11 @@ type AccessAuthenticator interface {
 
 // Access handles Access-Request after UDP client resolution. Accounting
 // is delegated to Stub. Credential pass evaluates compiled RADIUS policy.
+// Store is the optional Challenge State gate; tests inject it. The live
+// listener never emits Access-Challenge in this PR.
 type Access struct {
-	AAA AccessAuthenticator
+	AAA   AccessAuthenticator
+	Store *radiusruntime.ChallengeStore
 }
 
 // Handle implements Handler. Permit is Access-Accept; deny and errors
@@ -44,6 +48,19 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 		return Result{Action: ActionDiscard, Reason: reason}
 	}
 
+	if state, present, reason := extractState(in.Packet.Attributes); present {
+		if reason != "" {
+			return replyAccess(in, codec.CodeAccessReject, reason, nil)
+		}
+		rec, reason := consumeContinuation(a.Store, in, state)
+		if reason != "" {
+			return replyAccess(in, codec.CodeAccessReject, reason, nil)
+		}
+		crypto.Wipe(rec.MD5Challenge)
+		// Successful consume has no EAP continuation provider yet.
+		return replyAccess(in, codec.CodeAccessReject, ReasonUnsupportedMethod, nil)
+	}
+
 	user, ev, reason, wipe := extractAccessEvidence(in)
 	defer wipe()
 	if reason != "" {
@@ -56,7 +73,7 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 	dec, err := a.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
 		Context: domain.RequestContext{
 			Protocol:         domain.ProtocolRADIUS,
-			Carrier:          domain.CarrierRADIUSUDP,
+			Carrier:          requestCarrier(in),
 			ListenerRole:     domain.RoleAccess,
 			ListenerID:       in.ListenerID,
 			ClientID:         in.ClientID,
@@ -75,6 +92,10 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 	}
 	if dec.Outcome == aaa.RadiusAccessAccept {
 		return replyAccess(in, codec.CodeAccessAccept, ReasonOK, dec.ReplyAttributes)
+	}
+	// RadiusAccessChallenge is reserved; this PR never advertises it.
+	if dec.Outcome == aaa.RadiusAccessChallenge {
+		return replyAccess(in, codec.CodeAccessReject, ReasonInternal, nil)
 	}
 	return replyAccess(in, codec.CodeAccessReject, wireAccessReason(dec.ReasonCode), dec.ReplyAttributes)
 }
@@ -155,7 +176,8 @@ func wireAccessReason(code string) string {
 		return ReasonPolicy
 	case ReasonBadCredentials, ReasonUnsupportedMethod, ReasonInternal,
 		ReasonMissingUsername, ReasonConflictingAuth, ReasonCHAPPasswordLength,
-		ReasonPasswordChangeRequired:
+		ReasonPasswordChangeRequired, ReasonInvalidState, ReasonChallengeExpired,
+		ReasonChallengeBinding, ReasonChallengeCapacity, ReasonChallenge:
 		return code
 	default:
 		return ReasonBadCredentials

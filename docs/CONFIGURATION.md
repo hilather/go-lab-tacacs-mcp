@@ -619,6 +619,9 @@ listeners:
       per_source_burst: 200
       message_authenticator: required   # or allow_missing
       limit_proxy_state: true
+      challenge_ttl: 30s        # clamped 5s–60s; in-memory Challenge State
+      challenge_entries: 4096   # clamped 16–65536; fail-closed, no evict-to-admit
+      challenge_bytes: 1MiB     # clamped 64KiB–8MiB
     accounting:
       enabled: false          # default; set true to bind UDP 1813 (memory-only accounting)
       required: false

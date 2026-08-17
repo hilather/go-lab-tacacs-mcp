@@ -33,16 +33,19 @@ const (
 
 	// RADIUS / protocol-neutral series. TACACS authen/author/acct series stay
 	// connection-oriented so historical scrapes do not mix UDP outcomes.
-	MetricProtocolRequests         = "taclab_protocol_requests_total"
-	MetricProtocolDiscards         = "taclab_protocol_discards_total"
-	MetricProtocolDuration         = "taclab_protocol_request_duration_seconds"
-	MetricRADIUSQueueDepth         = "taclab_radius_queue_depth"
-	MetricRADIUSInflight           = "taclab_radius_inflight"
-	MetricRADIUSRetransmission     = "taclab_radius_retransmission_total"
-	MetricRADIUSCacheEntries       = "taclab_radius_cache_entries"
-	MetricRADIUSCacheSaturations   = "taclab_radius_cache_saturations_total"
-	MetricRADIUSJournalSaturations = "taclab_radius_journal_saturations_total"
-	MetricRADIUSAuthenticatorFail  = "taclab_radius_authenticator_failures_total"
+	MetricProtocolRequests           = "taclab_protocol_requests_total"
+	MetricProtocolDiscards           = "taclab_protocol_discards_total"
+	MetricProtocolDuration           = "taclab_protocol_request_duration_seconds"
+	MetricRADIUSQueueDepth           = "taclab_radius_queue_depth"
+	MetricRADIUSInflight             = "taclab_radius_inflight"
+	MetricRADIUSRetransmission       = "taclab_radius_retransmission_total"
+	MetricRADIUSCacheEntries         = "taclab_radius_cache_entries"
+	MetricRADIUSCacheSaturations     = "taclab_radius_cache_saturations_total"
+	MetricRADIUSJournalSaturations   = "taclab_radius_journal_saturations_total"
+	MetricRADIUSAuthenticatorFail    = "taclab_radius_authenticator_failures_total"
+	MetricRADIUSChallenges           = "taclab_radius_challenges_total"
+	MetricRADIUSChallengeEntries     = "taclab_radius_challenge_entries"
+	MetricRADIUSChallengeSaturations = "taclab_radius_challenge_saturations_total"
 )
 
 // Label names that may appear on any series.
@@ -136,16 +139,19 @@ var allowedLabels = map[string]map[string]struct{}{
 	MetricGoGCPauseSeconds:      keys(),
 	MetricGoNumGC:               keys(),
 	// RADIUS series never accept client_id, username, or addresses.
-	MetricProtocolRequests:         keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
-	MetricProtocolDiscards:         keys(LabelProtocol, LabelTransport, LabelRole, LabelReasonCode),
-	MetricProtocolDuration:         keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
-	MetricRADIUSQueueDepth:         keys(LabelRole),
-	MetricRADIUSInflight:           keys(LabelRole),
-	MetricRADIUSRetransmission:     keys(LabelRole, LabelResult),
-	MetricRADIUSCacheEntries:       keys(LabelRole),
-	MetricRADIUSCacheSaturations:   keys(LabelRole),
-	MetricRADIUSJournalSaturations: keys(LabelRole),
-	MetricRADIUSAuthenticatorFail:  keys(LabelRole, LabelType),
+	MetricProtocolRequests:           keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
+	MetricProtocolDiscards:           keys(LabelProtocol, LabelTransport, LabelRole, LabelReasonCode),
+	MetricProtocolDuration:           keys(LabelProtocol, LabelTransport, LabelRole, LabelPacketCode, LabelOutcome),
+	MetricRADIUSQueueDepth:           keys(LabelRole),
+	MetricRADIUSInflight:             keys(LabelRole),
+	MetricRADIUSRetransmission:       keys(LabelRole, LabelResult),
+	MetricRADIUSCacheEntries:         keys(LabelRole),
+	MetricRADIUSCacheSaturations:     keys(LabelRole),
+	MetricRADIUSJournalSaturations:   keys(LabelRole),
+	MetricRADIUSAuthenticatorFail:    keys(LabelRole, LabelType),
+	MetricRADIUSChallenges:           keys(LabelResult),
+	MetricRADIUSChallengeEntries:     keys(),
+	MetricRADIUSChallengeSaturations: keys(),
 }
 
 func keys(names ...string) map[string]struct{} {
@@ -214,6 +220,13 @@ const (
 	RetransmitHitPending   = "hit_pending"
 	RetransmitMiss         = "miss"
 	RetransmitPurge        = "purge"
+
+	ChallengeResultIssue        = "issue"
+	ChallengeResultContinue     = "continue"
+	ChallengeResultReplayReject = "replay_reject"
+	ChallengeResultExpired      = "expired"
+	ChallengeResultBinding      = "binding"
+	ChallengeResultCapacity     = "capacity"
 
 	AuthTypeMessageAuthenticator = "message_authenticator"
 	AuthTypeAccountingRequest    = "accounting_request"
@@ -303,6 +316,16 @@ func knownRetransmitResult(v string) bool {
 	}
 }
 
+func knownChallengeResult(v string) bool {
+	switch v {
+	case ChallengeResultIssue, ChallengeResultContinue, ChallengeResultReplayReject,
+		ChallengeResultExpired, ChallengeResultBinding, ChallengeResultCapacity:
+		return true
+	default:
+		return false
+	}
+}
+
 func knownAuthenticatorType(v string) bool {
 	switch v {
 	case AuthTypeMessageAuthenticator, AuthTypeAccountingRequest, AuthTypeResponse:
@@ -336,6 +359,11 @@ func knownReasonCode(v string) bool {
 		"reject_bad_credentials",
 		"reject_password_change_required",
 		"reject_policy",
+		"reject_invalid_state",
+		"reject_challenge_expired",
+		"reject_challenge_binding",
+		"reject_challenge_capacity",
+		"challenge",
 		"internal_error",
 		"ambiguous_identity",
 		"secret_unavailable",

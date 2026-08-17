@@ -4,7 +4,8 @@
 // PAP or CHAP evidence, and calls aaa.AuthenticateAccess. Permit is
 // Access-Accept with legal profile attributes (Message-Authenticator first,
 // then Proxy-State). Unknown user, bad password, CHAP length, conflicting
-// methods, policy deny, default deny, and evaluator errors are Access-Reject.
+// methods, policy deny, default deny, evaluator errors, and Challenge-State
+// gate failures are Access-Reject. Access-Challenge is not emitted.
 //
 // Accounting-Request is validated (Request Authenticator, inbound
 // Message-Authenticator if present), mapped onto the five MVP status

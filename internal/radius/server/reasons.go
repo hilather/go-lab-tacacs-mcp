@@ -22,6 +22,11 @@ const (
 	ReasonBadCredentials         = "reject_bad_credentials"
 	ReasonPasswordChangeRequired = "reject_password_change_required"
 	ReasonPolicy                 = "reject_policy"
+	ReasonInvalidState           = "reject_invalid_state"
+	ReasonChallengeExpired       = "reject_challenge_expired"
+	ReasonChallengeBinding       = "reject_challenge_binding"
+	ReasonChallengeCapacity      = "reject_challenge_capacity"
+	ReasonChallenge              = "challenge" // allowlist only; no live Access-Challenge in this PR
 	ReasonInternal               = "internal_error"
 	ReasonOK                     = "ok"
 )

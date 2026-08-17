@@ -226,6 +226,21 @@ func (r *Recorder) RADIUSJournalSaturation(role string) {
 	r.registry().Inc(MetricRADIUSJournalSaturations, Labels{LabelRole: boundRole(role)}, 1)
 }
 
+// RADIUSChallenge records one Challenge-State gate outcome. result is a closed set.
+func (r *Recorder) RADIUSChallenge(result string) {
+	r.registry().Inc(MetricRADIUSChallenges, Labels{LabelResult: boundChallengeResult(result)}, 1)
+}
+
+// RADIUSChallengeEntries writes Challenge-State occupancy. Values are counts, not State bytes.
+func (r *Recorder) RADIUSChallengeEntries(n int) {
+	r.registry().Set(MetricRADIUSChallengeEntries, Labels{}, float64(n))
+}
+
+// RADIUSChallengeSaturation increments fail-closed Challenge-State inserts.
+func (r *Recorder) RADIUSChallengeSaturation() {
+	r.registry().Inc(MetricRADIUSChallengeSaturations, Labels{}, 1)
+}
+
 // RADIUSAuthenticatorFailure increments authenticator validation failures.
 func (r *Recorder) RADIUSAuthenticatorFailure(role, typ string) {
 	r.registry().Inc(MetricRADIUSAuthenticatorFail, Labels{
@@ -331,6 +346,13 @@ func boundRetransmitResult(v string) string {
 		return v
 	}
 	return RetransmitMiss
+}
+
+func boundChallengeResult(v string) string {
+	if knownChallengeResult(v) {
+		return v
+	}
+	return ChallengeResultCapacity
 }
 
 func boundAuthenticatorType(v string) string {

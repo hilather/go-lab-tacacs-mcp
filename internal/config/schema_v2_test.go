@@ -231,6 +231,57 @@ listeners:
 	}
 }
 
+func TestV2ChallengeKnobBounds(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"ttl", "challenge_ttl: 4s", "challenge_ttl"},
+		{"ttl-high", "challenge_ttl: 61s", "challenge_ttl"},
+		{"entries", "challenge_entries: 8", "challenge_entries"},
+		{"bytes", "challenge_bytes: 1024", "challenge_bytes"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    access:
+      ` + tc.yaml + `
+`)
+			doc, err := Parse(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = ValidateV2(doc)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v want %s", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestV2AccountingRejectsChallengeKeys(t *testing.T) {
+	t.Parallel()
+	src := []byte(`
+schema_version: 2
+listeners:
+  tacacs:
+    tls: {enabled: false}
+  radius:
+    accounting:
+      challenge_ttl: 30s
+`)
+	if _, err := Parse(src); err == nil {
+		t.Fatal("accounting challenge_ttl must be unknown")
+	}
+}
+
 func assertRADIUSDisabledDefaults(t *testing.T, doc *Document) {
 	t.Helper()
 	acc := doc.Listeners.RADIUSAccess
@@ -282,5 +333,11 @@ func assertRADIUSDisabledDefaults(t *testing.T, doc *Document) {
 	}
 	if acct.JournalEntries != 20000 || acct.JournalBytes != 8<<20 || acct.AmbiguousAccountingPerMinute != 60 {
 		t.Fatalf("journal entries=%d bytes=%d ambig=%d", acct.JournalEntries, acct.JournalBytes, acct.AmbiguousAccountingPerMinute)
+	}
+	if acc.ChallengeTTL != RADIUSChallengeTTLDefault || acc.ChallengeEntries != RADIUSChallengeEntriesDefault || acc.ChallengeBytes != RADIUSChallengeBytesDefault {
+		t.Fatalf("challenge ttl=%s entries=%d bytes=%d", acc.ChallengeTTL, acc.ChallengeEntries, acc.ChallengeBytes)
+	}
+	if acct.ChallengeTTL != 0 || acct.ChallengeEntries != 0 || acct.ChallengeBytes != 0 {
+		t.Fatalf("accounting must ignore challenge knobs: ttl=%s entries=%d bytes=%d", acct.ChallengeTTL, acct.ChallengeEntries, acct.ChallengeBytes)
 	}
 }

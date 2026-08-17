@@ -27,6 +27,11 @@ func TestReasonTableStable(t *testing.T) {
 		"bad_credentials":        ReasonBadCredentials,
 		"password_change":        ReasonPasswordChangeRequired,
 		"policy":                 ReasonPolicy,
+		"invalid_state":          ReasonInvalidState,
+		"challenge_expired":      ReasonChallengeExpired,
+		"challenge_binding":      ReasonChallengeBinding,
+		"challenge_capacity":     ReasonChallengeCapacity,
+		"challenge":              ReasonChallenge,
 		"internal":               ReasonInternal,
 		"ok":                     ReasonOK,
 	}
@@ -51,6 +56,11 @@ func TestReasonTableStable(t *testing.T) {
 		"bad_credentials":        "reject_bad_credentials",
 		"password_change":        "reject_password_change_required",
 		"policy":                 "reject_policy",
+		"invalid_state":          "reject_invalid_state",
+		"challenge_expired":      "reject_challenge_expired",
+		"challenge_binding":      "reject_challenge_binding",
+		"challenge_capacity":     "reject_challenge_capacity",
+		"challenge":              "challenge",
 		"internal":               "internal_error",
 		"ok":                     "ok",
 	}

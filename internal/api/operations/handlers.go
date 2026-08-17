@@ -30,6 +30,9 @@ type Deps struct {
 	// Runtime is the live listener inventory. handleStatus overlays
 	// ready/inflight/queue_depth and appends configured RADIUS sockets.
 	Runtime StatusProvider
+	// OnRuntimeReset wipes process-memory tables that are not the overlay
+	// (Challenge State store). Listener Close must not do this.
+	OnRuntimeReset func()
 }
 
 // StatusProvider is the live listener inventory from internal/runtime.

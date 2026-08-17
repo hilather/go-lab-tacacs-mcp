@@ -105,6 +105,9 @@ func handleResetRuntime(deps Deps) handleFunc {
 		if err != nil {
 			return nil, err
 		}
+		if deps.OnRuntimeReset != nil {
+			deps.OnRuntimeReset()
+		}
 		audit(deps, "api.runtime.reset", "ok", published.Revision)
 		return ResetRuntimeResult{Revision: published.Revision, BaselineHash: published.BaselineHash, OverlayHash: published.OverlayHash}, nil
 	}

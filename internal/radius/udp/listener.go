@@ -12,6 +12,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/observability"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
+	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -21,19 +22,20 @@ var _ runtime.Listener = (*Listener)(nil)
 
 // Options construct a RADIUS/UDP listener for one role.
 type Options struct {
-	ID       string
-	Role     domain.ListenerRole
-	Bind     string
-	Required bool
-	Settings config.RADIUSListener
-	Snapshot func() *state.Snapshot
-	Secrets  config.SecretLookup
-	Handler  server.Handler
-	Recorder server.RADIUSRecorder
-	Logger   *slog.Logger
-	Metrics  *observability.Recorder
-	Now      func() time.Time
-	Listen   func(network, address string) (net.PacketConn, error)
+	ID         string
+	Role       domain.ListenerRole
+	Bind       string
+	Required   bool
+	Settings   config.RADIUSListener
+	Snapshot   func() *state.Snapshot
+	Secrets    config.SecretLookup
+	Handler    server.Handler
+	Recorder   server.RADIUSRecorder
+	Logger     *slog.Logger
+	Metrics    *observability.Recorder
+	Now        func() time.Time
+	Listen     func(network, address string) (net.PacketConn, error)
+	Challenges *radiusruntime.ChallengeStore // shared; Close must not Reset
 }
 
 type workItem struct {
@@ -43,17 +45,18 @@ type workItem struct {
 
 // Listener is one RADIUS/UDP PacketConn plus a bounded worker pool.
 type Listener struct {
-	pc      net.PacketConn
-	opts    Options
-	id      string
-	role    domain.ListenerRole
-	handler server.Handler
-	cache   *Cache
-	journal *journal
-	sampler *minuteSampler
-	limit   *sourceLimiter
-	queue   chan workItem
-	bounds  codec.Bounds
+	pc         net.PacketConn
+	opts       Options
+	id         string
+	role       domain.ListenerRole
+	handler    server.Handler
+	cache      *Cache
+	journal    *journal
+	sampler    *minuteSampler
+	limit      *sourceLimiter
+	queue      chan workItem
+	bounds     codec.Bounds
+	challenges *radiusruntime.ChallengeStore
 
 	ready     atomic.Bool
 	closed    atomic.Bool
@@ -121,6 +124,7 @@ func Listen(opts Options) (*Listener, error) {
 		bounds: codec.Bounds{
 			MaxPacketBytes: opts.Settings.MaxPacketBytes,
 		},
+		challenges: opts.Challenges,
 	}
 	if opts.Role == domain.RoleAccounting {
 		l.journal = newJournal(opts.Settings.JournalEntries, opts.Settings.JournalBytes, opts.Settings.RetransmissionTTL, opts.Now)

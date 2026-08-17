@@ -194,13 +194,13 @@ type RADIUSListener struct {
 	MessageAuthenticator         string
 	LimitProxyState              bool
 	// Challenge knobs apply to the access listener. Accounting ignores them.
-	ChallengeTTL     time.Duration
-	ChallengeEntries int
-	ChallengeBytes   int
-	SessionIndexEntries          int
-	SessionIndexBytes            int
-	SessionTTL                   time.Duration
-	CoATimeout                   time.Duration
+	ChallengeTTL        time.Duration
+	ChallengeEntries    int
+	ChallengeBytes      int
+	SessionIndexEntries int
+	SessionIndexBytes   int
+	SessionTTL          time.Duration
+	CoATimeout          time.Duration
 }
 
 // TACACSListener is shared legacy/secure socket settings.

@@ -19,7 +19,7 @@ Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Devi
 
 | Gate | Result |
 |---|---|
-| RADIUS / project MVP rows | **PASS** (35/35 mandatory rows `PASS` or deferred with ADR evidence) |
+| RADIUS / project MVP rows | **PASS** (36/36 mandatory rows `PASS` or deferred with ADR evidence) |
 | Advertised completeness | **Do not claim complete RADIUS** while Access-Challenge is deferred, external radclient is skipped, or any MVP row lacks evidence |
 | Independent software peer | `internal/radius/testclient` (separate codec) |
 | External radclient / Cisco IOL | **SKIP** unless recorded in `docs/INTEROP.md`; a skip is not RADIUS PASS |

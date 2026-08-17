@@ -30,7 +30,6 @@ func TestRadiusSessionsListRedactsAcctSessionID(t *testing.T) {
 	}) {
 		t.Fatal("insert")
 	}
-	reg, _ := radiusTestRegistry(t)
 	// Rebuild registry with the index.
 	m := mustRadiusMgr(t)
 	reg, err := New(mustSpec(t), Deps{State: m, RADIUSSessions: idx})

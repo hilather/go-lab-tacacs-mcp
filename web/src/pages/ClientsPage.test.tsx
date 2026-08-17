@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { envelope, json, renderApp, seedSession } from "../test/render";
-import { sampleClient, sampleRadiusClient, sampleRadSecClient } from "../test/fixtures";
+import { sampleClient, sampleCoAClient, sampleRadiusClient, sampleRadSecClient } from "../test/fixtures";
 import { ClientsPage } from "./ClientsPage";
 
 describe("ClientsPage", () => {
@@ -130,6 +130,45 @@ describe("ClientsPage", () => {
     expect(screen.getByText("UDP")).toBeInTheDocument();
     expect(screen.getByText("insecure RADIUS compatibility")).toBeInTheDocument();
     expect(screen.getByText(/radius-udp radius\/udp/i)).toBeInTheDocument();
+    expect(screen.getByText(/RADIUS pap, chap, eap, mschapv2/i)).toBeInTheDocument();
+  });
+
+  it("shows RadSec and CoA badges without treating TLS as UDP", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return json(
+            200,
+            envelope({
+              instance_id: "lab",
+              revision: 3,
+              baseline_hash: "a",
+              overlay_hash: "b",
+              compiled_at: "2026-08-12T00:00:00Z",
+              listeners: [],
+              colocated_topology: false,
+              users: 0,
+              groups: 0,
+              clients: 2,
+              tokens: 0,
+            }),
+          );
+        }
+        if (url.includes("/api/v1/clients")) {
+          return json(200, envelope({ revision: 3, items: [sampleRadSecClient, sampleCoAClient] }));
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<ClientsPage />, { route: "/clients" });
+    expect(await screen.findByText("lab-radsec")).toBeInTheDocument();
+    expect(screen.getByText("RadSec")).toBeInTheDocument();
+    expect(screen.getByText("CoA")).toBeInTheDocument();
+    expect(screen.getByText("lab-coa")).toBeInTheDocument();
+    expect(screen.getByText(/does not kick a device/i)).toBeInTheDocument();
   });
 
   it("does not stamp a UDP badge on a TLS-only RADIUS client and save does not send flatten UDP", async () => {

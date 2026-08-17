@@ -26,15 +26,17 @@ When both TACACS listeners are enabled, status/UI/logs show a **co-located lab t
 
 RADIUS/UDP uses MD5/HMAC-MD5 because the RFCs require it. Attributes other than User-Password travel in the clear. Keep 49, 300, **1812, 1813, 2083, and 3799 off the public internet** unless you intentionally publish RadSec behind the same posture as TACACS 300 ([ADR 0016](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0016-radius-udp-security-retransmission-and-scope.md), [ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)).
 
-Inbound :3799 is for RFC 5176 test tools. It only updates TacLab’s memory index. To disconnect a device, use Disconnect send.
+Inbound :3799 is an RFC 5176 test fixture; it does not kick a device. It only updates TacLab’s memory index. To disconnect a device, use Disconnect send.
 
 ### 1.1 Residual limits (honest)
+
+Remaining RADIUS work is **in-memory**, **partial**, and **opt-in**. New listeners (`listeners.radius.dynamic_authorization` on UDP 3799 and `listeners.radius.radsec` on TCP 2083) default **off**. Ports **1812, 1813, 3799, and 2083 stay off the public internet**. Overlay, Challenge store, CoA session index, retransmission cache, accounting journal, and the event ring die with the process. `system.build.get` RADIUS `conformance_status` stays **`partial`**. There is no complete-RADIUS badge.
 
 | Limit | What that means |
 |---|---|
 | Lab appliance | Single replica. No HA, no persistence adapter, no production AAA cluster. |
 | Memory-only overlay | Create/shadow/tombstone users, groups, clients, tokens vanish on restart or `runtime.reset`. |
-| Memory-only RADIUS accounting | Accounting-Response is sent only after the in-process ring accepts the record. Restart loses the journal and the ring. Persistent accounting (`RAD-EXT-009`) is **cancelled** for the in-memory remaining-work program ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). |
+| Memory-only RADIUS | Challenge store, CoA session index, retransmission cache, accounting journal, and the event ring are process memory. Accounting-Response is sent only after the in-process ring accepts the record. Persistent accounting (`RAD-EXT-009`) is **cancelled** for this program ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)). |
 | UDP is the default RADIUS profile | Source-IP selects the UDP secret. Optional RadSec is a **TLS 1.3 stream** on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0025-radius-radsec-tls13-first-slice.md)), default off — not “UDP plus TLS.” No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP. Shared secret is still required (do not default the informal string `radsec`). |
 | Access-Challenge / EAP | Identity (type 1) + EAP-MD5 (type 4) terminate when `allowed_authentication_methods` includes `eap` (opt-in; omitted lists stay `[pap, chap]`). Other EAP types get generic EAP-Failure + Access-Reject. No PEAP/TLS/TTLS. `must_change_login` after a good MD5 is Access-Reject + the same generic EAP-Failure as a bad password. Program ADRs [0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md) / [0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md). |
 | CoA / Disconnect | DAC originate (REST/MCP `radius:dynamic`) is the **only** path that kicks a NAS. Handle path needs Accounting-Start + Acct-Session-Id; access-only labs use explicit `client_id` + destination. Both paths sign with the client's **UDP** RADIUS secret. `lab-admin` does **not** get `radius:dynamic` by default. Optional inbound DAS (`listeners.radius.dynamic_authorization`, UDP 3799, default off) is an **RFC 5176 echo fixture**: it mutates TacLab’s memory index only and never forwards to a NAS, never tears down a TACACS session, and never sends UDP to the NAS. Add `dynamic_authorization` to the client RADIUS endpoint `roles` to accept inbound packets. `radius:dynamic` is not required for inbound. [ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md). |
@@ -114,12 +116,12 @@ What ships when a v2 file enables the sockets:
 
 | Item | Behavior |
 |---|---|
-| Access | PAP, CHAP, and opt-in MS-CHAPv1/v2 (`mschapv1` / `mschapv2` on `allowed_authentication_methods`; omitted lists stay `[pap, chap]`). Access-Accept or Access-Reject after integrity + known client. No Access-Challenge. Must-change is Access-Reject with no `MS-CHAP-Error`. |
+| Access | PAP, CHAP, and opt-in MS-CHAPv1/v2 / EAP (`mschapv1` / `mschapv2` / `eap` on `allowed_authentication_methods`; omitted lists stay `[pap, chap]`). Access-Accept, Access-Reject, or Access-Challenge (EAP Identity) after integrity + known client. Must-change is Access-Reject with no `MS-CHAP-Error`. |
 | Message-Authenticator | Required on Access-Request by default. Always inserted first on Access-Accept, Access-Reject, and Accounting-Response. Accounting-Request MA is validate-if-present. |
 | Policy | User `radius_policy_id`, then each `effectiveGroups` policy, then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. |
 | Accounting | Start, Stop, Interim-Update, Accounting-On, Accounting-Off. SUCCESS on the wire only after the ring accepts the record. |
 | Retransmission | Exact-response cache. Accounting also has a semantic journal that ignores Acct-Delay-Time. |
-| Dictionary | Built-in IETF MVP (`builtin-mvp-1`). Optional v2 `radius_dictionaries` merge named vendor attributes as metadata (`source=operator:<id>`). Unknown wire attributes and VSAs stay raw. Named `Cisco-AVPair` decode is not in this profile. |
+| Dictionary | Built-in IETF MVP (`builtin-mvp-1`). Optional v2 `radius_dictionaries` merge named vendor attributes as metadata (`source=operator:<id>`). Unknown wire attributes and VSAs stay raw. Named `Cisco-AVPair` (vendor 9 type 1) is implemented; an IOL skip is not PASS. |
 
 Weaker Access `message_authenticator: allow_missing` (or per-endpoint `require_message_authenticator: false`) is explicit, produces a validation warning, a `Status.Warnings` entry, and a UI “insecure RADIUS compatibility” badge. There is no global off switch.
 
@@ -200,7 +202,7 @@ Golden personas: `administrators` session → priv-lvl 15; `readonly` `cmd=confi
 
 ### 6.1 RADIUS access policy
 
-Evaluation order is user `radius_policy_id`, then each group in `effectiveGroups` (same order as TACACS: user `group_ids`, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. Schema v2 only; v1 files reject `radius_policy_id`. REST/MCP omit keeps the current id; JSON `null` clears it. There are no UI selects for this field yet.
+Evaluation order is user `radius_policy_id`, then each group in `effectiveGroups` (same order as TACACS: user `group_ids`, then client `default_group_ids` not already present, then sort by ascending group `priority` then `id`), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny. Schema v2 only; v1 files reject `radius_policy_id`. REST/MCP omit keeps the current id; JSON `null` clears it. The Users and Groups editors expose a `radius_policy_id` select (generated types). Unknown ids fail the mutation.
 
 Disabled users fail credentials before policy on Access-Request. `radius.policy.evaluate` still skips that user's policy and group_ids but walks client `default_group_ids`.
 
@@ -216,7 +218,10 @@ Explain a RADIUS decision: UI RADIUS Policy page or `POST /api/v1/radius/policy:
 - Scopes are exact (`state:write` does not imply `tokens:manage`, `runtime:reset`, `config:reload`, or `radius:dynamic`). The example `lab-admin` token does not receive `radius:dynamic`.
 - Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnly cookie. CSRF is required on cookie mutations. The UI never stores the bearer in `localStorage`.
 - Reference Compose leaves HTTP admin without TLS (`cookie_secure` follows `listeners.http.tls.enabled`). Lab-only.
-- RADIUS pages show an insecure-compatibility badge when Message-Authenticator is not required. Secret inputs are write-only and cleared after submit.
+- RADIUS pages show an insecure-compatibility badge when Message-Authenticator is not required (UDP `allow_missing` only). Secret inputs are write-only and cleared after submit.
+- RADIUS Sessions (`/radius-sessions`) lists the in-memory accounting index (`state:read`). CoA/Disconnect DAC buttons require `radius:dynamic`. Inbound :3799 is an RFC 5176 test fixture; it does not kick a device.
+- RADIUS Auth Test methods are `pap`, `chap`, `mschapv1`, `mschapv2`, and `eap`. Challenge outcomes show `state_present` only.
+- RADIUS Attributes lists dictionary metadata with a `source` column (`builtin` vs `operator:<id>`).
 
 ## 8. MCP clients (2026-07-28)
 

@@ -117,4 +117,63 @@ describe("RadiusAuthTestPage", () => {
       expect(response).toHaveValue("");
     });
   });
+
+  it("lists pap, chap, mschap, and eap methods and shows state_present only on challenge", async () => {
+    seedSession();
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return json(
+            200,
+            envelope({
+              instance_id: "lab",
+              revision: 3,
+              baseline_hash: "a",
+              overlay_hash: "b",
+              compiled_at: "2026-08-12T00:00:00Z",
+              listeners: [],
+              colocated_topology: false,
+              users: 1,
+              groups: 0,
+              clients: 0,
+              tokens: 0,
+            }),
+          );
+        }
+        if (url.includes("/radius/access:test")) {
+          const body = JSON.parse(String(init?.body)) as { method: { type: string; challenge?: string } };
+          expect(body.method.type).toBe("eap");
+          expect(body.method.challenge).toBeUndefined();
+          return json(
+            200,
+            envelope({
+              outcome: "access_challenge",
+              reason_code: "challenge",
+              state_present: true,
+              reply_attributes: [],
+            }),
+          );
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<RadiusAuthTestPage />, { route: "/radius-auth-test" });
+    const method = await screen.findByLabelText("Method");
+    expect(screen.getByRole("option", { name: "pap" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "chap" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "mschapv1" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "mschapv2" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "eap" })).toBeInTheDocument();
+    await user.selectOptions(method, "eap");
+    await user.type(screen.getByLabelText("User ID"), "alice");
+    await user.click(screen.getByRole("button", { name: "Run RADIUS test" }));
+    expect(await screen.findByText("access_challenge")).toBeInTheDocument();
+    expect(screen.getByText("present")).toBeInTheDocument();
+    expect(screen.queryByText(/state=/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/eap-payload/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/state_present/i)).toBeInTheDocument();
+  });
 });

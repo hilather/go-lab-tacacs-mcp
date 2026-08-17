@@ -17,11 +17,13 @@ import { ErrorSummary } from "../components/ErrorSummary";
 import { ObjectMeta } from "../components/ObjectMeta";
 import { RequireScope } from "../components/RequireScope";
 import { RevisionConflict } from "../components/RevisionConflict";
+import { RadiusPolicySelect } from "../components/RadiusPolicySelect";
 import { emptyRules, RulesEditor } from "../components/RulesEditor";
 import { emptySecret, SecretRefFields, secretPayload, type SecretDraft } from "../components/SecretRefFields";
 import type { CreateUserRequest, RuleSetView, UpdateUserRequest, User } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
 import { usePagedList } from "../hooks/usePagedList";
+import { useRadiusPolicyOptions } from "../hooks/useRadiusPolicyOptions";
 import { errorDetail, matchesFilter } from "../ui/errors";
 import { compact, fromDatetimeLocal, joinList, splitList, toDatetimeLocal } from "../ui/constants";
 
@@ -102,6 +104,7 @@ function UsersBody() {
             <th scope="col">Enabled</th>
             <th scope="col">Credentials</th>
             <th scope="col">Groups</th>
+            <th scope="col">RADIUS policy</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -131,6 +134,7 @@ function UsersBody() {
                 {!u.ascii_pap_configured && !u.challenge_configured && !u.enable_configured ? "none" : ""}
               </td>
               <td>{joinList(u.group_ids) || "—"}</td>
+              <td>{u.radius_policy_id || "—"}</td>
               <td>
                 {canWrite && !u.deleted ? (
                   <button type="button" onClick={() => setEditor({ kind: "edit", user: u })}>
@@ -181,6 +185,8 @@ function UserEditor({
   const [mustChangeEnable, setMustChangeEnable] = useState(existing?.must_change_enable ?? false);
   const [override, setOverride] = useState(false);
   const [groupIds, setGroupIds] = useState(joinList(existing?.group_ids));
+  const [radiusPolicyId, setRadiusPolicyId] = useState(existing?.radius_policy_id ?? "");
+  const policyOptions = useRadiusPolicyOptions(radiusPolicyId === "" ? [] : [radiusPolicyId]);
   const [clientIds, setClientIds] = useState(joinList(existing?.restrictions.client_ids));
   const [validAfter, setValidAfter] = useState(toDatetimeLocal(existing?.restrictions.valid_after));
   const [validBefore, setValidBefore] = useState(toDatetimeLocal(existing?.restrictions.valid_before));
@@ -220,6 +226,7 @@ function UserEditor({
           valid_after: fromDatetimeLocal(validAfter),
           valid_before: fromDatetimeLocal(validBefore),
         }),
+        radius_policy_id: radiusPolicyId === "" ? null : radiusPolicyId,
       };
       if (creating) {
         const req = compact<CreateUserRequest>({ id: id.trim(), ...bodyBase, override });
@@ -296,12 +303,14 @@ function UserEditor({
         server: server.must_change_enable ? "true" : "false",
       },
       { field: "group_ids", yours: groupIds, server: joinList(server.group_ids) },
+      { field: "radius_policy_id", yours: radiusPolicyId, server: server.radius_policy_id ?? "" },
     ]);
     setDisplayName(server.display_name ?? "");
     setEnabled(server.enabled);
     setMustChangeLogin(server.must_change_login);
     setMustChangeEnable(server.must_change_enable);
     setGroupIds(joinList(server.group_ids));
+    setRadiusPolicyId(server.radius_policy_id ?? "");
     setClientIds(joinList(server.restrictions.client_ids));
     setValidAfter(toDatetimeLocal(server.restrictions.valid_after));
     setValidBefore(toDatetimeLocal(server.restrictions.valid_before));
@@ -409,6 +418,13 @@ function UserEditor({
             Comma-separated group ids, evaluated in listed order.
           </p>
         </div>
+        <RadiusPolicySelect
+          id="user-radius-policy"
+          value={radiusPolicyId}
+          options={policyOptions}
+          onChange={setRadiusPolicyId}
+          disabled={!canWrite}
+        />
         <div className="field">
           <label htmlFor="user-clients">Restricted client IDs</label>
           <input id="user-clients" type="text" value={clientIds} onChange={(ev) => setClientIds(ev.target.value)} />

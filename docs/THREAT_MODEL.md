@@ -1,7 +1,7 @@
 # TacLab threat model
 
 Status: implementation contract  
-Last updated: 2026-08-14
+Last updated: 2026-08-16
 
 This document is the 1.0 security review for TacLab plus the in-process
 RADIUS/UDP lab path. It links each high-risk threat to tests or an explicit
@@ -16,6 +16,8 @@ It is not advertised as complete RADIUS and is not a substitute for RadSec.
 ```text
 untrusted TACACS device  --TCP 49 / TLS 300-->  taclabd listeners
 untrusted RADIUS NAS     --UDP 1812 / 1813--->  taclabd RADIUS access / accounting
+untrusted RADIUS DAS tool --UDP 3799---------->  taclabd inbound DAS fixture (index only)
+untrusted RadSec NAS     --TCP 2083 TLS 1.3-->  taclabd RadSec (default off)
 untrusted browser        --HTTP 8080 REST/UI-->  admin listener
 untrusted MCP client     --POST /mcp---------->  admin listener
 operator / CI            --YAML + secret files-> config loader
@@ -109,7 +111,16 @@ Do not treat a green TACACS conformance matrix as RADIUS PASS.
 | RAD-TM-17 | Metric cardinality | Medium | Closed `protocol` / `role` / `reason_code` / `outcome` (and `code` / `result` / `type`); no `client_id`, User-Name, or IPs on RADIUS series | `TestRADIUSSeriesRejectClientIDUsernameAndIP` |
 | RAD-TM-18 | Reload vs cached replies | Medium | cache stores exact bytes + originating revision | retry-across-reload (later) |
 | RAD-TM-19 | Cross-protocol secret mix | High | Distinct purposes; no implicit TACACS secret for RADIUS | negative config tests |
-| RAD-TM-20 | UDP mistaken for a secure transport | High | Validate/status/UI/docs warnings; RadSec is a later ADR | ADR 0016; this document |
+| RAD-TM-20 | UDP mistaken for a secure transport | High | Validate/status/UI/docs warnings; 1812/1813/3799/2083 stay off the public internet | ADR 0016; OPERATOR §1.1 |
+| RAD-TM-21 | UDP Challenge amplification | High | Challenge only after known client + valid MA; capacity reject not silent flood | challenge store tests; ADR 0021 |
+| RAD-TM-23 | MS-CHAP VSA material leak | Critical | Wipe assembled buffers; never event/log/UI MS-CHAP VSAs | canary; ADR 0023 |
+| RAD-TM-24 | Spoofed DAC CoA/Disconnect | Critical | MA required; unknown client discard; no `allow_missing` on CoA/RadSec; DAC uses the client's UDP RADIUS secret | dynauth negatives; ADR 0024 |
+| RAD-TM-30 | Inbound DAS fixture treated as a kick | High | :3799 is RFC 5176 echo only; mutates the in-memory index; never forwards to a NAS | OPERATOR + UI residual copy; ADR 0024 |
+| RAD-TM-25 | Dictionary file as attack payload | High | Absolute path, size caps, YAML-only, no IETF override, fail closed | compile negatives; ADR 0026 |
+| RAD-TM-26 | Operator dict marks User-Password public | Critical | Forbidden; builtin sensitivity wins | validate test; ADR 0026 |
+| RAD-TM-27 | RadSec mTLS as “UDP but encrypted” | Medium | Docs/UI: TLS 1.3 stream on TCP 2083; UDP warning remains | operator + UI tests; ADR 0025 |
+| RAD-TM-28 | Session-index / challenge-store exhaustion | High | Hard caps; no evict-to-admit on Challenge | saturation tests |
+| RAD-TM-29 | Proxy/open relay | Critical | Not implemented; unknown `proxy` key fails compile | config reject; ADR 0028 |
 
 Replay of an exact Access or Accounting datagram hits the completed cache and
 does not re-run the password KDF or append a second event. A Delay-Time retry
@@ -127,7 +138,7 @@ it cannot fill the shared event ring.
 | Process-local overlay | Restart restores baseline by design | Persistence is post-1.0 + ADR |
 | Metrics `client_id` on connection series | Config-bounded; overflow → `other` | Never on lifecycle/warning **or RADIUS** series |
 | Enabled tracer retains last 256 spans in process | Lab debug only; tracing default off | Do not scrape spans remotely |
-| RADIUS/UDP on a reachable socket | Lab interop (ADR 0016); MD5/HMAC-MD5, spoofable datagrams, cleartext attributes | Default `enabled: false`; require Message-Authenticator; keep 1812/1813 off the public internet; RadSec later |
+| RADIUS/UDP on a reachable socket | Lab interop (ADR 0016); MD5/HMAC-MD5, spoofable datagrams, cleartext attributes | Default `enabled: false`; require Message-Authenticator; keep 1812/1813/3799/2083 off the public internet |
 | Ambiguous accounting identity fail-open-to-ack | Avoids NAS retry-storm; ring append is sampled | Operators who need strict dedupe raise journal caps |
 
 No critical or high finding is unowned. RADIUS listeners being present does

@@ -17,10 +17,12 @@ import { ErrorSummary } from "../components/ErrorSummary";
 import { ObjectMeta } from "../components/ObjectMeta";
 import { RequireScope } from "../components/RequireScope";
 import { RevisionConflict } from "../components/RevisionConflict";
+import { RadiusPolicySelect } from "../components/RadiusPolicySelect";
 import { emptyRules, RulesEditor } from "../components/RulesEditor";
 import type { CommandRuleView, CreateGroupRequest, Group, RuleSetView, ServiceRuleView, UpdateGroupRequest } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
 import { usePagedList } from "../hooks/usePagedList";
+import { useRadiusPolicyOptions } from "../hooks/useRadiusPolicyOptions";
 import { compact } from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
 
@@ -85,6 +87,7 @@ function GroupsBody() {
             <th scope="col">Source</th>
             <th scope="col">Enabled</th>
             <th scope="col">Rules</th>
+            <th scope="col">RADIUS policy</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -106,6 +109,7 @@ function GroupsBody() {
               <td>
                 {(g.services ?? []).length} service / {(g.command_rules ?? []).length} command
               </td>
+              <td>{g.radius_policy_id || "—"}</td>
               <td>
                 {canWrite && !g.deleted ? (
                   <button type="button" onClick={() => setEditor({ kind: "edit", group: g })}>
@@ -153,6 +157,8 @@ function GroupEditor({
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [priority, setPriority] = useState(String(existing?.priority ?? 100));
   const [override, setOverride] = useState(false);
+  const [radiusPolicyId, setRadiusPolicyId] = useState(existing?.radius_policy_id ?? "");
+  const policyOptions = useRadiusPolicyOptions(radiusPolicyId === "" ? [] : [radiusPolicyId]);
   const [rules, setRules] = useState<RuleSetView>({
     services: existing?.services ?? [],
     command_rules: existing?.command_rules ?? [],
@@ -199,6 +205,7 @@ function GroupEditor({
           services,
           command_rules,
           default_command_action: "deny",
+          radius_policy_id: radiusPolicyId === "" ? null : radiusPolicyId,
           override,
         });
         return createGroup(req, revision, newIdempotencyKey());
@@ -211,6 +218,7 @@ function GroupEditor({
         services,
         command_rules,
         default_command_action: "deny",
+        radius_policy_id: radiusPolicyId === "" ? null : radiusPolicyId,
       });
       return updateGroup(existing?.id ?? id, req, revision);
     },
@@ -277,10 +285,12 @@ function GroupEditor({
     setCompare([
       { field: "display_name", yours: displayName, server: env.data.display_name ?? "" },
       { field: "priority", yours: priority, server: String(env.data.priority) },
+      { field: "radius_policy_id", yours: radiusPolicyId, server: env.data.radius_policy_id ?? "" },
     ]);
     setDisplayName(env.data.display_name ?? "");
     setEnabled(env.data.enabled);
     setPriority(String(env.data.priority));
+    setRadiusPolicyId(env.data.radius_policy_id ?? "");
     setRules({ services: env.data.services ?? [], command_rules: env.data.command_rules ?? [] });
     setLoadedRevision(env.revision);
     setConflict(null);
@@ -346,6 +356,13 @@ function GroupEditor({
         <p>
           Default command action is <strong>deny</strong> (required in 1.0). It does not add a hidden permit.
         </p>
+        <RadiusPolicySelect
+          id="group-radius-policy"
+          value={radiusPolicyId}
+          options={policyOptions}
+          onChange={setRadiusPolicyId}
+          disabled={!canWrite}
+        />
         <RulesEditor id="group-rules" value={creating && rules.services === undefined ? emptyRules() : rules} onChange={setRules} disabled={!canWrite} />
         <div className="actions">
           {canWrite ? (

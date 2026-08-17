@@ -21,8 +21,12 @@ import type {
   ProblemDetails,
   RadiusAccessTestRequest,
   RadiusAccessTestResult,
+  RadiusAttributeList,
+  RadiusDynamicAuthRequest,
+  RadiusDynamicAuthResult,
   RadiusPolicyEvaluateRequest,
   RadiusPolicyEvaluateResult,
+  RadiusSessionList,
   ReloadConfigResult,
   ResetRuntimeResult,
   Session,
@@ -347,6 +351,26 @@ export async function evaluateRadiusPolicy(
   body: RadiusPolicyEvaluateRequest,
 ): Promise<Envelope<RadiusPolicyEvaluateResult>> {
   return sendJSON<RadiusPolicyEvaluateResult>("/api/v1/radius/policy:evaluate", "POST", body);
+}
+
+export async function listRadiusSessions(
+  opts: { limit?: number; cursor?: string } = {},
+): Promise<Envelope<RadiusSessionList>> {
+  return readEnvelope<RadiusSessionList>(await apiFetch(`/api/v1/radius/sessions${queryString(opts)}`));
+}
+
+export async function sendRadiusDisconnect(
+  body: RadiusDynamicAuthRequest,
+): Promise<Envelope<RadiusDynamicAuthResult>> {
+  return sendJSON<RadiusDynamicAuthResult>("/api/v1/radius/disconnect:send", "POST", body);
+}
+
+export async function sendRadiusCoA(body: RadiusDynamicAuthRequest): Promise<Envelope<RadiusDynamicAuthResult>> {
+  return sendJSON<RadiusDynamicAuthResult>("/api/v1/radius/coa:send", "POST", body);
+}
+
+export async function listRadiusAttributes(): Promise<Envelope<RadiusAttributeList>> {
+  return readEnvelope<RadiusAttributeList>(await apiFetch("/api/v1/radius/attributes"));
 }
 
 export async function getEffectiveConfig(view?: string): Promise<Envelope<EffectiveConfig>> {

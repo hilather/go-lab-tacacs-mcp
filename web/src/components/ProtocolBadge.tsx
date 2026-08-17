@@ -1,4 +1,4 @@
-import { INSECURE_RADIUS_LABEL, UDP_RADIUS_HINT } from "../ui/radius";
+import { DAS_FIXTURE_COPY, INSECURE_RADIUS_LABEL, RADSEC_HINT, UDP_RADIUS_HINT } from "../ui/radius";
 
 export function ProtocolBadge({ protocol }: { protocol: string }) {
   const label = protocol.trim() === "" ? "unknown" : protocol;
@@ -32,6 +32,24 @@ export function InsecureRadiusBadge() {
   return (
     <span className="warn-badge" title="Message-Authenticator is not required on this RADIUS endpoint.">
       {INSECURE_RADIUS_LABEL}
+    </span>
+  );
+}
+
+export function RadSecBadge() {
+  return (
+    <span className="role-badge" title={RADSEC_HINT}>
+      RadSec
+      <span className="visually-hidden"> — {RADSEC_HINT}</span>
+    </span>
+  );
+}
+
+export function CoABadge() {
+  return (
+    <span className="role-badge" title={DAS_FIXTURE_COPY}>
+      CoA
+      <span className="visually-hidden"> — {DAS_FIXTURE_COPY}</span>
     </span>
   );
 }

@@ -16,7 +16,14 @@ import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ErrorSummary } from "../components/ErrorSummary";
 import { ObjectMeta } from "../components/ObjectMeta";
-import { InsecureRadiusBadge, ProtocolBadge, RoleBadge, UDPWarningBadge } from "../components/ProtocolBadge";
+import {
+  CoABadge,
+  InsecureRadiusBadge,
+  ProtocolBadge,
+  RadSecBadge,
+  RoleBadge,
+  UDPWarningBadge,
+} from "../components/ProtocolBadge";
 import { RequireScope } from "../components/RequireScope";
 import { RevisionConflict } from "../components/RevisionConflict";
 import { emptySecret, SecretRefFields, secretPayload, type SecretDraft } from "../components/SecretRefFields";
@@ -38,12 +45,15 @@ import {
 } from "../ui/constants";
 import { errorDetail, matchesFilter } from "../ui/errors";
 import {
+  clientHasDynAuth,
   clientHasRADIUS,
   clientHasRADIUSTLS,
   clientHasRADIUSUDP,
   clientRADIUS,
+  clientRADIUSMethods,
   RADSEC_HINT,
   radiusInsecureCompatibility,
+  UDP_DYNAUTH_HINT,
 } from "../ui/radius";
 
 type EditorMode = { kind: "create" } | { kind: "edit"; client: Client };
@@ -60,6 +70,8 @@ function ClientProtocolCell({ client }: { client: Client }) {
         <>
           <ProtocolBadge protocol="radius" />
           {clientHasRADIUSUDP(client) ? <UDPWarningBadge /> : null}
+          {clientHasRADIUSTLS(client) ? <RadSecBadge /> : null}
+          {clientHasDynAuth(client) ? <CoABadge /> : null}
           {(radius?.roles ?? []).map((role) => (
             <RoleBadge key={role} role={role} />
           ))}
@@ -217,7 +229,12 @@ function ClientsBody() {
                   {c.shared_secret_configured ? lifecycleLabel(c.shared_secret_lifecycle) : "Not configured"}
                 </span>
               </td>
-              <td>{joinList(c.authentication.allowed_methods) || "default"}</td>
+              <td>
+                {joinList(c.authentication.allowed_methods) || "default"}
+                {clientHasRADIUS(c) ? (
+                  <p className="hint-inline">RADIUS {joinList(clientRADIUSMethods(c)) || "pap, chap"}</p>
+                ) : null}
+              </td>
               <td>
                 {canWrite && !c.deleted ? (
                   <button type="button" onClick={() => setEditor({ kind: "edit", client: c })}>
@@ -632,10 +649,7 @@ function ClientEditor({
               </p>
               <fieldset className="fieldset">
                 <legend>RADIUS roles</legend>
-                <p className="hint">
-                  Inbound :3799 is for RFC 5176 test tools. It only updates TacLab’s memory index. To
-                  disconnect a device, use Disconnect send.
-                </p>
+                <p className="hint">{UDP_DYNAUTH_HINT}</p>
                 {RADIUS_ROLES.map((role) => (
                   <label key={role} className="check">
                     <input

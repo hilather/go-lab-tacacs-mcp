@@ -12,6 +12,7 @@ export const ALL_SCOPES = [
   "events:sensitive",
   "tokens:manage",
   "runtime:reset",
+  "radius:dynamic",
 ];
 
 export function sessionBody(scopes: string[] = ["state:read", "events:read"]) {
@@ -95,6 +96,19 @@ export const statusBody = {
         inflight: 0,
         queue_depth: 0,
       },
+      {
+        id: "radius_dynauth",
+        enabled: true,
+        bind: "127.0.0.1:3799",
+        transport: "udp",
+        protocol: "radius",
+        carrier: "radius_udp",
+        roles: ["dynamic_authorization"],
+        ready: true,
+        required: false,
+        inflight: 0,
+        queue_depth: 0,
+      },
     ],
     warnings: ["legacy shared secret rotation is overdue", "RADIUS Message-Authenticator is optional on lab-switch"],
     colocated_topology: false,
@@ -138,6 +152,7 @@ const alice = {
   ascii_pap_configured: true,
   challenge_configured: false,
   enable_configured: false,
+  radius_policy_id: "default-radius-access",
   created_at: "2026-08-12T00:00:00Z",
   updated_at: "2026-08-12T00:00:00Z",
 };
@@ -279,6 +294,70 @@ export async function mockAPI(
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ revision: userRevision, request_id: "e2e", data: { ...alice, display_name: "Alice Jr" } }),
+      });
+      return;
+    }
+    if (url.includes("/api/v1/radius/coa:send") && method === "POST") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ revision: 2, request_id: "e2e", data: { outcome: "ack" } }),
+      });
+      return;
+    }
+    if (url.includes("/api/v1/radius/disconnect:send") && method === "POST") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ revision: 2, request_id: "e2e", data: { outcome: "ack" } }),
+      });
+      return;
+    }
+    if (url.includes("/api/v1/radius/sessions")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          revision: 2,
+          request_id: "e2e",
+          data: {
+            items: [
+              {
+                session_handle: "01HXSESSIONHANDLE00",
+                client_id: "lab-switch",
+                user_id: "alice",
+                peer: "192.0.2.10",
+                nas_identifier: "edge-1",
+                last_update: "2026-08-12T00:01:00Z",
+              },
+            ],
+          },
+        }),
+      });
+      return;
+    }
+    if (url.includes("/api/v1/radius/attributes")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          revision: 2,
+          request_id: "e2e",
+          data: {
+            version: "builtin-mvp-1",
+            items: [
+              {
+                name: "User-Name",
+                code: 1,
+                vendor: 0,
+                value_kind: "text",
+                allowed_in: ["access-request"],
+                sensitivity: "pii",
+                source: "builtin",
+              },
+            ],
+          },
+        }),
       });
       return;
     }
@@ -426,7 +505,12 @@ export async function mockAPI(
         body: JSON.stringify({
           revision: 2,
           request_id: "e2e",
-          data: { revision: 2, view: "effective", format: "yaml", yaml: "schema_version: 1\n" },
+          data: {
+            revision: 2,
+            view: "effective",
+            format: "yaml",
+            yaml: "schema_version: 2\nradius_policies:\n  - id: default-radius-access\n  - id: admins-radius\n",
+          },
         }),
       });
       return;

@@ -667,7 +667,7 @@ Encoder rules:
 - Fail before write if result exceeds role maximum.
 - `radius/server/reply.go` owns attribute order: Message-Authenticator first on **every Access and Accounting response**, then unmodified Proxy-State in order, then validated policy/accounting attributes.
 
-Codes in MVP: Access-Request (1), Access-Accept (2), Access-Reject (3), Accounting-Request (4), Accounting-Response (5). Access-Challenge (11) is decoded so it can be discarded/rejected cleanly; it is not advertised.
+Codes in MVP: Access-Request (1), Access-Accept (2), Access-Reject (3), Accounting-Request (4), Accounting-Response (5). Access-Challenge (11) is advertised for opted-in EAP Identity/MD5.
 
 #### 5.2 Attribute model
 
@@ -876,7 +876,7 @@ Compatibility-mode Access without MA **does** participate (documented spoofing r
 
 #### 5.7 Condition → wire action → cache (frozen)
 
-There is no Access-Error / Access-Reject-with-Error packet. After integrity + known client, Access replies Accept or Reject. Access-Challenge is reserved behind the in-memory state gate ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md)); there is no Access-Challenge on the live listener until independent testclient wire evidence. Challenge-failure reasons must not collapse to `reject_bad_credentials`.
+There is no Access-Error / Access-Reject-with-Error packet. After integrity + known client, Access replies Accept, Reject, or Challenge. Access-Challenge is issued for opted-in EAP Identity/MD5 behind the in-memory state gate ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md), [ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md)). Challenge-failure reasons must not collapse to `reject_bad_credentials`.
 
 | Condition | `reason_code` | Wire | Cache |
 |---|---|---|---|
@@ -901,7 +901,10 @@ There is no Access-Error / Access-Reject-with-Error packet. After integrity + kn
 | Continuation expired | `reject_challenge_expired` | Access-Reject | yes |
 | Bind / endpoint mismatch | `reject_challenge_binding` | Access-Reject | yes |
 | Store saturated at issue | `reject_challenge_capacity` | Access-Reject | yes |
-| Challenge issued | `challenge` | Access-Challenge | yes (constant + allowlist only; no live emit) |
+| Challenge issued | `challenge` | Access-Challenge | yes |
+| Unimplemented EAP type | `reject_unsupported_eap_method` | Access-Reject + EAP-Failure | yes |
+| EAP payload over bound | `reject_eap_too_long` | Access-Reject + EAP-Failure | yes |
+| Successful EAP-MD5 + `must_change_login` | `reject_password_change_required` | Access-Reject + generic EAP-Failure | yes |
 | Policy deny or no matching rule | `reject_policy` | Access-Reject | yes |
 | Policy permit | `ok` | Access-Accept | yes |
 | Access evaluator/internal panic after integrity | `internal_error` | Access-Reject | yes (do not re-run KDF on retry) |

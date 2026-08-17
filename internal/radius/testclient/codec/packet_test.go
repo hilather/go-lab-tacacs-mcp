@@ -204,8 +204,8 @@ func TestCodeClassification(t *testing.T) {
 	if !AccessRequest.Known() || !AccessRequest.Advertised() || !AccessRequest.AccessFamily() {
 		t.Fatal("access-request")
 	}
-	if AccessChallenge.Advertised() || !AccessChallenge.Known() {
-		t.Fatal("challenge must not be advertised")
+	if !AccessChallenge.Advertised() || !AccessChallenge.Known() {
+		t.Fatal("challenge must be advertised")
 	}
 	if !AccountingRequest.AccountingFamily() || AccountingRequest.AccessFamily() {
 		t.Fatal("acct family")

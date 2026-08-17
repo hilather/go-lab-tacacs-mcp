@@ -1,0 +1,16 @@
+{
+  "description": "Independent EAP Identity + EAP-MD5 conversation fixtures. Wire evidence is internal/radius/udp.TestIndependentTestclientEAPIdentityMD5Wire.",
+  "identity_response": {
+    "code": 2,
+    "identifier": 1,
+    "type": 1,
+    "identity": "lab-admin"
+  },
+  "md5_request": {
+    "code": 1,
+    "type": 4,
+    "value_size": 16
+  },
+  "success": { "code": 3, "length": 4 },
+  "failure": { "code": 4, "length": 4 }
+}

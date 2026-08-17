@@ -32,6 +32,8 @@ func TestReasonTableStable(t *testing.T) {
 		"challenge_binding":      ReasonChallengeBinding,
 		"challenge_capacity":     ReasonChallengeCapacity,
 		"challenge":              ReasonChallenge,
+		"unsupported_eap_method": ReasonUnsupportedEAPMethod,
+		"eap_too_long":           ReasonEAPTooLong,
 		"internal":               ReasonInternal,
 		"ok":                     ReasonOK,
 	}
@@ -61,6 +63,8 @@ func TestReasonTableStable(t *testing.T) {
 		"challenge_binding":      "reject_challenge_binding",
 		"challenge_capacity":     "reject_challenge_capacity",
 		"challenge":              "challenge",
+		"unsupported_eap_method": "reject_unsupported_eap_method",
+		"eap_too_long":           "reject_eap_too_long",
 		"internal":               "internal_error",
 		"ok":                     "ok",
 	}

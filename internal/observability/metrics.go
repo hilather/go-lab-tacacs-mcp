@@ -116,6 +116,7 @@ func (r *Registry) declare() {
 	r.mustGauge(MetricRADIUSSessionIndexEntries, "RADIUS accounting session-index occupancy.")
 	r.mustCounter(MetricRADIUSSessionIndexSaturations, "RADIUS session-index insert refusals.")
 	r.mustCounter(MetricRADIUSDynAuthTotal, "RADIUS CoA/Disconnect originate and inbound outcomes.")
+	r.mustCounter(MetricRADIUSEAP, "RADIUS EAP termination outcomes.")
 
 	// Always publish the closed lifecycle set so scrapes do not invent status.
 	for _, st := range SecretLifecycleStatuses {
@@ -395,6 +396,8 @@ func validLabelValue(name, key, value string) bool {
 		return knownRetransmitResult(value) || knownChallengeResult(value)
 	case LabelType:
 		return knownAuthenticatorType(value)
+	case LabelEAPType:
+		return knownEAPType(value)
 	default:
 		_ = name
 		return false

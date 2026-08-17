@@ -10,7 +10,7 @@ func TestAuthMethodRoundTripAndPAPAlias(t *testing.T) {
 	if AuthMethodPassword.String() != "password" {
 		t.Fatalf("AuthMethodPassword=%q", AuthMethodPassword)
 	}
-	if !AuthMethodPassword.Valid() || !AuthMethodCHAP.Valid() || !AuthMethodMSCHAPv1.Valid() || !AuthMethodMSCHAPv2.Valid() {
+	if !AuthMethodPassword.Valid() || !AuthMethodCHAP.Valid() || !AuthMethodMSCHAPv1.Valid() || !AuthMethodMSCHAPv2.Valid() || !AuthMethodEAP.Valid() {
 		t.Fatal("canonical methods must be valid")
 	}
 	got, err := ParseAuthMethod("password")
@@ -40,6 +40,14 @@ func TestAuthMethodRoundTripAndPAPAlias(t *testing.T) {
 	if err != nil || got != AuthMethodMSCHAPv2 {
 		t.Fatalf("mschapv2: %v %v", got, err)
 	}
+	got, err = ParseAuthMethod("eap")
+	if err != nil || got != AuthMethodEAP || got.String() != "eap" {
+		t.Fatalf("eap: %v %v", got, err)
+	}
+	got, err = ParseAuthMethod("EAP")
+	if err != nil || got != AuthMethodEAP {
+		t.Fatalf("EAP: %v %v", got, err)
+	}
 	if AuthMethod("pap").Valid() {
 		t.Fatal("pap is a parse alias, not a stored value")
 	}
@@ -50,7 +58,7 @@ func TestAuthMethodRoundTripAndPAPAlias(t *testing.T) {
 
 func TestParseAuthMethodRejectsPasswdAndUnknown(t *testing.T) {
 	t.Parallel()
-	for _, s := range []string{"passwd", "mschap", "ascii", "enable", "eap", ""} {
+	for _, s := range []string{"passwd", "mschap", "ascii", "enable", "peap", ""} {
 		got, err := ParseAuthMethod(s)
 		if err == nil || got != "" {
 			t.Fatalf("ParseAuthMethod(%q)=%q err=%v", s, got, err)

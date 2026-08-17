@@ -548,7 +548,7 @@ func normalizeRADIUSEndpoint(raw *rawRADIUSEndpoint, path string, allowEnv bool,
 	if err != nil {
 		return nil, err
 	}
-	methods = DefaultRADIUSAccessMethods(methods, roles)
+	methods = FillRADIUSAccessMethods(methods, roles)
 	status, err := normalizeRADIUSStatusTypes(raw.Accounting.AcceptStatusTypes, path+".accounting.accept_status_types")
 	if err != nil {
 		return nil, err
@@ -615,20 +615,26 @@ func endpointRolesContain(roles []domain.ListenerRole, want domain.ListenerRole)
 	return false
 }
 
-// DefaultRADIUSAccessMethods fills an omitted/empty access-role list with
-// [pap, chap]. MS-CHAP stays opt-in (KD-R21).
-func DefaultRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
+// DefaultRADIUSAccessMethods is the compile default for an access-role
+// endpoint when allowed_authentication_methods is omitted or empty (KD-R21).
+func DefaultRADIUSAccessMethods() []string {
+	return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
+}
+
+// FillRADIUSAccessMethods applies the access-role compile default. A
+// zero-length list is never persisted on an access role.
+func FillRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []string {
 	if endpointRolesContain(roles, domain.RoleAccess) && len(methods) == 0 {
-		return []string{RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP}
+		return DefaultRADIUSAccessMethods()
 	}
 	return methods
 }
 
-// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2. Used by overlay writes.
+// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2/eap. Used by overlay writes.
 func ParseRADIUSAuthMethods(raw []string) ([]string, error) {
 	out, err := normalizeRADIUSAuthMethods(raw, "radius.allowed_methods")
 	if err != nil {
-		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2").WithPath("radius.allowed_methods")
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, or eap").WithPath("radius.allowed_methods")
 	}
 	return out, nil
 }
@@ -651,9 +657,9 @@ func normalizeRADIUSAuthMethods(raw []string, path string) ([]string, error) {
 	for i, s := range raw {
 		m := strings.ToLower(strings.TrimSpace(s))
 		switch m {
-		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2:
+		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2, RADIUSAuthMethodEAP:
 		default:
-			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, or mschapv2")
+			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, or eap")
 		}
 		if _, ok := seen[m]; ok {
 			continue

@@ -56,7 +56,7 @@ UDP datagram
   -> udp.Cache                            # exact retransmission
   -> server.Access / server.Accounting
   -> aaa.Service.AuthenticateAccess
-       |  VerifyCredentials (PAP/CHAP only)
+       |  VerifyCredentials (PAP/CHAP/EAP-MD5)
        |  must_change_login -> Access-Reject reject_password_change_required
        |  policy/radius.Engine (client policy, fallback, default deny)
   -> SignResponse                         # MA first, Proxy-State, Response Authenticator
@@ -67,22 +67,22 @@ What already exists and must be reused, not forked:
 | Asset | Path | Constraint |
 |---|---|---|
 | Independent testclient | `internal/radius/testclient` | Must not import production `codec` / `crypto` / `server`. Shared-codec loopback is never sole evidence. |
-| Codec codes | `internal/radius/codec/code.go` | `CodeAccessChallenge = 11` is **known but not advertised**. |
-| Attribute types | `internal/radius/attribute/types.go` | `TypeState = 24`, `TypeEAPMessage = 79` exist; EAP-Message is **not** in `mvpDefinitions()`. |
-| Dictionary | `internal/radius/attribute/standard.go` | Built-in IETF MVP only. State is reserved; MVP does not emit it. Named Cisco-AVPair absent. |
+| Codec codes | `internal/radius/codec/code.go` | `CodeAccessChallenge = 11` is advertised for EAP Identity/MD5. |
+| Attribute types | `internal/radius/attribute/types.go` | `TypeState = 24`, `TypeEAPMessage = 79` exist; EAP-Message is in `mvpDefinitions()`. |
+| Dictionary | `internal/radius/attribute/standard.go` | Built-in IETF MVP includes EAP-Message. Named Cisco-AVPair absent. |
 | VSA framing | `internal/radius/attribute/vendor.go` | Vendor-id + raw payload. No nested vendor-type dictionary. |
-| Access pipeline | `internal/radius/server/access.go` | EAP-Message present → `reject_unsupported_method`. No Challenge outcome. |
+| Access pipeline | `internal/radius/server/access.go` | EAP Identity + MD5 terminate when `eap` is opted in. Other EAP types fail closed. |
 | Integrity | `internal/radius/server/integrity.go` | EAP-Message without valid MA is discarded (`discard_eap_without_ma`). |
-| AAA access | `internal/aaa/radius_access.go` | `RadiusAccessOutcome` is accept/reject/error. `AuthChallenge` is reserved in `domain.AuthOutcome` and unused. |
-| VerifyCredentials | `internal/aaa/authn.go` | Password, CHAP, and RADIUS MS-CHAPv1/v2 (RFC 2548 VSAs; opt-in). |
+| AAA access | `internal/aaa/radius_access.go` | `RadiusAccessOutcome` is accept/reject/challenge/error. Challenge is issued by the EAP adapter, not PAP/CHAP. |
+| VerifyCredentials | `internal/aaa/authn.go` | Password, CHAP, RADIUS MS-CHAPv1/v2 (RFC 2548 VSAs; opt-in), and EAP-MD5 (CHAP-equivalent). |
 | Policy engine | `internal/policy/radius/evaluate.go` | User `radius_policy_id`, then `effectiveGroups`, then client `access_policy_id`, then `fallback_radius_policy_id`, then default deny. |
-| Config v2 | `internal/config/raw_v2.go`, `types.go` | Named listeners. At most one RADIUS UDP endpoint per client. v2 `users[]` / `groups[]` accept `radius_policy_id`. |
+| Config v2 | `internal/config/raw_v2.go`, `types.go` | Named listeners. At most one RADIUS UDP endpoint and one RADIUS TLS endpoint per client. v2 `users[]` / `groups[]` accept `radius_policy_id`. |
 | Runtime IDs | `internal/runtime/listener.go` | `IDRADIUSAccess`, `IDRADIUSAccounting` only. |
 | Domain taxonomy | `internal/domain/protocol.go` | `RoleDynamicAuthorization` and `CarrierRADIUSTLS` are reserved. |
 | Must-change | ADR 0019 + `PRJ-UL-001` | RADIUS is Access-Reject, no extra attrs, no Challenge. |
 | Build status | `internal/api/operations/build.go` | RADIUS `ConformanceStatusPartial` is hard-coded. Tests lock it (`handlers_test.go`). |
 
-MVP MUST rows in `docs/RADIUS_CONFORMANCE.md` are `PASS` except `R65-ACCESS-004` = `DEFERRED_MAY` (ADR 0016).
+MVP MUST rows in `docs/RADIUS_CONFORMANCE.md` are `PASS`, including `R65-ACCESS-004`. Tunneled EAP (`PRJ-EAP-003`) stays `DEFERRED_MAY`.
 
 ### Pain points this program exists to close
 

@@ -347,6 +347,9 @@ func replyLabels(req codec.Code, res server.Result) (code, outcome string) {
 	if res.Reason == server.ReasonOK {
 		return observability.CodeAccessAccept, observability.OutcomeAccessAccept
 	}
+	if res.Reason == server.ReasonChallenge {
+		return observability.CodeAccessChallenge, observability.OutcomeAccessChallenge
+	}
 	return observability.CodeAccessReject, observability.OutcomeAccessReject
 }
 

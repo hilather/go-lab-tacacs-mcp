@@ -105,9 +105,21 @@ func TestAuthenticateAccessDefaultDenyAndRejects(t *testing.T) {
 		{
 			name:   "unsupported-method",
 			user:   "lab-admin",
-			ev:     CredentialEvidence{Method: domain.AuthMethod("eap")},
+			ev:     CredentialEvidence{Method: domain.AuthMethod("peap")},
 			want:   RadiusAccessReject,
 			reason: AccessReasonUnsupportedMethod,
+		},
+		{
+			name: "eap-pass-default-deny",
+			user: "lab-admin",
+			ev: CredentialEvidence{
+				Method:    domain.AuthMethodEAP,
+				CHAPID:    chapID,
+				Challenge: append([]byte(nil), chapChal...),
+				Response:  append([]byte(nil), chapOK...),
+			},
+			want:   RadiusAccessReject,
+			reason: AccessReasonPolicy,
 		},
 	}
 	for _, tc := range cases {

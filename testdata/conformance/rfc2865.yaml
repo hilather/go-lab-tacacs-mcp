@@ -174,7 +174,11 @@ rows:
     section_title: Access behavior
     level: MUST
     requirement: Access-Challenge only under complete state/security gate
-    evidence_required: Types may exist; no provider ships until a later ADR
-    status: DEFERRED_MAY
+    evidence_required: Independent testclient wire Challenge + EAP Identity/MD5; State bind/TTL/consume-on-use
+    status: PASS
     evidence:
-      - adr:docs/decisions/0016-radius-udp-security-retransmission-and-scope.md
+      - adr:docs/decisions/0021-radius-access-challenge-state-gate.md
+      - unit:internal/radius/udp.TestIndependentTestclientEAPIdentityMD5Wire
+      - unit:internal/radius/server.TestEAPIdentityIssuesMD5Challenge
+      - unit:internal/radius/runtime.TestChallengeIssueConsumeUDPAndTLS
+      - fuzz:internal/radius/codec.FuzzRadiusPacketDecode

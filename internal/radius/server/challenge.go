@@ -46,8 +46,8 @@ func bindFromRequest(in Request) (runtime.ChallengeBind, string) {
 	}
 }
 
-// IssueChallenge stores adapter-generated State. The live Access handler
-// does not call this; PR 3 is the first production issuer.
+// IssueChallenge stores adapter-generated State. EAP Identity/MD5 is the
+// first production issuer.
 func IssueChallenge(store *runtime.ChallengeStore, in Request, rec runtime.ChallengeIssue) string {
 	if store == nil {
 		return ReasonChallengeCapacity

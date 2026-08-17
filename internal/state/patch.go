@@ -478,7 +478,7 @@ func applyRADIUSFlatten(c *config.Client, p *RADIUSPatch) error {
 		return nil
 	}
 	ep.Roles = append([]domain.ListenerRole(nil), roles...)
-	return applyRADIUSFields(ep.RADIUS, p, roles)
+	return applyRADIUSFields(ep.RADIUS, p, ep.Roles)
 }
 
 func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch, roles []domain.ListenerRole) error {
@@ -500,7 +500,7 @@ func applyRADIUSFields(rad *config.RADIUSEndpoint, p *RADIUSPatch, roles []domai
 		if err != nil {
 			return err
 		}
-		rad.AllowedAuthenticationMethods = config.DefaultRADIUSAccessMethods(methods, roles)
+		rad.AllowedAuthenticationMethods = config.FillRADIUSAccessMethods(methods, roles)
 	}
 	if p.AccessPolicyID != nil {
 		rad.AccessPolicyID = *p.AccessPolicyID
@@ -521,7 +521,7 @@ func defaultRADIUSEndpoint(roles []domain.ListenerRole) config.RADIUSEndpoint {
 		LimitProxyState:             true,
 	}
 	if endpointHasRole(roles, domain.RoleAccess) {
-		rad.AllowedAuthenticationMethods = []string{config.RADIUSAuthMethodPAP, config.RADIUSAuthMethodCHAP}
+		rad.AllowedAuthenticationMethods = config.DefaultRADIUSAccessMethods()
 	}
 	if endpointHasRole(roles, domain.RoleAccounting) {
 		rad.AcceptStatusTypes = []string{

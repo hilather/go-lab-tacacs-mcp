@@ -161,7 +161,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	)
 	var radiusAccess radiusserver.Handler = radiusserver.Stub{}
 	if aaaSvc != nil {
-		radiusAccess = radiusserver.Access{AAA: aaaSvc, Store: challenges}
+		radiusAccess = radiusserver.Access{AAA: aaaSvc, Store: challenges, Entropy: rand.Reader, Metrics: obs.Rec}
 	}
 
 	var built []runtime.Listener

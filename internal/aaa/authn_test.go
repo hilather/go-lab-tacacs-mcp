@@ -234,7 +234,7 @@ func TestVerifyCredentialsRejectsUnsupportedMethod(t *testing.T) {
 	t.Parallel()
 	svc, _, _ := testService(t)
 	got, err := svc.VerifyCredentials(context.Background(), "lab-admin", "lab-switches", CredentialEvidence{
-		Method: domain.AuthMethod("eap"),
+		Method: domain.AuthMethod("peap"),
 	})
 	if got != domain.AuthError {
 		t.Fatalf("outcome=%s", got)

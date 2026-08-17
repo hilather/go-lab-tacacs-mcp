@@ -98,7 +98,8 @@ Do not treat a green TACACS conformance matrix as RADIUS PASS.
 | RAD-TM-07 | BlastRADIUS / Message-Authenticator / Proxy-State bypass | Critical | Validate every present MA (Access and Accounting); Access require-MA default; `limit_proxy_state`; MA first on every Access and Accounting response | integrity tests; ADR 0016 |
 | RAD-TM-08 | Duplicate KDF / duplicate accounting | High | pending/completed retransmission cache + semantic journal excluding Acct-Delay-Time | cache + journal tests |
 | RAD-TM-09 | Cache poisoning | High | slot + Request Authenticator + declared-packet digest; invalid MA never reads/inserts/purges | collision/purge tests |
-| RAD-TM-10 | Challenge State / Access-Challenge | High | In-memory store: random State, consume-on-use, TTL, bind, capacity fail-closed; raw State never logged. No live Access-Challenge | `R65-ACCESS-004` `DEFERRED_MAY`; `TestChallengeIssueConsumeUDPAndTLS` |
+| RAD-TM-10 | Challenge State / Access-Challenge | High | In-memory store: random State, consume-on-use, TTL, bind, capacity fail-closed; raw State never logged. Live Challenge only for opted-in EAP | `R65-ACCESS-004` `PASS`; `TestChallengeIssueConsumeUDPAndTLS`; `TestIndependentTestclientEAPIdentityMD5Wire` |
+| RAD-TM-22 | EAP type confusion / tunneled downgrade | High | Unknown types fail closed with generic EAP-Failure; no PEAP/TLS; no Challenge leak | `PRJ-EAP-002`; `TestEAPUnsupportedTypeRejectsWithoutState` |
 | RAD-TM-11 | UDP queue / cache / journal exhaustion | High | hard caps; `drop_overload`; journal saturation is fail-open-to-ack | saturation/leak/race |
 | RAD-TM-12 | VSA parser confusion | High | nested length checks; unknown VSA preserved raw | VSA corpus/fuzz |
 | RAD-TM-13 | Duplicate attribute bypass | High | dictionary cardinality; conflicting auth evidence → Access-Reject | access reject tests |

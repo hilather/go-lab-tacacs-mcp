@@ -241,6 +241,14 @@ func (r *Recorder) RADIUSChallengeSaturation() {
 	r.registry().Inc(MetricRADIUSChallengeSaturations, Labels{}, 1)
 }
 
+// RADIUSEAP records one EAP termination outcome. eapType and outcome are closed sets.
+func (r *Recorder) RADIUSEAP(eapType, outcome string) {
+	r.registry().Inc(MetricRADIUSEAP, Labels{
+		LabelEAPType: boundEAPType(eapType),
+		LabelOutcome: boundOutcome(outcome),
+	}, 1)
+}
+
 // RADIUSAuthenticatorFailure increments authenticator validation failures.
 func (r *Recorder) RADIUSAuthenticatorFailure(role, typ string) {
 	r.registry().Inc(MetricRADIUSAuthenticatorFail, Labels{
@@ -334,6 +342,8 @@ func boundOutcome(v string) string {
 		return OutcomeAccessAccept
 	case OutcomeAccessReject:
 		return OutcomeAccessReject
+	case OutcomeAccessChallenge:
+		return OutcomeAccessChallenge
 	case OutcomeOK, "success":
 		return OutcomeOK
 	case OutcomeDrop:
@@ -417,6 +427,13 @@ func boundAuthenticatorType(v string) string {
 		return v
 	}
 	return AuthTypeMessageAuthenticator
+}
+
+func boundEAPType(v string) string {
+	if knownEAPType(v) {
+		return v
+	}
+	return EAPTypeOther
 }
 
 func boundAuthenType(v string) string {

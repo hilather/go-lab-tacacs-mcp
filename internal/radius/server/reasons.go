@@ -26,7 +26,9 @@ const (
 	ReasonChallengeExpired       = "reject_challenge_expired"
 	ReasonChallengeBinding       = "reject_challenge_binding"
 	ReasonChallengeCapacity      = "reject_challenge_capacity"
-	ReasonChallenge              = "challenge" // allowlist only; no live Access-Challenge in this PR
+	ReasonChallenge              = "challenge"
+	ReasonUnsupportedEAPMethod   = "reject_unsupported_eap_method"
+	ReasonEAPTooLong             = "reject_eap_too_long"
 	ReasonInternal               = "internal_error"
 	ReasonOK                     = "ok"
 )

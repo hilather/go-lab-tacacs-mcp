@@ -182,6 +182,7 @@ rows:
     evidence:
       - unit:internal/aaa.TestAuthenticateAccessMustChangeRejectsWithoutPolicy
       - unit:internal/radius/server.TestReasonTableStable
+      - unit:internal/radius/server.TestEAPMustChangeIndistinguishableFromBadPassword
       - docs:docs/designs/radius-authentication.md
   - id: PRJ-MSCHAP-001
     section: access-request
@@ -269,3 +270,38 @@ rows:
     evidence:
       - adr:docs/decisions/0025-radius-radsec-tls13-first-slice.md
       - docs:docs/RADIUS_CONFORMANCE.md
+  - id: PRJ-EAP-001
+    section: access-behavior
+    section_title: Access behavior
+    level: PROJECT MUST
+    requirement: EAP-Message requires valid MA; Identity (type 1) and EAP-MD5 (type 4) terminate
+    evidence_required: Independent testclient wire Identity then MD5-Challenge then Accept; MA still discard_eap_without_ma
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestIndependentTestclientEAPIdentityMD5Wire
+      - unit:internal/radius/server.TestEAPIdentityIssuesMD5Challenge
+      - unit:internal/radius/server.TestEAPMD5SuccessAccepts
+      - unit:internal/radius/testclient.TestEAPIdentityMD5PacketsIndependent
+      - unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState
+      - bench:internal/radius/server.BenchmarkRadiusEAPIdentityIssue
+  - id: PRJ-EAP-002
+    section: access-behavior
+    section_title: Access behavior
+    level: PROJECT MUST
+    requirement: Unknown EAP type emits generic EAP-Failure plus Access-Reject; no Challenge leak
+    evidence_required: PEAP/TLS/TTLS/other types fail closed; State is not stored or returned
+    status: PASS
+    evidence:
+      - unit:internal/radius/udp.TestIndependentTestclientUnsupportedEAPNoChallenge
+      - unit:internal/radius/server.TestEAPUnsupportedTypeRejectsWithoutState
+      - unit:internal/radius/server.TestEAPNAKFailure
+      - unit:internal/radius/server.TestEAPTooLongRejects
+  - id: PRJ-EAP-003
+    section: access-behavior
+    section_title: Access behavior
+    level: PROJECT MUST
+    requirement: Tunneled EAP (PEAP / EAP-TLS / EAP-TTLS / EAP-FAST / TEAP) and EAP pass-through are not implemented
+    evidence_required: Documented deferral; unknown types fail closed
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0022-radius-eap-identity-md5.md

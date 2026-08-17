@@ -3,11 +3,18 @@ package operations
 import (
 	"context"
 	"encoding/json"
+	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 )
 
 const mixedRADIUSClientYAML = `
@@ -183,9 +190,9 @@ func TestClientEndpointsRADIUSOmitsMethodsDefaultsPAPCHAP(t *testing.T) {
 	created, err := reg.Invoke(context.Background(), IDClientsCreate, m.Snapshot(), Input{
 		Actor: writer,
 		Request: CreateClientRequest{
-			ID: "rad-ep",
+			ID: "rad-omit-methods",
 			Match: &ClientMatchView{
-				SourceCIDRs: []string{"10.9.0.0/16"},
+				SourceCIDRs: []string{"10.30.0.0/16"},
 			},
 			Endpoints: &[]ClientEndpointWrite{{
 				ID:        "radius-udp",
@@ -193,7 +200,7 @@ func TestClientEndpointsRADIUSOmitsMethodsDefaultsPAPCHAP(t *testing.T) {
 				Transport: "udp",
 				Roles:     []string{"access"},
 				RADIUS: &ClientRADIUSWrite{
-					SharedSecret: OptionalSecret{Present: true, File: "/run/secrets/rad-radius"},
+					SharedSecret: OptionalSecret{Present: true, File: "/run/secrets/rad-omit"},
 				},
 			}},
 		},
@@ -206,33 +213,88 @@ func TestClientEndpointsRADIUSOmitsMethodsDefaultsPAPCHAP(t *testing.T) {
 		t.Fatalf("endpoints=%+v", c.Endpoints)
 	}
 	got := c.Endpoints[0].RADIUS.AllowedMethods
-	if len(got) != 2 || got[0] != config.RADIUSAuthMethodPAP || got[1] != config.RADIUSAuthMethodCHAP {
-		t.Fatalf("omitted endpoints[] methods must be pap+chap: %v", got)
+	if strings.Join(got, ",") != "pap,chap" {
+		t.Fatalf("omitted methods persisted %v, want pap,chap", got)
 	}
-	snap := m.Snapshot()
-	compiled, ok := snap.Client("rad-ep")
-	if !ok {
+	for _, method := range got {
+		if method == "eap" {
+			t.Fatal("eap must stay opt-in")
+		}
+	}
+
+	eff, ok := m.Snapshot().Client("rad-omit-methods")
+	if !ok || len(eff.Client.Endpoints) != 1 || eff.Client.Endpoints[0].RADIUS == nil {
 		t.Fatal("missing compiled client")
 	}
-	assertAccessMethodsNonEmpty(t, compiled.Client)
+	methods := append([]string(nil), eff.Client.Endpoints[0].RADIUS.AllowedAuthenticationMethods...)
+	if strings.Join(methods, ",") != "pap,chap" {
+		t.Fatalf("snapshot methods=%v", methods)
+	}
+
+	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, time.Now)
+	secret := []byte("LabRadius-Secret-32-bytes-ok!!")
+	var ra [16]byte
+	ra[0] = 0xc1
+	ident := append([]byte{2, 1, 0, 14, 1}, []byte("lab-admin")...)
+	in := signedRADIUSAccess(t, secret, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		{Type: attribute.TypeEAPMessage, Value: ident},
+	})
+	in.AllowedMethods = methods
+	in.ClientID = "rad-omit-methods"
+	in.EndpointID = "radius-udp"
+	in.Peer = netip.MustParseAddrPort("192.0.2.10:1812")
+	in.Carrier = domain.CarrierRADIUSUDP
+	res := server.Access{Store: store}.Handle(context.Background(), in)
+	if res.Action != server.ActionReply || res.Reason != server.ReasonUnsupportedMethod || res.Response[0] != byte(codec.CodeAccessReject) {
+		t.Fatalf("Identity must Reject without Challenge: %+v", res)
+	}
+	pkt, err := codec.Decode(res.Response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pkt.Attributes.First(attribute.TypeState); ok {
+		t.Fatal("must not emit State")
+	}
+	if store.Len() != 0 {
+		t.Fatal("must not store State")
+	}
 }
 
-func assertAccessMethodsNonEmpty(t *testing.T, c config.Client) {
+func signedRADIUSAccess(t *testing.T, secret []byte, ra [16]byte, attrs attribute.RawSet) server.Request {
 	t.Helper()
-	for _, ep := range c.Endpoints {
-		if ep.Protocol != domain.ProtocolRADIUS || ep.RADIUS == nil {
-			continue
+	pkt := codec.Packet{
+		Code:          codec.CodeAccessRequest,
+		Identifier:    1,
+		Authenticator: ra,
+		Attributes:    append(attrs, attribute.Raw{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)}),
+	}
+	raw, err := codec.Encode(pkt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac, err := crypto.MessageAuthenticator(secret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	off := codec.HeaderSize
+	for off+2 <= len(raw) {
+		if raw[off] == attribute.TypeMessageAuthenticator {
+			copy(raw[off+2:off+18], mac[:])
+			break
 		}
-		hasAccess := false
-		for _, r := range ep.Roles {
-			if r == domain.RoleAccess {
-				hasAccess = true
-				break
-			}
-		}
-		if hasAccess && len(ep.RADIUS.AllowedAuthenticationMethods) == 0 {
-			t.Fatalf("access endpoint %s has empty allowed_authentication_methods", ep.ID)
-		}
+		off += int(raw[off+1])
+	}
+	dec, err := codec.Decode(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return server.Request{
+		Role:                        domain.RoleAccess,
+		Packet:                      dec,
+		Declared:                    raw,
+		Secret:                      secret,
+		RequireMessageAuthenticator: true,
 	}
 }
 
@@ -250,7 +312,7 @@ func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
 			},
 			RADIUS: &ClientRADIUSWrite{
 				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
-				AllowedMethods: []string{"eap"},
+				AllowedMethods: []string{"peap"},
 			},
 		},
 	})

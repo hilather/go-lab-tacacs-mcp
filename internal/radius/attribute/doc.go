@@ -3,8 +3,9 @@
 // dictionary merge (TacLab YAML only).
 //
 // Raw values stay ordered, duplicate-preserving, and binary-safe. Unknown
-// types remain raw. Type 26 is vendor-id plus an opaque payload. Named
-// Cisco-AVPair decoding is not in this package.
+// types remain raw. Type 26 is vendor-id plus an opaque payload. Nested
+// vendor TLVs are 1-byte type + 1-byte length. Named Cisco-AVPair is
+// vendor 9 / vendor-type 1. Unknown nested types stay raw.
 //
 // The dictionary declares name, code, value kind, sensitivity, cardinality,
 // and packet-role legality. Message-Authenticator is allowed on

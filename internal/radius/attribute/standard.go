@@ -1,6 +1,6 @@
 package attribute
 
-// MVP IETF attributes. Named Cisco-AVPair is intentionally absent.
+// Built-in IETF MVP attributes plus named Cisco-AVPair (vendor 9 type 1).
 func mvpDefinitions() []Definition {
 	return []Definition{
 		define("User-Name", TypeUserName, KindText, CardinalitySingle, SensitivityRestricted,
@@ -97,6 +97,8 @@ func mvpDefinitions() []Definition {
 			maskOf(PacketAccessRequest)).withOctets(MSCHAPResponseWireLen, MSCHAPResponseWireLen),
 		defineVendor("MS-CHAP2-Success", VendorMicrosoft, VendorTypeMSCHAP2Success, KindString, CardinalitySingle, SensitivitySecret,
 			maskOf(PacketAccessAccept)).withOctets(MSCHAP2SuccessWireLen, MSCHAP2SuccessWireLen),
+		defineVendor(NameCiscoAVPair, VendorCisco, TypeCiscoAVPair, KindText, CardinalityMulti, SensitivityRestricted,
+			maskOf(PacketAccessRequest, PacketAccessAccept, PacketAccessReject, PacketAccessChallenge, PacketAccountingRequest)),
 	}
 }
 

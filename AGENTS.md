@@ -213,7 +213,7 @@ Do not claim support based only on a library README. Verify behavior with indepe
 - RFC 5080 deterministic bounded duplicate/retransmission behavior.
 - Project rows `PRJ-*` for MA discard policy, unknown-client discard, deterministic policy, stable error mapping, accounting idempotency, bounded storage, runtime limits, one-datagram binding, v1/v2 config, TACACS regression, and REST/MCP parity.
 - Independent `internal/radius/testclient` codec evidence. Shared-codec loopback is not sufficient.
-- Access-Challenge, EAP methods, CoA, RadSec, proxying, MS-CHAP, custom dictionaries, and named `Cisco-AVPair` stay deferred until their ADRs and tests land.
+- Access-Challenge, EAP methods, CoA, RadSec, proxying, MS-CHAP, and custom dictionaries stay deferred until their ADRs and tests land. Named `Cisco-AVPair` (vendor 9 type 1) is implemented; IOL skip is not PASS.
 
 Do not set RADIUS `conformance_status` to `pass` or expose a complete-RADIUS badge while any MVP row is `NOT_STARTED` or lacks evidence. UDP ports **1812** (access) and **1813** (accounting) are the RADIUS lab ports when listeners are enabled; they stay off the public internet.
 

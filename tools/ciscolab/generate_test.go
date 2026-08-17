@@ -55,6 +55,20 @@ func TestRenderTopologyIsContainerlabIOLNotGNS3(t *testing.T) {
 	if !strings.Contains(partial, `"s3cret#value"`) {
 		t.Fatal("quoted shared secret missing (IOS # is a comment)")
 	}
+
+	radius, err := RenderIOLRADIUSPartial(repoRoot(t), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assertIOLRADIUSPointsAtTacLab(radius, p); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(radius, "1812") || !strings.Contains(radius, "radius server") {
+		t.Fatal("optional RADIUS IOL snippet missing")
+	}
+	if strings.Contains(strings.ToLower(radius), "pass") && !strings.Contains(radius, "not PRJ-CISCO-001 PASS") {
+		t.Fatal("RADIUS snippet must not claim PASS")
+	}
 }
 
 func TestWriteGeneratedUsesSecretFileNotHardcodedImageBytes(t *testing.T) {
@@ -75,6 +89,13 @@ func TestWriteGeneratedUsesSecretFileNotHardcodedImageBytes(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), p.SharedSecret) {
 		t.Fatal("generated partial should include substituted key")
+	}
+	rad, err := os.ReadFile(got.RADIUSPartialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rad), "radius server") || !strings.Contains(string(rad), "not PRJ-CISCO-001 PASS") {
+		t.Fatalf("optional RADIUS partial: %s", rad)
 	}
 }
 

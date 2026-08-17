@@ -205,3 +205,27 @@ rows:
       - unit:internal/state.TestReloadInvalidOperatorDictionaryKeepsSnapshot
       - unit:internal/api/operations.TestRadiusAttributesListOperatorSource
       - adr:docs/decisions/0026-radius-operator-dictionaries.md
+  - id: PRJ-CISCO-001
+    section: packet-and-attribute-framing
+    section_title: Packet and attribute framing
+    level: PROJECT MUST
+    requirement: Named Cisco-AVPair (vendor 9, vendor-type 1) decode/encode with independent fixtures
+    evidence_required: Independent testclient fixtures; named and raw reply forms same wire; IOL skip is not PASS
+    status: PASS
+    evidence:
+      - unit:internal/radius/attribute.TestNamedCiscoAVPair
+      - unit:internal/radius/attribute.TestNamedAndRawCiscoAVPairSameWire
+      - unit:internal/radius/attribute.TestParseVendorTLVsCiscoAVPairGolden
+      - unit:internal/radius/attribute.TestParseVendorTLVsEdges
+      - unit:internal/radius/testclient/codec.TestIndependentCiscoAVPairGolden
+      - unit:internal/radius/testclient/codec.TestIndependentCiscoAVPairEdges
+      - unit:internal/policy/radius.TestCompileNamedAndRawCiscoAVPairSameKey
+      - unit:internal/aaa.TestEncodePolicyReplyNamedAndRawCiscoAVPairSameWire
+      - unit:tools/ciscolab.TestRADIUSCiscoAVPairScenarioSkipIsNotPass
+      - golden:testdata/protocol/radius/cisco/avpair-priv-lvl.bin
+      - golden:testdata/protocol/radius/cisco/avpair-priv-lvl.json
+      - fuzz:internal/radius/attribute.FuzzRadiusVendorTLVs
+      - bench:internal/radius/attribute.BenchmarkParseVendorTLVs_CiscoAVPair
+      - adr:docs/decisions/0027-named-cisco-avpair-independent-fixtures.md
+      - docs:docs/INTEROP.md
+      - interop:make cisco-lab RADIUS scenario SKIP without TACLAB_IOL_IMAGE; skip is not PASS

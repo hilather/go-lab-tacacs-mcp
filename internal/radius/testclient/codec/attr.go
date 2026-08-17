@@ -215,7 +215,7 @@ func EncodeVendorTLVs(tlvs []VendorTLV) ([]byte, error) {
 	n := 0
 	for _, t := range tlvs {
 		if len(t.Value) > MaxValue-4-2 {
-			return nil, fmt.Errorf("%w: type %d value %d", ErrVSAValueLong, t.Type, len(t.Value))
+			return nil, fmt.Errorf("%w: type %d value %d", ErrVendorTLVLong, t.Type, len(t.Value))
 		}
 		n += 2 + len(t.Value)
 	}

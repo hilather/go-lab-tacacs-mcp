@@ -74,9 +74,11 @@ rows:
       - unit:internal/radius/attribute.TestParseVSARoundTrip
       - unit:internal/radius/attribute.TestParseVSAUnknownVendorPreserved
       - unit:internal/radius/attribute.TestPacketKeepsMalformedVSARaw
+      - unit:internal/radius/attribute.TestParseVendorTLVsMultipleAndUnknown
       - unit:internal/radius/codec.TestVSAGoldenFraming
       - unit:internal/radius/testclient/codec.TestIndependentVSAFraming
       - fuzz:internal/radius/attribute.FuzzRadiusVSA
+      - fuzz:internal/radius/attribute.FuzzRadiusVendorTLVs
       - golden:testdata/protocol/radius/packets/access-request-vsa.bin
   - id: R65-PROXY-001
     section: packet-and-attribute-framing

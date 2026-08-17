@@ -12,6 +12,8 @@ var (
 	ErrVSAShort           = errors.New("radius Vendor-Specific value is shorter than a vendor id")
 	ErrVSAValueLong       = errors.New("radius Vendor-Specific payload exceeds attribute value budget")
 	ErrVendorTLVMalformed = errors.New("radius vendor TLV is malformed")
+	ErrVendorTLV          = ErrVendorTLVMalformed
+	ErrVendorTLVLong      = errors.New("radius vendor TLV exceeds Vendor-Specific payload budget")
 
 	ErrUnknownPacket   = errors.New("radius attribute role check: unknown packet code")
 	ErrIllegalRole     = errors.New("radius attribute is not legal in this packet")

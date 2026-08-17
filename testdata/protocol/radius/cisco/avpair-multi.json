@@ -1,0 +1,10 @@
+{
+  "name": "avpair-multi",
+  "description": "Two Cisco-AVPair TLVs in one Vendor-Specific payload. Independent fixture; not IOL evidence.",
+  "vendor": 9,
+  "path": "avpair-multi.bin",
+  "pairs": [
+    {"vendor_type": 1, "text": "shell:priv-lvl=15"},
+    {"vendor_type": 1, "text": "shell:priv-lvl=7"}
+  ]
+}

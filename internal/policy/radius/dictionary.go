@@ -1,8 +1,7 @@
 package radius
 
 // Local MVP dictionary for compile-time name/code/role/kind checks.
-// Packet-role bits match the built-in IETF table (later attribute.Builtin).
-// Named Cisco-AVPair is intentionally absent.
+// Packet-role bits match the built-in IETF table plus named Cisco-AVPair.
 
 // ValueKind is the RFC 2865 / RFC 3162 / RFC 2869 encoding used at compile.
 type ValueKind string
@@ -33,6 +32,7 @@ const (
 // attrDef is immutable metadata. It never carries a value.
 type attrDef struct {
 	Name        string
+	Vendor      uint32
 	Code        uint8
 	Kind        ValueKind
 	Cardinality Cardinality
@@ -44,7 +44,7 @@ type attrDef struct {
 }
 
 func (d attrDef) key() AttrKey {
-	return AttrKey{Vendor: 0, Code: d.Code, Name: d.Name}
+	return AttrKey{Vendor: d.Vendor, Code: d.Code, Name: d.Name}
 }
 
 type dictionary struct {
@@ -82,6 +82,7 @@ func mustBuiltin() dictionary {
 		{Name: "Message-Authenticator", Code: 80, Kind: KindString, Cardinality: CardinalitySingle, Secret: true, ServerOwned: true, allowReq: true, allowAccept: true, allowReject: true},
 		{Name: "Acct-Interim-Interval", Code: 85, Kind: KindInteger, Cardinality: CardinalitySingle, allowAccept: true},
 		{Name: "NAS-IPv6-Address", Code: 95, Kind: KindIPv6, Cardinality: CardinalitySingle, allowReq: true},
+		{Name: "Cisco-AVPair", Vendor: 9, Code: 1, Kind: KindText, Cardinality: CardinalityMulti, allowReq: true, allowAccept: true, allowReject: true},
 	}
 	d := dictionary{
 		byName: make(map[string]attrDef, len(defs)),
@@ -91,13 +92,24 @@ func mustBuiltin() dictionary {
 		if _, ok := d.byName[def.Name]; ok {
 			panic("radius policy dictionary: duplicate name " + def.Name)
 		}
-		if _, ok := d.byCode[def.Code]; ok {
-			panic("radius policy dictionary: duplicate code")
+		if def.Vendor == 0 {
+			if _, ok := d.byCode[def.Code]; ok {
+				panic("radius policy dictionary: duplicate code")
+			}
+			d.byCode[def.Code] = def
 		}
 		d.byName[def.Name] = def
-		d.byCode[def.Code] = def
 	}
 	return d
+}
+
+func (d dictionary) lookupVSA(vendor uint32, code uint8) (attrDef, bool) {
+	for _, def := range d.byName {
+		if def.Vendor == vendor && def.Code == code {
+			return def, true
+		}
+	}
+	return attrDef{}, false
 }
 
 func (d dictionary) lookupName(name string) (attrDef, bool) {

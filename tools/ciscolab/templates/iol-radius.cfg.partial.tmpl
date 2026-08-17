@@ -1,0 +1,17 @@
+! Optional IOL RADIUS snippet. Generated only as a lab aid.
+! Does not run unless the operator applies it and TACLAB_IOL_IMAGE is set.
+! A skip of make cisco-lab is not Cisco PASS, not RADIUS PASS, and not PRJ-CISCO-001 PASS.
+! Named Cisco-AVPair evidence is independent testdata/protocol/radius/cisco fixtures.
+!
+radius server TACLAB-RADIUS
+ address ipv4 {{.TacLabIPv4}} auth-port {{.RADIUSAuthPort}} acct-port {{.RADIUSAcctPort}}
+ key 0 {{.QuotedSecret}}
+!
+aaa group server radius TACLAB-RADIUS-GROUP
+ server name TACLAB-RADIUS
+ ip vrf forwarding clab-mgmt
+ ip radius source-interface Ethernet0/0
+!
+! Operators who want IOL to send RADIUS (and receive Cisco-AVPair) apply this
+! method list to a VTY; the default cisco-lab exercise stays TACACS.
+! aaa authentication login RADIUS-TEST group TACLAB-RADIUS-GROUP local

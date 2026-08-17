@@ -89,7 +89,7 @@ func TestCompileUnknownAttributeName(t *testing.T) {
 			Enabled: true,
 			Effect:  domain.EffectDeny,
 			Match: config.RADIUSMatch{Attributes: []config.RADIUSAttrMatch{{
-				Name: "Cisco-AVPair",
+				Name: "Juniper-Local-User-Name",
 				Op:   config.RADIUSMatchOpPresent,
 			}}},
 		}},
@@ -334,6 +334,161 @@ func TestCompileSkipsDisabledRules(t *testing.T) {
 		if s.RuleID == "off" {
 			t.Fatalf("disabled rule must not appear: %+v", s)
 		}
+	}
+}
+
+func TestCompileNamedCiscoAVPairReply(t *testing.T) {
+	t.Parallel()
+	eng := mustCompile(t, Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{{
+			ID: "cisco",
+			Attributes: []config.RADIUSReplyAttr{{
+				Name:  "Cisco-AVPair",
+				Value: "shell:priv-lvl=15",
+			}},
+		}},
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID:            "r",
+				Enabled:       true,
+				Effect:        domain.EffectPermit,
+				ReplyProfiles: []string{"cisco"},
+			}},
+		}},
+		Clients: []config.Client{{
+			ID:        "c",
+			Enabled:   true,
+			Endpoints: []config.ClientEndpoint{{ID: "e", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "p"}}},
+		}},
+	})
+	res := eng.Evaluate(Request{ClientID: "c"})
+	if res.Effect != domain.EffectPermit || len(res.ReplyAttributes) != 1 {
+		t.Fatalf("%+v", res)
+	}
+	got := res.ReplyAttributes[0]
+	if got.Key.Vendor != 9 || got.Key.Code != 1 || got.Key.Name != "Cisco-AVPair" ||
+		got.Kind != KindText || got.Text != "shell:priv-lvl=15" || string(got.Raw) != "shell:priv-lvl=15" {
+		t.Fatalf("named=%+v", got)
+	}
+}
+
+func TestCompileNamedAndRawCiscoAVPairSameKey(t *testing.T) {
+	t.Parallel()
+	named := mustCompile(t, ciscoReplyInput(config.RADIUSReplyAttr{
+		Name:  "Cisco-AVPair",
+		Value: "shell:priv-lvl=15",
+	}))
+	raw := mustCompile(t, ciscoReplyInput(config.RADIUSReplyAttr{
+		Vendor:   9,
+		Code:     1,
+		ValueHex: "7368656c6c3a707269762d6c766c3d3135",
+	}))
+	n := named.Evaluate(Request{ClientID: "c"}).ReplyAttributes
+	r := raw.Evaluate(Request{ClientID: "c"}).ReplyAttributes
+	if len(n) != 1 || len(r) != 1 {
+		t.Fatalf("named=%+v raw=%+v", n, r)
+	}
+	if n[0].Key.Vendor != r[0].Key.Vendor || n[0].Key.Code != r[0].Key.Code || string(n[0].Raw) != string(r[0].Raw) {
+		t.Fatalf("named=%+v raw=%+v", n[0], r[0])
+	}
+}
+
+func TestCompileDenyReplyRejectsNamedCiscoAVPair(t *testing.T) {
+	t.Parallel()
+	_, err := Compile(Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{{
+			ID:         "cisco",
+			Attributes: []config.RADIUSReplyAttr{{Name: "Cisco-AVPair", Value: "shell:priv-lvl=15"}},
+		}},
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID:            "r",
+				Enabled:       true,
+				Effect:        domain.EffectDeny,
+				ReplyProfiles: []string{"cisco"},
+			}},
+		}},
+	})
+	if err == nil {
+		t.Fatal("deny must not emit Cisco-AVPair")
+	}
+}
+
+func TestCompileMatchCiscoAVPairEquals(t *testing.T) {
+	t.Parallel()
+	eng := mustCompile(t, Input{
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID:      "r",
+				Enabled: true,
+				Effect:  domain.EffectPermit,
+				Match: config.RADIUSMatch{Attributes: []config.RADIUSAttrMatch{{
+					Name:  "Cisco-AVPair",
+					Op:    config.RADIUSMatchOpEquals,
+					Value: "shell:priv-lvl=15",
+				}}},
+			}},
+		}},
+		Clients: []config.Client{{
+			ID:        "c",
+			Enabled:   true,
+			Endpoints: []config.ClientEndpoint{{ID: "e", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "p"}}},
+		}},
+	})
+	hit := eng.Evaluate(Request{ClientID: "c", Attributes: TypedSet{{
+		Key:  AttrKey{Vendor: 9, Code: 1, Name: "Cisco-AVPair"},
+		Kind: KindText,
+		Text: "shell:priv-lvl=15",
+		Raw:  []byte("shell:priv-lvl=15"),
+	}}})
+	if hit.Effect != domain.EffectPermit {
+		t.Fatalf("want permit, got %+v", hit)
+	}
+	miss := eng.Evaluate(Request{ClientID: "c"})
+	if miss.Effect != domain.EffectDeny {
+		t.Fatalf("missing AVPair must not match: %+v", miss)
+	}
+}
+
+func TestCompileCiscoAVPairNameVendorDisagree(t *testing.T) {
+	t.Parallel()
+	_, err := Compile(Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{{
+			ID: "bad",
+			Attributes: []config.RADIUSReplyAttr{{
+				Name:   "Cisco-AVPair",
+				Vendor: 311,
+				Code:   1,
+				Value:  "x",
+			}},
+		}},
+		Policies: []config.RADIUSPolicy{{
+			ID:    "p",
+			Rules: []config.RADIUSRule{{ID: "r", Enabled: true, Effect: domain.EffectPermit, ReplyProfiles: []string{"bad"}}},
+		}},
+	})
+	if err == nil {
+		t.Fatal("vendor 311 is not Cisco-AVPair")
+	}
+}
+
+func ciscoReplyInput(attr config.RADIUSReplyAttr) Input {
+	return Input{
+		ReplyProfiles: []config.RADIUSReplyProfile{{ID: "vsa", Attributes: []config.RADIUSReplyAttr{attr}}},
+		Policies: []config.RADIUSPolicy{{
+			ID: "p",
+			Rules: []config.RADIUSRule{{
+				ID: "r", Enabled: true, Effect: domain.EffectPermit, ReplyProfiles: []string{"vsa"},
+			}},
+		}},
+		Clients: []config.Client{{
+			ID:        "c",
+			Enabled:   true,
+			Endpoints: []config.ClientEndpoint{{ID: "e", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "p"}}},
+		}},
 	}
 }
 

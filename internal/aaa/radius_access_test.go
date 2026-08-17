@@ -597,6 +597,49 @@ func TestPolicyRequestAttrsSkipSecrets(t *testing.T) {
 	}
 }
 
+func TestEncodePolicyReplyNamedAndRawCiscoAVPairSameWire(t *testing.T) {
+	t.Parallel()
+	named, err := encodePolicyReply(policyradius.TypedSet{{
+		Key:  policyradius.AttrKey{Name: "Cisco-AVPair", Vendor: 9, Code: 1},
+		Kind: policyradius.KindText,
+		Text: "shell:priv-lvl=15",
+		Raw:  []byte("shell:priv-lvl=15"),
+	}}, attribute.PacketAccessAccept)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := encodePolicyReply(policyradius.TypedSet{{
+		Key:  policyradius.AttrKey{Name: "Cisco-AVPair", Vendor: 9, Code: 1},
+		Kind: policyradius.KindVSA,
+		Raw:  []byte("shell:priv-lvl=15"),
+	}}, attribute.PacketAccessAccept)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(named) != 1 || len(raw) != 1 || named[0].Type != attribute.TypeVendorSpecific {
+		t.Fatalf("named=%v raw=%v", named, raw)
+	}
+	if string(named[0].Value) != string(raw[0].Value) {
+		t.Fatalf("named=%x raw=%x", named[0].Value, raw[0].Value)
+	}
+	pairs, err := attribute.DecodeCiscoAVPairs(named[0])
+	if err != nil || len(pairs) != 1 || pairs[0] != "shell:priv-lvl=15" {
+		t.Fatalf("decode=%v err=%v", pairs, err)
+	}
+}
+
+func TestPolicyRequestAttrsNamedCiscoAVPair(t *testing.T) {
+	t.Parallel()
+	raw, err := attribute.EncodeCiscoAVPair("shell:priv-lvl=15")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := policyRequestAttrs(attribute.RawSet{raw})
+	if len(got) != 1 || got[0].Key.Name != "Cisco-AVPair" || got[0].Text != "shell:priv-lvl=15" {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestEncodePolicyReplyRejectsIllegalRole(t *testing.T) {
 	t.Parallel()
 	_, err := encodePolicyReply(policyradius.TypedSet{{

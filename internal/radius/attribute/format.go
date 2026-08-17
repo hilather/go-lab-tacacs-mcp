@@ -53,3 +53,16 @@ func (v VSA) GoString() string { return v.String() }
 func (v VSA) Format(f fmt.State, _ rune) {
 	_, _ = io.WriteString(f, v.String())
 }
+
+// String reports nested type and value length only.
+func (t VendorTLV) String() string {
+	return "radius.vtlv{type=" + strconv.Itoa(int(t.Type)) + " len=" + strconv.Itoa(len(t.Value)) + "}"
+}
+
+// GoString is the %#v form and never includes Value bytes.
+func (t VendorTLV) GoString() string { return t.String() }
+
+// Format never writes the nested value.
+func (t VendorTLV) Format(f fmt.State, _ rune) {
+	_, _ = io.WriteString(f, t.String())
+}

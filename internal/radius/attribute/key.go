@@ -6,8 +6,7 @@ type AttributeSpace uint8
 const (
 	// SpaceIETF is RFC 2865 type codes (vendor 0).
 	SpaceIETF AttributeSpace = 0
-	// SpaceVSA is a vendor's nested attribute space. Named VSA entries
-	// are not in the MVP dictionary.
+	// SpaceVSA is a vendor's nested attribute space (Cisco-AVPair, later MS-CHAP).
 	SpaceVSA AttributeSpace = 1
 )
 

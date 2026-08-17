@@ -379,8 +379,20 @@ func TestRadiusAttributesListMetadataOnly(t *testing.T) {
 			sawMA = true
 		}
 	}
-	if !sawUser || !sawPW || !sawMA {
-		t.Fatalf("missing defs user=%v pw=%v ma=%v n=%d", sawUser, sawPW, sawMA, len(out.Items))
+	var sawCisco bool
+	for _, it := range out.Items {
+		if it.Name == attribute.NameCiscoAVPair {
+			sawCisco = true
+			if it.Vendor != attribute.VendorCisco || it.Code != attribute.TypeCiscoAVPair || it.ValueKind != string(attribute.KindText) {
+				t.Fatalf("cisco=%+v", it)
+			}
+			if it.Sensitivity != string(attribute.SensitivityRestricted) {
+				t.Fatalf("cisco sensitivity=%+v", it)
+			}
+		}
+	}
+	if !sawUser || !sawPW || !sawMA || !sawCisco {
+		t.Fatalf("missing defs user=%v pw=%v ma=%v cisco=%v n=%d", sawUser, sawPW, sawMA, sawCisco, len(out.Items))
 	}
 	raw, _ := json.Marshal(out)
 	for _, needle := range []string{"labpass", "verifier", "password-value"} {
@@ -437,6 +449,25 @@ radius_dictionaries:
 	}
 	if !sawOp || !sawBuiltin {
 		t.Fatalf("sawOp=%v sawBuiltin=%v n=%d", sawOp, sawBuiltin, len(out.Items))
+	}
+}
+
+func TestEncodeAndFormatNamedCiscoAVPair(t *testing.T) {
+	t.Parallel()
+	named, err := encodeRadiusAttr(RadiusAttributeValue{Name: "Cisco-AVPair", Value: "shell:priv-lvl=15"}, "request_attributes[0]")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := encodeRadiusAttr(RadiusAttributeValue{Vendor: 9, Code: 1, ValueHex: "7368656c6c3a707269762d6c766c3d3135"}, "request_attributes[1]")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if named.Type != attribute.TypeVendorSpecific || string(named.Value) != string(raw.Value) {
+		t.Fatalf("named=%x raw=%x", named.Value, raw.Value)
+	}
+	got := formatRadiusReply(attribute.RawSet{named})
+	if len(got) != 1 || got[0].Name != "Cisco-AVPair" || got[0].Vendor != 9 || got[0].Code != 1 || got[0].Value != "shell:priv-lvl=15" {
+		t.Fatalf("format=%+v", got)
 	}
 }
 

@@ -99,6 +99,24 @@ func TestDetectReadyWhenImageAndClabPresent(t *testing.T) {
 	}
 }
 
+func TestRADIUSCiscoAVPairScenarioSkipIsNotPass(t *testing.T) {
+	d := Detect(Lookups{
+		Getenv:      func(string) string { return "" },
+		LookPath:    func(string) (string, error) { return "", errors.New("no") },
+		ImageExists: func(string) (bool, error) { t.Fatal("inspect"); return false, nil },
+	})
+	sc := RADIUSCiscoAVPairScenario(d)
+	if sc.Status != StatusSkip {
+		t.Fatalf("status=%s", sc.Status)
+	}
+	if !strings.Contains(sc.Note, "not PRJ-CISCO-001 PASS") || !strings.Contains(sc.Note, "not RADIUS PASS") {
+		t.Fatalf("note must refuse PASS claims: %s", sc.Note)
+	}
+	if ClaimCiscoPass(d) {
+		t.Fatal("RADIUS skip must not be Cisco PASS")
+	}
+}
+
 func TestRunSkipWritesEvidenceNotPass(t *testing.T) {
 	dir := t.TempDir()
 	evPath := dir + "/evidence.json"
@@ -125,5 +143,11 @@ func TestRunSkipWritesEvidenceNotPass(t *testing.T) {
 	}
 	if !strings.Contains(body, `"status": "skip"`) {
 		t.Fatalf("evidence missing skip: %s", body)
+	}
+	if ev.RADIUSCiscoAVPair != StatusSkip {
+		t.Fatalf("RADIUS scenario must skip: %+v", ev)
+	}
+	if !strings.Contains(body, "PRJ-CISCO-001") {
+		t.Fatalf("evidence must say skip is not PRJ-CISCO-001 PASS: %s", body)
 	}
 }

@@ -80,5 +80,43 @@ func FuzzRadiusVSA(f *testing.F) {
 		if _, err := ParseVSA(non); !errors.Is(err, ErrNotVSA) {
 			t.Fatalf("non-vsa: %v", err)
 		}
+		if _, err := ParseVendorTLVs(v.Payload); err != nil && !errors.Is(err, ErrVendorTLV) {
+			t.Fatalf("nested: %v", err)
+		}
+	})
+}
+
+func FuzzRadiusVendorTLVs(f *testing.F) {
+	f.Add([]byte{1, 3, 'x'})
+	f.Add([]byte{1, 2})
+	f.Add([]byte{1, 19, 's', 'h', 'e', 'l', 'l', ':', 'p', 'r', 'i', 'v', '-', 'l', 'v', 'l', '=', '1', '5'})
+	f.Add([]byte{2, 5, 'a', 'b', 'c'})
+	f.Add([]byte{1, 1})
+	f.Add([]byte{1})
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, data []byte) {
+		tlvs, err := ParseVendorTLVs(data)
+		if err != nil {
+			if !errors.Is(err, ErrVendorTLV) || tlvs != nil {
+				t.Fatalf("err=%v tlvs=%v", err, tlvs)
+			}
+			return
+		}
+		enc, err := EncodeVendorTLVs(tlvs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := ParseVendorTLVs(enc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(tlvs) {
+			t.Fatalf("len %d vs %d", len(got), len(tlvs))
+		}
+		for i := range tlvs {
+			if got[i].Type != tlvs[i].Type || !bytes.Equal(got[i].Value, tlvs[i].Value) {
+				t.Fatalf("tlv %d mismatch", i)
+			}
+		}
 	})
 }

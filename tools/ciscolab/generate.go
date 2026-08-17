@@ -9,21 +9,25 @@ import (
 )
 
 const (
-	defaultTacLabIPv4   = "172.20.20.10"
-	defaultIOLIPv4      = "172.20.20.11"
-	defaultMgmtSubnet   = "172.20.20.0/24"
-	defaultTacacsPort   = 4949
-	defaultHTTPHostPort = 18080
-	defaultTacLabImage  = "ghcr.io/hilather/go-lab-tacacs-mcp:dev"
+	defaultTacLabIPv4     = "172.20.20.10"
+	defaultIOLIPv4        = "172.20.20.11"
+	defaultMgmtSubnet     = "172.20.20.0/24"
+	defaultTacacsPort     = 4949
+	defaultRADIUSAuthPort = 1812
+	defaultRADIUSAcctPort = 1813
+	defaultHTTPHostPort   = 18080
+	defaultTacLabImage    = "ghcr.io/hilather/go-lab-tacacs-mcp:dev"
 )
 
 // GeneratedLab is the workdir written by WriteGenerated.
 type GeneratedLab struct {
-	WorkDir     string
-	Topology    string
-	IOLPartial  string
-	TopoPath    string
-	PartialPath string
+	WorkDir           string
+	Topology          string
+	IOLPartial        string
+	IOLRADIUSPartial  string
+	TopoPath          string
+	PartialPath       string
+	RADIUSPartialPath string
 }
 
 // DefaultRenderParams fills operator/env defaults. Image may be empty for generate-only tests.
@@ -46,13 +50,15 @@ func DefaultRenderParams(getenv func(string) string) RenderParams {
 		iol = DefaultIOLImage
 	}
 	p := RenderParams{
-		IOLImage:     iol,
-		TacLabImage:  tac,
-		TacLabIPv4:   firstNonEmpty(getenv(EnvTacLabIPv4), defaultTacLabIPv4),
-		IOLIPv4:      firstNonEmpty(getenv(EnvIOLIPv4), defaultIOLIPv4),
-		MgmtSubnet:   firstNonEmpty(getenv(EnvMgmtSubnet), defaultMgmtSubnet),
-		TacacsPort:   defaultTacacsPort,
-		HTTPHostPort: httpPort,
+		IOLImage:       iol,
+		TacLabImage:    tac,
+		TacLabIPv4:     firstNonEmpty(getenv(EnvTacLabIPv4), defaultTacLabIPv4),
+		IOLIPv4:        firstNonEmpty(getenv(EnvIOLIPv4), defaultIOLIPv4),
+		MgmtSubnet:     firstNonEmpty(getenv(EnvMgmtSubnet), defaultMgmtSubnet),
+		TacacsPort:     defaultTacacsPort,
+		RADIUSAuthPort: defaultRADIUSAuthPort,
+		RADIUSAcctPort: defaultRADIUSAcctPort,
+		HTTPHostPort:   httpPort,
 	}
 	return p
 }
@@ -107,13 +113,46 @@ func WriteGenerated(repoRoot, dest string, p RenderParams) (*GeneratedLab, error
 	if err := os.WriteFile(partPath, []byte(partial), 0o600); err != nil {
 		return nil, err
 	}
+	radiusPartial, err := RenderIOLRADIUSPartial(repoRoot, p)
+	if err != nil {
+		return nil, err
+	}
+	if err := assertIOLRADIUSPointsAtTacLab(radiusPartial, p); err != nil {
+		return nil, err
+	}
+	radiusPath := filepath.Join(abs, "iol-radius.cfg.partial")
+	if err := os.WriteFile(radiusPath, []byte(radiusPartial), 0o600); err != nil {
+		return nil, err
+	}
 	return &GeneratedLab{
-		WorkDir:     abs,
-		Topology:    topo,
-		IOLPartial:  partial,
-		TopoPath:    topoPath,
-		PartialPath: partPath,
+		WorkDir:           abs,
+		Topology:          topo,
+		IOLPartial:        partial,
+		IOLRADIUSPartial:  radiusPartial,
+		TopoPath:          topoPath,
+		PartialPath:       partPath,
+		RADIUSPartialPath: radiusPath,
 	}, nil
+}
+
+func assertIOLRADIUSPointsAtTacLab(partial string, p RenderParams) error {
+	if !strings.Contains(partial, "radius server") {
+		return fmt.Errorf("IOL RADIUS config missing radius server")
+	}
+	if !strings.Contains(partial, p.TacLabIPv4) {
+		return fmt.Errorf("IOL RADIUS config missing TacLab address %s", p.TacLabIPv4)
+	}
+	port := strconv.Itoa(p.RADIUSAuthPort)
+	if p.RADIUSAuthPort == 0 {
+		port = strconv.Itoa(defaultRADIUSAuthPort)
+	}
+	if !strings.Contains(partial, port) {
+		return fmt.Errorf("IOL RADIUS config missing auth port %s", port)
+	}
+	if !strings.Contains(strings.ToLower(partial), "skip") || !strings.Contains(partial, "PRJ-CISCO-001") {
+		return fmt.Errorf("IOL RADIUS config must say a skip is not PRJ-CISCO-001 PASS")
+	}
+	return nil
 }
 
 func assertContainerlabIOL(topo string) error {

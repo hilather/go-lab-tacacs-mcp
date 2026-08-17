@@ -102,10 +102,6 @@ func mvpDefinitions() []Definition {
 	}
 }
 
-func defineVSA(name string, vendor uint32, code uint8, kind ValueKind, card Cardinality, sens Sensitivity, allow packetMask) Definition {
-	return defineVendor(name, vendor, code, kind, card, sens, allow)
-}
-
 func defineVendor(name string, vendor uint32, code uint8, kind ValueKind, card Cardinality, sens Sensitivity, allow packetMask) Definition {
 	d := define(name, code, kind, card, sens, allow)
 	d.Vendor = vendor

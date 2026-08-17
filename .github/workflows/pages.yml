@@ -30,7 +30,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # GITHUB_TOKEN can deploy Pages but cannot create the site.
       - name: Require existing Actions Pages site

@@ -323,3 +323,23 @@ rows:
     status: DEFERRED_MAY
     evidence:
       - adr:docs/decisions/0022-radius-eap-identity-md5.md
+  - id: PRJ-PROXY-001
+    section: runtime-and-compatibility
+    section_title: Runtime and compatibility
+    level: PROJECT MUST
+    requirement: RADIUS proxying and realm routing are not implemented
+    evidence_required: Documented DEFERRED_MAY; no proxy YAML key
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0028-defer-radius-proxying.md
+      - docs:docs/RADIUS_CONFORMANCE.md
+  - id: PRJ-ACCT-003
+    section: accounting-behavior
+    section_title: Accounting behavior
+    level: PROJECT MUST
+    requirement: Persistent accounting is not implemented; the journal and event ring stay process memory
+    evidence_required: Documented cancellation for this program; restart / runtime.reset wipe records
+    status: DEFERRED_MAY
+    evidence:
+      - adr:docs/decisions/0020-in-memory-radius-remaining-work-program.md
+      - docs:docs/RADIUS_CONFORMANCE.md

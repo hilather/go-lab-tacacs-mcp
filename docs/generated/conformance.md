@@ -19,7 +19,7 @@ Mandatory RFC 8907/9887 server rows are qualified with linked evidence IDs. Devi
 
 | Gate | Result |
 |---|---|
-| RADIUS / project MVP rows | **PASS** (44/44 mandatory rows `PASS` or deferred with ADR evidence) |
+| RADIUS / project MVP rows | **PASS** (46/46 mandatory rows `PASS` or deferred with ADR evidence) |
 | Advertised completeness | **Do not claim complete RADIUS** while tunneled EAP / persist / proxy / DTLS remain deferred, external radclient is skipped, or any MVP row lacks evidence |
 | Independent software peer | `internal/radius/testclient` (separate codec) |
 | External radclient / Cisco IOL | **SKIP** unless recorded in `docs/INTEROP.md`; a skip is not RADIUS PASS |
@@ -347,4 +347,6 @@ Project RADIUS completeness
 | PRJ-EAP-001 | PROJECT MUST | PASS | EAP-Message requires valid MA; Identity (type 1) and EAP-MD5 (type 4) terminate | unit:internal/radius/udp.TestIndependentTestclientEAPIdentityMD5Wire; unit:internal/radius/server.TestEAPIdentityIssuesMD5Challenge; unit:internal/radius/server.TestEAPMD5SuccessAccepts; unit:internal/radius/testclient.TestEAPIdentityMD5PacketsIndependent; unit:internal/radius/server.TestCheckAccessIntegrityMAAndProxyState; bench:internal/radius/server.BenchmarkRadiusEAPIdentityIssue |
 | PRJ-EAP-002 | PROJECT MUST | PASS | Unknown EAP type emits generic EAP-Failure plus Access-Reject; no Challenge leak | unit:internal/radius/udp.TestIndependentTestclientUnsupportedEAPNoChallenge; unit:internal/radius/server.TestEAPUnsupportedTypeRejectsWithoutState; unit:internal/radius/server.TestEAPNAKFailure; unit:internal/radius/server.TestEAPTooLongRejects |
 | PRJ-EAP-003 | PROJECT MUST | DEFERRED_MAY | Tunneled EAP (PEAP / EAP-TLS / EAP-TTLS / EAP-FAST / TEAP) and EAP pass-through are not implemented | adr:docs/decisions/0022-radius-eap-identity-md5.md |
+| PRJ-PROXY-001 | PROJECT MUST | DEFERRED_MAY | RADIUS proxying and realm routing are not implemented | adr:docs/decisions/0028-defer-radius-proxying.md; docs:docs/RADIUS_CONFORMANCE.md |
+| PRJ-ACCT-003 | PROJECT MUST | DEFERRED_MAY | Persistent accounting is not implemented; the journal and event ring stay process memory | adr:docs/decisions/0020-in-memory-radius-remaining-work-program.md; docs:docs/RADIUS_CONFORMANCE.md |
 

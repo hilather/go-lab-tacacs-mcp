@@ -17,6 +17,7 @@ const (
 	EAPTypeIdentity = 1
 	EAPTypeNAK      = 3
 	EAPTypeMD5      = 4
+	EAPTypePEAP     = 25
 )
 
 // EAPPacket is one concatenated EAP message built by the independent client.

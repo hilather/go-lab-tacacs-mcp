@@ -1651,6 +1651,13 @@ ADRs 0020–0029 are accepted. In-scope EXT rows through lab/CHANGELOG rollup (`
 - [x] `RAD-EXT-010` User- and group-attached RADIUS rules (v2 `radius_policy_id`). [ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md). Walk: user → `effectiveGroups` → client → fallback → default deny. v1 rejects the keys.
 - [x] `RAD-EXT-011` Lab-test optional dynauth/RadSec SKIP when listeners stay default-off; compose overlays publish 3799/2083 only; remaining-work benches recorded (no invented RadSec numbers); CHANGELOG `[Unreleased]` rollup. Combined and RADIUS-only labs still pass. Do not tag. `conformance_status` stays `partial`.
 
+### 22.5 PEAP start (`RAD-PEAP-*`)
+
+[ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md) revisits [ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0022-radius-eap-identity-md5.md) for an opt-in PEAP **start**. This is not complete PEAPv0. `PRJ-EAP-003` stays `DEFERRED_MAY`. `conformance_status` stays `partial`. Empty `allowed_authentication_methods` stays `[pap, chap]`. `radius.access.test` / `radius.policy.evaluate` `method.type` do not grow `peap` in this increment.
+
+- [x] `RAD-PEAP-001` Outer PEAP (type 25) + TLS-in-EAP flags L/M/S + `NewServer` TLS 1.3 + Identity→PEAP Start when `peap` is opted in. Type 25 without `peap` still fail-closes. Independent `testclient` UDP Identity→Challenge (type 25, S flag). Handshake continuation and inner EAP are out of scope.
+- [ ] `RAD-PEAP-002` PEAP TLS handshake pump + inner EAP (PEAPv0/EAP-MSCHAPv2 first). Not this increment. No PEAPv1/GTC, PEAP-EAP-TLS, crypto-binding, or Windows interop PASS until evidenced.
+
 ## 23. User lifecycle pack (`UL-*`)
 
 Pack task IDs are the backlog keys. Binding ADR: [0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0019-force-password-change.md). Conformance rows: `T89-FLOW-013`, `T89-FLOW-014`, `T89-FLOW-015`, `PRJ-UL-001`.

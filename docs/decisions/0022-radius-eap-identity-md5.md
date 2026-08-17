@@ -78,5 +78,5 @@ Operators who want EAP add `eap` to `allowed_authentication_methods` after the i
 
 ## Revisit conditions
 
-- An operator needs PEAP / EAP-TLS / EAP-TTLS and accepts a separate PKI program.
+- An operator needs PEAP / EAP-TLS / EAP-TTLS and accepts a separate PKI program. **Opened for PEAP Start by [ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md).** Identity+MD5 and fail-closed unknown types remain. Complete PEAPv0/inner EAP is `RAD-PEAP-002`.
 - A user-lifecycle ADR reopens Challenge-based RADIUS password change.

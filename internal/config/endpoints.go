@@ -630,11 +630,11 @@ func FillRADIUSAccessMethods(methods []string, roles []domain.ListenerRole) []st
 	return methods
 }
 
-// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2/eap. Used by overlay writes.
+// ParseRADIUSAuthMethods accepts pap/chap/mschapv1/mschapv2/eap/peap. Used by overlay writes.
 func ParseRADIUSAuthMethods(raw []string) ([]string, error) {
 	out, err := normalizeRADIUSAuthMethods(raw, "radius.allowed_methods")
 	if err != nil {
-		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, or eap").WithPath("radius.allowed_methods")
+		return nil, domain.NewError(domain.CodeInvalidArgument, "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, eap, or peap").WithPath("radius.allowed_methods")
 	}
 	return out, nil
 }
@@ -657,9 +657,9 @@ func normalizeRADIUSAuthMethods(raw []string, path string) ([]string, error) {
 	for i, s := range raw {
 		m := strings.ToLower(strings.TrimSpace(s))
 		switch m {
-		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2, RADIUSAuthMethodEAP:
+		case RADIUSAuthMethodPAP, RADIUSAuthMethodCHAP, RADIUSAuthMethodMSCHAPv1, RADIUSAuthMethodMSCHAPv2, RADIUSAuthMethodEAP, RADIUSAuthMethodPEAP:
 		default:
-			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, or eap")
+			return nil, yamlErrorAt(indexPath(path, i), "RADIUS authentication method must be pap, chap, mschapv1, mschapv2, eap, or peap")
 		}
 		if _, ok := seen[m]; ok {
 			continue

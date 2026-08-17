@@ -260,6 +260,7 @@ const (
 	EAPTypeIdentity = "identity"
 	EAPTypeMD5      = "md5"
 	EAPTypeNAK      = "nak"
+	EAPTypePEAP     = "peap"
 	EAPTypeOther    = "other"
 )
 
@@ -379,7 +380,7 @@ func knownAuthenticatorType(v string) bool {
 
 func knownEAPType(v string) bool {
 	switch v {
-	case EAPTypeIdentity, EAPTypeMD5, EAPTypeNAK, EAPTypeOther:
+	case EAPTypeIdentity, EAPTypeMD5, EAPTypeNAK, EAPTypePEAP, EAPTypeOther:
 		return true
 	default:
 		return false

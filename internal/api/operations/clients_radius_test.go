@@ -312,7 +312,7 @@ func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
 			},
 			RADIUS: &ClientRADIUSWrite{
 				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
-				AllowedMethods: []string{"eap"},
+				AllowedMethods: []string{"peap"},
 			},
 		},
 	})

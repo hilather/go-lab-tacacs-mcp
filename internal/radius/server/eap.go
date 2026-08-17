@@ -186,7 +186,7 @@ func (a Access) noteChallenge(result string) {
 }
 
 func (a Access) handleEAPStart(_ context.Context, in Request) Result {
-	if papOrCHAPPresent(in) {
+	if papOrCHAPPresent(in) || collectMSCHAP(in.Packet.Attributes).present() {
 		return a.eapReject(in, ReasonConflictingAuth, 0, 0, false)
 	}
 	// Empty AllowedMethods is defensive fail-closed: compile/REST/overlay

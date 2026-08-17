@@ -20,8 +20,9 @@ func TestRADIUSAuthMethodsEAPOptIn(t *testing.T) {
 	if err != nil || len(got) != 2 || got[0] != RADIUSAuthMethodEAP {
 		t.Fatalf("%v %v", got, err)
 	}
-	if _, err := ParseRADIUSAuthMethods([]string{"mschapv1"}); err == nil {
-		t.Fatal("mschapv1 is not this PR")
+	got, err = ParseRADIUSAuthMethods([]string{"mschapv1"})
+	if err != nil || len(got) != 1 || got[0] != RADIUSAuthMethodMSCHAPv1 {
+		t.Fatalf("mschapv1 opt-in=%v err=%v", got, err)
 	}
 	if _, err := ParseRADIUSAuthMethods([]string{"peap"}); err == nil {
 		t.Fatal("unknown token")

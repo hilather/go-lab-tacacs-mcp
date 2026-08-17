@@ -61,8 +61,9 @@ func TestRADIUSAuthMethodsDefaultAndOptIn(t *testing.T) {
 	if err != nil || len(got) != 4 {
 		t.Fatalf("opt-in=%v err=%v", got, err)
 	}
-	if _, err := ParseRADIUSAuthMethods([]string{"eap"}); err == nil {
-		t.Fatal("eap is not a RADIUS compile token in this PR")
+	got, err = ParseRADIUSAuthMethods([]string{"eap"})
+	if err != nil || len(got) != 1 || got[0] != RADIUSAuthMethodEAP {
+		t.Fatalf("eap opt-in=%v err=%v", got, err)
 	}
 	sec := filepath.Join(t.TempDir(), "radius")
 	if err := os.WriteFile(sec, []byte("LabRadius-Secret-32-bytes-ok!!"), 0o600); err != nil {

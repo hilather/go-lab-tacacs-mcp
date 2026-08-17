@@ -1465,6 +1465,14 @@ CI must fail when generated outputs differ from checked-in files.
 
 See `docs/MAINTENANCE.md`.
 
+### P16.6 Frontend Vite 8 peer alignment (PR #12)
+
+`@vitejs/plugin-react` 6.0.5 requires `vite@^8.0.0`. `npm ci` failed with `ERESOLVE` against Vite 7.3.6. Vitest 4.1.10 already accepts Vite 8.
+
+- [x] Bump only the required peer: `vite` ^8.0.0.
+- [x] Keep existing Vite/Vitest configs (`react()` only; no Babel/compiler options).
+- [x] `npm --prefix web ci`, typecheck, lint, unit tests, and production build succeed.
+
 ### P16 exit gate
 
 - [x] Release evidence is reproducible from the tagged source (`make generate`, `make check-registries`).

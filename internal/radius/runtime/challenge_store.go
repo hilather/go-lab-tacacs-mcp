@@ -66,6 +66,7 @@ type ChallengeStep string
 const (
 	StepIdentity     ChallengeStep = "identity"
 	StepMD5Challenge ChallengeStep = "md5_challenge"
+	StepPEAPStart    ChallengeStep = "peap_start"
 	StepDone         ChallengeStep = "done"
 )
 

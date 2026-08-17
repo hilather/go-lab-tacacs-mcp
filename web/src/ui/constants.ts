@@ -15,6 +15,9 @@ export const AUTH_METHODS = ["ascii", "pap", "chap", "mschapv1", "mschapv2", "en
 
 export const RADIUS_AUTH_METHODS = ["pap", "chap", "mschapv1", "mschapv2", "eap"] as const;
 
+/** Endpoint allowed_authentication_methods. access.test / policy.evaluate stay RADIUS_AUTH_METHODS. */
+export const RADIUS_ENDPOINT_METHODS = ["pap", "chap", "mschapv1", "mschapv2", "eap", "peap"] as const;
+
 export const RADIUS_ROLES = ["access", "accounting", "dynamic_authorization"] as const;
 
 export const RADIUS_ACCT_STATUS_TYPES = [

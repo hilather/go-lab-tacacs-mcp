@@ -80,7 +80,7 @@ TacLab solves these by providing one deterministic, disposable appliance with co
 - High-availability multi-replica runtime state.
 - A required external database.
 - Acting as an LDAP, SAML, OIDC, or Kerberos identity provider.
-- Tunneled EAP (PEAP/TLS/TTLS), DTLS/RADIUS/1.1, proxying, persistent RADIUS accounting, or a second daemon/module rename. Identity + EAP-MD5 terminate when `eap` is opted in. RADIUS MS-CHAP, named `Cisco-AVPair`, operator dictionaries, user/group RADIUS policy, DAC CoA, and optional RadSec are shipped in this remaining-work program. RADIUS/UDP is a lab profile — `conformance_status` stays `partial`.
+- Complete tunneled EAP (PEAPv0/inner EAP, EAP-TLS, TTLS), DTLS/RADIUS/1.1, proxying, persistent RADIUS accounting, or a second daemon/module rename. Identity + EAP-MD5 terminate when `eap` is opted in. Opt-in `peap` issues PEAP Start only ([ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md)) — not a complete PEAP login. RADIUS MS-CHAP, named `Cisco-AVPair`, operator dictionaries, user/group RADIUS policy, DAC CoA, and optional RadSec are shipped in this remaining-work program. RADIUS/UDP is a lab profile — `conformance_status` stays `partial`.
 - Rewriting the baseline YAML in place.
 - Treating deprecated TACACS+ redirection, SENDPASS, or insecure SEND authentication as normal supported features.
 - Kubernetes as the primary deployment mechanism.

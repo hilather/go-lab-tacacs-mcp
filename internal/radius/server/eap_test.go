@@ -13,6 +13,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/eap/peap"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
@@ -144,6 +145,75 @@ func TestEAPMD5SuccessAccepts(t *testing.T) {
 	got := firstEAP(t, res.Response)
 	if got.Code != eapCodeSuccess {
 		t.Fatalf("eap=%+v", got)
+	}
+	if store.Len() != 0 {
+		t.Fatalf("store should be consumed: %d", store.Len())
+	}
+}
+
+func TestEAPIdentityIssuesPEAPStartWhenPEAPAllowed(t *testing.T) {
+	t.Parallel()
+	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, func() time.Time {
+		return time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
+	})
+	var ra [16]byte
+	ra[0] = 0x91
+	ent := bytes.Repeat([]byte{0x33}, 16)
+	in, h := eapReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		eapIdentityAttr(1, "lab-admin"),
+	}, []string{methodPEAP}, store, ent)
+	res := h.Handle(context.Background(), in)
+	if res.Action != ActionReply || res.Reason != ReasonChallenge || res.Response[0] != byte(codec.CodeAccessChallenge) {
+		t.Fatalf("got %+v", res)
+	}
+	assertSigned(t, res.Response, codec.CodeAccessChallenge, 1, ra, testSecret)
+	eap := firstEAP(t, res.Response)
+	if eap.Code != eapCodeRequest || eap.Type != eapTypePEAP {
+		t.Fatalf("eap=%+v", eap)
+	}
+	body, err := peap.Parse(eap.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !body.Start || body.Version != peap.Version0 || len(body.TLSData) != 0 {
+		t.Fatalf("peap start=%+v", body)
+	}
+	if store.Len() != 1 {
+		t.Fatalf("store=%d", store.Len())
+	}
+}
+
+func TestEAPPEAPStartContinuationRejectsWithoutInner(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
+	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, func() time.Time { return now })
+	var ra [16]byte
+	ra[0] = 0x92
+	ent := bytes.Repeat([]byte{0x33}, 16)
+	in, h := eapReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		eapIdentityAttr(1, "lab-admin"),
+	}, []string{methodPEAP}, store, ent)
+	chal := h.Handle(context.Background(), in)
+	if chal.Reason != ReasonChallenge {
+		t.Fatalf("issue=%+v", chal)
+	}
+	state := firstState(t, chal.Response)
+	eap := firstEAP(t, chal.Response)
+	cont := signedAccessReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		{Type: attribute.TypeState, Value: state},
+		eapTypeAttr(eap.Identifier, eapTypePEAP, []byte{0x00}),
+	}, true)
+	cont.AllowedMethods = []string{methodPEAP}
+	cont.ClientID = "lab-switches"
+	cont.EndpointID = "radius-udp"
+	cont.Peer = in.Peer
+	cont.Carrier = domain.CarrierRADIUSUDP
+	res := h.Handle(context.Background(), cont)
+	if res.Reason != ReasonUnsupportedEAPMethod || res.Response[0] != byte(codec.CodeAccessReject) {
+		t.Fatalf("got %+v", res)
 	}
 	if store.Len() != 0 {
 		t.Fatalf("store should be consumed: %d", store.Len())

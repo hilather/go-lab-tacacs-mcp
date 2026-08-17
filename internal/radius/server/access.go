@@ -27,8 +27,9 @@ type AccessAuthenticator interface {
 
 // Access handles Access-Request after UDP client resolution. Accounting
 // is delegated to Stub. Credential pass evaluates compiled RADIUS policy.
-// Store is the Challenge State gate. EAP Identity/MD5 is the first
-// production Challenge provider. Entropy is injectable; nil uses crypto/rand.
+// Store is the Challenge State gate. EAP Identity/MD5 and opt-in PEAP
+// Start are production Challenge providers. Entropy is injectable; nil
+// uses crypto/rand.
 type Access struct {
 	AAA     AccessAuthenticator
 	Store   *radiusruntime.ChallengeStore

@@ -105,6 +105,51 @@ func TestIndependentTestclientEAPIdentityMD5Wire(t *testing.T) {
 	}
 }
 
+func TestIndependentTestclientPEAPStartWire(t *testing.T) {
+	t.Parallel()
+	ln, _ := startAccessPEAP(t)
+	c := dialUDP(t, ln.Addr().String())
+	secret := []byte(labSecret)
+	var ra [16]byte
+	ra[0] = 0xb6
+	req, err := testclient.EncodeAccessRequest(secret, testclient.AccessRequest{
+		Identifier:    26,
+		Authenticator: ra,
+		UserName:      "lab-admin",
+		IncludeMA:     true,
+		Extra: []tcodec.Attr{
+			testclient.EAPMessageAttr(testclient.EAPIdentityResponse(1, "lab-admin")),
+		},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Write(req); err != nil {
+		t.Fatal(err)
+	}
+	got := readUDP(t, c, 2*time.Second)
+	if got == nil {
+		t.Fatal("missing Challenge")
+	}
+	reply, err := testclient.DecodeAccessReply(secret, ra, got)
+	if err != nil {
+		t.Fatalf("independent client rejected Challenge: %v", err)
+	}
+	if reply.Code != tcodec.AccessChallenge {
+		t.Fatalf("code=%s", reply.Code)
+	}
+	if _, ok := testclient.FirstState(reply.Attrs); !ok {
+		t.Fatal("missing State")
+	}
+	eap, err := testclient.FirstEAP(reply.Attrs)
+	if err != nil || eap.Code != testclient.EAPCodeRequest || eap.Type != testclient.EAPTypePEAP {
+		t.Fatalf("eap=%+v err=%v", eap, err)
+	}
+	if len(eap.Data) < 1 || eap.Data[0] != 0x20 {
+		t.Fatalf("want PEAPv0 Start flag, data=%x", eap.Data)
+	}
+}
+
 func TestIndependentTestclientUnsupportedEAPNoChallenge(t *testing.T) {
 	t.Parallel()
 	ln, _ := startAccessEAP(t, false)
@@ -336,7 +381,17 @@ func eapConversationFailure(t *testing.T, c *net.UDPConn, secret, chalSecret []b
 	return out
 }
 
+func startAccessPEAP(t *testing.T) (*Listener, *state.Manager) {
+	t.Helper()
+	return startAccessEAPWithMethods(t, "[peap]", false)
+}
+
 func startAccessEAP(t *testing.T, mustChange bool) (*Listener, *state.Manager) {
+	t.Helper()
+	return startAccessEAPWithMethods(t, "[pap, chap, eap]", mustChange)
+}
+
+func startAccessEAPWithMethods(t *testing.T, methods string, mustChange bool) (*Listener, *state.Manager) {
 	t.Helper()
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
@@ -352,7 +407,7 @@ func startAccessEAP(t *testing.T, mustChange bool) (*Listener, *state.Manager) {
 	if err := os.WriteFile(chal, []byte(accessTestChallenge), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	doc := mustParse(t, radiusEAPYAML(sec, login, chal, mustChange))
+	doc := mustParse(t, radiusEAPYAML(sec, login, chal, methods, mustChange))
 	lookup := func(ref config.SecretRef) ([]byte, error) { return os.ReadFile(ref.File) }
 	mgr, err := state.New(doc, state.Options{Secrets: lookup})
 	if err != nil {
@@ -401,7 +456,7 @@ func startAccessEAP(t *testing.T, mustChange bool) (*Listener, *state.Manager) {
 	return ln, mgr
 }
 
-func radiusEAPYAML(secret, login, chal string, mustChange bool) string {
+func radiusEAPYAML(secret, login, chal, methods string, mustChange bool) string {
 	return `
 schema_version: 2
 listeners:
@@ -429,7 +484,7 @@ clients:
         roles: [access]
         radius:
           shared_secret: {file: ` + secret + `}
-          allowed_authentication_methods: [pap, chap, eap]
+          allowed_authentication_methods: ` + methods + `
           access_policy_id: default-radius-access
 groups:
   - id: lab-admins

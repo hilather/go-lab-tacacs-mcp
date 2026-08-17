@@ -24,7 +24,11 @@ func TestRADIUSAuthMethodsEAPOptIn(t *testing.T) {
 	if err != nil || len(got) != 1 || got[0] != RADIUSAuthMethodMSCHAPv1 {
 		t.Fatalf("mschapv1 opt-in=%v err=%v", got, err)
 	}
-	if _, err := ParseRADIUSAuthMethods([]string{"peap"}); err == nil {
+	got, err = ParseRADIUSAuthMethods([]string{"peap"})
+	if err != nil || len(got) != 1 || got[0] != RADIUSAuthMethodPEAP {
+		t.Fatalf("peap opt-in=%v err=%v", got, err)
+	}
+	if _, err := ParseRADIUSAuthMethods([]string{"ttls"}); err == nil {
 		t.Fatal("unknown token")
 	}
 
@@ -47,8 +51,8 @@ func TestRADIUSAuthMethodsEAPOptIn(t *testing.T) {
 		t.Fatalf("default=%v", ep.AllowedAuthenticationMethods)
 	}
 	for _, m := range ep.AllowedAuthenticationMethods {
-		if m == RADIUSAuthMethodEAP {
-			t.Fatal("eap must be opt-in")
+		if m == RADIUSAuthMethodEAP || m == RADIUSAuthMethodPEAP {
+			t.Fatal("eap/peap must be opt-in")
 		}
 	}
 	if len(ep.AllowedAuthenticationMethods) == 0 {

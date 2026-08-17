@@ -33,6 +33,7 @@ const (
 	RADIUSAuthMethodMSCHAPv1             = "mschapv1"
 	RADIUSAuthMethodMSCHAPv2             = "mschapv2"
 	RADIUSAuthMethodEAP                  = "eap"
+	RADIUSAuthMethodPEAP                 = "peap"
 	RADIUSMatchOpEquals                  = "equals"
 	RADIUSMatchOpPresent                 = "present"
 	RADIUSMatchOpAbsent                  = "absent"

@@ -12,6 +12,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/eap/peap"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
 
@@ -24,12 +25,14 @@ const (
 	eapTypeIdentity = 1
 	eapTypeNAK      = 3
 	eapTypeMD5      = 4
+	eapTypePEAP     = peap.Type
 
 	eapHeaderLen   = 4
 	eapMD5ValueLen = 16
 	eapStateLen    = 16
 	maxEAPPayload  = 1020 // 4 × 253 (RFC 3579 concatenation bound)
 	methodEAP      = "eap"
+	methodPEAP     = "peap"
 )
 
 type eapPacket struct {
@@ -159,6 +162,8 @@ func eapTypeLabel(typ byte, hasType bool) string {
 		return observability.EAPTypeMD5
 	case eapTypeNAK:
 		return observability.EAPTypeNAK
+	case eapTypePEAP:
+		return observability.EAPTypePEAP
 	default:
 		return observability.EAPTypeOther
 	}
@@ -191,7 +196,7 @@ func (a Access) handleEAPStart(_ context.Context, in Request) Result {
 	}
 	// Empty AllowedMethods is defensive fail-closed: compile/REST/overlay
 	// must persist [pap, chap], never allow-all for EAP (KD-R21).
-	if len(in.AllowedMethods) == 0 || !methodAllowed(in.AllowedMethods, methodEAP) {
+	if len(in.AllowedMethods) == 0 || !eapConversationAllowed(in.AllowedMethods) {
 		return replyAccess(in, codec.CodeAccessReject, ReasonUnsupportedMethod, nil)
 	}
 	raw, reason := concatEAPMessage(in.Packet.Attributes)
@@ -243,6 +248,9 @@ func (a Access) handleEAPContinuation(ctx context.Context, in Request, rec runti
 			return a.startFromIdentity(in, pkt)
 		}
 		return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
+	case runtime.StepPEAPStart:
+		// Handshake pump and inner EAP are not implemented; do not Accept.
+		return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
 	case runtime.StepMD5Challenge:
 		if pkt.Type == eapTypeNAK {
 			return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
@@ -275,7 +283,50 @@ func (a Access) startFromIdentity(in Request, pkt eapPacket) Result {
 	if user == "" {
 		return a.issueIdentityChallenge(in, pkt.Identifier)
 	}
+	if methodAllowed(in.AllowedMethods, methodPEAP) {
+		return a.issuePEAPStart(in, user, pkt.Identifier)
+	}
 	return a.issueMD5Challenge(in, user, pkt.Identifier)
+}
+
+func eapConversationAllowed(methods []string) bool {
+	return methodAllowed(methods, methodEAP) || methodAllowed(methods, methodPEAP)
+}
+
+func eapRequestPEAPStart(id byte) []byte {
+	return encodeEAP(eapPacket{
+		Code: eapCodeRequest, Identifier: id, Type: eapTypePEAP, HasType: true,
+		Data: peap.EncodeStart(),
+	})
+}
+
+func (a Access) issuePEAPStart(in Request, user string, peerID byte) Result {
+	state, err := readRand(a.entropy(), eapStateLen)
+	if err != nil {
+		return a.eapReject(in, ReasonInternal, peerID, eapTypeIdentity, true)
+	}
+	id := peerID + 1
+	reason := IssueChallenge(a.Store, in, runtime.ChallengeIssue{
+		State:      state,
+		UserID:     user,
+		Method:     methodPEAP,
+		EAPID:      id,
+		EAPType:    eapTypePEAP,
+		Step:       runtime.StepPEAPStart,
+		EndpointID: in.EndpointID,
+		ClientID:   in.ClientID,
+	})
+	if reason != "" {
+		crypto.Wipe(state)
+		return a.eapReject(in, reason, peerID, eapTypeIdentity, true)
+	}
+	a.noteChallenge(observability.ChallengeResultIssue)
+	a.noteEAP(eapTypePEAP, true, observability.OutcomeAccessChallenge)
+	extra := attribute.RawSet{
+		{Type: attribute.TypeState, Value: state},
+	}
+	extra = append(extra, eapMessageAttrs(eapRequestPEAPStart(id))...)
+	return replyAccess(in, codec.CodeAccessChallenge, ReasonChallenge, extra)
 }
 
 func (a Access) issueIdentityChallenge(in Request, peerID byte) Result {

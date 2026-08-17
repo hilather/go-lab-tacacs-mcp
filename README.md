@@ -378,6 +378,7 @@ Every contract linked from this page, with what it covers.
 | [0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md) | Named `Cisco-AVPair` via independent fixtures; supersedes ADR 0015 IOL gate |
 | [0028](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0028-defer-radius-proxying.md) | RADIUS proxying / realm routing `DEFERRED_MAY` |
 | [0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0029-user-group-radius-policy-attachment.md) | v2 user/group `radius_policy_id`; walk user → groups → client → fallback → deny |
+| [0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0030-radius-peap-tls-in-eap-start.md) | Opt-in PEAP Start (type 25 + TLS-in-EAP); not complete PEAPv0; revisits ADR 0022 |
 
 ### Operator / maintainer
 

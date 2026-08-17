@@ -38,7 +38,7 @@ import {
   lifecycleLabel,
   MATCH_MODES,
   RADIUS_ACCT_STATUS_TYPES,
-  RADIUS_AUTH_METHODS,
+  RADIUS_ENDPOINT_METHODS,
   RADIUS_ROLES,
   splitList,
   TRANSPORTS,
@@ -667,7 +667,7 @@ function ClientEditor({
               </fieldset>
               <fieldset className="fieldset">
                 <legend>RADIUS authentication methods</legend>
-                {RADIUS_AUTH_METHODS.map((method) => (
+                {RADIUS_ENDPOINT_METHODS.map((method) => (
                   <label key={method} className="check">
                     <input
                       type="checkbox"

@@ -217,8 +217,8 @@ func TestClientEndpointsRADIUSOmitsMethodsDefaultsPAPCHAP(t *testing.T) {
 		t.Fatalf("omitted methods persisted %v, want pap,chap", got)
 	}
 	for _, method := range got {
-		if method == "eap" {
-			t.Fatal("eap must stay opt-in")
+		if method == "eap" || method == "peap" {
+			t.Fatal("eap/peap must stay opt-in")
 		}
 	}
 
@@ -312,12 +312,42 @@ func TestClientRADIUSWriteRejectsUnknownMethod(t *testing.T) {
 			},
 			RADIUS: &ClientRADIUSWrite{
 				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
-				AllowedMethods: []string{"peap"},
+				AllowedMethods: []string{"ttls"},
 			},
 		},
 	})
 	if !isCode(err, domain.CodeInvalidArgument) {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestClientRADIUSWriteAcceptsPEAP(t *testing.T) {
+	t.Parallel()
+	m := mustMgr(t, smallYAML)
+	reg := mustStateRegistry(t, m)
+	writer := Actor{ID: "op", Scopes: []string{"state:read", "state:write"}}
+	created, err := reg.Invoke(context.Background(), IDClientsCreate, m.Snapshot(), Input{
+		Actor: writer,
+		Request: CreateClientRequest{
+			ID: "rad-peap",
+			Match: &ClientMatchView{
+				SourceCIDRs: []string{"10.10.0.0/16"},
+			},
+			RADIUS: &ClientRADIUSWrite{
+				SharedSecret:   OptionalSecret{Present: true, File: "/run/secrets/rad"},
+				AllowedMethods: []string{"peap"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := created.Data.(Client)
+	if len(c.Endpoints) == 0 || c.Endpoints[0].RADIUS == nil {
+		t.Fatalf("endpoints=%+v", c.Endpoints)
+	}
+	if strings.Join(c.Endpoints[0].RADIUS.AllowedMethods, ",") != "peap" {
+		t.Fatalf("methods=%v", c.Endpoints[0].RADIUS.AllowedMethods)
 	}
 }
 

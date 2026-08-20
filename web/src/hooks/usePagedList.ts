@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Envelope } from "../generated/api";
 
 type Page<T> = { items: T[]; next_cursor?: string };
@@ -12,21 +12,29 @@ export function usePagedList<T>(
     queryKey: [...queryKey],
     queryFn: () => fetchPage(undefined),
   });
-  const [more, setMore] = useState<T[]>([]);
-  const [cursor, setCursor] = useState<string | undefined>();
-
-  useEffect(() => {
-    setMore([]);
-    setCursor(first.data?.data.next_cursor);
-  }, [first.data]);
+  const firstData = first.data;
+  const [extra, setExtra] = useState<{
+    source: typeof firstData;
+    more: T[];
+    cursor: string | undefined;
+  }>(() => ({
+    source: firstData,
+    more: [],
+    cursor: firstData?.data.next_cursor,
+  }));
+  const more = extra.source === firstData ? extra.more : [];
+  const cursor = extra.source === firstData ? extra.cursor : firstData?.data.next_cursor;
 
   async function loadMore(): Promise<void> {
     if (cursor === undefined || cursor === "") {
       return;
     }
     const env = await fetchPage(cursor);
-    setMore((prev) => [...prev, ...env.data.items]);
-    setCursor(env.data.next_cursor);
+    setExtra((prev) => ({
+      source: firstData,
+      more: [...(prev.source === firstData ? prev.more : []), ...env.data.items],
+      cursor: env.data.next_cursor,
+    }));
   }
 
   return {

@@ -34,10 +34,22 @@ function EventsBody() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState(true);
   const catId = useId();
+  const drainKey = `${category}\0${protocol}\0${role}\0${String(stream.reset)}`;
+  const [trackedDrainKey, setTrackedDrainKey] = useState(drainKey);
+  if (trackedDrainKey !== drainKey) {
+    setTrackedDrainKey(drainKey);
+    setPending(true);
+  }
+
+  const incoming = stream.lastEvent;
+  const [seenEvent, setSeenEvent] = useState(incoming);
+  if (incoming !== null && incoming !== seenEvent) {
+    setSeenEvent(incoming);
+    setBuffer((prev) => mergeEvent(prev, incoming));
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setPending(true);
     void drainRecent({
       ...(category === "" ? {} : { categories: [category] }),
       ...(protocol === "" ? {} : { protocol }),
@@ -67,14 +79,6 @@ function EventsBody() {
       cancelled = true;
     };
   }, [category, protocol, role, stream.reset]);
-
-  useEffect(() => {
-    const incoming = stream.lastEvent;
-    if (!incoming) {
-      return;
-    }
-    setBuffer((prev) => mergeEvent(prev, incoming));
-  }, [stream.lastEvent]);
 
   const items = useMemo(() => {
     return buffer

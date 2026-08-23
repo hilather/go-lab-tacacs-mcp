@@ -31,6 +31,7 @@ type Options struct {
 	InstanceID   string
 	WriteTimeout string
 	IdleTimeout  string
+	SecretsFrom  string
 	Params       credentials.Argon2Params
 	Now          time.Time
 	Entropy      io.Reader
@@ -66,6 +67,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	instance := fs.String("instance-id", "taclab-01", "server.instance_id")
 	writeTO := fs.String("http-write-timeout", "30s", "listeners.http.write_timeout")
 	idleTO := fs.String("http-idle-timeout", "60s", "listeners.http.idle_timeout")
+	secretsFrom := fs.String("secrets-from", "", "YAML of caller-supplied token, shared secrets, and plaintext passwords (PKI still generated)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -79,6 +81,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		InstanceID:   *instance,
 		WriteTimeout: *writeTO,
 		IdleTimeout:  *idleTO,
+		SecretsFrom:  *secretsFrom,
 		Stdout:       stdout,
 		Stderr:       stderr,
 	})
@@ -127,6 +130,10 @@ func Generate(opts Options) (*Result, error) {
 	if opts.IdleTimeout == "" {
 		opts.IdleTimeout = "60s"
 	}
+	plain, err := resolveLabSecrets(opts)
+	if err != nil {
+		return nil, err
+	}
 	dir, err := filepath.Abs(opts.Dir)
 	if err != nil {
 		return nil, err
@@ -151,39 +158,14 @@ func Generate(opts Options) (*Result, error) {
 		}
 	}
 
-	token, digest, err := credentials.IssueBearer(opts.Entropy)
-	if err != nil {
-		return nil, fmt.Errorf("token: %w", err)
-	}
-	digest.Wipe()
-	shared, err := randomSharedSecret(opts.Entropy, sharedSecretBytes)
-	if err != nil {
-		return nil, fmt.Errorf("shared secret: %w", err)
-	}
-	radiusShared, err := distinctSharedSecret(opts.Entropy, shared, sharedSecretBytes)
-	if err != nil {
-		return nil, fmt.Errorf("radius shared secret: %w", err)
-	}
-	adminPW, err := randomPassword(opts.Entropy, "Adm")
-	if err != nil {
-		return nil, err
-	}
-	enablePW, err := randomPassword(opts.Entropy, "En")
-	if err != nil {
-		return nil, err
-	}
-	roPW, err := randomPassword(opts.Entropy, "Ro")
-	if err != nil {
-		return nil, err
-	}
-	disPW, err := randomPassword(opts.Entropy, "Dis")
-	if err != nil {
-		return nil, err
-	}
-	chal, err := randomPassword(opts.Entropy, "Ch")
-	if err != nil {
-		return nil, err
-	}
+	token := plain.Token
+	shared := plain.TacacsSecret
+	radiusShared := plain.RadiusSecret
+	adminPW := plain.AdminPW
+	enablePW := plain.EnablePW
+	roPW := plain.ReadonlyPW
+	disPW := plain.DisabledPW
+	chal := plain.Challenge
 
 	adminPHC, err := credentials.DeriveArgon2id([]byte(adminPW), opts.Params, opts.Entropy)
 	if err != nil {
@@ -295,7 +277,7 @@ func Generate(opts Options) (*Result, error) {
 		SharedSecretLength:      len(shared),
 		SharedSecretLastRotated: rotated,
 		RotationInterval:        "90d",
-		TokenEncoding:           "unpadded-base64url",
+		TokenEncoding:           plain.TokenEncoding,
 		PKI:                     "internal/tacacs/tls.GenerateLabPKI",
 		HTTPWriteTimeout:        opts.WriteTimeout,
 		PasswordsFile:           "secrets/PASSWORDS.txt",
@@ -321,6 +303,56 @@ func Generate(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("generated config is invalid: %w", err)
 	}
 	return &Result{Dir: dir, Manifest: man}, nil
+}
+
+func resolveLabSecrets(opts Options) (labPlainSecrets, error) {
+	if opts.SecretsFrom != "" {
+		return loadSecretsFrom(opts.SecretsFrom)
+	}
+	token, digest, err := credentials.IssueBearer(opts.Entropy)
+	if err != nil {
+		return labPlainSecrets{}, fmt.Errorf("token: %w", err)
+	}
+	digest.Wipe()
+	shared, err := randomSharedSecret(opts.Entropy, sharedSecretBytes)
+	if err != nil {
+		return labPlainSecrets{}, fmt.Errorf("shared secret: %w", err)
+	}
+	radiusShared, err := distinctSharedSecret(opts.Entropy, shared, sharedSecretBytes)
+	if err != nil {
+		return labPlainSecrets{}, fmt.Errorf("radius shared secret: %w", err)
+	}
+	adminPW, err := randomPassword(opts.Entropy, "Adm")
+	if err != nil {
+		return labPlainSecrets{}, err
+	}
+	enablePW, err := randomPassword(opts.Entropy, "En")
+	if err != nil {
+		return labPlainSecrets{}, err
+	}
+	roPW, err := randomPassword(opts.Entropy, "Ro")
+	if err != nil {
+		return labPlainSecrets{}, err
+	}
+	disPW, err := randomPassword(opts.Entropy, "Dis")
+	if err != nil {
+		return labPlainSecrets{}, err
+	}
+	chal, err := randomPassword(opts.Entropy, "Ch")
+	if err != nil {
+		return labPlainSecrets{}, err
+	}
+	return labPlainSecrets{
+		Token:         token,
+		TacacsSecret:  shared,
+		RadiusSecret:  radiusShared,
+		AdminPW:       adminPW,
+		EnablePW:      enablePW,
+		ReadonlyPW:    roPW,
+		DisabledPW:    disPW,
+		Challenge:     chal,
+		TokenEncoding: "unpadded-base64url",
+	}, nil
 }
 
 func prepareDir(dir string, force bool) error {

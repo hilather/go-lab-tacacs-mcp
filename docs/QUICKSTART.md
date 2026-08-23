@@ -46,6 +46,26 @@ That writes:
 
 Regenerate: `go run ./tools/labgen -force deployments/compose`.
 
+To pin secrets instead of minting random ones (PKI is still generated):
+
+```bash
+go run ./tools/labgen -force -secrets-from secrets.yaml deployments/compose
+```
+
+```yaml
+api_admin_token: <token>
+lab_switches_tacacs_secret: <tacacs-shared-secret>
+lab_switches_radius_secret: <radius-shared-secret>
+passwords:
+  lab-admin: <password>
+  lab-admin-enable: <password>
+  lab-readonly: <password>
+  lab-disabled: <password>
+  lab-admin-challenge: <password>
+```
+
+Every field is required. Unknown keys fail closed. Shared secrets must meet `security.legacy_shared_secrets` / `security.radius_shared_secrets` (length ≥16, ≥3 character classes, not a known-weak value) and must be distinct from each other. labgen never prints the values.
+
 ---
 
 ## 3. Start

@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Lab
+
+- `labgen -secrets-from <yaml>` accepts a caller-supplied API token, TACACS and RADIUS shared secrets, and the five plaintext lab passwords. PKI and Argon2id verifiers are still generated. Shared secrets fail closed on the same lab policy as generated YAML (length, character classes, known-weak values, TACACS ≠ RADIUS). Default `labgen` with no flag is unchanged (random secrets).
+
 ## [1.3.0] — 2026-08-17
 
 In-memory RADIUS remaining-work program ([ADRs 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0020-in-memory-radius-remaining-work-program.md)–[0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0029-user-group-radius-policy-attachment.md)) plus opt-in PEAP Start / PEAPv0 EAP-MSCHAPv2 ([ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0030-radius-peap-tls-in-eap-start.md)). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

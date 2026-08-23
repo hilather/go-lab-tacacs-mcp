@@ -556,7 +556,7 @@ The repository target is:
 make lab-test
 ```
 
-`tools/labgen` writes the ephemeral directory (`go run ./tools/labgen <dir>`). `tools/lab-test.sh` builds `ghcr.io/hilather/go-lab-tacacs-mcp:<version>`, generates secrets/certs, starts a unique Compose project with `compose.lab-test.yaml` (high host ports), runs LAB-*, restarts, and writes `dist/lab-test-report.json`.
+`tools/labgen` writes the ephemeral directory (`go run ./tools/labgen <dir>`). Optional `-secrets-from <yaml>` pins the API token, shared secrets, and plaintext passwords; PKI is still generated. `tools/lab-test.sh` builds `ghcr.io/hilather/go-lab-tacacs-mcp:<version>`, generates secrets/certs, starts a unique Compose project with `compose.lab-test.yaml` (high host ports), runs LAB-*, restarts, and writes `dist/lab-test-report.json`.
 
 The target should:
 

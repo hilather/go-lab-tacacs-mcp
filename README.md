@@ -151,6 +151,7 @@ REST/MCP equivalence is enforced by `internal/api/parity`. Adapters never call e
 git clone https://github.com/hilather/go-lab-tacacs-mcp.git
 cd go-lab-tacacs-mcp
 go run ./tools/labgen deployments/compose
+# optional: -secrets-from secrets.yaml to pin token / shared secrets / passwords
 docker compose -f deployments/compose/compose.yaml up -d --build
 ```
 

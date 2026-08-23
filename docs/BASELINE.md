@@ -38,6 +38,8 @@ go run ./tools/labgen deployments/compose   # or: make lab-gen
 
 That materializes unique ≥32-character legacy **and** RADIUS secrets, Argon2id PHC verifiers, one API bearer, and lab PKI. The RADIUS secret is distinct from the TACACS secret. It does not print secret values.
 
+To supply those secrets instead of minting them, pass `-secrets-from <yaml>` (every field required; unknown keys fail closed). PKI is still generated. Shared secrets are checked against the same policy as generated YAML. See [QUICKSTART](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).
+
 | Generated secret file | Used by |
 |---|---|
 | `api_admin_token` | Bootstrap REST / MCP / UI bearer |

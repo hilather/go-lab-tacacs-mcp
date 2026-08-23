@@ -4,9 +4,19 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-08-23
+
+Caller-supplied lab secrets for `labgen`, plus post-1.3.0 dependency bumps. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
 ### Lab
 
 - `labgen -secrets-from <yaml>` accepts a caller-supplied API token, TACACS and RADIUS shared secrets, and the five plaintext lab passwords. PKI and Argon2id verifiers are still generated. Shared secrets fail closed on the same lab policy as generated YAML (length, character classes, known-weak values, TACACS ≠ RADIUS). Default `labgen` with no flag is unchanged (random secrets).
+
+### Security / toolchain
+
+- Bump `golang.org/x/crypto` 0.54.0 → 0.55.0.
+- GitHub Actions: `actions/upload-pages-artifact` 3 → 5, `actions/deploy-pages` 4 → 5, `actions/download-artifact` 4 → 8, `docker/login-action` 3 → 4, `actions/configure-pages` 5 → 6.
+- Frontend: `eslint-plugin-react-hooks` 5.2.0 → 7.1.1, `globals` 16.5.0 → 17.11.0.
 
 ## [1.3.0] — 2026-08-17
 

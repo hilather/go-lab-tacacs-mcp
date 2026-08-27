@@ -114,7 +114,7 @@ jobs:
       - name: Build metadata
         run: echo "BUILDTIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: ${{ matrix.target }}

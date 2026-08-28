@@ -2,7 +2,7 @@
 
 Status: executable implementation plan  
 Architecture: all-in-one Go backend with React and TypeScript frontend  
-Last updated: 2026-08-16
+Last updated: 2026-08-28
 
 ## 1. How agents must use this backlog
 
@@ -1472,6 +1472,15 @@ See `docs/MAINTENANCE.md`.
 - [x] Bump only the required peer: `vite` ^8.0.0.
 - [x] Keep existing Vite/Vitest configs (`react()` only; no Babel/compiler options).
 - [x] `npm --prefix web ci`, typecheck, lint, unit tests, and production build succeed.
+
+### P16.7 Frontend ESLint 10 peer alignment
+
+Dependabot `#45` (`@eslint/js` 10.0.1) and `#58` (`eslint` 10.9.x) failed `npm` ERESOLVE: `typescript-eslint@8.39.1` peers eslint `^8.57 || ^9` only; official `eslint-plugin-jsx-a11y@6.10.2` peers eslint `^3…^9` only. `#48` (`typescript` 7.0.2) stays **open** — no published `typescript-eslint` (latest or canary) peers TypeScript 7.
+
+- [~] Bump `eslint` ^10.9.1, `@eslint/js` ^10.0.1, `typescript-eslint` ^8.68.0 (already peers eslint 10).
+- [~] Keep official `eslint-plugin-jsx-a11y@^6.10.2` and `jsx-a11y/*` rules; add narrow `overrides` so its eslint peer is `$eslint`.
+- [~] Leave `typescript` at `~5.9.2`. Do not close `#48`.
+- [ ] `npm --prefix web ci` (no `--force` / `--legacy-peer-deps`), typecheck, lint, unit tests, and production build succeed.
 
 ### P16 exit gate
 

@@ -7,6 +7,7 @@ Read [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.
 - Go 1.25.0 (`go.mod`)
 - Node.js 22.14.0 (`.nvmrc`)
 - npm 10.9.x (`web/package.json` `packageManager`)
+- Frontend: ESLint 10.9.x. `npm run typecheck` / `npm run build` invoke TypeScript 7.0.2 via the `typescript7` alias. The `typescript` package stays 5.9.x for `typescript-eslint` until TypeScript 7.1 restores the Compiler API.
 
 ## Checks
 

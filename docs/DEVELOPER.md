@@ -52,6 +52,8 @@ make web-e2e
 
 Use the generated OpenAPI client only.
 
+`npm run typecheck` and `npm run build` invoke TypeScript 7.0.2 via the `typescript7` alias (`node_modules/typescript7/bin/tsc`). The `typescript` package stays 5.9.x so `typescript-eslint` can load the Compiler API. `node_modules/.bin/tsc` is still 5.9.
+
 ## Release evidence
 
 ```bash

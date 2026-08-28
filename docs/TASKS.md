@@ -1473,6 +1473,15 @@ See `docs/MAINTENANCE.md`.
 - [x] Keep existing Vite/Vitest configs (`react()` only; no Babel/compiler options).
 - [x] `npm --prefix web ci`, typecheck, lint, unit tests, and production build succeed.
 
+### P16.7 Coordinated web ESLint 10 + TypeScript 7 typecheck
+
+Dependabot isolated majors #45 (`@eslint/js` 10), #48 (`typescript` 7), and #58 (`eslint` 10) fail `npm ci` (ERESOLVE). `typescript-eslint@8` peers `typescript@<6.1.0`; TypeScript 7.0 has no Compiler API.
+
+- [x] Bump only required peers: `eslint` ^10.9.0, `@eslint/js` ^10.0.1. Keep `eslint-plugin-jsx-a11y` 6.10.2 with an `overrides` eslint peer. Pin `typescript-eslint` 8.67.0.
+- [x] Do not set the named `typescript` package to 7.x. Add `typescript7` (`npm:typescript@7.0.2`) and point `typecheck` / `build` at `node_modules/typescript7/bin/tsc`.
+- [ ] Dependabot ignore `typescript` `>=7.0.0 <7.1.0`. Close #45/#58 as superseded; close #48 as blocked until 7.1. Ignore is in; closes wait for green CI.
+- [x] `npm --prefix web ci` (no `--legacy-peer-deps`), typecheck, lint, unit tests, and production build succeed.
+
 ### P16 exit gate
 
 - [x] Release evidence is reproducible from the tagged source (`make generate`, `make check-registries`).

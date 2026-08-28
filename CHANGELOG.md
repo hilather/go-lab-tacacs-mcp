@@ -4,6 +4,11 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Security / toolchain
+
+- Frontend: ESLint 9.39.5 → 10.9.1 and `@eslint/js` 9.39.5 → 10.0.1. `eslint-plugin-jsx-a11y` stays 6.10.2 (no ESLint 10 peer yet); `npm ci` uses an override so that plugin takes the repo ESLint 10. `typescript-eslint` stays 8.67.0.
+- Frontend typecheck/build run TypeScript **7.0.2** via the `typescript7` alias (`npm:typescript@7.0.2`). The importable `typescript` package stays **5.9.3** so `typescript-eslint` can `require("typescript")` (TS 7.0 has no Compiler API; peer is `<6.1.0`). `node_modules/.bin/tsc` remains 5.9. Isolated Dependabot `typescript` 5.9 → 7 PRs stay blocked until 7.1.
+
 ## [1.4.0] — 2026-08-23
 
 Caller-supplied lab secrets for `labgen`, plus post-1.3.0 dependency bumps. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

@@ -285,7 +285,7 @@ Usernames and commands in events also need `events:sensitive`.
 |---|---|
 | `GET /health/live`, `GET /health/ready` | Infrastructure probes |
 | `GET /api/openapi.json` | Describes REST |
-| `POST/DELETE /api/v1/session` | HttpOnly cookie + CSRF |
+| `POST/GET/DELETE /api/v1/session` | HttpOnly cookie + CSRF; `GET` is cookie whoami |
 | `server/discover`, `tools/list`, `resources/list` | MCP discovery (scope-filtered) |
 | `notifications/list_changed` | MCP tools/resources list-changed |
 

@@ -1477,10 +1477,10 @@ See `docs/MAINTENANCE.md`.
 
 Dependabot `#45` (`@eslint/js` 10.0.1) and `#58` (`eslint` 10.9.x) failed `npm` ERESOLVE: `typescript-eslint@8.39.1` peers eslint `^8.57 || ^9` only; official `eslint-plugin-jsx-a11y@6.10.2` peers eslint `^3…^9` only. `#48` (`typescript` 7.0.2) stays **open** — no published `typescript-eslint` (latest or canary) peers TypeScript 7.
 
-- [~] Bump `eslint` ^10.9.1, `@eslint/js` ^10.0.1, `typescript-eslint` ^8.68.0 (already peers eslint 10).
-- [~] Keep official `eslint-plugin-jsx-a11y@^6.10.2` and `jsx-a11y/*` rules; add narrow `overrides` so its eslint peer is `$eslint`.
-- [~] Leave `typescript` at `~5.9.2`. Do not close `#48`.
-- [ ] `npm --prefix web ci` (no `--force` / `--legacy-peer-deps`), typecheck, lint, unit tests, and production build succeed.
+- [x] Bump `eslint` ^10.9.1, `@eslint/js` ^10.0.1, `typescript-eslint` ^8.68.0 (already peers eslint 10).
+- [x] Keep official `eslint-plugin-jsx-a11y@^6.10.2` and `jsx-a11y/*` rules; add narrow `overrides` so its eslint peer is `$eslint`.
+- [x] Leave `typescript` at `~5.9.2`. Do not close `#48`.
+- [x] `npm --prefix web ci` (no `--force` / `--legacy-peer-deps`), typecheck, lint, unit tests, and production build succeed.
 
 ### P16 exit gate
 

@@ -160,6 +160,7 @@ func frozenSchemaTypes() []any {
 		operations.CreatedToken{},
 		operations.Session{},
 		operations.CreateSessionRequest{},
+		operations.GetSessionRequest{},
 		operations.DeleteSessionRequest{},
 		operations.DeleteResult{},
 		operations.GetEffectiveConfigRequest{},
@@ -604,6 +605,16 @@ func itemPath(getID, updateID, deleteID, name, readScope, writeScope, getSchema,
 
 func sessionPath() map[string]any {
 	return map[string]any{
+		"get": map[string]any{
+			"operationId": operations.IDSessionGet,
+			"summary":     "Read the current UI session principal",
+			"description": "REST_ONLY. Cookie whoami. CSRF is not required. csrf_token is not reissued.",
+			"security":    []any{map[string]any{"cookieAuth": []any{}}},
+			"responses": map[string]any{
+				"200": jsonResponse("OK", envelopeRef("Session")),
+				"401": problemResponse(),
+			},
+		},
 		"post": map[string]any{
 			"operationId": operations.IDSessionCreate,
 			"summary":     "Exchange a bearer token for an HttpOnly UI session cookie",

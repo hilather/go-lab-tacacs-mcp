@@ -398,6 +398,9 @@ export interface GetGroupRequest {
   include_deleted?: boolean;
 }
 
+export interface GetSessionRequest {
+}
+
 export interface GetUserRequest {
   id: string;
   include_deleted?: boolean;

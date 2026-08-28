@@ -120,7 +120,7 @@ Compose uses `taclabd healthcheck --url http://127.0.0.1:8080/health/ready` insi
 
 1. Browse to `http://127.0.0.1:8080`.
 2. Paste the contents of `deployments/compose/secrets/api_admin_token`.
-3. The UI exchanges the bearer for an HttpOnly cookie (`POST /api/v1/session`). CSRF is required on cookie mutations.
+3. The UI exchanges the bearer for an HttpOnly cookie (`POST /api/v1/session`). A later tab or cold load of a scoped URL uses `GET /api/v1/session` to restore scopes. CSRF is required on cookie mutations.
 4. You should see the dashboard: listeners, revision, users/groups/clients.
 
 Do not store the raw bearer in the browser. The SPA does not use `localStorage` for it.

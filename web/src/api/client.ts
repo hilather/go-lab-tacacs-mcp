@@ -150,6 +150,10 @@ export async function deleteSession(): Promise<void> {
   await readEnvelope<unknown>(resp);
 }
 
+export async function getSession(): Promise<Envelope<Session>> {
+  return readEnvelope<Session>(await apiFetch("/api/v1/session"));
+}
+
 export async function getStatus(): Promise<Envelope<Status>> {
   return readEnvelope<Status>(await apiFetch("/api/v1/status"));
 }

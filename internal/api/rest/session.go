@@ -9,6 +9,10 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
+func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
+	s.invoke(w, r, operations.IDSessionGet, operations.GetSessionRequest{}, false)
+}
+
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	rid := requestIDFrom(r)
 	if s.Registry == nil || s.Auth == nil {

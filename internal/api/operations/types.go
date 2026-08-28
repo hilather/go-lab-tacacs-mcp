@@ -35,6 +35,7 @@ const (
 	IDTokensCreate         = "tokens.create"
 	IDTokensRevoke         = "tokens.revoke"
 	IDSessionCreate        = "session.create"
+	IDSessionGet           = "session.get"
 	IDSessionDelete        = "session.delete"
 	IDPolicyEvaluate       = "policy.evaluate"
 	IDAuthenticationTest   = "authentication.test"
@@ -331,7 +332,7 @@ func defaultCatalog() map[string]reflect.Type {
 		SubscribeEventsRequest{}, EventStream{},
 		HealthRequest{}, HealthResult{},
 		GetOpenAPIRequest{}, OpenAPIDocument{},
-		CreateSessionRequest{}, Session{}, DeleteSessionRequest{},
+		CreateSessionRequest{}, GetSessionRequest{}, Session{}, DeleteSessionRequest{},
 		MCPDiscoverRequest{}, MCPDiscoverResult{},
 		MCPToolsListRequest{}, MCPToolsListResult{},
 		MCPResourcesListRequest{}, MCPResourcesListResult{},

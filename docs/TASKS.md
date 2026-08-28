@@ -1148,6 +1148,19 @@ Lab static bearer vs MCP OAuth PRM: [ADR 0010](https://github.com/hilather/go-la
 - [x] No raw bearer token in local/session storage.
 - [x] CSP-compatible build without unsafe dynamic script requirements where practical.
 
+### P12.11 Rehydrate cookie session scopes (issue #66)
+
+**Depends on:** P9.4, P12.2
+
+Cookie-ok UI bootstrap must not invent `["state:read"]` when `taclab_ui_principal` is missing. `GET /api/v1/session` is cookie whoami (`REST_ONLY_PROTOCOL`).
+
+- [x] `session.get` REST_ONLY `GET /api/v1/session` (no MCP, no CSRF, no Set-Cookie, no recovered CSRF secret).
+- [x] AuthProvider cold-load path rehydrates from GET session; cache fast path unchanged.
+- [x] `RequireScope` / Shell `hasScope` unchanged.
+- [x] Tests: AuthProvider missing-cache, TokensPage cold load, GET session 401 → anonymous, RequireScope still fail-closed, REST cookie whoami, e2e empty sessionStorage `/tokens`.
+
+**REST/MCP parity:** `REST_ONLY_PROTOCOL` (browser session bootstrap). Same disposition as `session.create` / `session.delete`.
+
 ### P12.3 Implement dashboard and status
 
 - [x] Listener state, effective revision, baseline hash prefix, runtime object counts, event drops, and server versions.

@@ -9,9 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createSession, deleteSession, getStatus, readCsrfCookie } from "../api/client";
+import { createSession, deleteSession, getSession, getStatus, readCsrfCookie } from "../api/client";
 import type { Session } from "../generated/api";
-import { clearSessionMeta, loadSessionMeta, saveSessionMeta } from "./sessionMeta";
+import { clearSessionMeta, loadSessionMeta, saveSessionMeta, type SessionMeta } from "./sessionMeta";
 
 type AuthState =
   | { status: "loading" }
@@ -27,12 +27,11 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function sessionFromCookie(revision: number): Session {
-  const meta = loadSessionMeta();
+function sessionFromCookie(revision: number, meta: SessionMeta): Session {
   return {
-    token_id: meta?.token_id ?? "",
-    scopes: meta && meta.scopes.length > 0 ? meta.scopes : ["state:read"],
-    expires_at: meta?.expires_at ?? "",
+    token_id: meta.token_id,
+    scopes: meta.scopes,
+    expires_at: meta.expires_at,
     csrf_token: readCsrfCookie(),
     cookie_name: "taclab_session",
     cookie_secure: false,
@@ -57,11 +56,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled || authGen.current !== gen) {
           return;
         }
+        const meta = loadSessionMeta();
+        if (meta && meta.scopes.length > 0) {
+          setState((prev) => {
+            if (prev.status !== "loading") {
+              return prev;
+            }
+            return { status: "signed_in", session: sessionFromCookie(env.revision, meta) };
+          });
+          return;
+        }
+        const sess = await getSession();
+        if (cancelled || authGen.current !== gen) {
+          return;
+        }
+        saveSessionMeta({
+          token_id: sess.data.token_id,
+          scopes: sess.data.scopes,
+          expires_at: sess.data.expires_at,
+        });
         setState((prev) => {
           if (prev.status !== "loading") {
             return prev;
           }
-          return { status: "signed_in", session: sessionFromCookie(env.revision) };
+          return {
+            status: "signed_in",
+            session: {
+              ...sess.data,
+              csrf_token: readCsrfCookie() || sess.data.csrf_token,
+              revision: env.revision,
+            },
+          };
         });
       } catch {
         if (cancelled || authGen.current !== gen) {

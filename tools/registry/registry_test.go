@@ -485,13 +485,14 @@ func TestGenerateDocs(t *testing.T) {
 	}
 }
 
-const expectedOperationCount = 44
+const expectedOperationCount = 45
 
 var protocolOnlyOperationIDs = []string{
 	"health.live",
 	"health.ready",
 	"openapi.get",
 	"session.create",
+	"session.get",
 	"session.delete",
 	"mcp.discover",
 	"mcp.tools.list",

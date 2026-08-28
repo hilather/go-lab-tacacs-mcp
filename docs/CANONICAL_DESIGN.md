@@ -874,7 +874,7 @@ Scopes (exact match, no implicit hierarchy):
 
 `state:write` does **not** grant `tokens:manage`, `runtime:reset`, or `config:reload`.
 
-Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnly cookie (`SameSite=Strict`, `Secure` per C7). CSRF token required on cookie-authenticated mutations. `DELETE /api/v1/session` logs out. These endpoints are `REST_ONLY_PROTOCOL`.
+Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnly cookie (`SameSite=Strict`, `Secure` per C7). CSRF token required on cookie-authenticated mutations. `GET /api/v1/session` is cookie whoami (scopes/expiry; CSRF is not reissued). `DELETE /api/v1/session` logs out. These endpoints are `REST_ONLY_PROTOCOL`.
 
 ### `internal/api/rest`
 

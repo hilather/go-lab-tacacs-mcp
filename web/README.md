@@ -2,7 +2,7 @@
 
 React + TypeScript strict + Vite + TanStack Query + React Router. Generated types live in `src/generated/api.ts` (from `tools/generate`).
 
-The UI talks only to public REST. Browser auth is `POST /api/v1/session` → HttpOnly `taclab_session` + CSRF cookie. The bearer token is never written to `localStorage` or `sessionStorage`. Mutations send `X-CSRF-Token` and `If-Match: "revision-N"`.
+The UI talks only to public REST. Browser auth is `POST /api/v1/session` → HttpOnly `taclab_session` + CSRF cookie. A cold load (new tab, or a document that has the cookie but no `sessionStorage` principal cache) calls `GET /api/v1/session` for the real scopes. The bearer token is never written to `localStorage` or `sessionStorage`. Mutations send `X-CSRF-Token` and `If-Match: "revision-N"`.
 
 Pages: sign-in, status, users, groups, clients, tokens (one-time copy/acknowledge), events, authentication test, RADIUS authentication test, policy explain, RADIUS policy explain, config/export/validate/reload/reset, about. RADIUS pages use generated REST types only and do not advertise complete RADIUS.
 

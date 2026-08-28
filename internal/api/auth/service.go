@@ -249,6 +249,55 @@ func (s *Service) Create(actor operations.Actor, snap *state.Snapshot) (operatio
 	}, nil
 }
 
+// Get implements operations.SessionService. CSRF plaintext is not recoverable.
+func (s *Service) Get(sessionID string, snap *state.Snapshot) (operations.Session, error) {
+	if s == nil || sessionID == "" {
+		return operations.Session{}, unauthenticated()
+	}
+	if snap == nil {
+		return operations.Session{}, domain.NewError(domain.CodeUnavailable, "no published snapshot")
+	}
+	cfg := uiSession(snap)
+	if !cfg.Enabled {
+		return operations.Session{}, unauthenticated()
+	}
+	now := s.now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rec, ok := s.sessions[sessionID]
+	if !ok {
+		return operations.Session{}, unauthenticated()
+	}
+	if expired(rec, cfg, now) {
+		delete(s.sessions, rec.id)
+		return operations.Session{}, unauthenticated()
+	}
+	tok, ok := snap.Token(rec.tokenID)
+	if !ok || !tok.Enabled {
+		delete(s.sessions, rec.id)
+		return operations.Session{}, unauthenticated()
+	}
+	if tok.ExpiresAt != nil && !now.Before(tok.ExpiresAt.UTC()) {
+		delete(s.sessions, rec.id)
+		return operations.Session{}, unauthenticated()
+	}
+	lifetime := cfg.Lifetime
+	if lifetime <= 0 {
+		lifetime = 30 * time.Minute
+	}
+	return operations.Session{
+		TokenID:      rec.tokenID,
+		Scopes:       append([]string(nil), tok.Scopes...),
+		ExpiresAt:    rec.created.Add(lifetime),
+		CookieName:   CookieName,
+		CookieSecure: cfg.CookieSecure,
+		SameSite:     sameSiteName(cfg.CookieSameSite),
+		CookiePath:   "/",
+		CookieMaxAge: int(lifetime.Seconds()),
+		Revision:     snap.Revision,
+	}, nil
+}
+
 // Delete implements operations.SessionService.
 func (s *Service) Delete(sessionID string) (operations.DeleteResult, error) {
 	if s == nil || sessionID == "" {

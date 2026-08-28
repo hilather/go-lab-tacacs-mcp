@@ -650,6 +650,19 @@ operations:
     audit_event: api.session.created
     status: NOT_STARTED
 
+  - id: session.get
+    description: Read the current UI session principal from the session cookie
+    parity: REST_ONLY_PROTOCOL
+    mutating: false
+    idempotent: "true"
+    scopes: []
+    request_type: GetSessionRequest
+    response_type: Session
+    rest:
+      method: GET
+      path: /api/v1/session
+    status: NOT_STARTED
+
   - id: session.delete
     description: End the UI session
     parity: REST_ONLY_PROTOCOL

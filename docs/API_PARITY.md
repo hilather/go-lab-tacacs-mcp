@@ -257,7 +257,7 @@ Sensitive event fields require `events:sensitive` in addition to `events:read`. 
 |---|---|---|---|
 | Liveness and readiness probes | REST `/health/live`, `/health/ready` | REST_ONLY_PROTOCOL | Infrastructure HTTP probes, not administrative features |
 | OpenAPI document | REST `/api/openapi.json` or YAML | REST_ONLY_PROTOCOL | Describes REST protocol |
-| Browser token exchange/session logout | REST endpoints | REST_ONLY_PROTOCOL | Browser cookie/CSRF mechanics. CSRF is required when cookie auth is on. `cookie_secure` follows HTTP TLS. |
+| Browser token exchange/session get/logout | REST `POST`/`GET`/`DELETE /api/v1/session` | REST_ONLY_PROTOCOL | Browser cookie/CSRF mechanics. `GET` is cookie whoami (no CSRF). CSRF is required when cookie auth is on for mutations. `cookie_secure` follows HTTP TLS. |
 | SSE framing/heartbeat | REST | REST_ONLY_PROTOCOL | HTTP event transport mechanics |
 | MCP endpoint, discovery, tools/list, resources/list, capability metadata | MCP | MCP_ONLY_PROTOCOL | Required MCP protocol surface |
 | MCP tool/list-changed and resource notifications | MCP | MCP_ONLY_PROTOCOL | MCP protocol mechanics; underlying state capability remains parity-covered |

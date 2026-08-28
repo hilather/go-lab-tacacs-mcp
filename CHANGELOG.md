@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### UI
+
+- Cookie restore no longer invents a `state:read`-only principal. A hard reload or new tab of `/tokens` (and other scoped pages) rehydrates scopes from `GET /api/v1/session` when `sessionStorage` has no principal cache. Sign-out still clears the session.
+
 ### Security / toolchain
 
 - Frontend: ESLint 9.39.5 → 10.9.1 and `@eslint/js` 9.39.5 → 10.0.1. `eslint-plugin-jsx-a11y` stays 6.10.2 (no ESLint 10 peer yet); `npm ci` uses an override so that plugin takes the repo ESLint 10. `typescript-eslint` stays 8.67.0.

@@ -19,6 +19,19 @@ func handleSessionCreate(deps Deps) handleFunc {
 	}
 }
 
+func handleSessionGet(deps Deps) handleFunc {
+	return func(_ context.Context, snap *state.Snapshot, in Input) (any, error) {
+		if deps.Sessions == nil {
+			return nil, domain.NewError(domain.CodeUnavailable, "session service is not configured")
+		}
+		id := in.Actor.SessionID
+		if id == "" {
+			return nil, domain.NewError(domain.CodeUnauthenticated, "authentication required")
+		}
+		return deps.Sessions.Get(id, snap)
+	}
+}
+
 func handleSessionDelete(deps Deps) handleFunc {
 	return func(_ context.Context, snap *state.Snapshot, in Input) (any, error) {
 		if deps.Sessions == nil {

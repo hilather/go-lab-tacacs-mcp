@@ -45,6 +45,7 @@ Source: `api/operations.yaml`
 | health.ready | Readiness probe | REST_ONLY_PROTOCOL |  | GET /health/ready |  | HealthRequest | HealthResult | false | true | NOT_STARTED |
 | openapi.get | Serve the OpenAPI document | REST_ONLY_PROTOCOL |  | GET /api/openapi.json |  | GetOpenAPIRequest | OpenAPIDocument | false | true | NOT_STARTED |
 | session.create | Exchange a bearer token for an HttpOnly UI session cookie | REST_ONLY_PROTOCOL |  | POST /api/v1/session |  | CreateSessionRequest | Session | true | false | NOT_STARTED |
+| session.get | Read the current UI session principal from the session cookie | REST_ONLY_PROTOCOL |  | GET /api/v1/session |  | GetSessionRequest | Session | false | true | NOT_STARTED |
 | session.delete | End the UI session | REST_ONLY_PROTOCOL |  | DELETE /api/v1/session |  | DeleteSessionRequest | DeleteResult | true | true | NOT_STARTED |
 | mcp.discover | MCP server/discover | MCP_ONLY_PROTOCOL |  |  | protocol server/discover | MCPDiscoverRequest | MCPDiscoverResult | false | true | NOT_STARTED |
 | mcp.tools.list | MCP tools/list filtered by caller scopes | MCP_ONLY_PROTOCOL |  |  | protocol tools/list | MCPToolsListRequest | MCPToolsListResult | false | true | NOT_STARTED |

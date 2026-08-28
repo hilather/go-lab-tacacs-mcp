@@ -302,6 +302,18 @@ func (m *memSessions) Create(actor Actor, snap *state.Snapshot) (Session, error)
 	return s, nil
 }
 
+func (m *memSessions) Get(sessionID string, snap *state.Snapshot) (Session, error) {
+	s, ok := m.byID[sessionID]
+	if !ok {
+		return Session{}, domain.NewError(domain.CodeUnauthenticated, "authentication required")
+	}
+	if snap != nil {
+		s.Revision = snap.Revision
+	}
+	s.CSRFToken = ""
+	return s, nil
+}
+
 func (m *memSessions) Delete(sessionID string) (DeleteResult, error) {
 	if _, ok := m.byID[sessionID]; !ok {
 		return DeleteResult{}, domain.NewError(domain.CodeNotFound, "session not found")

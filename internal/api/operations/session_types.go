@@ -11,6 +11,9 @@ import (
 // CreateSessionRequest exchanges an already-authenticated actor for a UI session.
 type CreateSessionRequest struct{}
 
+// GetSessionRequest reads the current UI session principal from the cookie.
+type GetSessionRequest struct{}
+
 // DeleteSessionRequest ends one UI session. SessionID is filled from the cookie.
 type DeleteSessionRequest struct {
 	SessionID string `json:"session_id,omitempty"`
@@ -33,9 +36,10 @@ type Session struct {
 
 func (s Session) envelopeRevision() domain.Revision { return s.Revision }
 
-// SessionService issues and revokes UI sessions. Implemented by api/auth.
+// SessionService issues, reads, and revokes UI sessions. Implemented by api/auth.
 type SessionService interface {
 	Create(actor Actor, snap *state.Snapshot) (Session, error)
+	Get(sessionID string, snap *state.Snapshot) (Session, error)
 	Delete(sessionID string) (DeleteResult, error)
 }
 

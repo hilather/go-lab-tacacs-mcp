@@ -71,6 +71,7 @@ var FrozenREST = []string{
 	operations.IDTokensCreate,
 	operations.IDTokensRevoke,
 	operations.IDSessionCreate,
+	operations.IDSessionGet,
 	operations.IDSessionDelete,
 	operations.IDEventsList,
 	operations.IDEventsSubscribe,
@@ -151,6 +152,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/tokens", s.listTokens)
 	mux.HandleFunc("POST /api/v1/tokens", s.createToken)
 	mux.HandleFunc("DELETE /api/v1/tokens/{id}", s.revokeToken)
+	mux.HandleFunc("GET /api/v1/session", s.getSession)
 	mux.HandleFunc("POST /api/v1/session", s.createSession)
 	mux.HandleFunc("DELETE /api/v1/session", s.deleteSessionClear)
 	mux.Handle("/{$}", s.ui())

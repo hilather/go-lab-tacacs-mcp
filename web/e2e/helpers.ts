@@ -202,6 +202,28 @@ export async function mockAPI(
       });
       return;
     }
+    if (url.includes("/api/v1/session") && method === "GET") {
+      if (!signedIn.value) {
+        await route.fulfill({
+          status: 401,
+          contentType: "application/problem+json",
+          body: JSON.stringify({
+            type: "about:blank",
+            title: "unauthenticated",
+            status: 401,
+            detail: "authentication required",
+            code: "unauthenticated",
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(sessionBody(scopes)),
+      });
+      return;
+    }
     if (!signedIn.value && !url.includes("/api/v1/session")) {
       await route.fulfill({
         status: 401,

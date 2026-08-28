@@ -79,7 +79,7 @@ func TestImplementedOperations(t *testing.T) {
 		IDRadiusAccessTest, IDRadiusAttributesList, IDRadiusCoASend, IDRadiusDisconnectSend,
 		IDRadiusPolicyEvaluate, IDRadiusSessionsList,
 		IDRuntimeReset,
-		IDSessionCreate, IDSessionDelete,
+		IDSessionCreate, IDSessionDelete, IDSessionGet,
 		IDSystemBuildGet, IDSystemStatusGet,
 		IDTokensCreate, IDTokensList, IDTokensRevoke,
 		IDUsersCreate, IDUsersDelete, IDUsersGet, IDUsersList, IDUsersUpdate,
@@ -89,7 +89,7 @@ func TestImplementedOperations(t *testing.T) {
 	}
 	for _, op := range reg.List() {
 		switch op.ID {
-		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDEventsList, IDEventsSubscribe, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionDelete,
+		case IDSystemStatusGet, IDSystemBuildGet, IDPolicyEvaluate, IDEventsList, IDEventsSubscribe, IDTokensList, IDTokensCreate, IDTokensRevoke, IDSessionCreate, IDSessionGet, IDSessionDelete,
 			IDConfigEffectiveGet, IDConfigValidate, IDConfigReload, IDConfigExport, IDRuntimeReset,
 			IDUsersList, IDUsersGet, IDUsersCreate, IDUsersUpdate, IDUsersDelete,
 			IDGroupsList, IDGroupsGet, IDGroupsCreate, IDGroupsUpdate, IDGroupsDelete,

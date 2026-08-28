@@ -114,3 +114,26 @@ test("keyboard workflows for remaining pages, one-time token, conflict, and rese
   expect(JSON.stringify(stored.session)).not.toContain("e2e-one-time-token-value");
   expect(stored.cookie).not.toContain(token);
 });
+
+test("cold load /tokens without principal cache shows tokens when GET /session has tokens:manage", async ({
+  page,
+}) => {
+  const api = await mockAPI(page, { scopes: ALL_SCOPES });
+  await page.goto("/login");
+  const origin = new URL(page.url()).origin;
+  api.signedIn.value = true;
+  await page.context().addCookies([
+    { name: "taclab_session", value: "e2e-session", url: origin, httpOnly: true, sameSite: "Strict" },
+    { name: "taclab_csrf", value: "csrf-e2e", url: origin, httpOnly: false, sameSite: "Strict" },
+  ]);
+  await page.evaluate(() => {
+    sessionStorage.clear();
+  });
+  await page.goto("/tokens");
+  await expect(page.getByRole("heading", { name: "API tokens" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Not authorized" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Tokens" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Events" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+});

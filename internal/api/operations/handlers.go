@@ -83,6 +83,7 @@ func implementedHandlers(deps Deps) map[string]handleFunc {
 		IDTokensCreate:         handleTokensCreate(deps),
 		IDTokensRevoke:         handleTokensRevoke(deps),
 		IDSessionCreate:        handleSessionCreate(deps),
+		IDSessionGet:           handleSessionGet(deps),
 		IDSessionDelete:        handleSessionDelete(deps),
 		IDPolicyEvaluate:       handleEvaluate,
 		IDAuthenticationTest:   handleAuthenticationTest(deps),

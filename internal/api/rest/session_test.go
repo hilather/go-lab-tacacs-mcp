@@ -137,6 +137,133 @@ func TestSessionCookieAndCSRFRequired(t *testing.T) {
 	}
 }
 
+func TestSessionGetCookieWhoami(t *testing.T) {
+	t.Parallel()
+	h := restHarness(t)
+	created := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/session", h.Token, nil, nil)
+	defer created.Body.Close()
+	if created.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(created.Body)
+		t.Fatalf("create status=%d %s", created.StatusCode, b)
+	}
+	var createEnv struct {
+		Data operations.Session `json:"data"`
+	}
+	if err := json.NewDecoder(created.Body).Decode(&createEnv); err != nil {
+		t.Fatal(err)
+	}
+	var sessionCookie string
+	for _, c := range created.Cookies() {
+		if c.Name == auth.CookieName {
+			sessionCookie = c.Value
+		}
+	}
+	if sessionCookie == "" {
+		t.Fatal("missing session cookie")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, h.HTTP.URL+"/api/v1/session", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: sessionCookie})
+	got, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Body.Close()
+	if got.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(got.Body)
+		t.Fatalf("get status=%d %s", got.StatusCode, b)
+	}
+	if len(got.Cookies()) != 0 {
+		t.Fatalf("get must not Set-Cookie: %+v", got.Cookies())
+	}
+	var env struct {
+		Data operations.Session `json:"data"`
+	}
+	raw, err := io.ReadAll(got.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), sessionCookie) || strings.Contains(string(raw), "taclab_session=") {
+		t.Fatal("session cookie leaked")
+	}
+	if env.Data.TokenID != "lab" {
+		t.Fatalf("token_id=%q", env.Data.TokenID)
+	}
+	if env.Data.CSRFToken != "" {
+		t.Fatalf("csrf_token should be empty on get, got %q", env.Data.CSRFToken)
+	}
+	if env.Data.ExpiresAt.IsZero() {
+		t.Fatal("expires_at required")
+	}
+	foundManage := false
+	for _, sc := range env.Data.Scopes {
+		if sc == "tokens:manage" {
+			foundManage = true
+		}
+	}
+	if !foundManage {
+		t.Fatalf("scopes=%v want tokens:manage", env.Data.Scopes)
+	}
+
+	bearerOnly, err := http.NewRequest(http.MethodGet, h.HTTP.URL+"/api/v1/session", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bearerOnly.Header.Set("Authorization", "Bearer "+h.Token)
+	bresp, err := http.DefaultClient.Do(bearerOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bresp.Body.Close()
+	if bresp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("bearer-only get status=%d", bresp.StatusCode)
+	}
+
+	anon, err := http.Get(h.HTTP.URL + "/api/v1/session")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer anon.Body.Close()
+	if anon.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous get status=%d", anon.StatusCode)
+	}
+
+	del, err := http.NewRequest(http.MethodDelete, h.HTTP.URL+"/api/v1/session", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	del.Header.Set(auth.CSRFHeader, createEnv.Data.CSRFToken)
+	del.AddCookie(&http.Cookie{Name: auth.CookieName, Value: sessionCookie})
+	dresp, err := http.DefaultClient.Do(del)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dresp.Body.Close()
+	if dresp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(dresp.Body)
+		t.Fatalf("logout=%d %s", dresp.StatusCode, b)
+	}
+	again, err := http.NewRequest(http.MethodGet, h.HTTP.URL+"/api/v1/session", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again.AddCookie(&http.Cookie{Name: auth.CookieName, Value: sessionCookie})
+	aresp, err := http.DefaultClient.Do(again)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer aresp.Body.Close()
+	if aresp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("after logout get status=%d", aresp.StatusCode)
+	}
+}
+
 func TestSessionCreateRequiresBearer(t *testing.T) {
 	t.Parallel()
 	h := restHarness(t)

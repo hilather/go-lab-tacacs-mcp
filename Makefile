@@ -32,7 +32,7 @@ help:
 	@echo "  make bench            TACACS + RADIUS codec/crypto/cache benches (not credentials KDF)"
 	@echo "  make web-install      npm ci in web/"
 	@echo "  make web-test         npm test (Vitest component suite)"
-	@echo "  make web-typecheck    tsc --noEmit"
+	@echo "  make web-typecheck    TypeScript 7 --noEmit (typescript7 alias)"
 	@echo "  make web-lint         eslint"
 	@echo "  make web-build        production Vite build + copy into internal/ui/dist"
 	@echo "  make web-e2e          Playwright keyboard/session smoke"

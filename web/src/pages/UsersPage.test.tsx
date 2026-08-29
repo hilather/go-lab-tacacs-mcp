@@ -348,4 +348,55 @@ describe("UsersPage", () => {
       expect(screen.getByRole("checkbox", { name: "Must change enable" })).toBeChecked();
     });
   });
+
+  it("names the user id in the tombstone confirm and does not claim a NAS kick", async () => {
+    seedSession();
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return statusOK();
+        }
+        if (url.includes("/api/v1/users")) {
+          return json(200, envelope({ revision: 3, items: [sampleUser] }));
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<UsersPage />, { route: "/users" });
+    await user.click(await screen.findByRole("button", { name: "Edit alice" }));
+    await user.click(screen.getByRole("button", { name: "Tombstone baseline user" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tombstone user alice?" });
+    expect(dialog).toHaveTextContent(/tombstone hides it from the effective snapshot/i);
+    expect(dialog).not.toHaveTextContent(/kick a device/i);
+    const buttons = dialog.querySelectorAll("button");
+    expect(buttons[0]).toHaveTextContent("Cancel");
+    expect(buttons[buttons.length - 1]).toHaveTextContent("Tombstone user");
+  });
+
+  it("says reveal-baseline drops the overlay and does not kick a NAS", async () => {
+    seedSession();
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return statusOK();
+        }
+        if (url.includes("/api/v1/users")) {
+          return json(200, envelope({ revision: 3, items: [{ ...sampleUser, source: "override" }] }));
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<UsersPage />, { route: "/users" });
+    await user.click(await screen.findByRole("button", { name: "Edit alice" }));
+    await user.click(screen.getByRole("button", { name: "Reveal baseline (drop overlay)" }));
+    const dialog = await screen.findByRole("dialog", { name: "Reveal baseline user alice?" });
+    expect(dialog).toHaveTextContent(/does not send RADIUS to a NAS or kick a device/i);
+    expect(dialog).toHaveTextContent(/memory overlay/i);
+  });
 });

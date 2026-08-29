@@ -154,7 +154,7 @@ function ClientsBody() {
   return (
     <main className="page page--wide">
       <h1>Clients</h1>
-      <p>
+      <p className="lede">
         Client match is fail-closed: transport, certificate constraints, longest CIDR, then lowest priority. Ties are a
         configuration error. Shared-secret values are never displayed. Flatten RADIUS writes the UDP endpoint only.
         Optional RadSec is <code>transport: tls</code> on TCP 2083 (YAML or <code>endpoints[]</code> in this slice)
@@ -246,6 +246,7 @@ function ClientsBody() {
           ))}
         </tbody>
       </table>
+      {items.length === 0 && !list.isPending ? <p className="quiet">No clients match the filter.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more
@@ -780,8 +781,20 @@ function ClientEditor({
       ) : null}
       {pendingDelete ? (
         <ConfirmDialog
-          title="Confirm client change"
-          confirmLabel={pendingDelete === "tombstone" ? "Tombstone client" : "Delete client"}
+          title={
+            pendingDelete === "tombstone"
+              ? `Tombstone client ${existing?.id ?? ""}?`
+              : existing?.source === "override"
+                ? `Reveal baseline client ${existing.id}?`
+                : `Delete client ${existing?.id ?? ""}?`
+          }
+          confirmLabel={
+            pendingDelete === "tombstone"
+              ? "Tombstone client"
+              : existing?.source === "override"
+                ? "Reveal baseline"
+                : "Delete client"
+          }
           busy={remove.isPending}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => remove.mutate({ tombstone: pendingDelete === "tombstone", revision: loadedRevision })}
@@ -789,7 +802,9 @@ function ClientEditor({
           <p>
             {pendingDelete === "tombstone"
               ? "A tombstone hides this baseline client until runtime reset."
-              : "Runtime clients are removed. Override delete without tombstone reveals the baseline."}
+              : existing?.source === "override"
+                ? "This drops TacLab’s memory overlay for this client only. It does not send RADIUS to a NAS or kick a device."
+                : "Runtime clients are removed from the overlay."}
           </p>
         </ConfirmDialog>
       ) : null}

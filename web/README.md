@@ -4,7 +4,7 @@ React + TypeScript strict + Vite + TanStack Query + React Router. Generated type
 
 The UI talks only to public REST. Browser auth is `POST /api/v1/session` → HttpOnly `taclab_session` + CSRF cookie. A cold load (new tab, or a document that has the cookie but no `sessionStorage` principal cache) calls `GET /api/v1/session` for the real scopes. The bearer token is never written to `localStorage` or `sessionStorage`. Mutations send `X-CSRF-Token` and `If-Match: "revision-N"`.
 
-Pages: sign-in, status, users, groups, clients, tokens (one-time copy/acknowledge), events, authentication test, RADIUS authentication test, policy explain, RADIUS policy explain, config/export/validate/reload/reset, about. RADIUS pages use generated REST types only and do not advertise complete RADIUS.
+Pages: sign-in, status, users, groups, clients, tokens (one-time copy/acknowledge), events, authentication test, RADIUS authentication test, policy explain, RADIUS policy explain, config/export/validate/reload/reset, about. The signed-in chrome is a dark grouped rail (Lab / Directory / TACACS+ / RADIUS). Events is a live AAA log. Remaining page bodies share that chrome (muted lede, quiet empty states, dark panels). RADIUS pages use generated REST types only and do not advertise complete RADIUS.
 
 Users page badges `Must change login` / `Must change enable` next to Enabled and editor checkboxes for those flags (generated `User` fields only). Authentication test displays status `must_change` after a successful verify plus the applicable flag; that value is not a TACACS or RADIUS packet status.
 

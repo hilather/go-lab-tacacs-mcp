@@ -85,7 +85,7 @@ function AuthTestBody() {
   return (
     <main className="page">
       <h1>Authentication test</h1>
-      <p>
+      <p className="lede">
         Runs <code>authentication.test</code> against the published snapshot. The password is write-only and is cleared
         after submit. Challenge methods need wire <code>data</code> from a TACACS client, not this form. Status{" "}
         <code>must_change</code> means the password verified and a must-change flag is set.
@@ -94,6 +94,7 @@ function AuthTestBody() {
         {announce}
       </p>
       <ErrorSummary ref={summaryRef} id="auth-test-errors" title="Could not run test" messages={messages} />
+      <section className="panel">
       <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
         <div className="field">
           <label htmlFor={userField}>User ID</label>
@@ -132,6 +133,7 @@ function AuthTestBody() {
           {busy ? "Testing…" : "Run test"}
         </button>
       </form>
+      </section>
       {result ? (
         <section className="panel" aria-labelledby="auth-result-heading">
           <h2 id="auth-result-heading">Result</h2>

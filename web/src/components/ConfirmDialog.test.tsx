@@ -18,11 +18,11 @@ describe("ConfirmDialog", () => {
     expect(dialog).toHaveAttribute("aria-describedby");
     expect(screen.getByText(/removed from the overlay/i)).toBeInTheDocument();
     await user.tab();
-    expect(screen.getByRole("button", { name: "Delete user" })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "Delete user" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Delete user" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });

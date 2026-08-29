@@ -78,11 +78,11 @@ export function ConfirmDialog({
           {children}
         </div>
         <div className="actions">
-          <button type="button" className="danger" onClick={onConfirm} disabled={busy}>
-            {busy ? "Working…" : confirmLabel}
-          </button>
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel
+          </button>
+          <button type="button" className="danger" onClick={onConfirm} disabled={busy}>
+            {busy ? "Working…" : confirmLabel}
           </button>
         </div>
       </div>

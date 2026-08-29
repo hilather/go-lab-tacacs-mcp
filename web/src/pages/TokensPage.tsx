@@ -151,7 +151,7 @@ function TokensBody() {
   return (
     <main className="page page--wide">
       <h1>API tokens</h1>
-      <p>
+      <p className="lede">
         The bearer is returned once. It is never written to localStorage or sessionStorage. After you acknowledge, this
         page forgets the value.
       </p>
@@ -266,6 +266,7 @@ function TokensBody() {
           ))}
         </tbody>
       </table>
+      {list.items.length === 0 && !list.isPending ? <p className="quiet">No API tokens in this snapshot.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more
@@ -274,7 +275,7 @@ function TokensBody() {
 
       {revokeId ? (
         <ConfirmDialog
-          title="Revoke this token?"
+          title={`Revoke token ${revokeId}?`}
           confirmLabel="Revoke token"
           busy={revoke.isPending}
           onCancel={() => setRevokeId(null)}

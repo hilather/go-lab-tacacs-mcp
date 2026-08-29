@@ -771,16 +771,17 @@ Protocol-only endpoints are explicitly exempt. The generated parity matrix is co
 - a form/schema validation library aligned with generated types.
 - a router for client-side navigation.
 - a focused accessible component layer rather than a large custom design system.
+- Operator chrome is dark (`#0b0c0e` / `#121317` / `#181a1f`) with a 56px header and a grouped left rail: Lab, Directory, TACACS+, RADIUS. IBM Plex Sans/Mono are self-hosted. Every page body uses the same muted lede, table, form, empty-state, and dialog chrome as Events.
 
 ### 18.2 Pages
 
 - Sign-in/token exchange.
-- Dashboard and listener status.
+- Dashboard and listener status (one Lab posture strip; last-N events).
 - Users.
 - Groups and authorization rules.
 - Network clients, including legacy shared-secret lifecycle status and reuse/rotation warnings.
 - API tokens.
-- Live events/accounting.
+- Live events/accounting (AAA log: WHEN/WHO/WHAT/WHERE/PROTO/RESULT; Auth/Acct/Fail chips).
 - Authentication test console.
 - Policy authorization/explanation console.
 - Effective configuration viewer/export.

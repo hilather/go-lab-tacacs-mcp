@@ -1,11 +1,17 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { listEvents } from "../api/client";
+import { EventRow, EventTableHead } from "../components/EventRow";
 import { RequireScope } from "../components/RequireScope";
 import type { EventView } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
-import { ProtocolBadge, RoleBadge } from "../components/ProtocolBadge";
-import { EVENT_CATEGORIES, EVENT_LISTENER_ROLES, EVENT_PROTOCOLS } from "../ui/constants";
 import { errorDetail } from "../ui/errors";
+import {
+  drainCategories,
+  drainRecent,
+  type EventKind,
+  matchEvent,
+  mergeEvent,
+  sortNewestFirst,
+} from "../ui/events";
 
 const PAGE = 100;
 
@@ -19,22 +25,18 @@ export function EventsPage() {
 
 function EventsBody() {
   const stream = useEventStream();
-  const [category, setCategory] = useState("");
+  const [kind, setKind] = useState<EventKind>("auth");
   const [protocol, setProtocol] = useState("");
-  const [role, setRole] = useState("");
-  const [transport, setTransport] = useState("");
-  const [result, setResult] = useState("");
-  const [client, setClient] = useState("");
-  const [user, setUser] = useState("");
-  const [type, setType] = useState("");
+  const [search, setSearch] = useState("");
   const [buffer, setBuffer] = useState<EventView[]>([]);
   const [visible, setVisible] = useState(PAGE);
   const [overwritten, setOverwritten] = useState(0);
   const [reset, setReset] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState(true);
-  const catId = useId();
-  const drainKey = `${category}\0${protocol}\0${role}\0${String(stream.reset)}`;
+  const [flashIds, setFlashIds] = useState<Set<number>>(new Set());
+  const searchId = useId();
+  const drainKey = `${kind}\0${protocol}\0${String(stream.reset)}`;
   const [trackedDrainKey, setTrackedDrainKey] = useState(drainKey);
   if (trackedDrainKey !== drainKey) {
     setTrackedDrainKey(drainKey);
@@ -46,14 +48,27 @@ function EventsBody() {
   if (incoming !== null && incoming !== seenEvent) {
     setSeenEvent(incoming);
     setBuffer((prev) => mergeEvent(prev, incoming));
+    setFlashIds((prev) => new Set(prev).add(incoming.id));
   }
 
   useEffect(() => {
+    if (flashIds.size === 0) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setFlashIds(new Set());
+    }, 1300);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [flashIds]);
+
+  useEffect(() => {
     let cancelled = false;
+    const categories = drainCategories(kind);
     void drainRecent({
-      ...(category === "" ? {} : { categories: [category] }),
+      ...(categories ? { categories } : {}),
       ...(protocol === "" ? {} : { protocol }),
-      ...(role === "" ? {} : { listener_role: role }),
     })
       .then((page) => {
         if (cancelled) {
@@ -78,22 +93,20 @@ function EventsBody() {
     return () => {
       cancelled = true;
     };
-  }, [category, protocol, role, stream.reset]);
+  }, [kind, protocol, stream.reset]);
 
   const items = useMemo(() => {
-    return buffer
-      .filter((ev) => matchEvent(ev, { protocol, role, transport, result, client, user, type }))
-      .slice(0, visible);
-  }, [buffer, protocol, role, transport, result, client, user, type, visible]);
+    return buffer.filter((ev) => matchEvent(ev, { kind, protocol, search })).slice(0, visible);
+  }, [buffer, kind, protocol, search, visible]);
 
-  const filteredCount = buffer.filter((ev) =>
-    matchEvent(ev, { protocol, role, transport, result, client, user, type }),
-  ).length;
+  const filteredCount = buffer.filter((ev) => matchEvent(ev, { kind, protocol, search })).length;
 
   return (
     <main className="page page--wide">
       <h1>Events</h1>
-      <p>Newest ring records first, plus live SSE bodies. Device and user strings are rendered as text only.</p>
+      <p className="lede">
+        Live AAA. Newest first. Sensitive fields stay redacted without events:sensitive.
+      </p>
       <p role="status">
         Stream:{" "}
         <span className={stream.connected ? "state state--on" : "state state--off"}>
@@ -119,90 +132,52 @@ function EventsBody() {
         </div>
       ) : null}
 
-      <form className="toolbar" onSubmit={(ev) => ev.preventDefault()}>
-        <div className="field">
-          <label htmlFor={catId}>Category</label>
-          <select
-            id={catId}
-            value={category}
-            onChange={(ev) => {
-              setCategory(ev.target.value);
-            }}
-          >
-            <option value="">All</option>
-            {EVENT_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+      <form className="chip-bar" onSubmit={(ev) => ev.preventDefault()}>
+        <div className="seg" role="group" aria-label="Protocol">
+          <Chip pressed={protocol === ""} onClick={() => setProtocol("")}>
+            All
+          </Chip>
+          <Chip pressed={protocol === "tacacs"} onClick={() => setProtocol("tacacs")}>
+            TACACS+
+          </Chip>
+          <Chip pressed={protocol === "radius"} onClick={() => setProtocol("radius")}>
+            RADIUS
+          </Chip>
         </div>
-        <div className="field">
-          <label htmlFor="ev-protocol">Protocol</label>
-          <select id="ev-protocol" value={protocol} onChange={(ev) => setProtocol(ev.target.value)}>
-            <option value="">All</option>
-            {EVENT_PROTOCOLS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+        <div className="seg" role="group" aria-label="Kind">
+          <Chip pressed={kind === "auth"} onClick={() => setKind("auth")}>
+            Auth
+          </Chip>
+          <Chip pressed={kind === "acct"} onClick={() => setKind("acct")}>
+            Acct
+          </Chip>
+          <Chip pressed={kind === "fail"} onClick={() => setKind("fail")}>
+            Fail
+          </Chip>
         </div>
-        <div className="field">
-          <label htmlFor="ev-role">Role</label>
-          <select id="ev-role" value={role} onChange={(ev) => setRole(ev.target.value)}>
-            <option value="">All</option>
-            {EVENT_LISTENER_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+        <div className="field search-field">
+          <label htmlFor={searchId}>Search</label>
+          <input
+            id={searchId}
+            type="search"
+            value={search}
+            placeholder="User, NAS, or command"
+            onChange={(ev) => setSearch(ev.target.value)}
+          />
         </div>
-        <FilterField id="ev-transport" label="Transport" value={transport} onChange={setTransport} />
-        <FilterField id="ev-result" label="Result" value={result} onChange={setResult} />
-        <FilterField id="ev-client" label="Client" value={client} onChange={setClient} />
-        <FilterField id="ev-user" label="User" value={user} onChange={setUser} />
-        <FilterField id="ev-type" label="Type" value={type} onChange={setType} />
       </form>
 
       {pending ? <p role="status">Loading events…</p> : null}
       <table className="data">
         <caption>Redacted event bodies, newest first</caption>
-        <thead>
-          <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Time</th>
-            <th scope="col">Category</th>
-            <th scope="col">Type</th>
-            <th scope="col">Result</th>
-            <th scope="col">Protocol</th>
-            <th scope="col">Role</th>
-            <th scope="col">Transport</th>
-            <th scope="col">Client</th>
-            <th scope="col">User</th>
-            <th scope="col">Command</th>
-          </tr>
-        </thead>
+        <EventTableHead />
         <tbody>
           {items.map((ev) => (
-            <tr key={String(ev.id)}>
-              <th scope="row">{String(ev.id)}</th>
-              <td>{ev.time}</td>
-              <td>{ev.category}</td>
-              <td>{ev.type}</td>
-              <td>{ev.result}</td>
-              <td>{ev.protocol ? <ProtocolBadge protocol={ev.protocol} /> : "—"}</td>
-              <td>{ev.listener_role ? <RoleBadge role={ev.listener_role} /> : "—"}</td>
-              <td>{ev.transport || "—"}</td>
-              <td>{ev.client_id || "—"}</td>
-              <td>{ev.user_id || "—"}</td>
-              <td>{ev.command || "—"}</td>
-            </tr>
+            <EventRow key={String(ev.id)} ev={ev} flash={flashIds.has(ev.id)} />
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !pending ? <p>No events match the filters.</p> : null}
+      {items.length === 0 && !pending ? <p className="quiet">No events match the filters.</p> : null}
       {visible < filteredCount ? (
         <button type="button" onClick={() => setVisible((n) => n + PAGE)}>
           Load older
@@ -212,73 +187,18 @@ function EventsBody() {
   );
 }
 
-function FilterField({
-  id,
-  label,
-  value,
-  onChange,
+function Chip({
+  pressed,
+  onClick,
+  children,
 }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
+  pressed: boolean;
+  onClick: () => void;
+  children: string;
 }) {
   return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} type="search" value={value} onChange={(ev) => onChange(ev.target.value)} />
-    </div>
+    <button type="button" aria-pressed={pressed} onClick={onClick}>
+      {children}
+    </button>
   );
-}
-
-function matchEvent(
-  ev: EventView,
-  f: { protocol: string; role: string; transport: string; result: string; client: string; user: string; type: string },
-): boolean {
-  const checks: Array<[string, string | undefined]> = [
-    [f.protocol, ev.protocol],
-    [f.role, ev.listener_role],
-    [f.transport, ev.transport],
-    [f.result, ev.result],
-    [f.client, ev.client_id],
-    [f.user, ev.user_id],
-    [f.type, ev.type],
-  ];
-  return checks.every(([want, got]) => want.trim() === "" || (got ?? "").toLowerCase().includes(want.trim().toLowerCase()));
-}
-
-function sortNewestFirst(items: EventView[]): EventView[] {
-  return [...items].sort((a, b) => b.id - a.id);
-}
-
-function mergeEvent(prev: EventView[], incoming: EventView): EventView[] {
-  return sortNewestFirst([incoming, ...prev.filter((ev) => ev.id !== incoming.id)]);
-}
-
-async function drainRecent(filters: {
-  categories?: string[];
-  protocol?: string;
-  listener_role?: string;
-}): Promise<{ items: EventView[]; overwritten: number; reset: boolean }> {
-  const items: EventView[] = [];
-  let cursor: string | undefined;
-  let overwritten = 0;
-  let reset = false;
-  for (let i = 0; i < 64; i += 1) {
-    const env = await listEvents({
-      limit: 200,
-      ...(cursor ? { cursor } : {}),
-      ...(filters.categories ? { categories: filters.categories } : {}),
-      ...(filters.protocol ? { protocol: filters.protocol } : {}),
-      ...(filters.listener_role ? { listener_role: filters.listener_role } : {}),
-    });
-    overwritten = env.data.overwritten;
-    reset = reset || env.data.reset;
-    items.push(...env.data.items);
-    if (!env.data.next_cursor) {
-      break;
-    }
-    cursor = env.data.next_cursor;
-  }
-  return { items, overwritten, reset };
 }

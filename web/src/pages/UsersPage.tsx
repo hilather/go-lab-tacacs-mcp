@@ -55,7 +55,7 @@ function UsersBody() {
   return (
     <main className="page page--wide">
       <h1>Users</h1>
-      <p>
+      <p className="lede">
         Runtime users vanish on restart. Updating a baseline user writes an overlay (
         <code>OVERRIDE</code>). Tombstoning hides a baseline identity until reset.
       </p>
@@ -146,7 +146,7 @@ function UsersBody() {
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !list.isPending ? <p>No users match the filter.</p> : null}
+      {items.length === 0 && !list.isPending ? <p className="quiet">No users match the filter.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more
@@ -508,8 +508,20 @@ function UserEditor({
       ) : null}
       {pendingDelete ? (
         <ConfirmDialog
-          title={pendingDelete === "tombstone" ? "Tombstone this user?" : "Delete this user?"}
-          confirmLabel={pendingDelete === "tombstone" ? "Tombstone user" : "Delete user"}
+          title={
+            pendingDelete === "tombstone"
+              ? `Tombstone user ${existing?.id ?? ""}?`
+              : existing?.source === "override"
+                ? `Reveal baseline user ${existing.id}?`
+                : `Delete user ${existing?.id ?? ""}?`
+          }
+          confirmLabel={
+            pendingDelete === "tombstone"
+              ? "Tombstone user"
+              : existing?.source === "override"
+                ? "Reveal baseline"
+                : "Delete user"
+          }
           busy={remove.isPending}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => remove.mutate({ tombstone: pendingDelete === "tombstone", revision: loadedRevision })}
@@ -518,7 +530,7 @@ function UserEditor({
             {pendingDelete === "tombstone"
               ? "The baseline identity stays in the YAML. A tombstone hides it from the effective snapshot until runtime reset."
               : existing?.source === "override"
-                ? "Dropping the overlay reveals the baseline user. Runtime-only objects are removed."
+                ? "This drops TacLab’s memory overlay for this user only. It does not send RADIUS to a NAS or kick a device."
                 : "This runtime user is removed from the overlay and disappears on restart anyway."}
           </p>
         </ConfirmDialog>

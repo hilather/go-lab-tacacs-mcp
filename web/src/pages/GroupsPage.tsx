@@ -52,7 +52,7 @@ function GroupsBody() {
   return (
     <main className="page page--wide">
       <h1>Groups</h1>
-      <p>
+      <p className="lede">
         Groups are flat. Command and service rules are separate first-match lists. Default-deny applies when nothing
         matches. <code>default_command_action</code> must be deny in 1.0.
       </p>
@@ -121,6 +121,7 @@ function GroupsBody() {
           ))}
         </tbody>
       </table>
+      {items.length === 0 && !list.isPending ? <p className="quiet">No groups match the filter.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more
@@ -396,8 +397,20 @@ function GroupEditor({
       ) : null}
       {pendingDelete ? (
         <ConfirmDialog
-          title="Confirm group change"
-          confirmLabel={pendingDelete === "tombstone" ? "Tombstone group" : "Delete group"}
+          title={
+            pendingDelete === "tombstone"
+              ? `Tombstone group ${existing?.id ?? ""}?`
+              : existing?.source === "override"
+                ? `Reveal baseline group ${existing.id}?`
+                : `Delete group ${existing?.id ?? ""}?`
+          }
+          confirmLabel={
+            pendingDelete === "tombstone"
+              ? "Tombstone group"
+              : existing?.source === "override"
+                ? "Reveal baseline"
+                : "Delete group"
+          }
           busy={remove.isPending}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => remove.mutate({ tombstone: pendingDelete === "tombstone", revision: loadedRevision })}
@@ -405,7 +418,9 @@ function GroupEditor({
           <p>
             {pendingDelete === "tombstone"
               ? "A tombstone hides this baseline group until runtime reset."
-              : "Runtime groups are removed. Override delete without tombstone reveals the baseline."}
+              : existing?.source === "override"
+                ? "This drops TacLab’s memory overlay for this group only. It does not send RADIUS to a NAS or kick a device."
+                : "Runtime groups are removed from the overlay."}
           </p>
         </ConfirmDialog>
       ) : null}

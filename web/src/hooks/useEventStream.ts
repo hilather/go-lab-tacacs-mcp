@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import type { EventView } from "../generated/api";
+import { EventStreamContext, type StreamState } from "./eventStreamContext";
 
 const REVISION_CHANGED = "state.revision.changed";
 
@@ -16,12 +17,7 @@ export const RESOURCE_QUERY_KEYS = [
   ["config"],
 ] as const;
 
-export type StreamState = {
-  connected: boolean;
-  reconnecting: boolean;
-  reset: boolean;
-  lastEvent: EventView | null;
-};
+export type { StreamState };
 
 function isEventView(v: unknown): v is EventView {
   if (!v || typeof v !== "object") {
@@ -37,20 +33,18 @@ function invalidateResources(queryClient: ReturnType<typeof useQueryClient>): vo
   }
 }
 
-export function useEventStream(): StreamState {
+const idle: StreamState = { connected: false, reconnecting: false, reset: false, lastEvent: null };
+
+/** Always calls the same hooks. When enabled is false, no EventSource is opened. */
+export function useOwnedEventStream(enabled: boolean): StreamState {
   const queryClient = useQueryClient();
   const { hasScope, state } = useAuth();
   const signedIn = state.status === "signed_in";
   const canRead = hasScope("events:read");
-  const [stream, setStream] = useState<StreamState>({
-    connected: false,
-    reconnecting: false,
-    reset: false,
-    lastEvent: null,
-  });
+  const [stream, setStream] = useState<StreamState>(idle);
 
   useEffect(() => {
-    if (!signedIn || !canRead) {
+    if (!enabled || !signedIn || !canRead) {
       return;
     }
     const es = new EventSource("/api/v1/events/stream");
@@ -95,7 +89,13 @@ export function useEventStream(): StreamState {
       es.removeEventListener("reset", onReset);
       es.close();
     };
-  }, [signedIn, canRead, queryClient]);
+  }, [enabled, signedIn, canRead, queryClient]);
 
   return stream;
+}
+
+export function useEventStream(): StreamState {
+  const ctx = useContext(EventStreamContext);
+  const local = useOwnedEventStream(ctx === null);
+  return ctx ?? local;
 }

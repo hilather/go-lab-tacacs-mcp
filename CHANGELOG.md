@@ -6,6 +6,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### UI
 
+- Operator SPA uses dark chrome (`#0b0c0e` / `#121317` / `#181a1f`, IBM Plex self-hosted). Grouped rail: Lab, Directory, TACACS+, RADIUS. Events is a live AAA log (protocol + Auth/Acct/Fail chips; WHEN/WHO/WHAT/WHERE/PROTO/RESULT). Status has one Lab posture strip and last-N events. Remaining page bodies use the same muted lede, quiet empty states, and panel form chrome. Confirm dialogs put Cancel first and name the object id; DAC copy kicks a NAS, overlay reset does not.
 - Cookie restore no longer invents a `state:read`-only principal. A hard reload or new tab of `/tokens` (and other scoped pages) rehydrates scopes from `GET /api/v1/session` when `sessionStorage` has no principal cache. Sign-out still clears the session.
 
 ### Security / toolchain

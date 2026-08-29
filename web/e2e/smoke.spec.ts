@@ -16,7 +16,8 @@ test("keyboard login shows status and stores no token", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sign in to TacLab" })).toHaveCount(0);
   await expect(page.getByText("legacy_tacacs")).toBeVisible();
   await expect(page.getByText("radius_access")).toBeVisible();
-  await expect(page.getByRole("heading", { name: /RADIUS UDP/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lab posture" })).toBeVisible();
+  await expect(page.getByLabel("Lab posture")).toContainText(/RADIUS\/UDP is a controlled-network lab profile/i);
   await expect(page.getByText("CONFIG", { exact: true })).toBeVisible();
   await expect(page.getByText("RUNTIME", { exact: true })).toBeVisible();
   await expect(page.getByText("OVERRIDE", { exact: true })).toBeVisible();

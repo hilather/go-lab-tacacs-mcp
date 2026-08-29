@@ -19,7 +19,7 @@ function AboutBody() {
   return (
     <main className="page">
       <h1>About</h1>
-      <p>Build metadata and specification versions. This is a lab appliance, not a complete TACACS+ claim.</p>
+      <p className="lede">Build metadata and specification versions. This is a lab appliance, not a complete TACACS+ claim.</p>
       {build.isError ? (
         <div className="error-summary" role="alert">
           <h2>Build unavailable</h2>
@@ -28,6 +28,8 @@ function AboutBody() {
       ) : null}
       {build.isPending ? <p role="status">Loading build metadata…</p> : null}
       {info ? (
+        <section className="panel" aria-labelledby="about-build-heading">
+        <h2 id="about-build-heading" className="visually-hidden">Build</h2>
         <dl className="kv">
           <div>
             <dt>Version</dt>
@@ -79,6 +81,7 @@ function AboutBody() {
             <dd>{status.data ? String(status.data.data.revision) : "—"}</dd>
           </div>
         </dl>
+        </section>
       ) : null}
     </main>
   );

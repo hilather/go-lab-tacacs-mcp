@@ -79,11 +79,12 @@ function RadiusExplainBody() {
   return (
     <main className="page page--wide">
       <h1>RADIUS policy explain</h1>
-      <p>
+      <p className="lede">
         Calls <code>radius.policy.evaluate</code> on the compiled RADIUS engine. The UI does not evaluate policy. This
         is not complete RADIUS.
       </p>
       <ErrorSummary ref={summaryRef} id="radius-policy-errors" title="Could not evaluate RADIUS policy" messages={messages} />
+      <section className="panel">
       <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
         <div className="rule-grid">
           <div className="field">
@@ -131,6 +132,7 @@ function RadiusExplainBody() {
           {busy ? "Evaluating…" : "Explain RADIUS policy"}
         </button>
       </form>
+      </section>
       {result ? (
         <section className="panel" aria-labelledby="radius-trace-heading">
           <h2 id="radius-trace-heading">Trace</h2>

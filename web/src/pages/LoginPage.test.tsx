@@ -74,6 +74,8 @@ describe("LoginPage", () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(401, { status: 401, title: "unauthenticated", detail: "authentication required", code: "unauthenticated", type: "about:blank" })));
     renderApp(<LoginPage />, { route: "/login" });
     await screen.findByLabelText(/API bearer token/i);
+    expect(document.querySelector(".lede")).toBeTruthy();
+    expect(document.querySelector(".page--narrow .panel form")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /sign in/i }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/enter an api bearer token/i);

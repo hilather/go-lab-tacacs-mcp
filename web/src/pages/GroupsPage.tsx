@@ -52,7 +52,7 @@ function GroupsBody() {
   return (
     <main className="page page--wide">
       <h1>Groups</h1>
-      <p>
+      <p className="lede">
         Groups are flat. Command and service rules are separate first-match lists. Default-deny applies when nothing
         matches. <code>default_command_action</code> must be deny in 1.0.
       </p>
@@ -121,6 +121,7 @@ function GroupsBody() {
           ))}
         </tbody>
       </table>
+      {items.length === 0 && !list.isPending ? <p className="quiet">No groups match the filter.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more

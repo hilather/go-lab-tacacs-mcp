@@ -121,4 +121,39 @@ describe("GroupsPage", () => {
       expect(body.radius_policy_id).toBe("default-radius-access");
     });
   });
+
+  it("shows a quiet empty state when the filter matches nothing", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return json(
+            200,
+            envelope({
+              instance_id: "lab",
+              revision: 3,
+              baseline_hash: "a",
+              overlay_hash: "b",
+              compiled_at: "2026-08-12T00:00:00Z",
+              listeners: [],
+              colocated_topology: false,
+              users: 0,
+              groups: 0,
+              clients: 0,
+              tokens: 0,
+            }),
+          );
+        }
+        if (url.includes("/api/v1/groups")) {
+          return json(200, envelope({ revision: 3, items: [] }));
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<GroupsPage />, { route: "/groups" });
+    expect(await screen.findByText("No groups match the filter.")).toBeInTheDocument();
+    expect(document.querySelector(".lede")).toBeTruthy();
+  });
 });

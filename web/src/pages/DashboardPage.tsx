@@ -178,7 +178,7 @@ export function DashboardPage() {
       <p className="visually-hidden" role="status">
         Snapshot revision {String(status.revision)} loaded.
       </p>
-      <p className="quiet">
+      <p className="lede">
         Memory-only overlay. Baseline restored on restart. This is not a highly available production control plane.
       </p>
 
@@ -287,7 +287,7 @@ export function DashboardPage() {
               ))}
             </tbody>
           </table>
-          {recent.length === 0 && !eventsQuery.isPending ? <p>No events in the ring.</p> : null}
+          {recent.length === 0 && !eventsQuery.isPending ? <p className="quiet">No events in the ring.</p> : null}
         </section>
       ) : null}
 

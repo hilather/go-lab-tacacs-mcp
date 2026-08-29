@@ -177,7 +177,7 @@ function EventsBody() {
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !pending ? <p>No events match the filters.</p> : null}
+      {items.length === 0 && !pending ? <p className="quiet">No events match the filters.</p> : null}
       {visible < filteredCount ? (
         <button type="button" onClick={() => setVisible((n) => n + PAGE)}>
           Load older

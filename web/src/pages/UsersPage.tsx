@@ -55,7 +55,7 @@ function UsersBody() {
   return (
     <main className="page page--wide">
       <h1>Users</h1>
-      <p>
+      <p className="lede">
         Runtime users vanish on restart. Updating a baseline user writes an overlay (
         <code>OVERRIDE</code>). Tombstoning hides a baseline identity until reset.
       </p>
@@ -146,7 +146,7 @@ function UsersBody() {
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !list.isPending ? <p>No users match the filter.</p> : null}
+      {items.length === 0 && !list.isPending ? <p className="quiet">No users match the filter.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more

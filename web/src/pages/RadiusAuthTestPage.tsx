@@ -154,7 +154,7 @@ function RadiusAuthTestBody() {
   return (
     <main className="page">
       <h1>RADIUS authentication test</h1>
-      <p>
+      <p className="lede">
         Runs <code>radius.access.test</code> against the published snapshot using the same access path as UDP. PAP,
         CHAP, MS-CHAP, and EAP secrets are write-only and are cleared after submit. Challenge outcomes show{" "}
         <code>state_present</code> only — never State bytes or EAP payload. This is not complete RADIUS.
@@ -163,6 +163,7 @@ function RadiusAuthTestBody() {
         {announce}
       </p>
       <ErrorSummary ref={summaryRef} id="radius-auth-test-errors" title="Could not run RADIUS test" messages={messages} />
+      <section className="panel">
       <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
         <div className="field">
           <label htmlFor={ids.user}>User ID</label>
@@ -272,6 +273,7 @@ function RadiusAuthTestBody() {
           {busy ? "Testing…" : "Run RADIUS test"}
         </button>
       </form>
+      </section>
       {result ? (
         <section className="panel" aria-labelledby="radius-auth-result-heading">
           <h2 id="radius-auth-result-heading">Result</h2>

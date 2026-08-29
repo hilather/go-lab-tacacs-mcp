@@ -1221,8 +1221,9 @@ Cookie-ok UI bootstrap must not invent `["state:read"]` when `taclab_ui_principa
 - [x] Events AAA log: WHEN/WHO/WHAT/WHERE/PROTO/RESULT; omitted TACACS `protocol` treated as TACACS+.
 - [x] Status: one Lab posture strip; last-N via drain + newest-first (not `limit: 8` oldest page).
 - [x] Confirm dialogs: Cancel first, object id in title, kick-NAS vs drop-overlay copy.
+- [x] Remaining page bodies share Events chrome: muted lede, quiet empty states, panel forms on Login/test/explain/About. No paper/forest/violet leftovers.
 
-**Tests:** `App.test.tsx`, `EventsPage.test.tsx`, `DashboardPage.test.tsx`, `ConfirmDialog.test.tsx`, `ui/events.test.ts`, e2e `pages.spec.ts` + `smoke.spec.ts`.
+**Tests:** `App.test.tsx`, `EventsPage.test.tsx`, `DashboardPage.test.tsx`, `ConfirmDialog.test.tsx`, `ui/events.test.ts`, `styles.chrome.test.ts`, e2e `pages.spec.ts` + `smoke.spec.ts`.
 
 ### P12.9 Implement config and runtime controls
 

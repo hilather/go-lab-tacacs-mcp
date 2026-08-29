@@ -66,41 +66,43 @@ export function LoginPage() {
   return (
     <main className="page page--narrow">
       <h1>Sign in to TacLab</h1>
-      <p>
+      <p className="lede">
         Exchange a scoped API token for an HttpOnly session cookie. The token is not written to
         localStorage or sessionStorage.
       </p>
       <ErrorSummary ref={summaryRef} id={summaryId} title="Could not sign in" messages={messages} />
-      <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
-        <div className="field">
-          <label htmlFor={tokenId}>API bearer token</label>
-          <input
-            ref={inputRef}
-            id={tokenId}
-            name="token"
-            type="password"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            required
-            aria-required="true"
-            aria-invalid={fieldError !== ""}
-            aria-describedby={`${helpId}${fieldError !== "" ? ` ${errorId}` : ""}`}
-          />
-          <p id={helpId} className="hint">
-            The server sets a <code>taclab_session</code> cookie and a CSRF token. Paste the token
-            once; it is cleared from this form after submit.
-          </p>
-          {fieldError !== "" ? (
-            <p id={errorId} className="field-error">
-              {fieldError}
+      <section className="panel">
+        <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
+          <div className="field">
+            <label htmlFor={tokenId}>API bearer token</label>
+            <input
+              ref={inputRef}
+              id={tokenId}
+              name="token"
+              type="password"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              required
+              aria-required="true"
+              aria-invalid={fieldError !== ""}
+              aria-describedby={`${helpId}${fieldError !== "" ? ` ${errorId}` : ""}`}
+            />
+            <p id={helpId} className="hint">
+              The server sets a <code>taclab_session</code> cookie and a CSRF token. Paste the token
+              once; it is cleared from this form after submit.
             </p>
-          ) : null}
-        </div>
-        <button type="submit" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+            {fieldError !== "" ? (
+              <p id={errorId} className="field-error">
+                {fieldError}
+              </p>
+            ) : null}
+          </div>
+          <button type="submit" disabled={busy}>
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      </section>
     </main>
   );
 }

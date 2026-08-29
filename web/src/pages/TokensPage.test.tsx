@@ -74,4 +74,24 @@ describe("TokensPage", () => {
     expect(screen.queryByDisplayValue(secret)).not.toBeInTheDocument();
     expect(JSON.stringify(sessionStorage)).not.toContain(secret);
   });
+
+  it("shows a quiet empty state when the token list is empty", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/status")) {
+          return statusOK();
+        }
+        if (url.includes("/api/v1/tokens")) {
+          return json(200, envelope({ revision: 3, items: [] }));
+        }
+        return json(404, { status: 404, title: "not_found", detail: "not found", code: "not_found", type: "about:blank" });
+      }),
+    );
+    renderApp(<TokensPage />, { route: "/tokens" });
+    expect(await screen.findByText("No API tokens in this snapshot.")).toBeInTheDocument();
+    expect(document.querySelector(".lede")).toBeTruthy();
+  });
 });

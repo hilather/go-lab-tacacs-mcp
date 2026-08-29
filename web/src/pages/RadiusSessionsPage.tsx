@@ -71,11 +71,11 @@ function RadiusSessionsBody() {
   return (
     <main className="page page--wide">
       <h1>RADIUS sessions</h1>
-      <p>
+      <p className="lede">
         In-memory accounting sessions only. Access-Accept never inserts a row. Restart or{" "}
         <code>runtime.reset</code> wipes the index. This is not complete RADIUS.
       </p>
-      <p>{UDP_DYNAUTH_HINT}</p>
+      <p className="lede">{UDP_DYNAUTH_HINT}</p>
       <p className="hint">{DAS_FIXTURE_COPY} DAC CoA and Disconnect always use the client&apos;s UDP RADIUS secret.</p>
       {list.isError ? (
         <div className="error-summary" role="alert">
@@ -142,7 +142,7 @@ function RadiusSessionsBody() {
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !list.isPending ? <p>No in-memory RADIUS sessions.</p> : null}
+      {items.length === 0 && !list.isPending ? <p className="quiet">No in-memory RADIUS sessions.</p> : null}
       {list.hasMore ? (
         <button type="button" onClick={() => void list.loadMore()}>
           Load more

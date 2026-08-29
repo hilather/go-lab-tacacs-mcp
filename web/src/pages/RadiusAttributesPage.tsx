@@ -26,7 +26,7 @@ function RadiusAttributesBody() {
   return (
     <main className="page page--wide">
       <h1>RADIUS attributes</h1>
-      <p>
+      <p className="lede">
         Dictionary metadata only. Values and secrets are omitted. <code>source</code> is{" "}
         <code>builtin</code> or <code>operator:&lt;id&gt;</code>. This is not complete RADIUS.
       </p>
@@ -71,7 +71,7 @@ function RadiusAttributesBody() {
           ))}
         </tbody>
       </table>
-      {items.length === 0 && !list.isPending ? <p>No RADIUS attributes match the filter.</p> : null}
+      {items.length === 0 && !list.isPending ? <p className="quiet">No RADIUS attributes match the filter.</p> : null}
     </main>
   );
 }

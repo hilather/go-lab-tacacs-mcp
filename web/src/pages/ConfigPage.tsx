@@ -162,7 +162,7 @@ function ConfigBody() {
   return (
     <main className="page page--wide">
       <h1>Config and runtime</h1>
-      <p>
+      <p className="lede">
         The YAML baseline is immutable at runtime. Overlay objects are memory-only. Invalid reload or reset candidates
         keep the published snapshot.
       </p>
@@ -243,7 +243,7 @@ function ConfigBody() {
           (tombstones.data?.groups.length ?? 0) +
           (tombstones.data?.clients.length ?? 0) ===
         0 ? (
-          <p>No runtime, override, or tombstone objects in this snapshot.</p>
+          <p className="quiet">No runtime, override, or tombstone objects in this snapshot.</p>
         ) : null}
       </section>
 

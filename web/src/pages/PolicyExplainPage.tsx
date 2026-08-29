@@ -74,11 +74,12 @@ function PolicyExplainBody() {
   return (
     <main className="page page--wide">
       <h1>Policy explain</h1>
-      <p>
+      <p className="lede">
         Calls <code>policy.evaluate</code>. An empty command is a session/service request. A non-empty command uses only
         command rules. Default deny is independent for each evaluator.
       </p>
       <ErrorSummary ref={summaryRef} id="policy-errors" title="Could not evaluate policy" messages={messages} />
+      <section className="panel">
       <form className="stack" onSubmit={(e) => void onSubmit(e)} noValidate>
         <div className="rule-grid">
           <div className="field">
@@ -114,6 +115,7 @@ function PolicyExplainBody() {
           {busy ? "Evaluating…" : "Explain authorization"}
         </button>
       </form>
+      </section>
       {trace ? (
         <section className="panel" aria-labelledby="trace-heading">
           <h2 id="trace-heading">Trace</h2>

@@ -1,3 +1,4 @@
+import { eventProtocolLabel } from "../ui/events";
 import { INSECURE_RADIUS_LABEL, RADSEC_HINT, UDP_RADIUS_HINT } from "../ui/radius";
 
 export function ProtocolBadge({ protocol, label }: { protocol: string; label?: string }) {
@@ -5,7 +6,7 @@ export function ProtocolBadge({ protocol, label }: { protocol: string; label?: s
   return (
     <span className={`proto-badge proto-badge--${token}`}>
       <span className="visually-hidden">Protocol </span>
-      {label ?? token}
+      {label ?? eventProtocolLabel(token === "unknown" ? "" : token)}
     </span>
   );
 }

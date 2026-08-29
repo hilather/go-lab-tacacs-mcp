@@ -436,7 +436,7 @@ describe("DashboardPage", () => {
       }),
     );
     expect(await screen.findByText("eve")).toBeInTheDocument();
-    expect(screen.getByText("RADIUS")).toBeInTheDocument();
+    expect(screen.getByText("eve").closest("tr")).toHaveTextContent("RADIUS");
     expect(screen.queryByText("u3")).not.toBeInTheDocument();
   });
 });

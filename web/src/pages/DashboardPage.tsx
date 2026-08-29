@@ -166,6 +166,9 @@ export function DashboardPage() {
     });
   }
   for (const w of status.warnings ?? []) {
+    if (warningLooksInsecureRADIUS(w) && insecureRadius) {
+      continue;
+    }
     postureFlags.push({ key: `warn:${w}`, node: w });
   }
 
@@ -182,7 +185,7 @@ export function DashboardPage() {
       <section className="posture" aria-labelledby="lab-posture-heading">
         <h2 id="lab-posture-heading">Lab posture</h2>
         {postureFlags.length === 0 ? (
-          <p className="quiet">No extra warnings. Listener badges above are the lab posture.</p>
+          <p className="quiet">No extra warnings. Listener badges in the table below are the lab posture.</p>
         ) : (
           <ul>
             {postureFlags.map((flag) => (

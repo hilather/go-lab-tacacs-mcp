@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-08-29
+
+Dark operator chrome and session-scope rehydrate, plus post-1.4.0 frontend and Actions toolchain bumps. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
 ### UI
 
 - Operator SPA uses dark chrome (`#0b0c0e` / `#121317` / `#181a1f`, IBM Plex self-hosted). Grouped rail: Lab, Directory, TACACS+, RADIUS. Events is a live AAA log (protocol + Auth/Acct/Fail chips; WHEN/WHO/WHAT/WHERE/PROTO/RESULT). Status has one Lab posture strip and last-N events. Remaining page bodies use the same muted lede, quiet empty states, and panel form chrome. Confirm dialogs put Cancel first and name the object id; DAC copy kicks a NAS, overlay reset does not.
@@ -11,8 +15,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Security / toolchain
 
-- Frontend: ESLint 9.39.5 → 10.9.1 and `@eslint/js` 9.39.5 → 10.0.1. `eslint-plugin-jsx-a11y` stays 6.10.2 (no ESLint 10 peer yet); `npm ci` uses an override so that plugin takes the repo ESLint 10. `typescript-eslint` stays 8.67.0.
+- Frontend: ESLint 9.39.5 → 10.9.1 and `@eslint/js` 9.39.5 → 10.0.1. `eslint-plugin-jsx-a11y` stays 6.10.2 (no ESLint 10 peer yet); `npm ci` uses an override so that plugin takes the repo ESLint 10. `typescript-eslint` 8.67.0 → 8.68.0.
 - Frontend typecheck/build run TypeScript **7.0.2** via the `typescript7` alias (`npm:typescript@7.0.2`). The importable `typescript` package stays **5.9.3** so `typescript-eslint` can `require("typescript")` (TS 7.0 has no Compiler API; peer is `<6.1.0`). `node_modules/.bin/tsc` remains 5.9. Isolated Dependabot `typescript` 5.9 → 7 PRs stay blocked until 7.1.
+- Frontend: `eslint-plugin-react-refresh` 0.4.26 → 0.5.5, `@tanstack/react-query` 5.101.4 → 5.102.5, `@types/react-dom` 19.2.4 → 19.2.5, `vite` 8.2.1 → 8.2.2, `@vitejs/plugin-react` 6.0.5 → 6.1.0, `vitest` 4.1.10 → 4.1.11.
+- GitHub Actions: `docker/build-push-action` 6 → 7.
 
 ## [1.4.0] — 2026-08-23
 

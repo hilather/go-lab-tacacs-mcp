@@ -301,9 +301,9 @@ function ConfigBody() {
           onConfirm={() => reset.mutate(effective.data?.revision ?? 0)}
         >
           <p>
-            This drops every runtime object, override, and tombstone. Baseline identities return. The change cannot be
-            undone without recreating overlay objects. Current revision{" "}
-            {String(effective.data?.revision ?? "unknown")}.
+            This drops TacLab’s memory overlay only — every runtime object, override, and tombstone. It does not send
+            RADIUS to a NAS or kick a device. Baseline identities return. The change cannot be undone without recreating
+            overlay objects. Current revision {String(effective.data?.revision ?? "unknown")}.
           </p>
         </ConfirmDialog>
       ) : null}

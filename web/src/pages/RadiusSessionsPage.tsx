@@ -150,7 +150,11 @@ function RadiusSessionsBody() {
       ) : null}
       {pending ? (
         <ConfirmDialog
-          title={pending.kind === "disconnect" ? "Send Disconnect-Request?" : "Send CoA-Request?"}
+          title={
+            pending.kind === "disconnect"
+              ? `Send Disconnect-Request for ${pending.session.session_handle}?`
+              : `Send CoA-Request for ${pending.session.session_handle}?`
+          }
           confirmLabel={pending.kind === "disconnect" ? "Send Disconnect" : "Send CoA"}
           busy={send.isPending}
           onCancel={() => setPending(null)}
@@ -158,7 +162,7 @@ function RadiusSessionsBody() {
         >
           <p>
             This originates a {pending.kind === "disconnect" ? "Disconnect-Request" : "CoA-Request"} to the NAS
-            using the client&apos;s UDP RADIUS secret (DAC).
+            using the client&apos;s UDP RADIUS secret (DAC). It can disconnect a live session.
           </p>
         </ConfirmDialog>
       ) : null}

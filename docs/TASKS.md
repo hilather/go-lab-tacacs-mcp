@@ -1208,9 +1208,21 @@ Cookie-ok UI bootstrap must not invent `["state:read"]` when `taclab_ui_principa
 ### P12.8 Implement event viewer
 
 - [x] Recent event pagination and live stream.
-- [x] Filters for transport, result, client, user, packet/operation type, and error code.
+- [x] Filters: protocol chips, Auth/Acct/Fail kind, one search (user / NAS / command). Legacy 11-column Role/Transport/Type toolbar retired in P12.12.
 - [x] Visible dropped-event/reconnect indicators.
 - [x] Safe rendering of untrusted device/user strings.
+
+### P12.12 Operator SPA dark chrome
+
+**Depends on:** P12.2, P12.3, P12.8, P12.11
+
+- [x] Dark grouped rail (Lab / Directory / TACACS+ / RADIUS); Tokens and About under Lab.
+- [x] Header 56px: stream pill, `token_id`, Sign out. One EventSource via `EventStreamProvider`.
+- [x] Events AAA log: WHEN/WHO/WHAT/WHERE/PROTO/RESULT; omitted TACACS `protocol` treated as TACACS+.
+- [x] Status: one Lab posture strip; last-N via drain + newest-first (not `limit: 8` oldest page).
+- [x] Confirm dialogs: Cancel first, object id in title, kick-NAS vs drop-overlay copy.
+
+**Tests:** `App.test.tsx`, `EventsPage.test.tsx`, `DashboardPage.test.tsx`, `ConfirmDialog.test.tsx`, `ui/events.test.ts`, e2e `pages.spec.ts` + `smoke.spec.ts`.
 
 ### P12.9 Implement config and runtime controls
 

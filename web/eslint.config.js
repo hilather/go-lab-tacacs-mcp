@@ -27,7 +27,17 @@ export default tseslint.config(
         "error",
         {
           allowConstantExport: true,
-          allowExportNames: ["useAuth", "parseObjectSource", "ErrorSummary", "emptyRules", "emptySecret", "secretPayload"],
+          allowExportNames: [
+            "useAuth",
+            "useEventStream",
+            "useOwnedEventStream",
+            "parseObjectSource",
+            "ErrorSummary",
+            "emptyRules",
+            "emptySecret",
+            "secretPayload",
+            "Shell",
+          ],
         },
       ],
     },

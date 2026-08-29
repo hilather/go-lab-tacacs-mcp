@@ -320,7 +320,7 @@ Packet files live at the packet root. README required-reading links assume `docs
 | Resumption + revocation | `VerifyPeerCertificate` is skipped on resume. Use `VerifyConnection` for identity/revocation on every connection, or disable resumption. Default lab: resumption on, `recheck_client_revocation: true` via `VerifyConnection` |
 | Rate-limit algorithm | Token bucket using the CONFIGURATION keys (`per_token_requests_per_second` / `burst`) |
 | OpenAPI toolchain | `oapi-codegen` (or equivalent pinned at P0) from `api/openapi.yaml` generated from the operation registry |
-| UI stack | React + TypeScript strict + Vite + TanStack Query + React Router. Component library is an implementation choice among small accessible sets; no large custom design system |
+| UI stack | React + TypeScript strict + Vite + TanStack Query + React Router. Operator chrome is a dark grouped rail (DESIGN §18). Component library is an implementation choice among small accessible sets; no large custom design system |
 | Independent test client | `internal/tacacs/testclient` with **its own codec copy under `internal/tacacs/testclient/codec`** generated or vendored separately so shared-codec bugs cannot hide. PR-14b owns TLS client-role (T98-ROLE-*) |
 | PROXY protocol | Not in 1.0. Client match uses the TCP peer address only. Dual-stack LPM and LAB §4.3 source-IP fidelity are still 1.0 |
 | Global `fallback_rules` | Supported; same `services` / `command_rules` shape as a group; same `priority` then `id` order as group arrays; default empty |

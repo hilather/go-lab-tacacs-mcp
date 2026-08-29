@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { APIError, getBuild, getStatus, hashPrefix, listClients, listEvents, listTokens } from "../api/client";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { APIError, getBuild, getStatus, hashPrefix, listClients, listTokens } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { EventRow, EventTableHead } from "../components/EventRow";
 import { InsecureRadiusBadge, ProtocolBadge, RoleBadge, UDPWarningBadge } from "../components/ProtocolBadge";
 import { parseObjectSource, SourceBadge, SourceKey } from "../components/SourceBadge";
-import type { BuildInfo, Client, ListenerStatus, Status } from "../generated/api";
+import type { BuildInfo, Client, EventView, ListenerStatus, Status } from "../generated/api";
 import { useEventStream } from "../hooks/useEventStream";
+import { drainRecent, mergeEvent, sortNewestFirst } from "../ui/events";
 import {
   isRadiusUDPListener,
   listenerState,
@@ -51,7 +53,7 @@ function protocolEntries(build: BuildInfo): Array<[string, BuildInfo["protocols"
 }
 
 export function DashboardPage() {
-  useEventStream();
+  const stream = useEventStream();
   const { hasScope, logout } = useAuth();
   const statusQuery = useQuery({
     queryKey: ["status"],
@@ -62,11 +64,18 @@ export function DashboardPage() {
     queryFn: getBuild,
   });
   const eventsQuery = useQuery({
-    queryKey: ["events"],
-    queryFn: () => listEvents({ limit: 1 }),
+    queryKey: ["events", "status-recent"],
+    queryFn: () => drainRecent({}),
     enabled: hasScope("events:read"),
     retry: false,
   });
+  const [liveEvents, setLiveEvents] = useState<EventView[]>([]);
+  const incoming = stream.lastEvent;
+  const [seenEvent, setSeenEvent] = useState(incoming);
+  if (incoming !== null && incoming !== seenEvent) {
+    setSeenEvent(incoming);
+    setLiveEvents((prev) => mergeEvent(prev, incoming));
+  }
   const tokensQuery = useQuery({
     queryKey: ["tokens"],
     queryFn: () => listTokens(),
@@ -79,6 +88,13 @@ export function DashboardPage() {
     enabled: hasScope("state:read"),
     retry: false,
   });
+  const recent = useMemo(() => {
+    let items = eventsQuery.data?.items ?? [];
+    for (const ev of liveEvents) {
+      items = mergeEvent(items, ev);
+    }
+    return sortNewestFirst(items).slice(0, 8);
+  }, [eventsQuery.data, liveEvents]);
 
   useEffect(() => {
     if (statusQuery.error instanceof APIError && statusQuery.error.problem.status === 401) {
@@ -112,12 +128,46 @@ export function DashboardPage() {
 
   const status = statusQuery.data.data;
   const build = buildQuery.data?.data;
-  const overwritten = eventsQuery.data?.data.overwritten ?? 0;
+  const overwritten = eventsQuery.data?.overwritten ?? 0;
   const tokens = tokensQuery.data?.data.items ?? [];
   const clients = clientsQuery.data?.data.items ?? [];
   const udpEnabled = hasUDPRadiusListener(status);
   const dynAuthEnabled = hasDynAuthListener(status);
   const insecureRadius = hasInsecureRadius(status, clients);
+  const postureFlags: Array<{ key: string; node: ReactNode }> = [];
+  if (status.colocated_topology || status.topology_warning) {
+    postureFlags.push({
+      key: "topology",
+      node: status.topology_warning ?? "Legacy and secure TACACS+ listeners are both enabled.",
+    });
+  }
+  if (udpEnabled) {
+    postureFlags.push({
+      key: "udp",
+      node: (
+        <>
+          RADIUS UDP <UDPWarningBadge /> {UDP_RADIUS_HINT}
+        </>
+      ),
+    });
+  }
+  if (dynAuthEnabled) {
+    postureFlags.push({ key: "dynauth", node: UDP_DYNAUTH_HINT });
+  }
+  if (insecureRadius) {
+    postureFlags.push({
+      key: "insecure",
+      node: (
+        <>
+          <InsecureRadiusBadge /> At least one RADIUS endpoint has Message-Authenticator optional. This compatibility
+          mode is for lab interop only and is not a secure RADIUS configuration.
+        </>
+      ),
+    });
+  }
+  for (const w of status.warnings ?? []) {
+    postureFlags.push({ key: `warn:${w}`, node: w });
+  }
 
   return (
     <main className="page">
@@ -125,60 +175,22 @@ export function DashboardPage() {
       <p className="visually-hidden" role="status">
         Snapshot revision {String(status.revision)} loaded.
       </p>
+      <p className="quiet">
+        Memory-only overlay. Baseline restored on restart. This is not a highly available production control plane.
+      </p>
 
-      <section className="banner" aria-labelledby="lab-banner-heading">
-        <h2 id="lab-banner-heading">Lab appliance</h2>
-        <p>
-          Runtime overlay is memory-only and is discarded on restart. The configured baseline is
-          restored. This is not a highly available production control plane.
-        </p>
-      </section>
-
-      {status.colocated_topology || status.topology_warning ? (
-        <section className="banner banner--warn" role="status" aria-labelledby="topo-heading">
-          <h2 id="topo-heading">Co-located topology</h2>
-          <p>{status.topology_warning ?? "Legacy and secure TACACS+ listeners are both enabled."}</p>
-        </section>
-      ) : null}
-
-      {udpEnabled ? (
-        <section className="banner banner--warn" role="status" aria-labelledby="udp-heading">
-          <h2 id="udp-heading">
-            RADIUS UDP <UDPWarningBadge />
-          </h2>
-          <p>{UDP_RADIUS_HINT}</p>
-        </section>
-      ) : null}
-
-      {dynAuthEnabled ? (
-        <section className="banner banner--warn" role="status" aria-labelledby="dynauth-heading">
-          <h2 id="dynauth-heading">Inbound RADIUS dynamic authorization</h2>
-          <p>{UDP_DYNAUTH_HINT}</p>
-        </section>
-      ) : null}
-
-      {insecureRadius ? (
-        <section className="banner banner--warn" role="status" aria-labelledby="insecure-radius-heading">
-          <h2 id="insecure-radius-heading">
-            <InsecureRadiusBadge />
-          </h2>
-          <p>
-            At least one RADIUS endpoint has Message-Authenticator optional. This compatibility mode is
-            for lab interop only and is not a secure RADIUS configuration.
-          </p>
-        </section>
-      ) : null}
-
-      {status.warnings && status.warnings.length > 0 ? (
-        <section className="banner banner--warn" aria-labelledby="warn-heading">
-          <h2 id="warn-heading">Snapshot warnings</h2>
+      <section className="posture" aria-labelledby="lab-posture-heading">
+        <h2 id="lab-posture-heading">Lab posture</h2>
+        {postureFlags.length === 0 ? (
+          <p className="quiet">No extra warnings. Listener badges above are the lab posture.</p>
+        ) : (
           <ul>
-            {status.warnings.map((w) => (
-              <li key={w}>{w}</li>
+            {postureFlags.map((flag) => (
+              <li key={flag.key}>{flag.node}</li>
             ))}
           </ul>
-        </section>
-      ) : null}
+        )}
+      </section>
 
       <section className="panel" aria-labelledby="listeners-heading">
         <h2 id="listeners-heading">Listeners</h2>
@@ -255,6 +267,26 @@ export function DashboardPage() {
           Event drops (ring overwritten): <strong>{String(overwritten)}</strong>
         </p>
       </section>
+
+      {hasScope("events:read") ? (
+        <section className="panel" aria-labelledby="recent-events-heading">
+          <h2 id="recent-events-heading">Recent events</h2>
+          <p className="quiet">Newest first. Unfiltered last 8 from the ring plus live SSE.</p>
+          {eventsQuery.isError ? (
+            <p>Unable to load recent events.</p>
+          ) : null}
+          <table className="data">
+            <caption>Last events, newest first</caption>
+            <EventTableHead />
+            <tbody>
+              {recent.map((ev) => (
+                <EventRow key={String(ev.id)} ev={ev} />
+              ))}
+            </tbody>
+          </table>
+          {recent.length === 0 && !eventsQuery.isPending ? <p>No events in the ring.</p> : null}
+        </section>
+      ) : null}
 
       <section className="panel" aria-labelledby="build-heading">
         <h2 id="build-heading">Build</h2>

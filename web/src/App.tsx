@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useState } from "react";
 import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
+import { EventStreamProvider } from "./hooks/EventStreamProvider";
+import { useEventStream } from "./hooks/useEventStream";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { NAV_GROUPS, visibleNavItems } from "./ui/nav";
 
 const UsersPage = lazy(async () => ({ default: (await import("./pages/UsersPage")).UsersPage }));
 const GroupsPage = lazy(async () => ({ default: (await import("./pages/GroupsPage")).GroupsPage }));
@@ -35,48 +38,91 @@ function SkipLink() {
   );
 }
 
-function NavItem({ to, children }: { to: string; children: ReactNode }) {
+function StreamPill() {
+  const { hasScope } = useAuth();
+  const stream = useEventStream();
+  if (!hasScope("events:read")) {
+    return (
+      <span className="stream-pill stream-pill--off" role="status">
+        stream off
+      </span>
+    );
+  }
+  const live = stream.connected;
+  const wait = stream.reconnecting;
   return (
-    <NavLink to={to} className={({ isActive }) => (isActive ? "nav-active" : undefined)} end={to === "/"}>
-      {children}
-    </NavLink>
+    <span
+      className={`stream-pill ${live ? "stream-pill--live" : wait ? "stream-pill--wait" : "stream-pill--off"}`}
+      role="status"
+    >
+      {live ? "stream live" : wait ? "stream reconnecting" : "stream off"}
+    </span>
   );
 }
 
-function Shell() {
-  const { state, hasScope, logout } = useAuth();
-  const signedIn = state.status === "signed_in";
+function HeaderTools() {
+  const { state, logout } = useAuth();
+  if (state.status !== "signed_in") {
+    return null;
+  }
   return (
-    <div className="app">
+    <div className="chrome-tools">
+      <StreamPill />
+      {state.session.token_id !== "" ? <span className="operator-pill">{state.session.token_id}</span> : null}
+      <button type="button" className="sign-out" onClick={() => void logout()}>
+        Sign out
+      </button>
+    </div>
+  );
+}
+
+function NavRail() {
+  const { hasScope } = useAuth();
+  return (
+    <aside className="rail">
+      {NAV_GROUPS.map((group) => {
+        const items = visibleNavItems(group, hasScope);
+        if (items.length === 0) {
+          return null;
+        }
+        return (
+          <nav key={group.id} className="rail__group" aria-label={group.label}>
+            <h2 className="rail__heading">{group.label}</h2>
+            <ul className="rail__list">
+              {items.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    end={item.end ?? item.to === "/"}
+                    className={({ isActive }) => (isActive ? "nav-active" : undefined)}
+                    aria-label={item.accessibleName}
+                  >
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        );
+      })}
+    </aside>
+  );
+}
+
+export function Shell() {
+  const { state } = useAuth();
+  const signedIn = state.status === "signed_in";
+  const frame = (
+    <div className={signedIn ? "app app--signed" : "app"}>
       <SkipLink />
       <header className="topbar">
-        <NavLink className="brand" to="/">
+        <NavLink className="brand" to={signedIn ? "/" : "/login"}>
+          <span className="brand__dot" aria-hidden="true" />
           TacLab
         </NavLink>
-        <nav aria-label="Primary">
-          {signedIn ? (
-            <>
-              <NavItem to="/">Status</NavItem>
-              {hasScope("state:read") ? <NavItem to="/users">Users</NavItem> : null}
-              {hasScope("state:read") ? <NavItem to="/groups">Groups</NavItem> : null}
-              {hasScope("state:read") ? <NavItem to="/clients">Clients</NavItem> : null}
-              {hasScope("state:read") ? <NavItem to="/radius-sessions">RADIUS sessions</NavItem> : null}
-              {hasScope("state:read") ? <NavItem to="/radius-attributes">RADIUS attributes</NavItem> : null}
-              {hasScope("tokens:manage") ? <NavItem to="/tokens">Tokens</NavItem> : null}
-              {hasScope("events:read") ? <NavItem to="/events">Events</NavItem> : null}
-              {hasScope("policy:test") ? <NavItem to="/auth-test">Auth test</NavItem> : null}
-              {hasScope("policy:test") ? <NavItem to="/radius-auth-test">RADIUS test</NavItem> : null}
-              {hasScope("policy:test") ? <NavItem to="/explain">Explain</NavItem> : null}
-              {hasScope("policy:test") ? <NavItem to="/radius-explain">RADIUS explain</NavItem> : null}
-              {hasScope("state:read") ? <NavItem to="/config">Config</NavItem> : null}
-              {hasScope("state:read") ? <NavItem to="/about">About</NavItem> : null}
-              <button type="button" className="linkish" onClick={() => void logout()}>
-                Sign out
-              </button>
-            </>
-          ) : null}
-        </nav>
+        {signedIn ? <HeaderTools /> : null}
       </header>
+      {signedIn ? <NavRail /> : null}
       <div id="app-main">
         <Suspense
           fallback={
@@ -90,6 +136,10 @@ function Shell() {
       </div>
     </div>
   );
+  if (!signedIn) {
+    return frame;
+  }
+  return <EventStreamProvider>{frame}</EventStreamProvider>;
 }
 
 function RequireSession() {

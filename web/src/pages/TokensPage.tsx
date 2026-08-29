@@ -274,7 +274,7 @@ function TokensBody() {
 
       {revokeId ? (
         <ConfirmDialog
-          title="Revoke this token?"
+          title={`Revoke token ${revokeId}?`}
           confirmLabel="Revoke token"
           busy={revoke.isPending}
           onCancel={() => setRevokeId(null)}

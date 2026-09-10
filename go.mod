@@ -1,12 +1,10 @@
 module github.com/hilather/go-lab-tacacs-mcp
 
-go 1.25.0
-
-toolchain go1.25.13
+go 1.26.0
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.7.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/text v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )

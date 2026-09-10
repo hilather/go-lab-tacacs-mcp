@@ -18,7 +18,7 @@ Do not hand-edit this file. Run ` + "`make generate`" + `.
 | Pin | Value |
 |---|---|
 | Go module | ` + "`github.com/hilather/go-lab-tacacs-mcp`" + ` |
-| Go version | 1.25.0 |
+| Go version | 1.26.0 |
 | Node.js | 22.14.0 |
 | npm | 10.9.2 |
 | Image | ` + "`ghcr.io/hilather/go-lab-tacacs-mcp`" + ` |

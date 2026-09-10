@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Security / toolchain
+
+- Coordinated Go **1.26.8** toolchain bump with `golang.org/x/crypto` **v0.56.0** ([#75](https://github.com/hilather/go-lab-tacacs-mcp/pull/75)): `go 1.26.0` + `toolchain go1.26.8`, Actions/Docker pins, and generated toolchain record.
+
 ## [1.5.0] — 2026-08-29
 
 Dark operator chrome and session-scope rehydrate, plus post-1.4.0 frontend and Actions toolchain bumps. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

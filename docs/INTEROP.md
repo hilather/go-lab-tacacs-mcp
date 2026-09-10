@@ -34,7 +34,7 @@ Peer versions recorded for this freeze:
 | Component | Version |
 |---|---|
 | TacLab | 1.0 qualification (`git describe` at freeze) |
-| Go | 1.25.0 |
+| Go | 1.26.0 |
 | Testclient | in-tree, this repository |
 | Device NOS | n/a (skipped) |
 
@@ -92,7 +92,7 @@ Peer versions recorded for this freeze:
 | Component | Version |
 |---|---|
 | TacLab | RADIUS evidence attach (`git describe` at this change) |
-| Go | 1.25.13 |
+| Go | 1.26.8 |
 | Testclient | in-tree, this repository |
 | FreeRADIUS `radclient` | n/a (skipped: not installed) |
 | Device NOS | n/a (skipped) |

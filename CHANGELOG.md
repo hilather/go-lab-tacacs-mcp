@@ -4,9 +4,16 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-09-14
+
+Post-1.5.0 Go/x/crypto bump, frontend Dependabot refreshes, and leftover docs pin alignment. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
 ### Security / toolchain
 
-- Coordinated Go **1.26.8** toolchain bump with `golang.org/x/crypto` **v0.56.0** ([#75](https://github.com/hilather/go-lab-tacacs-mcp/pull/75)): `go 1.26.0` + `toolchain go1.26.8`, Actions/Docker pins, and generated toolchain record.
+- Coordinated Go **1.26.8** toolchain bump with `golang.org/x/crypto` **v0.56.0** ([#75](https://github.com/hilather/go-lab-tacacs-mcp/pull/75)): `go 1.26.0` + `toolchain go1.26.8`, Actions/Docker pins, and generated toolchain record. Leftover AGENTS / QUICKSTART / INTEROP pins aligned to the same toolchain ([#81](https://github.com/hilather/go-lab-tacacs-mcp/pull/81)).
+- Frontend: `react-router-dom` 7.18.2 → 7.18.3 ([#70](https://github.com/hilather/go-lab-tacacs-mcp/pull/70)), `@tanstack/react-query` 5.102.5 → 5.102.8 ([#73](https://github.com/hilather/go-lab-tacacs-mcp/pull/73)), `zod` 4.4.3 → 4.5.4 ([#76](https://github.com/hilather/go-lab-tacacs-mcp/pull/76)), `@vitejs/plugin-react` 6.1.0 → 6.1.1 ([#74](https://github.com/hilather/go-lab-tacacs-mcp/pull/74)).
+- Frontend: importable `typescript` 5.9.3 → **6.0.3** ([#72](https://github.com/hilather/go-lab-tacacs-mcp/pull/72)); `typescript-eslint` 8.68.0 → 8.69.0 ([#78](https://github.com/hilather/go-lab-tacacs-mcp/pull/78)); `vitest` 4.1.11 → **5.0.0** ([#77](https://github.com/hilather/go-lab-tacacs-mcp/pull/77)). Typecheck/build still run TypeScript **7.0.2** via the `typescript7` alias (`npm:typescript@7.0.2`).
+- Frontend: `@testing-library/react` 16.3.0 → 16.3.3 ([#79](https://github.com/hilather/go-lab-tacacs-mcp/pull/79)); `@testing-library/user-event` 14.6.1 → 14.6.7 ([#71](https://github.com/hilather/go-lab-tacacs-mcp/pull/71), [#80](https://github.com/hilather/go-lab-tacacs-mcp/pull/80)).
 
 ## [1.5.0] — 2026-08-29
 

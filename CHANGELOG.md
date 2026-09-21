@@ -16,4 +16,269 @@ Post-1.5.1 Dependabot refreshes: x/crypto, MCP go-sdk, and frontend lint/build t
 
 ## [1.5.1] — 2026-09-14
 
-SEE_MAIN_FOR_PRIOR_HISTORY_PLACEHOLDER
+Post-1.5.0 Go/x/crypto bump, frontend Dependabot refreshes, and leftover docs pin alignment. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
+### Security / toolchain
+
+- Coordinated Go **1.26.8** toolchain bump with `golang.org/x/crypto` **v0.56.0** ([#75](https://github.com/hilather/go-lab-tacacs-mcp/pull/75)): `go 1.26.0` + `toolchain go1.26.8`, Actions/Docker pins, and generated toolchain record. Leftover AGENTS / QUICKSTART / INTEROP pins aligned to the same toolchain ([#81](https://github.com/hilather/go-lab-tacacs-mcp/pull/81)).
+- Frontend: `react-router-dom` 7.18.2 → 7.18.3 ([#70](https://github.com/hilather/go-lab-tacacs-mcp/pull/70)), `@tanstack/react-query` 5.102.5 → 5.102.8 ([#73](https://github.com/hilather/go-lab-tacacs-mcp/pull/73)), `zod` 4.4.3 → 4.5.4 ([#76](https://github.com/hilather/go-lab-tacacs-mcp/pull/76)), `@vitejs/plugin-react` 6.1.0 → 6.1.1 ([#74](https://github.com/hilather/go-lab-tacacs-mcp/pull/74)).
+- Frontend: importable `typescript` 5.9.3 → **6.0.3** ([#72](https://github.com/hilather/go-lab-tacacs-mcp/pull/72)); `typescript-eslint` 8.68.0 → 8.69.0 ([#78](https://github.com/hilather/go-lab-tacacs-mcp/pull/78)); `vitest` 4.1.11 → **5.0.0** ([#77](https://github.com/hilather/go-lab-tacacs-mcp/pull/77)). Typecheck/build still run TypeScript **7.0.2** via the `typescript7` alias (`npm:typescript@7.0.2`).
+- Frontend: `@testing-library/react` 16.3.0 → 16.3.3 ([#79](https://github.com/hilather/go-lab-tacacs-mcp/pull/79)); `@testing-library/user-event` 14.6.1 → 14.6.7 ([#71](https://github.com/hilather/go-lab-tacacs-mcp/pull/71), [#80](https://github.com/hilather/go-lab-tacacs-mcp/pull/80)).
+
+## [1.5.0] — 2026-08-29
+
+Dark operator chrome and session-scope rehydrate, plus post-1.4.0 frontend and Actions toolchain bumps. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
+### UI
+
+- Operator SPA uses dark chrome (`#0b0c0e` / `#121317` / `#181a1f`, IBM Plex self-hosted). Grouped rail: Lab, Directory, TACACS+, RADIUS. Events is a live AAA log (protocol + Auth/Acct/Fail chips; WHEN/WHO/WHAT/WHERE/PROTO/RESULT). Status has one Lab posture strip and last-N events. Remaining page bodies use the same muted lede, quiet empty states, and panel form chrome. Confirm dialogs put Cancel first and name the object id; DAC copy kicks a NAS, overlay reset does not.
+- Cookie restore no longer invents a `state:read`-only principal. A hard reload or new tab of `/tokens` (and other scoped pages) rehydrates scopes from `GET /api/v1/session` when `sessionStorage` has no principal cache. Sign-out still clears the session.
+
+### Security / toolchain
+
+- Frontend: ESLint 9.39.5 → 10.9.1 and `@eslint/js` 9.39.5 → 10.0.1. `eslint-plugin-jsx-a11y` stays 6.10.2 (no ESLint 10 peer yet); `npm ci` uses an override so that plugin takes the repo ESLint 10. `typescript-eslint` 8.67.0 → 8.68.0.
+- Frontend typecheck/build run TypeScript **7.0.2** via the `typescript7` alias (`npm:typescript@7.0.2`). The importable `typescript` package stays **5.9.3** so `typescript-eslint` can `require("typescript")` (TS 7.0 has no Compiler API; peer is `<6.1.0`). `node_modules/.bin/tsc` remains 5.9. Isolated Dependabot `typescript` 5.9 → 7 PRs stay blocked until 7.1.
+- Frontend: `eslint-plugin-react-refresh` 0.4.26 → 0.5.5, `@tanstack/react-query` 5.101.4 → 5.102.5, `@types/react-dom` 19.2.4 → 19.2.5, `vite` 8.2.1 → 8.2.2, `@vitejs/plugin-react` 6.0.5 → 6.1.0, `vitest` 4.1.10 → 4.1.11.
+- GitHub Actions: `docker/build-push-action` 6 → 7.
+
+## [1.4.0] — 2026-08-23
+
+Caller-supplied lab secrets for `labgen`, plus post-1.3.0 dependency bumps. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
+### Lab
+
+- `labgen -secrets-from <yaml>` accepts a caller-supplied API token, TACACS and RADIUS shared secrets, and the five plaintext lab passwords. PKI and Argon2id verifiers are still generated. Shared secrets fail closed on the same lab policy as generated YAML (length, character classes, known-weak values, TACACS ≠ RADIUS). Default `labgen` with no flag is unchanged (random secrets).
+
+### Security / toolchain
+
+- Bump `golang.org/x/crypto` 0.54.0 → 0.55.0.
+- GitHub Actions: `actions/upload-pages-artifact` 3 → 5, `actions/deploy-pages` 4 → 5, `actions/download-artifact` 4 → 8, `docker/login-action` 3 → 4, `actions/configure-pages` 5 → 6.
+- Frontend: `eslint-plugin-react-hooks` 5.2.0 → 7.1.1, `globals` 16.5.0 → 17.11.0.
+
+## [1.3.0] — 2026-08-17
+
+In-memory RADIUS remaining-work program ([ADRs 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0020-in-memory-radius-remaining-work-program.md)–[0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0029-user-group-radius-policy-attachment.md)) plus opt-in PEAP Start / PEAPv0 EAP-MSCHAPv2 ([ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0030-radius-peap-tls-in-eap-start.md)). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
+### Residual limits (prominent)
+
+- Overlay, Challenge store, CoA session index, retransmission cache, accounting journal, and the event ring stay **memory-only**. There is **no persistent accounting**. Restart / `runtime.reset` restore the YAML baseline.
+- PEAP is opt-in `peap` only ([ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0030-radius-peap-tls-in-eap-start.md)): Identity issues PEAP Start, then a TLS 1.3 tunnel carries inner PEAPv0 EAP-MSCHAPv2. Not PEAPv1/GTC, PEAP-EAP-TLS, crypto-binding, or Windows interop. Type 25 without `peap` still fail-closes. No EAP-TLS / EAP-TTLS / TEAP / pass-through. `taclabd` reuses the default RadSec TLS identity, then the SecureTACACS default; it does **not** mint ephemeral PEAP certs. Opt-in `peap` without a configured identity fail-closes.
+- No DTLS, no RADIUS/1.1, no cleartext RADIUS/TCP, no RADIUS proxy / realm routing.
+- `system.build.get` RADIUS `conformance_status` stays `partial`. Named `Cisco-AVPair`, RadSec, and DAC CoA do not make TacLab complete RADIUS. There is no complete-RADIUS badge.
+- RadSec is an optional TLS 1.3 stream on TCP 2083, default off — not “UDP plus TLS.” Shared secret is still required on RADIUS/TLS endpoints. The informal well-known value `radsec` is not a default.
+- DAC CoA always uses the client’s **UDP** RADIUS endpoint secret. A TLS-only RADIUS client cannot originate CoA. Inbound :3799 is an RFC 5176 echo fixture and does **not** kick a NAS.
+- Empty `allowed_authentication_methods` still compiles to `[pap, chap]`; `eap` / `peap` / `mschapv1` / `mschapv2` are opt-in.
+
+### Protocol
+
+- Bounded in-memory RADIUS Challenge State store: UDP source-IP and TLS cert binds, TTL, consume-on-use, capacity fail-closed. Continuation failures use `reject_invalid_state` / `reject_challenge_expired` / `reject_challenge_binding` / `reject_challenge_capacity`. Restart / `runtime.reset` wipe the store ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0021-radius-access-challenge-state-gate.md)).
+- RADIUS terminates EAP Identity (type 1) and EAP-MD5 (type 4) when a client opts in with `allowed_authentication_methods: […, eap]`. Other EAP types get generic EAP-Failure + Access-Reject (`reject_unsupported_eap_method`); oversize concatenated EAP-Message is `reject_eap_too_long`. First live Access-Challenge provider. `R65-ACCESS-004` is `PASS` with independent `internal/radius/testclient` wire evidence. `must_change_login` after a good MD5 is Access-Reject + the same generic EAP-Failure as a bad password ([ADR 0022](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0022-radius-eap-identity-md5.md)).
+- Opt-in `peap` issues EAP-Request/PEAP Start (type 25, RFC 5216 S flag, PEAPv0) after Identity, then a consume-on-use TLS-in-EAP pump completes a server-authenticated TLS 1.3 tunnel and an inner EAP-MSCHAPv2 conversation via the same AAA path as RADIUS MS-CHAP ([ADR 0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0030-radius-peap-tls-in-eap-start.md)). `taclabd` attaches PEAP from the default RadSec or SecureTACACS TLS identity (no ephemeral mint). Independent `testclient` UDP evidence covers Start, ClientHello→server TLS records, and Accept. `PRJ-EAP-003` stays `DEFERRED_MAY`.
+- RADIUS Access-Request accepts opt-in Microsoft MS-CHAPv1/v2 VSAs (RFC 2548 vendor 311) with independent RADIUS wire vectors. Must-change after a good MS-CHAP verify is Access-Reject `reject_password_change_required` with no `MS-CHAP-Error`. MS-CHAPv2 Accept includes `MS-CHAP2-Success`. TACACS START fixtures are not RADIUS evidence ([ADR 0023](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0023-radius-mschap-vsas.md)).
+- RADIUS access evaluation order is user policy, then each `effectiveGroups` policy (same membership/order as TACACS), then client `access_policy_id`, then optional `fallback_radius_policy_id`, then default deny ([ADR 0029](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0029-user-group-radius-policy-attachment.md)). First matching rule wins.
+- Fail-closed operator RADIUS dictionaries (schema v2 `radius_dictionaries`). TacLab YAML only; local absolute files; size-capped. Cannot redefine built-in IETF attributes, cannot downgrade secret sensitivity, and cannot claim reserved vendor IDs `0` / `9` / `311` or names `Cisco-AVPair` / `MS-CHAP-*`. Remote files and FreeRADIUS `$INCLUDE` are rejected. `DictionaryVersion` stays exactly `builtin-mvp-1` when no operator file is compiled ([ADR 0026](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0026-radius-operator-dictionaries.md)).
+- Named RADIUS `Cisco-AVPair` (vendor 9, vendor-type 1) decode/encode. Reply profiles accept `name: Cisco-AVPair` / `value: shell:priv-lvl=15` and the existing raw `{vendor: 9, code: 1, value_hex}` form; both produce the same wire. Unknown Cisco vendor-types stay raw. Evidence is independent `internal/radius/testclient` fixtures. `PRJ-CISCO-001` is PASS. Optional `make cisco-lab` RADIUS IOL snippet SKIP without `TACLAB_IOL_IMAGE`; a skip is not Cisco PASS and not RADIUS PASS ([ADR 0027](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0027-named-cisco-avpair-independent-fixtures.md)).
+- Optional RADIUS/TLS 1.3 (RadSec) listener: length-prefixed RADIUS packets (RFC 6613 §2.6) inside TLS 1.3 mTLS on TCP 2083 ([ADR 0025](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0025-radius-radsec-tls13-first-slice.md)). Default `listeners.radius.radsec.enabled: false`. A client may have one RADIUS UDP endpoint and one RADIUS TLS endpoint. `certificate_only` is legal when a TACACS TLS **or** RADIUS TLS endpoint exists. `system.build.get` RADIUS standards add `RFC 6614`. `PRJ-RADSEC-001` PASS; `PRJ-RADSEC-002` (DTLS/1.1) `DEFERRED_MAY`.
+
+### RADIUS CoA / Disconnect
+
+- In-memory accounting session index fed by Start/Interim/Stop; Accounting-On/Off flush matching rows. Access-Accept never inserts. Wiped on `runtime.reset`.
+- Originate CoA-Request / Disconnect-Request (RFC 5176 codes 40–45) from REST/MCP. Message-Authenticator required. Handle path needs Accounting-Start; explicit `client_id` + destination covers access-only labs.
+- Both paths use the client's **UDP** RADIUS endpoint secret, `coa_destination`, and `nas_coa_port`. `SessionRecord.EndpointID` is not the secret key. No UDP endpoint → `RADIUS_SECRET_MISSING` ([ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0024-radius-coa-disconnect.md)).
+- New scope `radius:dynamic` in the closed set. Example `lab-admin` does **not** receive it. `sessions.list` is `state:read`; raw `acct_session_id` needs `events:sensitive`. `expected_revision` is rejected on originate (not overlay CAS).
+- Optional inbound DAS listener (`listeners.radius.dynamic_authorization`, UDP 3799, default off) is an RFC 5176 echo fixture. It mutates the in-memory session index only and never forwards to a NAS. Unknown client / missing or invalid Message-Authenticator are silent discards. Session miss is NAK Error-Cause 503. `radius:dynamic` is not required on the packet path.
+
+### Admin surfaces
+
+- `radius.access.test` / `taclab.radius.access.test` `method.type` grows `eap`, `mschapv1`, and `mschapv2` (`PARITY_REQUIRED`). EAP Identity (no challenge/response) returns `outcome=access_challenge` with `state_present: true` only — never raw State and never EAP-Message. One-shot EAP-MD5 uses write-only challenge/response (wiped). MS-CHAP material is wiped and omitted from replies. `radius.policy.evaluate` accepts the same method tokens.
+- `users.create` / `users.update` / `groups.create` / `groups.update` accept optional `radius_policy_id` (omitted keeps; JSON `null` clears). List/get/export include the field on v2 views. REST and MCP share the same types.
+- `radius.attributes.list` includes `source` (`builtin` or `operator:<id>`). Metadata only; no values. `system.status.get` reports `dictionary_version`.
+- UI RADIUS Sessions (`/radius-sessions`) lists the in-memory accounting index (`state:read`). CoA/Disconnect DAC buttons require `radius:dynamic` and never treat inbound :3799 as a device kick. User/group editors expose `radius_policy_id`. RADIUS Auth Test offers Challenge/EAP/MS-CHAP methods. Attribute list shows dictionary `source`.
+
+### Configuration
+
+- v2 `listeners.radius.access` gains `challenge_ttl` (default `30s`, 5s–60s), `challenge_entries` (default `4096`, 16–65536), and `challenge_bytes` (default `1MiB`, 64KiB–8MiB). Accounting rejects those keys.
+- Schema v2 accepts optional `users[].radius_policy_id` and `groups[].radius_policy_id`. Unknown policy ids fail compile (`CONFIG_YAML_INVALID`). Schema v1 still rejects those keys.
+- Schema v2 additive `listeners.radius.radsec` (bind `0.0.0.0:2083`, `transport: tls`) and client `transport: tls` on `protocol: radius`. v1 documents reject those keys.
+
+### Lab
+
+- Optional Compose overlays `compose.dynauth.yaml` (UDP 3799) and `compose.radsec.yaml` (TCP 2083) publish ports only. Listeners stay **default off**. Combined TACACS+RADIUS and RADIUS-only labs still pass.
+- `labtest` adds `LAB-RADIUS-DYNAUTH` and `LAB-RADIUS-RADSEC`. Both **SKIP** when the listener is absent or disabled and do not require new listeners to be on. Combined/RADIUS-only reports stay green.
+
+### Performance
+
+- Recorded Challenge / EAP Identity / MS-CHAP / session-index / Cisco-AVPair benches in [`benchmarks/budgets.yaml`](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/benchmarks/budgets.yaml). No RadSec microbench exists yet — do not invent numbers.
+
+### Documentation
+
+- Operator residual table and PEAP/RadSec/CoA honesty: [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/OPERATOR.md) §1.1, [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/RADIUS_CONFORMANCE.md). QA recipes in OPERATOR §14 still cover must-change, method allow-lists, and RADIUS access test. `radius.access.test` `method.type` does not grow `peap`.
+- Binding ADRs: [0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0020-in-memory-radius-remaining-work-program.md)–[0030](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.3.0/docs/decisions/0030-radius-peap-tls-in-eap-start.md).
+
+### Security / toolchain
+
+- Bump `golang.org/x/crypto` 0.31.0 → 0.54.0 and `golang.org/x/text` 0.40.0 → 0.41.0.
+- GitHub Actions: `actions/checkout` 5 → 7, `actions/setup-go` 5 → 7, `actions/setup-node` 5 → 7, `actions/upload-artifact` 4 → 7, `docker/setup-buildx-action` 3 → 4.
+- Frontend: Vite 8 with `@vitejs/plugin-react` 6 (Vite 7 cannot resolve that peer), Vitest 4.1, zod 4.4, jsdom 30.
+
+## [1.2.0] — 2026-08-16
+
+User-lifecycle must-change lock and MCP client compatibility. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays `partial`.
+
+### Residual limits (prominent)
+
+- In-LOGIN / in-ENABLE extra GETPASS is a **TacLab/vendor extension**, not RFC 8907 LOGIN (§5.4.2.1) or ENABLE (§5.4.2.6). RFC change-password remains **CHPASS**.
+- RADIUS still has no Access-Challenge, Microsoft Password-Expired VSA, or named `Cisco-AVPair`. Must-change on RADIUS is Access-Reject `reject_password_change_required` only.
+- Published PHCs and MCP/REST-set flags are overlay-only. YAML-set flags return on `runtime.reset` / restart; the YAML baseline is never rewritten.
+- MCP owns fixture + assert + admin rotate. It cannot send TACACS CONTINUE or complete GETPASS. Hosted agents finish a change with `users.update` secret rotate.
+- No `taclab.qa.*` tools.
+
+### Protocol
+
+- Fail-closed login-class lock (`must_change_login`): after a successful verify, ASCII LOGIN **may** continue with extra GETPASS new/confirm when the client allows `ascii_chpass` (or `allowed_methods` is empty); otherwise FAIL with `server_msg=Password change required` and no overlay mutation. PAP / CHAP / MS-CHAP FAIL with the same `server_msg`. The lock is identity-level — CHAP / MS-CHAP fail even though they verify challenge material. `must_change_login` does not apply to ENABLE. Combined account-expiry / disabled / restricted / unknown / wrong-password stay uniform FAIL (empty `server_msg`).
+- In-ENABLE GETPASS new/confirm after a successful ENABLE verify when `must_change_enable` is set. Overlay-only PHC via `OverrideEnableVerifier`.
+- RADIUS Access-Reject `reject_password_change_required` after a good PAP/CHAP verify while `must_change_login` is set (no extra attributes).
+
+### Admin surfaces
+
+- `users.create` / `users.update` / `users.get` / `users.list` and `config.export` expose top-level `must_change_login` / `must_change_enable` (default `false`). REST and MCP (`taclab.users.*`) share the same types. `authentication.test` `status` includes `must_change` (not a TACACS or RADIUS packet status). `radius.access.test` `reason_code` includes `reject_password_change_required`. Unknown JSON on user mutations is rejected.
+- Users page shows `Must change login` / `Must change enable` badges and editor checkboxes. Authentication test displays status `must_change` with warn styling.
+- `api.mcp.allow_legacy_clients` (default `false`): opt-in relaxation of the HTTP-level `MCP-Protocol-Version: 2026-07-28` pin. When enabled, requests with a missing or older header pass through to the official SDK transport, which negotiates the protocol version during `initialize` — this lets older-generation MCP clients (gateways/proxies such as MCPJungle) connect. `subscriptions/listen` still requires the pinned version.
+
+### Documentation
+
+- [ADR 0019](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.2.0/docs/decisions/0019-force-password-change.md) — login-class lock and vendor-extension GETPASS contract.
+- [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/v1.2.0/docs/OPERATOR.md) §14 copy-paste MCP recipes for must-change fixture, assert, rotate, disable, account window, groups, client restriction, tombstone/reveal, `allowed_methods`, `policy.evaluate`, and `runtime.reset`. Overlay vs YAML (K16) is documented on every must-change recipe. No compose fixture user.
+
+## [1.1.0] — 2026-08-15
+
+RADIUS/UDP **lab profile** in the existing `taclabd` process. This is **not** a RADIUS completeness release. Product, module, binary, and image names are unchanged ([ADR 0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md)).
+
+### Residual limits (prominent)
+
+- Single-replica **lab appliance**. Overlay, RADIUS cache, accounting journal, and event ring are memory-only and vanish on restart or `runtime.reset`.
+- RADIUS is **UDP on a controlled lab network only**. MD5/HMAC-MD5, spoofable datagrams, mostly cleartext attributes. Keep 1812/1813 off the public internet. No RadSec, DTLS, RADIUS/TCP, or RADIUS/1.1.
+- Deferred: Access-Challenge, EAP method termination, CoA/Disconnect, RADIUS MS-CHAP, named `Cisco-AVPair` (waits on independent IOL vectors), custom dictionary files, user/group RADIUS rules, persistent accounting, proxying.
+- `system.build.get` RADIUS `conformance_status` stays `partial`. External `radclient` / Cisco IOL skip is **not** RADIUS PASS. Do **not** advertise complete RADIUS.
+
+### Configuration
+
+- Baseline loader accepts `schema_version: 1` and `schema_version: 2`. v1 files migrate **in memory** to named listener structs; source files are never rewritten. Mixed v1/v2 listener keys fail closed.
+- v2 uses `listeners.tacacs.legacy` / `tacacs.tls` / `radius.access` / `radius.accounting` / `http`. RADIUS listeners default `enabled: false` (`max_packet_bytes` default **4096**). `server.admin_only` and `security.radius_shared_secrets` are v2-only.
+- v2 clients accept `endpoints[]` with a distinct `radius_shared_secret` purpose and role-specific RADIUS LPM indexes. Flatten TACACS fields are a projection of TACACS endpoints.
+- v2 accepts `radius_policies` / `radius_reply_profiles` / `fallback_radius_policy_id` (client + optional fallback, default deny). User/group RADIUS fields remain unknown.
+- `config.export` **never** emits v2 YAML for a v1 source without the explicit convert flag `normalize=true` (default false). A v2 source exports as v2.
+- Invalid RADIUS compile leaves the previous snapshot. Overlay client patches retain omitted RADIUS secrets.
+
+### Protocol
+
+- In-tree RADIUS codec, IETF MVP dictionary (`builtin-mvp-1`), authenticators, User-Password hide/unhide, and Message-Authenticator. One datagram, 20..4096 octets. Named `Cisco-AVPair` is not added.
+- Access-Request PAP and CHAP → compiled policy → Access-Accept or Access-Reject. Message-Authenticator first, then unmodified Proxy-State. No Access-Challenge.
+- Accounting Start, Stop, Interim-Update, Accounting-On, Accounting-Off into the memory ring. Accounting-Response only after the ring accepts the record. Exact-response cache plus a semantic journal that excludes Acct-Delay-Time. Ambiguous identity is fail-open-to-ack and sample-capped.
+- Message-Authenticator required on Access-Request by default; always inserted on Access and Accounting responses; validate-if-present on inbound Accounting-Request. Weaker Access mode is per-endpoint, warned, and badged.
+
+### Runtime
+
+- `taclabd serve` registers enabled RADIUS/UDP access and accounting listeners on `internal/runtime.Registry` (bounded receive, worker pool, per-source rate, retransmission cache). Unknown or ambiguous sources are silently discarded.
+- Readiness is snapshot + every required listener + at least one AAA listener (TACACS or RADIUS), unless `server.admin_only: true`. RADIUS-only labs are legal. Default example YAML stays `enabled: false`.
+
+### Admin surfaces
+
+- `system.status.get` / `system.build.get` / `events.list` are protocol-aware. RADIUS `conformance_status` is `partial`.
+- Client CRUD exposes canonical `endpoints` plus a flattened `protocols.radius` view.
+- RADIUS diagnostics (`radius.access.test`, `radius.policy.evaluate`, `radius.attributes.list`) with REST/MCP parity. Access test uses the same `AuthenticateAccess` path as UDP and wipes passwords.
+- UI status, clients, RADIUS test/explain, and event filters are protocol-aware. Insecure-compatibility badge when Message-Authenticator is not required.
+
+### Lab
+
+- Compose maps RADIUS/UDP host ports 1812/1813 and a distinct `lab_switches_radius_secret`. `labgen` writes combined and RADIUS-only schema v2 profiles (`configs/lab.example.v2.yaml` is the checked-in template). `labtest` proves combined, RADIUS-only, and TACACS-only readiness. Secrets stay on the host; they are not baked into images.
+
+### Tests
+
+- RADIUS conformance registries attach executable evidence. MVP MUST rows are `PASS` except Access-Challenge (`DEFERRED_MAY`). Independent `internal/radius/testclient` talks to a live UDP listener. External `radclient` is SKIP when the peer is not installed. RADIUS benches are recorded in `benchmarks/budgets.yaml`.
+
+### Security
+
+- Bump the Go toolchain to **1.25.13** for stdlib fixes published 2026-08-13 (`encoding/asn1` GO-2026-5972, `net/http` GO-2026-5026, `net` GO-2026-5942, `encoding/xml` GO-2026-6088).
+- Distinct RADIUS shared-secret purpose, canaries, and closed metric labels (no User-Name, peer IP, or `client_id` on RADIUS series).
+- Gitleaks allowlists published RADIUS RFC/lab vectors under `testdata/protocol/radius/` only (not live Compose secrets).
+
+### CI
+
+- GitHub Pages deploy no longer tries to create the site with `GITHUB_TOKEN` (`configure-pages` `enablement: true` fails with `Resource not accessible by integration`). The site is enabled once by a repo admin; `make docs-check` rejects the forbidden enablement input.
+
+### Documentation
+
+- [ADRs 0013](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0013-add-radius-to-existing-taclab-process.md)–[0018](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0018-preserve-product-and-module-names-for-first-radius-release.md) accepted: RADIUS is in-process in `taclabd` but **not advertised as complete**.
+- [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md) — RADIUS onboarding, silent-discard troubleshooting, v1/v2 migration, upgrade/rollback, residual limits.
+- [docs/CONFIGURATION.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CONFIGURATION.md) and [docs/CANONICAL_DESIGN.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/CANONICAL_DESIGN.md) residual limits match shipped behavior (no stub replies; export convert is `normalize=true`).
+- [docs/RADIUS_CONFORMANCE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/RADIUS_CONFORMANCE.md) — human contract parallel to TACACS. TACACS `make check-registries -release` is unchanged.
+- [docs/QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md), [docs/BASELINE.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/BASELINE.md), [docs/LAB_DEPLOYMENT.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/LAB_DEPLOYMENT.md), [docs/INTEROP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md).
+- GitHub Pages site at `https://hilather.github.io/go-lab-tacacs-mcp/` (`site/`).
+
+## [1.0.0] — 2026-08-13
+
+First tagged lab-appliance release. Module `github.com/hilather/go-lab-tacacs-mcp`. Image `ghcr.io/hilather/go-lab-tacacs-mcp`. This section is the full high-level delta from an empty repository.
+
+### Protocol
+
+- RFC 8907 core AAA: ASCII LOGIN, PAP, CHAP, MS-CHAP v1/v2, ENABLE (type ignored), ASCII CHPASS.
+- Authorization: separate service and command evaluators, full common AV dictionary, vendor pairs preserved.
+- Accounting: START, STOP, WATCHDOG, WATCHDOG+update; invalid flags → ERROR; SUCCESS only after ring accept.
+- Legacy obfuscation, per-client secrets, single-connect, dual-stack LPM, fail-closed match ties.
+- RFC 9887 TLS 1.3 mTLS on a distinct port; UNENCRYPTED required; no obfuscation; no 0-RTT; CRL + resume re-check.
+
+### Compatibility
+
+- SENDPASS / SENDAUTH / FOLLOW rejected or never emitted (`N/A_RFC_DEPRECATED`).
+- Ticket lifetime: `0` or `168h` only ([ADR 0005](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0005-ticket-lifetime.md)).
+- No TLS 1.3 cipher YAML ([ADR 0004](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0004-tls13-cipher-policy.md)).
+- No RFC 7924 Cached Information ([ADR 0003](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0003-cached-information.md)).
+- External PSK / RPK deferred ([ADR 0006](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0006-external-psk-rpk.md)).
+- No `config.import`. Overlay is memory-only.
+
+### Security
+
+- Argon2id login/ENABLE; separate challenge secrets ([ADR 0002](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0002-password-kdf.md)).
+- Typed secrets; canary matrix; reuse warning without exported fingerprints.
+- Lab static bearer vs MCP OAuth PRM ([ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md)).
+- ASCII/PAP enablement is documented, not a compile warning ([ADR 0012](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0012-ascii-pap-enablement-warning.md)).
+- Bump `golang.org/x/text` to v0.39.0 (GO-2026-5970) and the Go toolchain to 1.25.12 for stdlib crypto/net fixes.
+- Gitleaks allowlists published RFC MS-CHAP test vectors in `internal/credentials/testdata/` only.
+
+### Admin surfaces
+
+- REST `/api/v1` + OpenAPI 3.1 + embedded React UI.
+- MCP 2026-07-28 Streamable HTTP on `POST /mcp` via `github.com/modelcontextprotocol/go-sdk` v1.7.0. Lab bearer, origin policy, and URI-only `subscriptions/listen` stay in-tree ([ADR 0011](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0011-mcp-thin-adapter-go-124.md)).
+- REST/MCP parity harness for `PARITY_REQUIRED` operations.
+
+### Lab
+
+- Optional Containerlab + Cisco IOL integration lab (`make cisco-lab`). Skips with an equipment-gap message when the operator image or Containerlab is absent; never vendors Cisco binaries. Live IOL drive uses the host `ssh` client (not `golang.org/x/crypto/ssh`).
+
+### CI
+
+- Cancel stale workflow runs; per-job timeouts; checksum-pinned gitleaks; `govulncheck` pinned; compose-lab on pull request, `main`, and tags.
+- Agents must watch CI after every push and after every release tag ([AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/AGENTS.md) §9). A red tag is a release blocker: investigate, harden CI, then retag or patch-tag.
+- Every tag publishes CHANGELOG-based release notes (all high-level changes since the previous tag) plus Ubuntu 24.04 and Rocky Linux 9 images.
+
+### Deployment
+
+- Non-root, read-only-root Compose lab; host 49 / 300 / 8080; TLS-only overlay.
+- `make lab-test` LAB-* suite, restart restores baseline.
+
+### Performance
+
+- First freeze in `benchmarks/budgets.yaml` (Intel i7-8750H, Go 1.24.5).
+- 10% latency / 15% alloc regression policy. Argon2id excluded from `make bench`.
+- 10-minute 250-conn soak is an operator procedure, not a CI number in this freeze.
+
+### Interop
+
+- Required software peer: in-tree `internal/tacacs/testclient` (separate codec).
+- Cisco and second-NOS rows: **skipped** unless the operator supplies an IOL image (`make cisco-lab`). See [docs/INTEROP.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/INTEROP.md).
+
+### Documentation
+
+- Operator guide, maintenance policy, interop notes, generated conformance report with evidence IDs.
+- `make check-registries` now includes the `-release` MUST/SHOULD gate.

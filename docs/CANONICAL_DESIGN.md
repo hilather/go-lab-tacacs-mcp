@@ -784,7 +784,7 @@ body' = body XOR pad
 - Accept from transport adapters after identity bind.
 - Negotiate single-connect **only** on the first request/reply pair; ignore the flag afterward.
 - Client MUST NOT send a second packet before negotiation completes.
-- If single-connect is not established, close TCP after the session.
+- If single-connect is not established, reject another session even while the first interactive session remains active, and close TCP after the first session. The session goroutine owns its sequence state; connection shutdown signals termination without concurrent sequence mutation.
 - Demux by `session_id`. One session: packets serialized in seq order. Sessions on one connection may run concurrently.
 - Per-connection session cap; serialized writes; fairness so one session cannot starve others.
 - After a connection-level secret/flag error: accept no new sessions; drain existing; then close.

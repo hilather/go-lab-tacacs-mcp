@@ -7,6 +7,8 @@ import (
 
 func FuzzServeConn(f *testing.F) {
 	f.Add([]byte{0xc0, 0x02, 0x01, 0x00, 0, 0, 0, 1, 0, 0, 0, 0})
+	// Active ASCII session followed by an unnegotiated second session.
+	f.Add([]byte{0xc0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 8, 1, 1, 1, 1, 0, 0, 0, 0, 0xc0, 2, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0})
 	f.Fuzz(func(t *testing.T, raw []byte) {
 		if len(raw) > 2048 {
 			raw = raw[:2048]

@@ -180,6 +180,9 @@ func pathsForSchema(schema int) listenerYAMLPaths {
 }
 
 func validateListeners(doc *Document, paths listenerYAMLPaths) error {
+	if doc.Listeners.HTTP.TLS.Enabled {
+		return domain.NewError(domain.CodeInvalidArgument, "in-process HTTP TLS is unsupported; terminate HTTPS at a reverse proxy and set api.ui_session.cookie_secure explicitly").WithPath(paths.HTTP + ".tls.enabled")
+	}
 	legacy := doc.Listeners.LegacyTACACS
 	secure := doc.Listeners.SecureTACACS
 	if err := validateBind(legacy.Bind, paths.Legacy+".bind"); err != nil {

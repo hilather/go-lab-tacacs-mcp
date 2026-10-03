@@ -1787,6 +1787,19 @@ REST replay. Relevant `go vet -p=2`, `make check-registries` (`-release`),
 and the explicitly reviewed ownership allocation exception are recorded in
 TESTING_AND_BENCHMARKS.md. Source/registry/schema generation is unaffected.
 
+### REVIEW-RUNTIME-001 — Correct admin TLS and shutdown contracts
+
+- [x] Reject unsupported native admin HTTP TLS in v1/v2 configuration and defend startup before bootstrap; ADR 0032 records migration to proxy HTTPS and explicit secure cookies.
+- [x] Mark unready/cancel REST SSE and MCP streams before drain; give HTTP, observability, and AAA the same grace concurrently.
+- [x] Force-close stalled HTTP connections and report HTTP/observability grace deadline failures; preserve established protocol grace cancellation behavior.
+- Acceptance: `TestAdminHTTPRejectsUnsupportedTLS`, `TestStartHTTPRejectsUnsupportedTLSBeforeBootstrap`, `TestServeShutdownDeadlineClosesHTTPAndReturnsFailure`, and HTTP readiness/stream shutdown tests. No administrative capability/schema or conformance-row changes; REST SSE/health and MCP subscription mechanics retain their protocol-only dispositions. No hot parsing/policy/serialization path changes; benchmarks are not applicable.
+
+REVIEW-RUNTIME-001 evidence: original HTTP shutdown regression returned nil after a stalled peer exhausted grace; original config validation accepted native HTTP TLS. `GOMAXPROCS=2 go test -race -p=2 ./cmd/taclabd ./internal/config` passed, including existing TACACS in-flight drain/e2e contracts and readiness/REST stream cancellation integration. Relevant `go vet -p=2`, `make check-registries` (`-release`), and `make docs-check` passed. Schemas/registries remain unchanged because the retained TLS field is validation-only and no operation changes.
+
+REVIEW-RUNTIME-001 documentation follow-up: leftover "`cookie_secure` follows `listeners.http.tls.enabled`" wording in ARCHITECTURE, OPERATOR, API_PARITY, ADR 0010, the lab example, the REST package doc and OpenAPI descriptions now states the ADR 0032 rule (default false, explicit true behind an HTTPS proxy); `api/openapi.json` regenerated and `make check-generated` clean.
+
+REVIEW-RUNTIME-001 migration regression evidence: session authentication tests cover explicit secure cookies behind proxy HTTPS, explicit/default HTTP cookie behavior, and rejection of native admin TLS during snapshot creation. Parse-only legacy flag normalization remains covered independently of validation. Full `go test -race -p=2 ./internal/api/auth ./internal/config ./cmd/taclabd` passed after aligning the old secure-cookie fixture with ADR 0032; the native TLS fixture scan found no other valid-snapshot uses outside the rejection tests.
+
 ## 24. Protocol review hardening
 
 - [x] `RAD-REV-001` RadSec passes the authenticated peer certificate fingerprint to the Challenge gate. Configured CRLs must authenticate against the verified leaf issuer and be current; unrelated or expired CRLs fail closed. Evidence: `TestRadSecPropagatesCertificateChallengeBinding`, `TestRadSecCRLAuthenticityAndFreshness`; `go test -race ./internal/radius/tls`; `BenchmarkRadSecCRLValidation`; additional bad-signature, issuer isolation, omitted-root, and injected-clock evidence. TACACS also rejects a signed future-dated CRL (`TestFutureCRLDoesNotAdmit`). Affected rows: `PRJ-RADSEC-001`, `R65-ACCESS-004`. No administrative contract or parity change.

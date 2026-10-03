@@ -558,9 +558,10 @@ Controls process-wide lifecycle and logging behavior. `instance_id` is stable wi
 Required initial behavior:
 
 - `persistence` must equal `memory`.
-- `reload_overlay_behavior` supports `rebase` and `reset`; `rebase` is the default.
+- `reload_overlay_behavior` supports `rebase` and `reset`; `rebase` is the default. Candidate validation uses the same overlay disposition as reload.
 - Object limits are enforced before allocation-heavy compilation.
 - Runtime reset is atomic and creates a new state revision.
+- Deleting users or replacing in-memory verifier references releases orphaned material from the current overlay. Older snapshots retain their own copies for authentication sessions already in progress.
 
 A future persistence adapter requires a separate design approval and must not change default lab behavior.
 

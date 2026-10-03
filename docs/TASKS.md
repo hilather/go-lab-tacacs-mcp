@@ -1740,3 +1740,19 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 - [x] Reject browser cookies after token rotation, revocation/recreation, or baseline restoration, including reuse of identical token bytes.
 - [x] Preserve sessions across unrelated state publications; reclaim sessions when a token is forgotten.
 - [x] Regression evidence: `internal/api/auth/review_security_test.go`; auth/state unit and race suites.
+
+### REVIEW-STATE-02 Canonical user IDs and token audit
+
+- [x] Normalize UsernameCasePreserved IDs before every user operation and return the canonical ID after successful publication.
+- [x] Emit declared secret-free token create/revoke audit records only after successful publication.
+- [x] Regression evidence: `review_users_test.go` and `review_token_audit_test.go`; targeted operations race tests.
+
+### REVIEW-STATE-03 Reclaim orphaned runtime verifiers
+
+- [x] Prune verifier material after deleting users or replacing memory references while retaining session-bound old snapshots.
+- [x] Regression evidence: `internal/state/review_retention_test.go`; state race suite.
+
+### REVIEW-STATE-04 Candidate validation matches reload behavior
+
+- [x] Validate candidates with the overlay selected by `reload_overlay_behavior`; reset candidates are not rejected by objects they discard.
+- [x] Regression evidence: `internal/state/review_validate_test.go`; validation never publishes state and the same candidate reloads successfully.

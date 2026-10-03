@@ -637,3 +637,10 @@ Reference: Go 1.26.8, linux/amd64, Intel Core i7-8750H. Command:
 The baseline uses the same new cookie benchmark through a Go source overlay; the candidate adds token incarnation validation.
 Median comparison of five samples: bearer 4019 → 3770 ns/op; cookie 10678 → 6862 ns/op.
 Both remain 160 B/op and 5 allocs/op. Concurrent review workloads caused substantial timing variance, so these measurements establish allocation stability and show no median regression rather than a performance improvement claim.
+
+### REVIEW-STATE-02/03/04 publication evidence (2026-10-03)
+
+Reference fixture: `BenchmarkSnapshotPublish_Medium` (50 clients, 200 users, 20 groups), Go 1.26.8, same host as session evidence.
+Command: `go test ./internal/state -run '^$' -bench '^BenchmarkSnapshotPublish_Medium$' -benchmem -cpu=1 -benchtime=100ms -count=5`.
+Baseline median 3861340 ns/op, 1469143 B/op, 6068 allocs/op; candidate median 4422034 ns/op, 1469191 B/op, 6069 allocs/op.
+Memory changes are 48 bytes and one allocation per publication. Short-run latency varies under concurrent race suites; the observed 14.5% median delta requires a quiet-run confirmation before treating it as a stable regression or publishing performance claims.

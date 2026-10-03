@@ -62,27 +62,13 @@ jobs:
     timeout-minutes: 45
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
+      - uses: actions/checkout@v7
       - name: Wait for tag ci-gate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          sha="${{ github.sha }}"
-          repo="${{ github.repository }}"
-          echo "waiting for ci.yml on ${sha}"
-          run_id=""
-          for _ in $(seq 1 60); do
-            run_id="$(gh run list --repo "$repo" --workflow=ci.yml --commit "$sha" --json databaseId --jq '.[0].databaseId // empty')"
-            if [[ -n "$run_id" ]]; then
-              break
-            fi
-            sleep 10
-          done
-          if [[ -z "$run_id" ]]; then
-            echo "release: no ci.yml run found for ${sha}" >&2
-            exit 1
-          fi
-          gh run watch "$run_id" --repo "$repo" --exit-status
+          bash ./tools/wait-tag-ci.sh "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GITHUB_SHA"
 
   images:
     name: image-${{ matrix.variant }}

@@ -177,6 +177,9 @@ rows:
     evidence:
       - unit:internal/radius/runtime.TestSessionIndexStartInterimStop
       - unit:internal/radius/runtime.TestSessionIndexOnOffFlushByPeerOrNAS
+      - unit:internal/radius/server.TestDynAuthRFC5176FixedVectors
+      - unit:internal/radius/server.TestOriginateIgnoresUnboundResponses
+      - unit:internal/radius/server.TestOriginateCancellationInterruptsRead
       - unit:internal/radius/server.TestOriginateCoAACKIndependentTestclient
       - unit:internal/api/operations.TestRadiusDynAuthRequiresScope
       - unit:internal/api/operations.TestRadiusDynAuthRejectsExpectedRevision
@@ -191,11 +194,13 @@ rows:
     status: PASS
     evidence:
       - unit:internal/radius/udp.TestDynAuthUnknownClientDiscard
+      - unit:internal/radius/udp.TestDynAuthAuthenticatorNegativesNoSideEffects
       - unit:internal/radius/udp.TestDynAuthMissingAndInvalidMADiscardNoCacheMutation
       - unit:internal/radius/udp.TestDynAuthSessionMissNAK503NeverForwards
       - unit:internal/radius/udp.TestDynAuthDisconnectACKDeletesIndexOnly
       - unit:internal/radius/udp.TestDynAuthDuplicateIdentifierRaceAndCacheHit
       - unit:internal/radius/udp.TestDynAuthInboundDoesNotRequireRadiusDynamicScope
+      - unit:internal/radius/server.TestDynAuthRFC5176FixedVectors
       - unit:internal/radius/server.TestCheckDynAuthIntegrityAlwaysRequiresMA
       - adr:docs/decisions/0024-radius-coa-disconnect.md
   - id: PRJ-UL-001

@@ -621,7 +621,7 @@ Add to `codec.Code` / `attribute` packet roles:
 
 Add IETF `Error-Cause` (101, integer, NAK only). Message-Authenticator is required on every dynauth packet this program emits, and required on every inbound dynauth packet (no `allow_missing` for CoA — spoofed Disconnect is a session-kill).
 
-Inbound Request Authenticator is a nonce (like Access). Response Authenticator is computed like Access. Invalid MA or unknown client → **silent discard** (same as Access).
+RFC 5176 §§2.3/3.4 request signing first computes Message-Authenticator with both authenticator fields zeroed, inserts MA, then computes MD5(Code + Identifier + Length + zero Request Authenticator + populated attributes + secret). Inbound validates both fields before cache or session-index effects; invalid MA/checksum or unknown client → **silent discard**. Response MA uses the corresponding request checksum and is inserted before Response Authenticator. DAC replies must match the destination IP/port, Identifier, and request ACK/NAK family; invalid datagrams are ignored until the original deadline. Cancellation interrupts the UDP wait. The checksum failure reason is `discard_invalid_dynauth_request_authenticator`.
 
 #### 6.3 In-memory session index
 

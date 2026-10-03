@@ -21,6 +21,7 @@ func TestKnownReasonCodeCoversServerAndAccessReasons(t *testing.T) {
 		server.ReasonInvalidCode,
 		server.ReasonInvalidAcctAuth,
 		server.ReasonInvalidMA,
+		server.ReasonInvalidDynAuthAuth,
 		server.ReasonMissingMA,
 		server.ReasonEAPWithoutMA,
 		server.ReasonProxyStateWithoutMA,

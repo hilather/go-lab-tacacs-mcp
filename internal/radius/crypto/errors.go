@@ -19,3 +19,6 @@ var (
 	ErrInvalidAccountingAuthenticator = errors.New("radius crypto: Accounting-Request Authenticator is invalid")
 	ErrInvalidResponseAuthenticator   = errors.New("radius crypto: Response Authenticator is invalid")
 )
+
+// ErrInvalidDynAuthAuthenticator means an RFC 5176 request checksum mismatch.
+var ErrInvalidDynAuthAuthenticator = errors.New("invalid dynamic authorization request authenticator")

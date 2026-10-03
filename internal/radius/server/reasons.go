@@ -7,6 +7,7 @@ const (
 	ReasonMalformedHeader        = "discard_malformed_header"
 	ReasonInvalidLength          = "discard_invalid_length"
 	ReasonInvalidCode            = "discard_invalid_code"
+	ReasonInvalidDynAuthAuth     = "discard_invalid_dynauth_request_authenticator"
 	ReasonInvalidAcctAuth        = "discard_invalid_accounting_request_authenticator"
 	ReasonInvalidMA              = "discard_invalid_message_authenticator"
 	ReasonMissingMA              = "discard_missing_message_authenticator"

@@ -398,6 +398,7 @@ func knownReasonCode(v string) bool {
 		"discard_invalid_length",
 		"discard_invalid_code",
 		"discard_invalid_accounting_request_authenticator",
+		"discard_invalid_dynauth_request_authenticator",
 		"discard_invalid_message_authenticator",
 		"discard_eap_without_ma",
 		"discard_missing_message_authenticator",

@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"encoding/hex"
 	"strings"
 	"testing"
 )
@@ -60,4 +61,19 @@ func bytes16(v byte) []byte {
 		b[i] = v
 	}
 	return b
+}
+
+func FuzzDynAuthIntegrity(f *testing.F) {
+	for _, raw := range []string{"280900299fec6b17d1858824761e5d028f64e2305012a5041bbb1195ae3ddbd27538e55cc46a010375", "2b09002920622bdf5fc6472155915daf063ac3475012a756daa992df1e011455b1610b0d0448010375"} {
+		packet, _ := hex.DecodeString(raw)
+		f.Add([]byte("LabSecret-16chars!"), packet)
+	}
+	f.Add([]byte("LabSecret-16chars!"), []byte{})
+	f.Fuzz(func(t *testing.T, secret, packet []byte) {
+		for _, err := range []error{ValidateDynAuthMessageAuthenticator(secret, packet), ValidateDynAuthRequestAuthenticator(secret, packet)} {
+			if err != nil && len(secret) > 4 && strings.Contains(err.Error(), string(secret)) {
+				t.Fatal("secret leaked in error")
+			}
+		}
+	})
 }

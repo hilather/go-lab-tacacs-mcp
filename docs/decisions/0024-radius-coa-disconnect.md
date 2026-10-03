@@ -22,7 +22,7 @@ A later RadSec listener may accept Accounting-Start on TLS. CoA to a NAS is stil
 5. Accounting-On and Accounting-Off for a given UDP `EndpointID` + peer IP (and NAS-IP/NAS-Identifier when present) **delete** matching session-index rows.
 6. Originate requests **omit** `expected_revision`. A present field is `invalid_argument` (reject unknown JSON). CoA is not overlay CAS.
 7. New scope `radius:dynamic` for originate. `sessions.list` stays `state:read`. Raw `acct_session_id` requires `events:sensitive`. Example bootstrap `lab-admin` does not receive `radius:dynamic` unless a recipe adds it.
-8. Message-Authenticator is required on every dynauth packet this program emits and on every inbound dynauth packet. No `allow_missing`. Unknown client or invalid MA → silent discard.
+8. Message-Authenticator is required on every dynauth packet this program emits and on every inbound dynauth packet. No `allow_missing`. RFC 5176 request MA uses zero Request Authenticator and zero MA; the populated MA is inserted before the MD5 Request Authenticator checksum. Both inbound integrity fields are validated before side effects. Unknown client or invalid MA/checksum → silent discard. DAC replies bind destination peer, Identifier, and ACK/NAK family. Invalid replies do not shorten the bounded wait; cancellation interrupts it.
 9. Session index is process memory, capped, wiped on `runtime.reset` / process exit ([ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md)).
 10. Keep UDP **3799** off the public internet.
 
@@ -74,7 +74,8 @@ None now. After the implementing PRs, operators who want inbound echo add the li
 - `expected_revision` present → `invalid_argument`.
 - Scope missing → deny originate.
 - Inbound: unknown client / invalid MA discard; session miss → NAK 503; never sends to a NAS.
-- Independent testclient dynauth evidence. Shared-codec loopback is not sufficient.
+- Independent testclient dynauth evidence and fixed RFC-derived raw vectors. Shared-codec loopback is not sufficient.
+- Correction (2026-10-03): request authenticators are RFC 5176 checksums, not Access-Request nonces; the original design wording and implementation were incorrect. Existing nonce-signed packets now fail closed; regenerate lab fixtures with the corrected testclient. No API/schema change. The legacy signing authenticator argument, testclient Authenticator field, and Originator Entropy field are source-compatible inputs that encoding ignores; callers use the derived on-wire checksum for replies.
 
 ## Documentation impact
 

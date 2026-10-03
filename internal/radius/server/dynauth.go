@@ -48,7 +48,8 @@ type OriginateResult struct {
 
 // Originator sends RFC 5176 CoA/Disconnect requests. MA is required.
 type Originator struct {
-	Clock   domain.Clock
+	Clock domain.Clock
+	// Entropy is retained for source compatibility; RFC 5176 request checksums do not use randomness.
 	Entropy io.Reader
 	Dial    func(ctx context.Context, network, address string) (net.PacketConn, *net.UDPAddr, error)
 	Metrics *observability.Recorder
@@ -63,8 +64,9 @@ type originateEntry struct {
 	deadline time.Time
 }
 
-// SignDynAuthRequest builds a CoA/Disconnect-Request with MA first.
-func SignDynAuthRequest(secret []byte, code codec.Code, id uint8, reqAuth [16]byte, rest attribute.RawSet) ([]byte, error) {
+// SignDynAuthRequest builds an RFC 5176 CoA/Disconnect-Request with MA first.
+// The legacy authenticator argument is ignored: the request checksum is derived.
+func SignDynAuthRequest(secret []byte, code codec.Code, id uint8, _ [16]byte, rest attribute.RawSet) ([]byte, error) {
 	if code != codec.CodeCoARequest && code != codec.CodeDisconnectRequest {
 		return nil, domain.NewError(domain.CodeInvalidArgument, "dynauth request code must be CoA-Request or Disconnect-Request")
 	}
@@ -80,13 +82,13 @@ func SignDynAuthRequest(secret []byte, code codec.Code, id uint8, reqAuth [16]by
 	wire, err := codec.Encode(codec.Packet{
 		Code:          code,
 		Identifier:    id,
-		Authenticator: reqAuth,
+		Authenticator: [16]byte{},
 		Attributes:    attrs,
 	})
 	if err != nil {
 		return nil, err
 	}
-	mac, err := crypto.MessageAuthenticator(secret, wire)
+	mac, err := crypto.DynAuthMessageAuthenticator(secret, wire)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +97,11 @@ func SignDynAuthRequest(secret []byte, code codec.Code, id uint8, reqAuth [16]by
 		return nil, crypto.ErrInvalidMessageAuthenticator
 	}
 	copy(wire[off+2:off+18], mac[:])
+	auth, err := crypto.DynAuthRequestAuthenticator(secret, wire)
+	if err != nil {
+		return nil, err
+	}
+	copy(wire[4:20], auth[:])
 	return wire, nil
 }
 
@@ -124,19 +131,13 @@ func (o *Originator) Send(ctx context.Context, req OriginateRequest) (OriginateR
 		return o.exchange(ctx, req.Secret, req.Destination, req.Code, wire, auth, timeout)
 	}
 
-	ent := io.Reader(nil)
-	if o != nil {
-		ent = o.Entropy
-	}
-	reqAuth, err := crypto.NewRequestAuthenticator(ent)
-	if err != nil {
-		return OriginateResult{}, err
-	}
 	id := uint8(now.UnixNano())
-	wire, err := SignDynAuthRequest(req.Secret, req.Code, id, reqAuth, req.Attributes)
+	wire, err := SignDynAuthRequest(req.Secret, req.Code, id, [16]byte{}, req.Attributes)
 	if err != nil {
 		return OriginateResult{}, err
 	}
+	var reqAuth [16]byte
+	copy(reqAuth[:], wire[4:20])
 	o.remember(req.CacheKey, wire, reqAuth, now.Add(originateCacheTTL))
 	return o.exchange(ctx, req.Secret, req.Destination, req.Code, wire, reqAuth, timeout)
 }
@@ -154,6 +155,8 @@ func (o *Originator) exchange(ctx context.Context, secret []byte, dest string, r
 		return OriginateResult{}, domain.NewError(domain.CodeInvalidArgument, "dynauth destination is not reachable").WithPath("destination")
 	}
 	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return OriginateResult{}, err
 	}
@@ -161,47 +164,51 @@ func (o *Originator) exchange(ctx context.Context, secret []byte, dest string, r
 		return OriginateResult{}, err
 	}
 	buf := make([]byte, 4096)
-	n, _, err := conn.ReadFrom(buf)
-	if err != nil {
-		var ne net.Error
-		if errors.As(err, &ne) && ne.Timeout() {
-			o.observe(reqCode, DynAuthOutcomeTimeout)
-			return OriginateResult{Outcome: DynAuthOutcomeTimeout}, nil
+	for {
+		if err := ctx.Err(); err != nil {
+			return OriginateResult{}, err
 		}
-		return OriginateResult{}, err
-	}
-	pkt := buf[:n]
-	// MA is computed with the Request Authenticator in the header
-	// (RFC 2869 §5.14). Substitute it before HMAC, then check RA on the original.
-	forMA := append([]byte(nil), pkt...)
-	if len(forMA) >= codec.HeaderSize {
+		n, peer, err := conn.ReadFrom(buf)
+		if err != nil {
+			if ctx.Err() != nil {
+				return OriginateResult{}, ctx.Err()
+			}
+			var ne net.Error
+			if errors.As(err, &ne) && ne.Timeout() {
+				o.observe(reqCode, DynAuthOutcomeTimeout)
+				return OriginateResult{Outcome: DynAuthOutcomeTimeout}, nil
+			}
+			return OriginateResult{}, err
+		}
+		remote, ok := peer.(*net.UDPAddr)
+		if !ok || remote.Port != addr.Port || remote.Zone != addr.Zone || !remote.IP.Equal(addr.IP) {
+			continue
+		}
+		pkt := buf[:n]
+		h, err := codec.DecodeHeader(pkt)
+		if err != nil || h.Identifier != wire[1] {
+			continue
+		}
+		ack, nak := codec.CodeCoAACK, codec.CodeCoANAK
+		if reqCode == codec.CodeDisconnectRequest {
+			ack, nak = codec.CodeDisconnectACK, codec.CodeDisconnectNAK
+		}
+		if h.Code != ack && h.Code != nak {
+			continue
+		}
+		forMA := append([]byte(nil), pkt...)
 		copy(forMA[4:20], reqAuth[:])
+		if crypto.ValidateMessageAuthenticator(secret, forMA) != nil || crypto.ValidateResponseAuthenticator(secret, pkt, reqAuth) != nil {
+			continue
+		}
+		out := OriginateResult{Code: h.Code, Outcome: DynAuthOutcomeACK}
+		if h.Code == nak {
+			out.Outcome = DynAuthOutcomeNAK
+			out.ErrorCause = errorCauseOf(pkt)
+		}
+		o.observe(reqCode, out.Outcome)
+		return out, nil
 	}
-	if err := crypto.ValidateMessageAuthenticator(secret, forMA); err != nil {
-		o.observe(reqCode, DynAuthOutcomeTimeout)
-		return OriginateResult{Outcome: DynAuthOutcomeTimeout}, nil
-	}
-	if err := crypto.ValidateResponseAuthenticator(secret, pkt, reqAuth); err != nil {
-		o.observe(reqCode, DynAuthOutcomeTimeout)
-		return OriginateResult{Outcome: DynAuthOutcomeTimeout}, nil
-	}
-	h, err := codec.DecodeHeader(pkt)
-	if err != nil {
-		o.observe(reqCode, DynAuthOutcomeTimeout)
-		return OriginateResult{Outcome: DynAuthOutcomeTimeout}, nil
-	}
-	out := OriginateResult{Code: h.Code}
-	switch h.Code {
-	case codec.CodeCoAACK, codec.CodeDisconnectACK:
-		out.Outcome = DynAuthOutcomeACK
-	case codec.CodeCoANAK, codec.CodeDisconnectNAK:
-		out.Outcome = DynAuthOutcomeNAK
-		out.ErrorCause = errorCauseOf(pkt)
-	default:
-		out.Outcome = DynAuthOutcomeTimeout
-	}
-	o.observe(reqCode, out.Outcome)
-	return out, nil
 }
 
 func (o *Originator) observe(code codec.Code, outcome string) {

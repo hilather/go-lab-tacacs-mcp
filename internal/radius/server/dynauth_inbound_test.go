@@ -30,7 +30,7 @@ func TestInboundDisconnectMissNAK503(t *testing.T) {
 	if res.Action != ActionReply {
 		t.Fatalf("action=%v reason=%s", res.Action, res.Reason)
 	}
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestInboundDisconnectHitDeletesIndex(t *testing.T) {
 	if res.Action != ActionReply || res.Reason != ReasonOK {
 		t.Fatalf("res=%+v", res)
 	}
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestInboundCoAUnsupportedAttrNAK401(t *testing.T) {
 		{Type: attribute.TypeFramedIPAddress, Value: []byte{192, 0, 2, 1}},
 	})
 	res := h.Handle(context.Background(), in)
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestInboundMALastACKsAndNeverOriginates(t *testing.T) {
 	if res.Action != ActionReply || res.Reason != ReasonOK {
 		t.Fatalf("MA last must ACK, got %+v", res)
 	}
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestInboundMultipleSessionsNAK508(t *testing.T) {
 		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
 	})
 	res := h.Handle(context.Background(), in)
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestInboundUserNameNASIPIdentification(t *testing.T) {
 		{Type: attribute.TypeNASIPAddress, Value: nas4(nas)},
 	})
 	res := h.Handle(context.Background(), hit)
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, hit.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestInboundWrongNASIPAgainstEmptyRecordNAK503(t *testing.T) {
 		{Type: attribute.TypeNASIPAddress, Value: []byte{192, 0, 2, 99}},
 	})
 	res := h.Handle(context.Background(), in)
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestInboundNamedNASIPIsUniqueAmongMixedRows(t *testing.T) {
 		{Type: attribute.TypeNASIPAddress, Value: nas4(nas)},
 	})
 	res := h.Handle(context.Background(), in)
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestInboundToolClientCanTargetNASSession(t *testing.T) {
 	in.ClientID = "rfc5176-tool"
 	in.EndpointID = "tool-udp"
 	res := h.Handle(context.Background(), in)
-	reply, err := testclient.DecodeDynAuthReply(testSecret, ra, res.Response)
+	reply, err := testclient.DecodeDynAuthReply(testSecret, in.Packet.Authenticator, res.Response)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func dynAuthRequestOrder(t *testing.T, code codec.Code, ra [16]byte, rest attrib
 	}
 	pkt := codec.Packet{Code: code, Identifier: 1, Authenticator: ra, Attributes: attrs}
 	raw := mustEncode(t, pkt)
-	mac, err := crypto.MessageAuthenticator(testSecret, raw)
+	mac, err := crypto.DynAuthMessageAuthenticator(testSecret, raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,6 +315,11 @@ func dynAuthRequestOrder(t *testing.T, code codec.Code, ra [16]byte, rest attrib
 		}
 		off += n
 	}
+	auth, err := crypto.DynAuthRequestAuthenticator(testSecret, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copy(raw[4:20], auth[:])
 	dec, err := codec.Decode(raw)
 	if err != nil {
 		t.Fatal(err)

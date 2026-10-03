@@ -8,8 +8,9 @@ import (
 
 // DynAuthRequest is an independent CoA/Disconnect-Request.
 type DynAuthRequest struct {
-	Code          codec.Code
-	Identifier    uint8
+	Code       codec.Code
+	Identifier uint8
+	// Authenticator is retained for fixture source compatibility; encoding derives it.
 	Authenticator [16]byte
 	UserName      string
 	AcctSessionID string
@@ -32,15 +33,7 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 	if req.Code != codec.CoARequest && req.Code != codec.DisconnectRequest {
 		return nil, ErrUnexpectedCode
 	}
-	auth := req.Authenticator
-	var zero [16]byte
-	if auth == zero {
-		var err error
-		auth, err = codec.NewRequestAuthenticator(rand)
-		if err != nil {
-			return nil, err
-		}
-	}
+	_ = rand // CoA/Disconnect authenticators are checksums, not nonces.
 	ma := codec.Attr{Type: codec.TypeMessageAuthenticator, Value: make([]byte, 16)}
 	attrs := make([]codec.Attr, 0, 4+len(req.Extra))
 	if !req.MALast {
@@ -59,7 +52,7 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 	pkt, err := codec.Encode(codec.Packet{
 		Code:          req.Code,
 		Identifier:    req.Identifier,
-		Authenticator: auth,
+		Authenticator: [16]byte{},
 		Attrs:         attrs,
 	})
 	if err != nil {
@@ -72,20 +65,32 @@ func EncodeDynAuthRequest(secret []byte, req DynAuthRequest, rand io.Reader) ([]
 	if err := codec.PutMessageAuthenticator(pkt, mac); err != nil {
 		return nil, err
 	}
+	auth, err := codec.AccountingRequestAuthenticator(secret, pkt)
+	if err != nil {
+		return nil, err
+	}
+	copy(pkt[4:20], auth[:])
 	return pkt, nil
 }
 
-// DecodeDynAuthRequest validates MA and returns the independent packet.
+// DecodeDynAuthRequest validates request MA and checksum independently.
 func DecodeDynAuthRequest(secret []byte, wire []byte) (codec.Packet, error) {
-	if err := codec.ValidateMessageAuthenticator(secret, wire); err != nil {
-		return codec.Packet{}, err
-	}
 	pkt, err := codec.Decode(wire)
 	if err != nil {
 		return codec.Packet{}, err
 	}
-	if !pkt.Code.DynamicAuthFamily() {
+	if pkt.Code != codec.CoARequest && pkt.Code != codec.DisconnectRequest {
 		return codec.Packet{}, ErrUnexpectedCode
+	}
+	work, err := codec.WithAuthenticator(wire, [16]byte{})
+	if err != nil {
+		return codec.Packet{}, err
+	}
+	if err = codec.ValidateMessageAuthenticator(secret, work); err != nil {
+		return codec.Packet{}, err
+	}
+	if err = codec.ValidateAccountingRequestAuthenticator(secret, wire); err != nil {
+		return codec.Packet{}, err
 	}
 	return pkt, nil
 }

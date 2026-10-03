@@ -529,7 +529,7 @@ The UI receives:
 - `state.revision.changed` events that invalidate affected query keys.
 - protocol/accounting events for the live console.
 
-SSE reconnect uses the last event ID when it remains in the ring. If the cursor is too old, the server returns a reset signal and the UI refetches current state.
+SSE reconnect uses the last event ID when it remains in the ring. If the cursor is too old, the server returns a reset signal and the UI refetches current state. The browser keeps at most 1,000 matching console events and a bounded stream backlog so React batching cannot collapse a burst to its final event. It reconciles events received during a REST snapshot read before replacing the visible history. Active protocol/kind filters apply before retention; search stays local. Highlights expire without extending their lifetime on each incoming packet. RADIUS accounting and dynamic-authorization events refresh the session list, coalesced to one refetch per 250 ms burst; revision and reset notifications also invalidate session and attribute queries.
 
 MCP read resources use the same revision and event service. Resource/list changes and subscriptions must reflect the same underlying changes, subject to the caller's scopes.
 

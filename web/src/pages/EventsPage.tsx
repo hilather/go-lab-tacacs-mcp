@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EventRow, EventTableHead } from "../components/EventRow";
 import { RequireScope } from "../components/RequireScope";
 import type { EventView } from "../generated/api";
@@ -9,8 +9,8 @@ import {
   drainRecent,
   type EventKind,
   matchEvent,
-  mergeEvent,
-  sortNewestFirst,
+  retainEvents,
+  EVENT_RETENTION,
 } from "../ui/events";
 
 const PAGE = 100;
@@ -43,28 +43,19 @@ function EventsBody() {
     setPending(true);
   }
 
-  const incoming = stream.lastEvent;
-  const [seenEvent, setSeenEvent] = useState(incoming);
-  if (incoming !== null && incoming !== seenEvent) {
-    setSeenEvent(incoming);
-    setBuffer((prev) => mergeEvent(prev, incoming));
-    setFlashIds((prev) => new Set(prev).add(incoming.id));
-  }
-
+  const incoming = stream.recentEvents;
+  const lastProcessedID = useRef(0);
+  const liveDuringDrain = useRef<EventView[] | null>(null);
+  const hasFlashes = flashIds.size > 0;
   useEffect(() => {
-    if (flashIds.size === 0) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setFlashIds(new Set());
-    }, 1300);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [flashIds]);
+    if (!hasFlashes) return;
+    const timer = window.setTimeout(() => setFlashIds(new Set()), 1300);
+    return () => window.clearTimeout(timer);
+  }, [hasFlashes]);
 
   useEffect(() => {
     let cancelled = false;
+    liveDuringDrain.current = [];
     const categories = drainCategories(kind);
     void drainRecent({
       ...(categories ? { categories } : {}),
@@ -74,7 +65,9 @@ function EventsBody() {
         if (cancelled) {
           return;
         }
-        setBuffer(sortNewestFirst(page.items));
+        const arrivals = liveDuringDrain.current ?? [];
+        liveDuringDrain.current = null;
+        setBuffer(retainEvents(page.items, arrivals));
         setOverwritten(page.overwritten);
         setReset(page.reset);
         setVisible(PAGE);
@@ -92,8 +85,28 @@ function EventsBody() {
       });
     return () => {
       cancelled = true;
+      liveDuringDrain.current = null;
     };
   }, [kind, protocol, stream.reset]);
+
+  useEffect(() => {
+    if (stream.reset) lastProcessedID.current = 0;
+    const arrivals = incoming.filter((event) => event.id > lastProcessedID.current &&
+      matchEvent(event, { kind, protocol, search: "" }));
+    const latest = incoming.at(-1);
+    if (latest) lastProcessedID.current = latest.id;
+    if (arrivals.length === 0) return;
+    if (liveDuringDrain.current !== null) {
+      liveDuringDrain.current = retainEvents(liveDuringDrain.current, arrivals);
+    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setBuffer((prev) => retainEvents(prev, arrivals));
+      setFlashIds((prev) => new Set([...prev, ...arrivals.map((event) => event.id)].slice(-EVENT_RETENTION)));
+    });
+    return () => { cancelled = true; };
+  }, [incoming, kind, protocol, stream.reset]);
 
   const items = useMemo(() => {
     return buffer.filter((ev) => matchEvent(ev, { kind, protocol, search })).slice(0, visible);
@@ -105,7 +118,7 @@ function EventsBody() {
     <main className="page page--wide">
       <h1>Events</h1>
       <p className="lede">
-        Live AAA. Newest first. Sensitive fields stay redacted without events:sensitive.
+        Live AAA. Newest first. The browser retains the latest {EVENT_RETENTION} events. Sensitive fields stay redacted without events:sensitive.
       </p>
       <p role="status">
         Stream:{" "}

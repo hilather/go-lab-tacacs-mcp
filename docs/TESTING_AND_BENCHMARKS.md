@@ -398,6 +398,20 @@ Keep deterministic generated fixtures:
 
 Large fixtures are for scheduled/release jobs when ordinary CI runtime is excessive.
 
+### 8.2.1 Browser event retention (`REV-UI-003`)
+
+Run from `web/` with Node 22.14.0: `node --expose-gc scripts/bench-events.mjs`.
+The deterministic fixture starts with 1,000 newest-first history rows and ingests 10,000 live events. One warmup precedes seven measured samples. The benchmark loads the actual production reducer; the legacy checkout uses `mergeEvent`, while the bounded snapshot/live path uses `retainEvents`.
+
+Sequential measurements on the shared development host, 2026-10-03:
+
+| Reducer | Median workload ms | p95 workload ms | Final retained rows |
+|---|---:|---:|---:|
+| Before bounded retention | 10,653.88 | 14,529.20 | 11,000 |
+| Bounded snapshot/live retention | 3,115.25 | 4,940.62 | 1,000 |
+
+These timings are diagnostic comparisons, not product latency guarantees. The fixed workload improves median by 70.8% and p95 by 66.0%; retention remains bounded as the stream continues. Unit/component regressions cover deduplication, newest-first order, late snapshots, filter isolation, batched EventSource delivery, and highlight expiry during continuing traffic. `useEventStream.test.tsx` also covers accounting/revision/reset session invalidation and burst coalescing.
+
 ### 8.3 Required Go benchmarks
 
 Suggested names:

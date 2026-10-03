@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { envelope, json, renderApp, seedSession } from "../test/render";
@@ -197,4 +197,67 @@ describe("EventsPage", () => {
     expect(screen.getAllByText("TACACS+").length).toBeGreaterThan(0);
     expect(screen.queryByText("<redacted>")).not.toBeInTheDocument();
   });
+});
+
+
+it("keeps a live event received while the initial snapshot is pending", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let finish: ((response: Response) => void) | undefined;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).includes("/api/v1/events")) return new Promise<Response>((resolve) => { finish = resolve; });
+    return json(404, {});
+  }));
+  renderApp(<EventsPage />);
+  await waitFor(() => expect(finish).toBeDefined());
+  FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1000, user_id: "live-user" }));
+  expect(await screen.findByText("live-user")).toBeInTheDocument();
+  finish?.(json(200, envelope({ items: [sampleEvent], overwritten: 0, reset: false })));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(screen.getByText("live-user")).toBeInTheDocument();
+  sessionStorage.clear();
+  vi.unstubAllGlobals();
+});
+
+
+it("preserves matching history under unrelated traffic and every event in a batched burst", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", vi.fn(async () => json(200, envelope({ items: [sampleEvent], overwritten: 0, reset: false }))));
+  renderApp(<EventsPage />);
+  await screen.findByText("alice");
+  await act(async () => {
+    for (let id = 10; id <= 1020; id += 1) {
+      FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id, category: "acct", user_id: "unrelated" }));
+    }
+  });
+  expect(screen.getByText("alice")).toBeInTheDocument();
+  await act(async () => {
+    for (let id = 1021; id <= 1030; id += 1) FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id, user_id: `burst-${String(id)}` }));
+  });
+  for (let id = 1021; id <= 1030; id += 1) expect(screen.getByText(`burst-${String(id)}`)).toBeInTheDocument();
+  sessionStorage.clear();
+  vi.unstubAllGlobals();
+});
+
+
+it("expires highlights even when more events arrive before the deadline", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", vi.fn(async () => json(200, envelope({ items: [], overwritten: 0, reset: false }))));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  vi.useFakeTimers();
+  try {
+    await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 100, user_id: "first-flash" })));
+    expect(screen.getByText("first-flash").closest("tr")).toHaveClass("event-row--new");
+    await act(async () => { vi.advanceTimersByTime(800); });
+    await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 101, user_id: "second-flash" })));
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(screen.getByText("first-flash").closest("tr")).not.toHaveClass("event-row--new");
+  } finally {
+    vi.useRealTimers();
+    sessionStorage.clear();
+    vi.unstubAllGlobals();
+  }
 });

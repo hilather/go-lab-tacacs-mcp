@@ -6,6 +6,7 @@ export type StreamState = {
   reconnecting: boolean;
   reset: boolean;
   lastEvent: EventView | null;
+  recentEvents: EventView[];
 };
 
 export const EventStreamContext = createContext<StreamState | null>(null);

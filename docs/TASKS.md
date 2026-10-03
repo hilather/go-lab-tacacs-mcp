@@ -1765,6 +1765,28 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 - [x] Emit one `state.revision.changed` config event per successful publication, including concurrent mutations, reset, and reload; emit none on failure.
 - [x] Regression evidence: `internal/state/review_hash_test.go`, `cmd/taclabd/review_revision_test.go`, and file-reference replacement verifier-retention tests.
 
+### REVIEW-EVENT-01 Immutable ordered history and bounded live streams
+
+- [x] Reproduce concurrent fanout reordering and argument/timestamp aliases with failing ring regressions; serialize bounded nonblocking delivery and deep-copy ownership boundaries.
+- [x] Reproduce REST's 200-event replay truncation and revoked stream continuation; capture a finite full retained replay window with live handoff.
+- [x] Bind REST/MCP streams to opening token incarnation and recheck grants/expiry before sends and heartbeats; check UI session idle lifetime without extending activity.
+- [x] Share fixed 128 live admissions across REST SSE and all MCP listens; reject saturation before success/ack and release exactly once on handler exit.
+- [x] Record final race, parity, registry/docs checks and benchmark comparison after review.
+
+Existing P7.2/P7.4/P10.4/P11.5 contracts are hardened; no TACACS/RADIUS conformance
+row or typed schema changes. `events.subscribe` retains `PARITY_DIFFERENT_BINDING`.
+Decision: [ADR 0031](decisions/0031-bounded-admin-event-streams.md).
+
+REVIEW-EVENT-01 acceptance evidence: `GOMAXPROCS=2 go test -race -p=2
+./internal/events ./internal/api/auth ./internal/api/rest ./internal/api/mcp
+./internal/api/parity` passed, including redaction/equivalence and fuzz seed tests.
+Focused race regressions additionally prove failed Subscribe channels close,
+MCP authenticated-incarnation handoff, cookie recreation, and cancellation during
+REST replay. Relevant `go vet -p=2`, `make check-registries` (`-release`),
+`make docs-check`, and `git diff --check` passed. Six alternating benchmark samples
+and the explicitly reviewed ownership allocation exception are recorded in
+TESTING_AND_BENCHMARKS.md. Source/registry/schema generation is unaffected.
+
 ## 24. Protocol review hardening
 
 - [x] `RAD-REV-001` RadSec passes the authenticated peer certificate fingerprint to the Challenge gate. Configured CRLs must authenticate against the verified leaf issuer and be current; unrelated or expired CRLs fail closed. Evidence: `TestRadSecPropagatesCertificateChallengeBinding`, `TestRadSecCRLAuthenticityAndFreshness`; `go test -race ./internal/radius/tls`; `BenchmarkRadSecCRLValidation`; additional bad-signature, issuer isolation, omitted-root, and injected-clock evidence. TACACS also rejects a signed future-dated CRL (`TestFutureCRLDoesNotAdmit`). Affected rows: `PRJ-RADSEC-001`, `R65-ACCESS-004`. No administrative contract or parity change.

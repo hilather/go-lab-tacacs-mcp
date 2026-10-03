@@ -300,3 +300,46 @@ it("retries arrivals when effect cleanup cancels their queued commit", async () 
   expect(screen.getByText("next-arrival")).toBeInTheDocument();
   vi.unstubAllGlobals();
 });
+
+it("clears the reset banner on the first live event after the post-reset drain", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  const before = reads;
+  // Batched reset: the hook's own reset flag is cleared by the same-batch
+  // event, so only the page's generation tracking keeps the banner.
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "in-reset-batch" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 2, user_id: "after-drain" })));
+  expect(await screen.findByText("after-drain")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument());
+
+  // A filter re-drain must not resurrect the acknowledged reset.
+  const beforeFilter = reads;
+  await userEvent.click(screen.getByRole("button", { name: "Acct" }));
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeFilter));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument();
+
+  // A new batched reset re-arms the banner through the generation check.
+  const beforeSecond = reads;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, category: "acct", user_id: "second-reset" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeSecond));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});

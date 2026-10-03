@@ -46,6 +46,9 @@ function EventsBody() {
   const incoming = stream.recentEvents;
   const lastProcessedID = useRef(0);
   const lastResetGeneration = useRef(stream.resetGeneration);
+  // Highest reset generation whose notice was cleared by a live event that
+  // arrived after that generation's re-drain landed.
+  const acknowledgedGeneration = useRef(0);
   const liveDuringDrain = useRef<EventView[] | null>(null);
   const hasFlashes = flashIds.size > 0;
   useEffect(() => {
@@ -70,7 +73,7 @@ function EventsBody() {
         liveDuringDrain.current = null;
         setBuffer(retainEvents(page.items, arrivals));
         setOverwritten(page.overwritten);
-        setReset(page.reset || stream.resetGeneration > 0);
+        setReset(page.reset || stream.resetGeneration > acknowledgedGeneration.current);
         setVisible(PAGE);
         setLoadError(null);
       })
@@ -95,20 +98,27 @@ function EventsBody() {
       lastProcessedID.current = 0;
       lastResetGeneration.current = stream.resetGeneration;
     }
+    const latest = incoming.at(-1);
+    if (!latest || latest.id <= lastProcessedID.current) return;
     const arrivals = incoming.filter((event) => event.id > lastProcessedID.current &&
       matchEvent(event, { kind, protocol, search: "" }));
-    const latest = incoming.at(-1);
-    if (arrivals.length === 0) {
-      if (latest) lastProcessedID.current = latest.id;
-      return;
-    }
-    if (liveDuringDrain.current !== null) {
+    // Any live event after this generation's re-drain landed ends the reset
+    // notice, as the stream hook does; events in the reset batch or during
+    // the re-drain belong to the drain and keep it.
+    const drained = liveDuringDrain.current === null;
+    const generation = stream.resetGeneration;
+    if (arrivals.length > 0 && liveDuringDrain.current !== null) {
       liveDuringDrain.current = retainEvents(liveDuringDrain.current, arrivals);
     }
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      if (latest) lastProcessedID.current = latest.id;
+      lastProcessedID.current = latest.id;
+      if (drained) {
+        acknowledgedGeneration.current = generation;
+        setReset(false);
+      }
+      if (arrivals.length === 0) return;
       setBuffer((prev) => retainEvents(prev, arrivals));
       setFlashIds((prev) => new Set([...prev, ...arrivals.map((event) => event.id)].slice(-EVENT_RETENTION)));
     });

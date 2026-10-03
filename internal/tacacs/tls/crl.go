@@ -57,7 +57,7 @@ func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*
 		if err := crl.CheckSignatureFrom(issuer); err != nil {
 			continue
 		}
-		if !crl.NextUpdate.IsZero() && now.After(crl.NextUpdate) {
+		if now.Before(crl.ThisUpdate) || (!crl.NextUpdate.IsZero() && now.After(crl.NextUpdate)) {
 			return errCRLUnverifiable
 		}
 		matched = true

@@ -60,3 +60,35 @@ func parseECKeyFile(path string) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(raw)
 	return x509.ParseECPrivateKey(block.Bytes)
 }
+
+func TestFutureCRLDoesNotAdmit(t *testing.T) {
+	pki, err := GenerateLabPKI(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, err := parseOneCertFile(pki.ClientCACert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := parseECKeyFile(pki.ClientCAKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := parseOneCertFile(pki.ClientOKCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	raw, err := makeCRL(ca, key, nil, now.Add(2*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(raw)
+	crl, err := x509.ParseRevocationList(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := revokedBy([]*x509.RevocationList{crl}, leaf, []*x509.Certificate{ca}, now); err == nil {
+		t.Fatal("future CRL admitted client")
+	}
+}

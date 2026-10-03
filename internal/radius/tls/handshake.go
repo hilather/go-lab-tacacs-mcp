@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
@@ -174,8 +175,13 @@ func (l *Listener) verifyPeer(cs tls.ConnectionState) error {
 			return err
 		}
 		leaf := cs.PeerCertificates[0]
-		issuers := cs.PeerCertificates[1:]
-		if err := revokedBy(lists, leaf, issuers); err != nil {
+		var issuers []*x509.Certificate
+		for _, chain := range cs.VerifiedChains {
+			if len(chain) > 1 {
+				issuers = append(issuers, chain[1:]...)
+			}
+		}
+		if err := revokedBy(lists, leaf, issuers, l.now()); err != nil {
 			return err
 		}
 	}
@@ -228,20 +234,37 @@ func loadCRLs(path string) ([]*x509.RevocationList, error) {
 	return lists, nil
 }
 
-func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*x509.Certificate) error {
+func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*x509.Certificate, now time.Time) error {
 	if cert == nil {
 		return errors.New("client certificate is required")
 	}
+	var issuer *x509.Certificate
+	for _, candidate := range issuers {
+		if candidate != nil && cert.CheckSignatureFrom(candidate) == nil {
+			issuer = candidate
+			break
+		}
+	}
+	if issuer == nil {
+		return errors.New("client CRL issuer is unavailable")
+	}
+	matched := false
 	for _, crl := range lists {
-		if crl == nil {
+		if crl == nil || crl.CheckSignatureFrom(issuer) != nil {
 			continue
 		}
+		if now.Before(crl.ThisUpdate) || (!crl.NextUpdate.IsZero() && now.After(crl.NextUpdate)) {
+			return errors.New("client CRL is outside its validity interval")
+		}
+		matched = true
 		for _, rc := range crl.RevokedCertificateEntries {
 			if rc.SerialNumber != nil && cert.SerialNumber != nil && rc.SerialNumber.Cmp(cert.SerialNumber) == 0 {
 				return errors.New("client certificate is revoked")
 			}
 		}
-		_ = issuers
+	}
+	if !matched {
+		return errors.New("client CRL cannot be authenticated")
 	}
 	return nil
 }

@@ -47,6 +47,28 @@ func TestPEAPRegistryCapacityIsBounded(t *testing.T) {
 	}
 }
 
+func TestPEAPRegistryAdmitsOneTunnelBelowReservation(t *testing.T) {
+	for _, tc := range []struct{ entries, bytes, want int }{
+		{16, 64 << 10, 1},
+		{16, (256 << 10) - 1, 1},
+		{16, 256 << 10, 1},
+		{16, 1 << 20, 4},
+		{2, 8 << 20, 2},
+	} {
+		if got := tunnelCapacity(tc.entries, tc.bytes); got != tc.want {
+			t.Errorf("tunnelCapacity(%d, %d)=%d want %d", tc.entries, tc.bytes, got, tc.want)
+		}
+	}
+	r := NewRegistryWithLimits(16, 64<<10, time.Minute, nil)
+	t.Cleanup(r.Reset)
+	if !r.Put("first", &Tunnel{closed: true}) {
+		t.Fatal("minimum challenge_bytes admitted no PEAP tunnel")
+	}
+	if r.Put("second", &Tunnel{closed: true}) {
+		t.Fatal("sub-reservation budget admitted more than one tunnel")
+	}
+}
+
 func TestPEAPRegistryExpiresAndClosesAbandonedTunnel(t *testing.T) {
 	now := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	var ticks atomic.Int64
@@ -148,7 +170,7 @@ func TestPEAPRegistryExpiresWithoutTraffic(t *testing.T) {
 }
 
 func FuzzPEAPBoundedFragments(f *testing.F) {
-	for _, seed := range [][]byte{{1}, {0x80, 0, 1, 0, 1}, {0xc0, 0, 0, 0, 0}, {0x40, 1}, {0x80, 0, 0, 0, 2, 1}} {
+	for _, seed := range [][]byte{{1}, {0x80, 0, 1, 0, 1}, {0xc0, 0, 0, 0, 0}, {0x40, 1}, {0x80, 0, 0, 0, 2, 1}, {0x38}, {0x98, 0, 0, 0, 1, 1}} {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, raw []byte) {

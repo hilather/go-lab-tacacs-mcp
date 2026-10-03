@@ -227,6 +227,53 @@ func TestEAPIdentityIssuesPEAPStartWhenPEAPAllowed(t *testing.T) {
 	}
 }
 
+// TestEAPPEAPStartWithMinimumChallengeBytes pins the RAD-REV-002 registry
+// floor: the legal 64 KiB challenge_bytes minimum still admits one tunnel.
+func TestEAPPEAPStartWithMinimumChallengeBytes(t *testing.T) {
+	t.Parallel()
+	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, func() time.Time {
+		return time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
+	})
+	var ra [16]byte
+	ra[0] = 0x92
+	in, h := eapReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		eapIdentityAttr(1, "lab-admin"),
+	}, []string{methodPEAP}, store, nil)
+	h.Tunnels = peap.NewRegistryWithLimits(16, 64<<10, 30*time.Second, nil)
+	t.Cleanup(h.Tunnels.Reset)
+	res := h.Handle(context.Background(), in)
+	if res.Action != ActionReply || res.Reason != ReasonChallenge || res.Response[0] != byte(codec.CodeAccessChallenge) {
+		t.Fatalf("64 KiB challenge_bytes: got %+v", res)
+	}
+	assertSigned(t, res.Response, codec.CodeAccessChallenge, 1, ra, testSecret)
+	state := firstState(t, res.Response)
+	if h.Tunnels.Get(tunnelIDFromState(state)) == nil {
+		t.Fatal("challenged PEAP tunnel not registered")
+	}
+	body, err := peap.Parse(firstEAP(t, res.Response).Data)
+	if err != nil || !body.Start {
+		t.Fatalf("peap start=%+v err=%v", body, err)
+	}
+
+	ra[0] = 0x93
+	in2, _ := eapReq(t, ra, attribute.RawSet{
+		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
+		eapIdentityAttr(1, "lab-admin"),
+	}, []string{methodPEAP}, store, nil)
+	res = h.Handle(context.Background(), in2)
+	if res.Reason != ReasonChallengeCapacity || len(res.Response) == 0 || res.Response[0] != byte(codec.CodeAccessReject) {
+		t.Fatalf("second tunnel beyond the one-tunnel floor: got %+v", res)
+	}
+	pkt, err := codec.Decode(res.Response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pkt.Attributes.First(attribute.TypeState); ok {
+		t.Fatal("capacity reject carried State")
+	}
+}
+
 func TestEAPPEAPClientHelloChallenges(t *testing.T) {
 	t.Parallel()
 	store := runtime.NewChallengeStore(16, 64<<10, 30*time.Second, time.Now)

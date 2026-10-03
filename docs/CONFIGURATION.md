@@ -622,7 +622,7 @@ listeners:
       limit_proxy_state: true
       challenge_ttl: 30s        # clamped 5s–60s; in-memory Challenge State
       challenge_entries: 4096   # clamped 16–65536; fail-closed, no evict-to-admit
-      challenge_bytes: 1MiB     # clamped 64KiB–8MiB
+      challenge_bytes: 1MiB     # clamped 64KiB–8MiB; PEAP tunnels = max(1, min(entries, bytes/256KiB))
     accounting:
       enabled: false          # default; set true to bind UDP 1813 (memory-only accounting)
       required: false

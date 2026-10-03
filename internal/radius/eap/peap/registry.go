@@ -29,6 +29,8 @@ func NewRegistry() *Registry { return NewRegistryWithLimits(4096, 1<<20, 30*time
 // NewRegistryWithLimits reuses the Challenge capacity/TTL configuration
 // for a separate PEAP reservation budget, not shared byte accounting.
 // Buffer reservations can make the tunnel cap smaller than the State cap.
+// The cap never drops below one tunnel: legal challenge_bytes values below
+// one reservation (64 KiB to 256 KiB) still admit a single tunnel.
 func NewRegistryWithLimits(entries, bytes int, ttl time.Duration, now func() time.Time) *Registry {
 	if entries <= 0 {
 		entries = 4096
@@ -42,7 +44,13 @@ func NewRegistryWithLimits(entries, bytes int, ttl time.Duration, now func() tim
 	if now == nil {
 		now = time.Now
 	}
-	return &Registry{items: make(map[string]registryEntry), maxEntries: min(entries, bytes/tunnelReservationBytes), ttl: ttl, now: now}
+	return &Registry{items: make(map[string]registryEntry), maxEntries: tunnelCapacity(entries, bytes), ttl: ttl, now: now}
+}
+
+// tunnelCapacity is the entry limit bounded by whole tunnel reservations,
+// with a floor of one tunnel so small legal budgets do not disable PEAP.
+func tunnelCapacity(entries, bytes int) int {
+	return max(1, min(entries, bytes/tunnelReservationBytes))
 }
 
 // Put admits a tunnel without evicting a live conversation. The caller

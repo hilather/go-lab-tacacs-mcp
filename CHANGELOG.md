@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+- Bind RADIUS credentials and policy to the admitted snapshot, preserve separate UDP/RadSec endpoint policies, and release compiled TACACS policy engines with their snapshots.
+- PEAP now matches EAP policy and preserves supported reply profiles in its final Access-Accept.
+- Concurrent accounting retries with changed identifiers or delay times produce one event while retaining independently signed replies; failed sink calls remain retryable. RADIUS conformance stays partial.
+
 ## [1.5.2] — 2026-09-21
 
 Post-1.5.1 Dependabot refreshes: x/crypto, MCP go-sdk, and frontend lint/build toolchain (including tip deps #92–#96 after #91). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

@@ -125,7 +125,7 @@ All mutations follow:
 7. On success, update overlay, increment revision, and atomically publish the snapshot.
 8. Emit a state-change event after publication.
 
-Protocol request paths load the snapshot once and retain it for the request. They never hold the state write lock.
+Protocol request paths load the snapshot once and retain it for the request. UDP requests, RadSec connection admission and the shared RADIUS diagnostic operation carry the immutable snapshot handle into AAA alongside its revision; AAA never reopens a bound request against a newer publication. They never hold the state write lock. Both policy engines are compiled before publication, owned by that snapshot and released when its last request/session reference disappears; AAA retains no historical engine map. TACACS validity windows use the manager clock.
 
 Compile attaches the TACACS `ClientIndex`, independent RADIUS access and accounting LPM indexes, and an empty dictionary placeholder (`SetDictionaryCompiler` is the later hook). v1 TACACS fields stay equivalent. Invalid RADIUS compile discards the candidate. Overlay patches retain omitted RADIUS secrets.
 
@@ -621,3 +621,5 @@ The initial architecture allows but does not require:
 - Kubernetes packaging.
 
 No extension may change the default ephemeral runtime behavior or bypass common operations and policy services.
+
+RADIUS client access policies are indexed by client and endpoint, so UDP and TLS endpoints can select independent policies. An omitted endpoint in diagnostics selects a client policy only when that client has one RADIUS endpoint; ambiguous calls fail closed before group/client/fallback evaluation. Semantic accounting journals reserve pending identities atomically before entering the shared sink. Duplicates wait within their request deadline; success commits the identity and sink failure releases it. Pending identities consume the same entry/byte budget and are not evicted by TTL while executing. Saturation retains the documented miss/record/reply behavior.

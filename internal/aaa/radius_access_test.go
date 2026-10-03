@@ -720,3 +720,43 @@ func TestAuthenticateAccessNilService(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestAccessBoundRevisionDoesNotUseReloadedSnapshot(t *testing.T) {
+	svc := testRADIUSPolicyService(t)
+	old := svc.snap()
+	// A listener already admitted this request at old. Publish a new snapshot
+	// disabling its user before the application operation executes.
+	disabled := false
+	groups := []string{}
+	if _, err := svc.mgr.UpdateUser("lab-admin", state.UpdateUser{Enabled: &disabled, GroupIDs: &groups}, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{
+		Snapshot: old,
+		Context:  domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp", SnapshotRevision: old.Revision},
+		UserID:   "lab-admin", Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != RadiusAccessAccept || got.ReasonCode != AccessReasonOK || got.Trace.Winner == nil || got.Trace.Winner.RuleID != "permit-lab-admins" {
+		t.Fatalf("old admission decision: %+v", got)
+	}
+	if reply, ok := got.ReplyAttributes.First(attribute.TypeSessionTimeout); !ok || string(reply.Value) != string([]byte{0, 0, 2, 88}) {
+		t.Fatal("old admission lost reply profile")
+	}
+	got, err = svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{Snapshot: svc.mgr.Snapshot(), Context: domain.RequestContext{Protocol: domain.ProtocolRADIUS, ClientID: "lab-switches", EndpointID: "radius-udp", SnapshotRevision: svc.mgr.Snapshot().Revision}, UserID: "lab-admin", Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))}})
+	if err != nil || got.Outcome != RadiusAccessReject || got.ReasonCode != AccessReasonBadCredentials {
+		t.Fatalf("new admission decision: %+v err=%v", got, err)
+	}
+}
+
+func TestAccessRevisionWithoutBoundSnapshotFailsClosed(t *testing.T) {
+	svc := testRADIUSPolicyService(t)
+	calls := 0
+	svc.snapshot = func() *state.Snapshot { calls++; return svc.mgr.Snapshot() }
+	got, err := svc.AuthenticateAccess(context.Background(), RadiusAccessAttempt{Context: domain.RequestContext{SnapshotRevision: 1}, Evidence: CredentialEvidence{Method: domain.AuthMethodPassword, Password: credentials.NewPassword([]byte(testPassword))}})
+	if err == nil || got.Outcome != RadiusAccessReject || calls != 0 {
+		t.Fatalf("bound request loaded snapshot: calls=%d outcome=%s err=%v", calls, got.Outcome, err)
+	}
+}

@@ -48,10 +48,12 @@ const (
 // User-Password must already have been unhidden by the adapter.
 // Attributes are request TLVs; secret types are ignored and wiped.
 type RadiusAccessAttempt struct {
-	Context    domain.RequestContext
-	UserID     string
-	Evidence   CredentialEvidence
-	Attributes attribute.RawSet
+	Snapshot     *state.Snapshot   `json:"-"` // immutable listener admission snapshot; never serialized
+	PolicyMethod domain.AuthMethod // outer method; zero uses evidence method
+	Context      domain.RequestContext
+	UserID       string
+	Evidence     CredentialEvidence
+	Attributes   attribute.RawSet
 }
 
 // RadiusChallenge is the unused-by-PAP/CHAP Challenge payload.
@@ -113,7 +115,13 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 		return rejectAccess(user, AccessReasonUnsupportedMethod), nil
 	}
 
-	snap := s.snap()
+	snap := in.Snapshot
+	if snap == nil && in.Context.SnapshotRevision == 0 {
+		snap = s.snap()
+	}
+	if snap != nil && in.Context.SnapshotRevision != 0 && snap.Revision != in.Context.SnapshotRevision {
+		snap = nil
+	}
 	if snap == nil {
 		in.Evidence.Password.Wipe()
 		wipeSecretAttrs(in.Attributes)
@@ -133,7 +141,11 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 			wipeMSCHAPEvidence(&in.Evidence)
 			return rejectAccess(user, AccessReasonPasswordChangeRequired), nil
 		}
-		dec := evaluateAccess(snap, user, clientID, in.Context.EndpointID, method, reqAttrs)
+		policyMethod := in.PolicyMethod
+		if !policyMethod.Valid() {
+			policyMethod = method
+		}
+		dec := evaluateAccess(snap, user, clientID, in.Context.EndpointID, policyMethod, reqAttrs)
 		if dec.Outcome == RadiusAccessAccept && method == domain.AuthMethodMSCHAPv2 {
 			if err := appendMSCHAP2Success(s, ctx, snap, clientID, user, &in.Evidence, &dec); err != nil {
 				wipeMSCHAPEvidence(&in.Evidence)

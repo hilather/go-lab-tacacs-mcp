@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 )
 
 // BindKind is the Challenge State bind tagged union.
@@ -77,18 +78,19 @@ const (
 // ChallengeIssue is the adapter-built insert. Raw State is hashed and is
 // not retained on the record.
 type ChallengeIssue struct {
-	State        []byte
-	EndpointID   string
-	ClientID     string
-	Bind         ChallengeBind
-	UserID       string
-	Method       string
-	EAPID        byte
-	EAPType      byte
-	Step         ChallengeStep
-	MD5Challenge []byte
-	TunnelID     string
-	Revision     domain.Revision
+	State           []byte
+	EndpointID      string
+	ClientID        string
+	Bind            ChallengeBind
+	UserID          string
+	Method          string
+	EAPID           byte
+	EAPType         byte
+	Step            ChallengeStep
+	ReplyAttributes attribute.RawSet // sanitized policy replies retained until PEAP finish
+	MD5Challenge    []byte
+	TunnelID        string
+	Revision        domain.Revision
 }
 
 // String omits State, MD5 challenge, and certificate material.
@@ -107,18 +109,19 @@ func (in ChallengeIssue) Format(f fmt.State, _ rune) {
 // ChallengeRecord is a consumed (or inspected) store row. MD5Challenge is
 // copied out and wiped from the store on a successful consume.
 type ChallengeRecord struct {
-	EndpointID   string
-	ClientID     string
-	Bind         ChallengeBind
-	UserID       string
-	Method       string
-	EAPID        byte
-	EAPType      byte
-	Step         ChallengeStep
-	MD5Challenge []byte
-	TunnelID     string
-	Expires      time.Time
-	Revision     domain.Revision
+	EndpointID      string
+	ClientID        string
+	Bind            ChallengeBind
+	UserID          string
+	Method          string
+	EAPID           byte
+	EAPType         byte
+	Step            ChallengeStep
+	ReplyAttributes attribute.RawSet // sanitized policy replies retained until PEAP finish
+	MD5Challenge    []byte
+	TunnelID        string
+	Expires         time.Time
+	Revision        domain.Revision
 }
 
 // String omits State, MD5 challenge, and certificate material.
@@ -163,6 +166,7 @@ type challengeEntry struct {
 	eapID      byte
 	eapType    byte
 	step       ChallengeStep
+	reply      attribute.RawSet
 	md5        []byte
 	tunnelID   string
 	expires    time.Time
@@ -228,7 +232,7 @@ func entryBytes(e *challengeEntry) int {
 	if e == nil {
 		return 0
 	}
-	return 32 + len(e.endpointID) + len(e.clientID) + len(e.userID) + len(e.method) + len(e.md5) + len(e.tunnelID) + 64
+	return 32 + len(e.endpointID) + len(e.clientID) + len(e.userID) + len(e.method) + len(e.md5) + len(e.tunnelID) + e.reply.WireSize() + len(e.reply)*24 + 64
 }
 
 func (s *ChallengeStore) issueValid(in ChallengeIssue) bool {
@@ -277,6 +281,7 @@ func (s *ChallengeStore) Issue(in ChallengeIssue) IssueResult {
 		eapID:      in.EAPID,
 		eapType:    in.EAPType,
 		step:       in.Step,
+		reply:      in.ReplyAttributes.Clone(),
 		md5:        append([]byte(nil), in.MD5Challenge...),
 		tunnelID:   in.TunnelID,
 		expires:    now.Add(s.ttl),
@@ -317,18 +322,19 @@ func (s *ChallengeStore) Consume(endpointID string, state []byte, clientID strin
 		return ChallengeRecord{}, ConsumeBinding
 	}
 	out := ChallengeRecord{
-		EndpointID:   e.endpointID,
-		ClientID:     e.clientID,
-		Bind:         e.bind,
-		UserID:       e.userID,
-		Method:       e.method,
-		EAPID:        e.eapID,
-		EAPType:      e.eapType,
-		Step:         e.step,
-		MD5Challenge: append([]byte(nil), e.md5...),
-		TunnelID:     e.tunnelID,
-		Expires:      e.expires,
-		Revision:     e.revision,
+		EndpointID:      e.endpointID,
+		ClientID:        e.clientID,
+		Bind:            e.bind,
+		UserID:          e.userID,
+		Method:          e.method,
+		EAPID:           e.eapID,
+		EAPType:         e.eapType,
+		Step:            e.step,
+		ReplyAttributes: e.reply.Clone(),
+		MD5Challenge:    append([]byte(nil), e.md5...),
+		TunnelID:        e.tunnelID,
+		Expires:         e.expires,
+		Revision:        e.revision,
 	}
 	s.removeLocked(key)
 	return out, ConsumeOK

@@ -482,7 +482,7 @@ func TestEvaluateIllegalReplyIsError(t *testing.T) {
 				reply:  TypedSet{{Key: AttrKey{Name: "NAS-IP-Address", Code: 4}, Kind: KindIPv4}},
 			}}},
 		},
-		clients: map[string]compiledClient{"c": {endpointID: "e", policyID: "p"}},
+		clients: map[string]compiledClient{"c": {endpoints: map[string]string{"e": "p"}}},
 	}
 	res := eng.Evaluate(Request{ClientID: "c", EndpointID: "e"})
 	if res.Effect != domain.EffectError || res.Trace.Error == "" {
@@ -490,5 +490,43 @@ func TestEvaluateIllegalReplyIsError(t *testing.T) {
 	}
 	if len(res.ReplyAttributes) != 0 {
 		t.Fatalf("error must not emit reply attrs: %+v", res.ReplyAttributes)
+	}
+}
+
+func TestClientPoliciesAreBoundToEachEndpoint(t *testing.T) {
+	eng := mustCompile(t, Input{
+		Policies: []config.RADIUSPolicy{
+			{ID: "udp-policy", Rules: []config.RADIUSRule{{ID: "udp-permit", Enabled: true, Effect: domain.EffectPermit}}},
+			{ID: "tls-policy", Rules: []config.RADIUSRule{{ID: "tls-deny", Enabled: true, Effect: domain.EffectDeny}}},
+		},
+		Clients: []config.Client{{ID: "dual", Enabled: true, Endpoints: []config.ClientEndpoint{
+			{ID: "udp", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "udp-policy"}},
+			{ID: "tls", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{AccessPolicyID: "tls-policy"}},
+		}}},
+	})
+	for _, tc := range []struct {
+		endpoint, rule string
+		effect         domain.Effect
+	}{
+		{"udp", "udp-permit", domain.EffectPermit}, {"tls", "tls-deny", domain.EffectDeny},
+	} {
+		got := eng.Evaluate(Request{ClientID: "dual", EndpointID: tc.endpoint, Method: domain.AuthMethodPassword})
+		if got.Effect != tc.effect || got.Trace.Winner == nil || got.Trace.Winner.RuleID != tc.rule {
+			t.Fatalf("endpoint %s: %+v", tc.endpoint, got)
+		}
+	}
+	for _, ep := range []string{"missing"} {
+		got := eng.Evaluate(Request{ClientID: "dual", EndpointID: ep, Method: domain.AuthMethodPassword})
+		if got.Effect != domain.EffectDeny || got.Trace.Winner != nil {
+			t.Fatalf("ambiguous or missing endpoint %q selected client policy: %+v", ep, got)
+		}
+	}
+}
+
+func TestAmbiguousEndpointDoesNotBypassPolicyThroughFallback(t *testing.T) {
+	eng := mustCompile(t, Input{Policies: []config.RADIUSPolicy{{ID: "permit", Rules: []config.RADIUSRule{{ID: "allow", Enabled: true, Effect: domain.EffectPermit}}}}, FallbackID: "permit", Clients: []config.Client{{ID: "dual", Enabled: true, Endpoints: []config.ClientEndpoint{{ID: "udp", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{}}, {ID: "tls", Protocol: domain.ProtocolRADIUS, RADIUS: &config.RADIUSEndpoint{}}}}}})
+	got := eng.Evaluate(Request{ClientID: "dual"})
+	if got.Effect != domain.EffectError || got.Trace.Error == "" {
+		t.Fatalf("ambiguous endpoint bypassed through fallback: %+v", got)
 	}
 }

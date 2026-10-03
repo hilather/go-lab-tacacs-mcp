@@ -16,4 +16,8 @@ rows:
       - unit:internal/radius/udp.TestAccessRejectAndCacheHitPendingPurgeOnUDP
       - unit:internal/radius/udp.TestUDPIntegrityDiscardsDoNotMutateCache
       - unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim
+      - unit:internal/radius/udp.TestAccountingSemanticReservationConcurrent
+      - unit:internal/radius/tls.TestAccountingSemanticReservationConcurrent
+      - unit:internal/radius/udp.TestAccountingSemanticReservationFailureRetryAndCancellation
+      - unit:internal/radius/tls.TestAccountingSemanticReservationFailureRetryAndCancellation
       - bench:internal/radius/udp.BenchmarkRadiusRetransmissionCacheHit

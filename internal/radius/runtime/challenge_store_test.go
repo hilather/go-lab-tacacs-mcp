@@ -3,6 +3,7 @@ package runtime
 import (
 	"bytes"
 	"fmt"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"net/netip"
 	"strings"
 	"sync"
@@ -289,5 +290,29 @@ func BenchmarkRadiusChallengeLookup(b *testing.B) {
 		if s.Issue(in) != IssueOK {
 			b.Fatal("reissue")
 		}
+	}
+}
+
+func TestChallengeReplyAttributesAreCopiedAndBudgeted(t *testing.T) {
+	bind := udpBind("192.0.2.10")
+	in := issueRec("state", "ep", "client", bind)
+	base := NewChallengeStore(2, 4096, time.Minute, time.Now)
+	if base.Issue(in) != IssueOK {
+		t.Fatal("base issue")
+	}
+	bytes := base.usedBytes
+	in.ReplyAttributes = attribute.RawSet{{Type: attribute.TypeSessionTimeout, Value: []byte{0, 0, 2, 88}}}
+	limited := NewChallengeStore(2, bytes+in.ReplyAttributes.WireSize()-1, time.Minute, time.Now)
+	if limited.Issue(in) != IssueSaturated {
+		t.Fatal("reply bytes not charged")
+	}
+	store := NewChallengeStore(2, 4096, time.Minute, time.Now)
+	if store.Issue(in) != IssueOK {
+		t.Fatal("reply issue")
+	}
+	in.ReplyAttributes[0].Value[3] = 0
+	out, ok := store.Consume("ep", []byte("state"), "client", bind)
+	if ok != ConsumeOK || out.ReplyAttributes[0].Value[3] != 88 {
+		t.Fatal("stored replies alias caller")
 	}
 }

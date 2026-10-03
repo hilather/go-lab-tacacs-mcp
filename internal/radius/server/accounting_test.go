@@ -483,3 +483,12 @@ func TestAccountingJournalSaturatedStillRecords(t *testing.T) {
 		t.Fatalf("%+v n=%d", res, sink.len())
 	}
 }
+
+func (j *memJournal) Begin(ctx context.Context, k JournalKey) (bool, bool, error) {
+	return !j.Seen(k), j.full, ctx.Err()
+}
+func (j *memJournal) Finish(k JournalKey, accepted bool) {
+	if accepted {
+		j.Remember(k)
+	}
+}

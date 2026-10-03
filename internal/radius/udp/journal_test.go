@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -100,5 +101,34 @@ func BenchmarkJournalRemember(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		k.SrcPort = uint16(i)
 		_ = j.Remember(k)
+	}
+}
+
+func BenchmarkJournalSemanticCompletedRetry(b *testing.B) {
+	j := newJournal(8, 4096, time.Minute, time.Now)
+	k := server.JournalKey{EndpointID: "ep", SessionID: "s"}
+	_, _, _ = j.Begin(context.Background(), k)
+	j.Finish(k, true)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if owner, _, err := j.Begin(context.Background(), k); owner || err != nil {
+			b.Fatal("completed retry")
+		}
+	}
+}
+
+func BenchmarkJournalSemanticReserveCommit(b *testing.B) {
+	now := time.Unix(0, 0)
+	j := newJournal(8, 4096, time.Nanosecond, func() time.Time { return now })
+	k := server.JournalKey{EndpointID: "ep", SessionID: "s"}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		now = now.Add(time.Nanosecond)
+		if owner, full, err := j.Begin(context.Background(), k); !owner || full || err != nil {
+			b.Fatal("reservation")
+		}
+		j.Finish(k, true)
 	}
 }

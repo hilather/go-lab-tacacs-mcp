@@ -103,7 +103,7 @@ Row IDs use pack prefixes only: `R65-` (RFC 2865), `R66-` (RFC 2866), `R69-` (RF
 | R66-RESP-001 | MUST | Construct exact Accounting-Response | Identifier copy; Message-Authenticator first | [x] |
 | R66-STAT-001 | MUST | Map declared Acct-Status-Type values | Start, Stop, Interim-Update, Accounting-On, Accounting-Off | [x] |
 | R69-ACCT-002 | MUST | Interim accounting, gigaword counters, Event-Timestamp, Acct-Interim-Interval | Semantic journal includes Event-Timestamp and counters | [x] |
-| PRJ-ACCT-001 | PROJECT MUST | Retransmission replays exact response and emits one accounting event | Exact cache plus semantic journal excluding Acct-Delay-Time | [x] |
+| PRJ-ACCT-001 | PROJECT MUST | Retransmission replays exact response and emits one accounting event | Exact cache plus atomic semantic journal excluding Acct-Delay-Time; UDP/RadSec gated concurrent and failed-sink retry tests | [x] |
 | PRJ-ACCT-002 | PROJECT MUST | Accounting/event storage is bounded, redacted, and memory-only | Journal/ring caps; ambiguous-identity sample budget | [x] |
 | PRJ-ACCT-003 | PROJECT MUST | Persistent accounting is not implemented | `DEFERRED_MAY` [ADR 0020](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0020-in-memory-radius-remaining-work-program.md); cancelled for this program; memory ring/journal only | deferred |
 
@@ -111,9 +111,9 @@ Row IDs use pack prefixes only: `R65-` (RFC 2865), `R66-` (RFC 2866), `R69-` (RF
 
 | ID | Level | Requirement | Required implementation and evidence | Status |
 |---|---|---|---|---|
-| R80-DUP-001 | MUST | Duplicate/retransmission behavior is deterministic and bounded | Exact-response cache; pending discard; changed-RA purge | [x] |
+| R80-DUP-001 | MUST | Duplicate/retransmission behavior is deterministic and bounded | Exact-response cache; pending discard; changed-RA purge; semantic pending identities reserved before sink acceptance | [x] |
 | PRJ-RUN-001 | PROJECT MUST | Listener queues/workers/cache/state/output have hard limits and recover after overload | `drop_overload`; saturation metrics | [x] |
-| PRJ-RUN-002 | PROJECT MUST | One datagram binds to one endpoint, secret handle, snapshot revision, and policy view | Role-specific LPM | [x] |
+| PRJ-RUN-002 | PROJECT MUST | One datagram binds to one endpoint, secret handle, snapshot revision, and policy view | Role-specific LPM plus immutable admission snapshot handle; `TestUDPAdmissionSnapshotSurvivesReloadBeforeAAA` | [x] |
 | PRJ-CFG-001 | PROJECT MUST | Strict v1 migrates deterministically; strict v2 rejects unknown/mixed syntax | v1 goldens unchanged | [x] |
 | PRJ-TAC-001 | PROJECT MUST | Existing TACACS legacy/TLS conformance remains green | TACACS registries stay PASS on shared-package PRs | [x] |
 | PRJ-PAR-001 | PROJECT MUST | REST/MCP/UI generated parity remains green | Same-change operations registry + generate | [x] |
@@ -184,3 +184,5 @@ A green row in this file does **not** make TacLab a production RADIUS server. Re
 Operator onboarding and silent-discard troubleshooting: [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md).
 
 PEAP bounded framing and lifecycle evidence (`RAD-REV-002`): `TestPEAPDeclaredFragmentLength`, `TestPEAPRepeatedLengthFlagRejected`, `TestPEAPRegistryExpiresWithoutTraffic`, `TestPEAPContinuationIdentifierMatchesChallenge` and `FuzzPEAPBoundedFragments`. These harden the lab increment; `PRJ-EAP-003` remains `DEFERRED_MAY`.
+
+`RAD-REV-003`–`005` bind credentials/policy to the admitted snapshot and client endpoint, classify PEAP as policy method `eap`, retain bounded sanitized final reply profiles, and reserve semantic accounting identities across concurrent UDP/RadSec retries. Tests retain independent signed-reply validation. This does not change partial RADIUS qualification or deferred full PEAP interoperability. Recorded workloads and the approved snapshot-publication allocation tradeoff are in [benchmarks/radius-contracts-review.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/benchmarks/radius-contracts-review.md).

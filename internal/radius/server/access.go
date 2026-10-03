@@ -85,6 +85,7 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 	}
 
 	dec, err := a.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
+		Snapshot: in.Snapshot,
 		Context: domain.RequestContext{
 			Protocol:         domain.ProtocolRADIUS,
 			Carrier:          requestCarrier(in),

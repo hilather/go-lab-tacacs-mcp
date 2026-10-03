@@ -69,7 +69,8 @@ func (a Access) handlePEAP(ctx context.Context, in Request, rec runtime.Challeng
 		tun.Close()
 		a.noteChallenge(observability.ChallengeResultContinue)
 		a.noteEAP(eapTypePEAP, true, observability.OutcomeAccessAccept)
-		return replyAccess(in, codec.CodeAccessAccept, ReasonOK, eapMessageAttrs(eapSuccess(pkt.Identifier)))
+		extra := append(rec.ReplyAttributes.Clone(), eapMessageAttrs(eapSuccess(pkt.Identifier))...)
+		return replyAccess(in, codec.CodeAccessAccept, ReasonOK, extra)
 	}
 	if err := tun.PushClient(complete); err != nil {
 		return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
@@ -129,6 +130,8 @@ func (a Access) handlePEAPInner(ctx context.Context, in Request, rec runtime.Cha
 			return a.eapReject(in, ReasonInternal, pkt.Identifier, eapTypePEAP, true)
 		}
 		dec, err := a.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
+			Snapshot:     in.Snapshot,
+			PolicyMethod: domain.AuthMethodEAP,
 			Context: domain.RequestContext{
 				Protocol:         domain.ProtocolRADIUS,
 				Carrier:          requestCarrier(in),
@@ -165,6 +168,7 @@ func (a Access) handlePEAPInner(ctx context.Context, in Request, rec runtime.Cha
 			return a.eapReject(in, ReasonInternal, pkt.Identifier, eapTypePEAP, true)
 		}
 		rec.UserID = user
+		rec.ReplyAttributes = policySafeAttrs(dec.ReplyAttributes)
 		return a.issuePEAPContinue(in, rec, firstFlight(tun, tun.PullServer()), runtime.StepPEAPFinish)
 	default:
 		return a.eapReject(in, ReasonInvalidState, pkt.Identifier, eapTypePEAP, true)
@@ -197,16 +201,17 @@ func (a Access) issuePEAPContinue(in Request, rec runtime.ChallengeRecord, body 
 	}
 	id := rec.EAPID + 1
 	reason := IssueChallenge(a.Store, in, runtime.ChallengeIssue{
-		State:        state,
-		UserID:       rec.UserID,
-		Method:       methodPEAP,
-		EAPID:        id,
-		EAPType:      eapTypePEAP,
-		Step:         step,
-		MD5Challenge: rec.MD5Challenge,
-		TunnelID:     rec.TunnelID,
-		EndpointID:   in.EndpointID,
-		ClientID:     in.ClientID,
+		State:           state,
+		UserID:          rec.UserID,
+		Method:          methodPEAP,
+		EAPID:           id,
+		EAPType:         eapTypePEAP,
+		Step:            step,
+		ReplyAttributes: rec.ReplyAttributes,
+		MD5Challenge:    rec.MD5Challenge,
+		TunnelID:        rec.TunnelID,
+		EndpointID:      in.EndpointID,
+		ClientID:        in.ClientID,
 	})
 	if reason != "" {
 		crypto.Wipe(state)

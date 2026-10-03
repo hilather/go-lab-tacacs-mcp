@@ -25,6 +25,7 @@ const (
 )
 
 type boundConn struct {
+	snapshot   *state.Snapshot
 	client     state.EffectiveClient
 	endpointID string
 	secret     []byte
@@ -77,6 +78,7 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 	defer wipe(secret)
 	fp := certFingerprint(leaf)
 	bound := boundConn{
+		snapshot:   snap,
 		client:     client,
 		endpointID: endpointID,
 		secret:     secret,
@@ -152,6 +154,7 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 	}
 	requireMA, limitPS, methods := endpointAccessPolicy(bound.client, bound.endpointID)
 	req := server.Request{
+		Snapshot:                    bound.snapshot,
 		Role:                        role,
 		Carrier:                     domain.CarrierRADIUSTLS,
 		Packet:                      pkt,

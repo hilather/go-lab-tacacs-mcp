@@ -33,8 +33,8 @@ type RADIUSRecorder interface {
 
 // SemanticJournal is the UDP accounting idempotency store (implemented by udp).
 type SemanticJournal interface {
-	Seen(JournalKey) bool
-	Remember(JournalKey) bool
+	Begin(context.Context, JournalKey) (owner, saturated bool, err error)
+	Finish(JournalKey, bool)
 }
 
 // AmbiguousSampler caps ring appends when identity is missing.
@@ -92,8 +92,20 @@ func (a Accounting) Handle(ctx context.Context, in Request) Result {
 		Fingerprint: eventFingerprint(kind, in.Packet.Attributes),
 	}
 
-	if in.Journal != nil && in.Journal.Seen(key) {
-		return accountingReply(in, ReasonOK, false)
+	saturated := false
+	accepted := false
+	if in.Journal != nil {
+		owner, full, err := in.Journal.Begin(ctx, key)
+		if err != nil {
+			return Result{Action: ActionDiscard, Reason: ReasonOverload}
+		}
+		if !owner {
+			return accountingReply(in, ReasonOK, false)
+		}
+		saturated = full
+		if !full {
+			defer func() { in.Journal.Finish(key, accepted) }()
+		}
 	}
 
 	ambiguous := sessionID == "" && nas == ""
@@ -101,9 +113,7 @@ func (a Accounting) Handle(ctx context.Context, in Request) Result {
 		// Fail-open-to-ack: still reply so the NAS does not retry-storm.
 		// Remember the key so a Delay-Time retry cannot fill the ring
 		// when the sample window resets.
-		if in.Journal != nil {
-			_ = in.Journal.Remember(key)
-		}
+		accepted = true
 		return accountingReply(in, ReasonAmbiguousIdentity, false)
 	}
 
@@ -116,10 +126,8 @@ func (a Accounting) Handle(ctx context.Context, in Request) Result {
 		return Result{Action: ActionDiscard, Reason: ReasonInternal}
 	}
 
-	saturated := false
-	if in.Journal != nil && !in.Journal.Remember(key) {
-		saturated = true
-	}
+	accepted = true
+
 	return accountingReply(in, ReasonOK, saturated)
 }
 

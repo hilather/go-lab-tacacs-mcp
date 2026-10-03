@@ -10,6 +10,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/policy"
 	policyradius "github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 )
@@ -55,6 +56,7 @@ type Snapshot struct {
 	radiusAcctTLSIndex   *config.RADIUSCertIndex
 	radiusDynAuthIndex   *config.RADIUSIndex
 	radiusPolicies       *policyradius.Engine
+	tacacsPolicies       *policy.Engine
 	radiusDictionary     Dictionary
 	radiusDictVersion    string
 	secretWarns          []config.SecretWarning
@@ -480,4 +482,17 @@ func (s *Snapshot) MatchClient(transport domain.Transport, ip net.IP, cert *conf
 		return EffectiveClient{}, domain.NewError(domain.CodeNotFound, "no client matches the peer").WithPath("clients")
 	}
 	return c, nil
+}
+
+// TACACSPolicies returns the immutable policy engine compiled before publication.
+func (s *Snapshot) TACACSPolicies() *policy.Engine {
+	if s == nil {
+		return nil
+	}
+	return s.tacacsPolicies
+}
+
+// Format prevents formatting a bound snapshot from exposing private secret bags.
+func (s Snapshot) Format(f fmt.State, _ rune) {
+	_, _ = fmt.Fprintf(f, "Snapshot{revision=%d}", s.Revision)
 }

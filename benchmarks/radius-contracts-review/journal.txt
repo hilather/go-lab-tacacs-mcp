@@ -1,0 +1,18 @@
+goos: linux
+goarch: amd64
+pkg: github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkJournalSemanticCompletedRetry-2   	   91683	      1174 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJournalSemanticCompletedRetry-2   	   95340	      1690 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJournalSemanticCompletedRetry-2   	   54012	      3085 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJournalSemanticCompletedRetry-2   	   90369	      1225 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJournalSemanticCompletedRetry-2   	  182511	       790.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJournalSemanticCompletedRetry-2   	  146821	       941.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJournalSemanticReserveCommit-2    	   35995	      5000 ns/op	     112 B/op	       1 allocs/op
+BenchmarkJournalSemanticReserveCommit-2    	   27126	      4319 ns/op	     112 B/op	       1 allocs/op
+BenchmarkJournalSemanticReserveCommit-2    	   26170	      5865 ns/op	     112 B/op	       1 allocs/op
+BenchmarkJournalSemanticReserveCommit-2    	   19978	      5122 ns/op	     112 B/op	       1 allocs/op
+BenchmarkJournalSemanticReserveCommit-2    	   19112	      5396 ns/op	     112 B/op	       1 allocs/op
+BenchmarkJournalSemanticReserveCommit-2    	   32056	      5209 ns/op	     112 B/op	       1 allocs/op
+PASS
+ok  	github.com/hilather/go-lab-tacacs-mcp/internal/radius/udp	2.836s

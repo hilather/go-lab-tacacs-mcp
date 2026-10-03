@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
-	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 	"io"
 	"net"
 	"net/http"
@@ -17,6 +15,8 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
 func TestStartHTTPRejectsUnsupportedTLSBeforeBootstrap(t *testing.T) {
@@ -62,7 +62,21 @@ observability:
 	if _, err := io.WriteString(conn, "GET /health/live HTTP/1.1\r\nHost: lab\r\n"); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(20 * time.Millisecond)
+	// A completed request on a second connection proves the accept loop has
+	// already registered the earlier stalled connection with the HTTP server.
+	control := &http.Client{
+		Timeout:   3 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
+	resp, err := control.Get("http://" + addr + "/health/live")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, readErr := io.Copy(io.Discard, resp.Body)
+	closeErr := resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || readErr != nil || closeErr != nil {
+		t.Fatalf("control request failed: status=%d read=%v close=%v", resp.StatusCode, readErr, closeErr)
+	}
 	cancel()
 	select {
 	case err := <-result:

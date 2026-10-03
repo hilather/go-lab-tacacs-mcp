@@ -63,8 +63,9 @@ type registered struct {
 
 // Registry is the typed operation table shared by REST and MCP.
 type Registry struct {
-	ops  map[string]registered
-	list []Operation
+	ops    map[string]registered
+	list   []Operation
+	replay *replayStore
 }
 
 // New loads handlers for every operation in spec. Unknown handler IDs and
@@ -105,8 +106,9 @@ func assemble(spec *Spec, implemented map[string]handleFunc, catalog map[string]
 		}
 	}
 	reg := &Registry{
-		ops:  make(map[string]registered, len(spec.Operations)),
-		list: make([]Operation, 0, len(spec.Operations)),
+		ops:    make(map[string]registered, len(spec.Operations)),
+		replay: newReplayStore(),
+		list:   make([]Operation, 0, len(spec.Operations)),
 	}
 	for _, specOp := range spec.Operations {
 		req, ok := catalog[specOp.RequestType]
@@ -217,6 +219,13 @@ func (r *Registry) Invoke(ctx context.Context, id string, snap *state.Snapshot, 
 		return Result{}, err
 	}
 	in.Request = req
+	if in.IdempotencyKey != "" {
+		return r.invokeReplay(ctx, id, snap, in, got)
+	}
+	return r.invokeHandler(ctx, id, snap, in, got)
+}
+
+func (r *Registry) invokeHandler(ctx context.Context, id string, snap *state.Snapshot, in Input, got registered) (Result, error) {
 	data, err := got.handle(ctx, snap, in)
 	if err != nil {
 		return Result{}, err

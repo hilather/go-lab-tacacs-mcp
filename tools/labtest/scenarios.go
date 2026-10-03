@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -455,7 +456,10 @@ func (h *harness) labAPIparity() error {
 
 func (h *harness) labAPICreate() error {
 	body := map[string]any{"id": "lab-runtime-tmp", "enabled": false, "display_name": "runtime"}
-	code, raw, err := h.restJSON(http.MethodPost, "/api/v1/users", body, map[string]string{"Idempotency-Key": "lab-runtime-tmp-1"})
+	// Each invocation is a new logical create, including restart setup after reset.
+	// Any transport retry of this invocation must retain this same local key.
+	key := "lab-runtime-tmp-" + rand.Text()
+	code, raw, err := h.restJSON(http.MethodPost, "/api/v1/users", body, map[string]string{"Idempotency-Key": key})
 	if err != nil {
 		return err
 	}

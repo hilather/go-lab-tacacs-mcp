@@ -688,3 +688,21 @@ comparison predates that small optimization and is conservative for that path.
 Reference command (run both revisions on a quiet matching runner to confirm
 latency): `GOMAXPROCS=2 go test -p=2 ./internal/events -run '^$'
 -bench 'BenchmarkEvent(OwnedFanout|Append|ReadPage)$' -benchmem -count=6`.
+
+## Administrative idempotency benchmark evidence (P9.2, 2026-10-03)
+
+Reference: Intel i7-8750H, Go 1.26.8, GOMAXPROCS=2, `go test -p=2
+./internal/api/operations -run '^$' -bench 'BenchmarkRegistryInvoke(Read|Replay)'
+-benchmem -count=5`. Baseline is commit 63b9094 with the identical read benchmark.
+The repository-approved equivalent comparison uses sample medians.
+
+| Workload | Baseline median | Changed median | Bytes / allocations |
+|---|---:|---:|---:|
+| Read users.get | 1115 ns (initial), 2493 ns (repeat) | 1111 ns (final) | 368 B / 5 (unchanged) |
+| Successful keyed users.create replay | unavailable (defect: retry fails) | 30408 ns | 3288 B / 60 |
+
+This shared host was concurrently running review checks; the large variation in
+identical baseline runs prevents a statistically meaningful latency claim. The
+final read median matches the initial baseline within 1%; allocation counts remain
+identical. Replay includes HMAC fingerprinting and independent typed response
+decoding; a dedicated runner should establish a stable replay performance budget.

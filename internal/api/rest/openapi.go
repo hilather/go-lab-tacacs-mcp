@@ -390,10 +390,11 @@ func ifMatchParam() map[string]any {
 
 func idempotencyParam() map[string]any {
 	return map[string]any{
-		"name":     "Idempotency-Key",
-		"in":       "header",
-		"required": false,
-		"schema":   map[string]any{"type": "string"},
+		"name":        "Idempotency-Key",
+		"in":          "header",
+		"required":    false,
+		"description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
+		"schema":      map[string]any{"type": "string", "maxLength": 256},
 	}
 }
 

@@ -418,8 +418,8 @@ func TestRequestIDEcho(t *testing.T) {
 func TestIfMatchAndIdempotencyParsed(t *testing.T) {
 	t.Parallel()
 	h := restHarness(t)
-	body, _ := json.Marshal(operations.CreateTokenRequest{ID: "ci", Name: "CI", Scopes: []string{"state:read"}})
-	resp := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/tokens", h.Token, body, map[string]string{
+	body, _ := json.Marshal(operations.CreateUserRequest{ID: "ci"})
+	resp := doAuth(t, http.MethodPost, h.HTTP.URL+"/api/v1/users", h.Token, body, map[string]string{
 		headerIfMatch:     `"revision-999"`,
 		headerIdempotency: "idem-1",
 	})

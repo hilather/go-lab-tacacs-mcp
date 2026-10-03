@@ -3415,10 +3415,12 @@
             }
           },
           {
+            "description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": false,
             "schema": {
+              "maxLength": 256,
               "type": "string"
             }
           }
@@ -4040,10 +4042,12 @@
             }
           },
           {
+            "description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": false,
             "schema": {
+              "maxLength": 256,
               "type": "string"
             }
           }
@@ -4577,10 +4581,12 @@
             }
           },
           {
+            "description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": false,
             "schema": {
+              "maxLength": 256,
               "type": "string"
             }
           }
@@ -5660,10 +5666,12 @@
             }
           },
           {
+            "description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": false,
             "schema": {
+              "maxLength": 256,
               "type": "string"
             }
           }
@@ -6094,10 +6102,12 @@
             }
           },
           {
+            "description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": false,
             "schema": {
+              "maxLength": 256,
               "type": "string"
             }
           }
@@ -6425,10 +6435,12 @@
             }
           },
           {
+            "description": "Replay for users/groups/clients.create, runtime.reset and config.reload only. Other operations reject nonempty keys. Entries expire after 10 minutes; reuse the original revision and payload.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": false,
             "schema": {
+              "maxLength": 256,
               "type": "string"
             }
           }

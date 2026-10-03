@@ -1630,3 +1630,5 @@ flowchart TD
 ---
 
 *End of canonical design. Implementation proceeds from the PR Plan. User-owned product questions are Resolved above.*
+
+Administrative replay keys are implemented in the common registry for users/groups/clients.create, runtime.reset and config.reload. Keys are limited to 256 bytes; completed entries expire after ten minutes. The store admits 128 entries with a reserved 64 KiB result payload per entry (8 MiB total payload budget). Pending entries count against admission and do not expire. Authorization, current token incarnation and grants precede replay. Original payload and expected revision must match. Reset/reload preserve this bounded bookkeeping until TTL or process restart; it is separate from the runtime overlay. Errors retain safe codes only; oversized successful results leave unavailable tombstones. Check state before retrying with a new key. Other operations reject nonempty keys, including one-time bearer creation. See [ADR 0033](decisions/0033-bounded-administrative-idempotency.md).

@@ -138,7 +138,7 @@ Internal causes may be logged with a correlation ID but are not exposed as stack
 
 ### 7.2 Idempotency
 
-- REST uses `Idempotency-Key`.
+- REST uses `Idempotency-Key`. The adapter passes the parsed field value unchanged; HTTP parsing strips only leading/trailing SP/HTAB (RFC 9110 §5.5), and all other bytes are significant (ADR 0033).
 - MCP mutating tool input uses `idempotency_key` when the operation supports replay protection.
 - Both map to the same bounded in-memory idempotency service and response replay rules.
 - Idempotency entries disappear on restart with other runtime state unless a future persistence ADR says otherwise.
@@ -397,3 +397,5 @@ grant. REST Last-Event-ID replay captures all matching retained events in one
 finite window before live handoff, rather than one 200-item page. MCP remains
 URI-only and does not replay bodies. No operation, schema, or registry disposition
 is added; transport framing stays `PARITY_DIFFERENT_BINDING`.
+
+Administrative replay keys are implemented in the common registry for users/groups/clients.create, runtime.reset and config.reload. Keys are limited to 256 bytes; completed entries expire after ten minutes. The store admits 128 entries with a reserved 64 KiB result payload per entry (8 MiB total payload budget). Pending entries count against admission and do not expire. Authorization, current token incarnation and grants precede replay. Original payload and expected revision must match. Reset/reload preserve this bounded bookkeeping until TTL or process restart; it is separate from the runtime overlay. Errors retain safe codes only; oversized successful results leave unavailable tombstones. Check state before retrying with a new key. Other operations reject nonempty keys, including one-time bearer creation. See [ADR 0033](decisions/0033-bounded-administrative-idempotency.md).

@@ -408,7 +408,7 @@ func TestEmptyOptionalSecretObject(t *testing.T) {
 	}
 }
 
-func TestIdempotentCreateSameFailure(t *testing.T) {
+func TestIdempotentCreateReplaysSuccess(t *testing.T) {
 	t.Parallel()
 	direct, restW, mcpW := isolatedTrio(t, allScopes)
 	req := operations.CreateUserRequest{ID: "dup", Enabled: boolPtr(false)}
@@ -419,8 +419,8 @@ func TestIdempotentCreateSameFailure(t *testing.T) {
 			t.Fatalf("%s first create: %s %s", w.Name, first.Code, first.Raw)
 		}
 		second := invoke(t, w, operations.IDUsersCreate, req, opts)
-		if second.Code != string(domain.CodeAlreadyExists) {
-			t.Fatalf("%s replay code=%q want already_exists (no replay store)", w.Name, second.Code)
+		if second.Code != "" || canonicalJSON(first.Data) != canonicalJSON(second.Data) {
+			t.Fatalf("%s replay differs: first=%s second=%s", w.Name, first.Raw, second.Raw)
 		}
 	}
 }
@@ -454,4 +454,20 @@ func tokenValue(v any) string {
 	m, _ := v.(map[string]any)
 	s, _ := m["token"].(string)
 	return s
+}
+
+func TestIdempotentCreateCrossAdapterReplay(t *testing.T) {
+	w := newWorld(t, "rest", allScopes, "both")
+	revision := w.Mgr.Revision()
+	opts := callOpts{IdempotencyKey: "cross-adapter"}
+	req := operations.CreateUserRequest{ID: "cross-adapter", Enabled: boolPtr(false)}
+	op, _ := w.Registry.Lookup(operations.IDUsersCreate)
+	first := invokeREST(t, w, op, req, opts)
+	second := invokeMCP(t, w, op, req, opts)
+	if first.Code != "" || second.Code != "" || canonicalJSON(first.Data) != canonicalJSON(second.Data) {
+		t.Fatalf("replay differs: %s %s", first.Raw, second.Raw)
+	}
+	if w.Mgr.Revision() != revision+1 {
+		t.Fatal("retry repeated mutation")
+	}
 }

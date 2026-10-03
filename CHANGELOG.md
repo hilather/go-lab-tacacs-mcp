@@ -6,6 +6,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 - Reject unsupported native admin HTTP TLS instead of silently serving plaintext; hosted HTTPS uses a reverse proxy with explicitly secure browser cookies (ADR 0032).
 - Cancel REST/MCP streams and mark unready before shutdown drains; force-close stalled HTTP connections after the grace and report HTTP/observability shutdown failures. Protocol grace cancellation retains its established behavior.
+- Administrative create/reset/reload retries now share bounded in-memory idempotency replay across REST and MCP, preserving original revisions. Unsupported keys, including one-time token creation, fail before mutation; replay entries expire after ten minutes.
+- REST `Idempotency-Key` values are no longer trimmed by the adapter; keys are compared byte-for-byte after standard HTTP whitespace parsing, so values differing only in Unicode whitespace (for example U+00A0) or other bytes are distinct keys.
+- MCP tool and resource dispatch uses the authenticated snapshot to prevent token replacement during request decoding from crossing credential incarnations.
 
 ## [1.5.2] — 2026-09-21
 

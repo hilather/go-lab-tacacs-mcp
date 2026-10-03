@@ -104,17 +104,8 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		TracingEnabled: doc.Observability.Tracing.Enabled,
 		PprofEnabled:   doc.Observability.Profiling.Enabled,
 	})
-	observeSnap := func(snap *state.Snapshot) {
-		if snap == nil {
-			return
-		}
-		obs.Rec.SetRevision(uint64(snap.Revision))
-		counts := map[string]int{}
-		for st, n := range snap.LifecycleCounts() {
-			counts[string(st)] = n
-		}
-		obs.Rec.SetSecretLifecycle(counts)
-	}
+	var ring *events.Ring
+	observeSnap := newSnapshotObserver(obs.Rec, func() *events.Ring { return ring })
 
 	lookup := secretLookup(doc)
 	mgr, err := state.New(doc, state.Options{Secrets: lookup, Hook: observeSnap})
@@ -129,7 +120,6 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		logger.Warn(operations.ColocatedTopologyWarning)
 	}
 
-	var ring *events.Ring
 	var aaaSvc *aaa.Service
 	if h == nil {
 		var stdoutSink io.Writer
@@ -629,5 +619,26 @@ func warningStatus(code domain.Code) string {
 		return observability.StatusReuse
 	default:
 		return observability.StatusUnknown
+	}
+}
+
+// newSnapshotObserver connects the publication hook to metrics and the event
+// ring. The ring supplier allows initialization before the first listener starts.
+func newSnapshotObserver(rec *observability.Recorder, ring func() *events.Ring) func(*state.Snapshot) {
+	return func(snap *state.Snapshot) {
+		if snap == nil {
+			return
+		}
+		rec.SetRevision(uint64(snap.Revision))
+		counts := map[string]int{}
+		for status, n := range snap.LifecycleCounts() {
+			counts[string(status)] = n
+		}
+		rec.SetSecretLifecycle(counts)
+		if ring != nil {
+			if sink := ring(); sink != nil {
+				sink.Accept(events.Event{Category: events.CategoryConfig, Type: "state.revision.changed", Result: "ok", Revision: snap.Revision})
+			}
+		}
 	}
 }

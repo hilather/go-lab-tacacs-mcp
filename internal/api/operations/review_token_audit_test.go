@@ -3,9 +3,10 @@ package operations
 import (
 	"context"
 	"encoding/json"
-	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"strings"
 	"testing"
+
+	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 )
 
 func TestTokenMutationsEmitSecretFreeAudit(t *testing.T) {

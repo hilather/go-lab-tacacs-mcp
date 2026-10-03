@@ -224,7 +224,7 @@ Client objects are additive: existing TACACS flatten fields stay. `endpoints` is
 | `tokens.create` | `tokens:manage` | `POST /api/v1/tokens` | tool `taclab.tokens.create` | PARITY_REQUIRED |
 | `tokens.revoke` | `tokens:manage` | `DELETE /api/v1/tokens/{id}` | tool `taclab.tokens.revoke` | PARITY_REQUIRED |
 
-Browser sessions bind the current token credential incarnation. Rotation, revocation/recreation, and restoration from an override invalidate older cookies even when replacement token bytes match; unrelated state mutations preserve sessions.
+Browser sessions bind the current token credential incarnation. Rotation, revocation/recreation, and restoration from an override invalidate older cookies even when replacement token bytes match. Changes to scopes, enabled status, or expiry also invalidate earlier cookies; unrelated state mutations preserve sessions.
 
 The token value appears exactly once in the successful create response on both surfaces. It is never returned by list/get and never embedded in events. Handlers live in `internal/api/operations`; adapters are not required for the operations to function. Lab static bearer (no OAuth PRM) is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md).
 

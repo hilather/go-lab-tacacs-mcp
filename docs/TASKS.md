@@ -1756,3 +1756,11 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 
 - [x] Validate candidates with the overlay selected by `reload_overlay_behavior`; reset candidates are not rejected by objects they discard.
 - [x] Regression evidence: `internal/state/review_validate_test.go`; validation never publishes state and the same candidate reloads successfully.
+
+### REVIEW-STATE-05 Complete state fingerprints and publication events
+
+- [x] Fingerprint all normalized non-secret configuration and overlay fields, preserving ordered policy attributes and stable identity/map order.
+- [x] Include overlay credential changes through process-keyed aggregate contributions; never expose raw secrets or individual fingerprints.
+- [x] Cache immutable baseline fingerprints across runtime publications.
+- [x] Emit one `state.revision.changed` config event per successful publication, including concurrent mutations, reset, and reload; emit none on failure.
+- [x] Regression evidence: `internal/state/review_hash_test.go`, `cmd/taclabd/review_revision_test.go`, and file-reference replacement verifier-retention tests.

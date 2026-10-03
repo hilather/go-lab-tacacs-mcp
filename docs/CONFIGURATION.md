@@ -863,7 +863,7 @@ File watching is disabled by default in the reference deployment to avoid editor
 6. Rebase or clear a copy of the current overlay according to policy.
 7. Compile regexes, CIDR indexes, credential indexes, and client matchers.
 8. Run snapshot invariants and optional self-checks.
-9. Compute sanitized baseline and overlay hashes.
+9. Compute sanitized baseline and overlay hashes. The baseline fingerprint covers the normalized configuration (including policy rules, RADIUS matches/replies, grants, and limits) with identity collections sorted by ID; equivalent v1/v2 configurations match. Resolved file secrets are excluded. Overlay fingerprints cover all active objects and tombstones, with credential changes contributing through a process-keyed aggregate; individual secret fingerprints are never returned. Fingerprint values change from older releases and are opaque comparison tokens, not a durable format.
 10. Atomically publish the new snapshot.
 11. Emit success event with the new revision.
 ```

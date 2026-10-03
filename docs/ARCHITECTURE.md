@@ -283,7 +283,7 @@ Responsibilities:
 - Verify lab static bearer tokens against the snapshot digest index (SHA-256, constant-time compare).
 - Evaluate the exact-match scope matrix. `state:write` does not grant `tokens:manage`, `runtime:reset`, or `config:reload`.
 - Load bootstrap tokens from secret files through `config.FileLookup` at snapshot compile.
-- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`, `Secure` follows `listeners.http.tls.enabled`).
+- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`; `Secure` only when `api.ui_session.cookie_secure: true`, which defaults to false and must be set explicitly when HTTPS terminates at a reverse proxy, ADR 0032).
 - Rehydrate the UI principal (`GET /api/v1/session`) from that cookie. CSRF plaintext is not recoverable and is not reissued.
 - Require a CSRF token on cookie-authenticated mutations whenever UI sessions are enabled.
 
@@ -302,7 +302,7 @@ Responsibilities:
 - serve OpenAPI.
 - provide SSE event streams.
 
-PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session create/get/delete (CSRF on cookie mutations; `GET` is cookie whoami; `cookie_secure` follows HTTP TLS), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
+PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session create/get/delete (CSRF on cookie mutations; `GET` is cookie whoami; `cookie_secure` is explicit and defaults to false), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
 
 It contains no independent business rules.
 
@@ -344,11 +344,11 @@ React/TypeScript responsibilities:
 - manage server state with a query/cache library.
 - consume SSE for live events and state-change invalidation.
 - show source and revision metadata.
-- provide accessible forms and conflict handling.
+- provide accessible forms and conflict handling. Revision retries retain the failed operation and its target, including deletion, tombstone, and token revocation.
 - show protocol/role listener state, client RADIUS endpoints, RADIUS test/explain pages, and event protocol/role filters without claiming complete RADIUS.
 - never reproduce credential verification or authorization policy on the client.
 
-The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`. A cold load with a valid cookie rehydrates scopes from `GET /api/v1/session` rather than inventing a truncated scope list.
+The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`. A cold load with a valid cookie rehydrates scopes from `GET /api/v1/session` rather than inventing a truncated scope list. Status access is optional during this rehydration: principals without `state:read` can restore their session and use their granted operations.
 
 ### 4.16 `internal/observability`
 
@@ -535,7 +535,7 @@ The UI receives:
 - `state.revision.changed` events that invalidate affected query keys.
 - protocol/accounting events for the live console.
 
-SSE reconnect uses the last event ID when it remains in the ring. If the cursor is too old, the server returns a reset signal and the UI refetches current state.
+SSE reconnect uses the last event ID when it remains in the ring. If the cursor is too old, the server returns a reset signal and the UI refetches current state. The browser keeps at most 1,000 matching console events and a bounded stream backlog so React batching cannot collapse a burst to its final event. It reconciles events received during a REST snapshot read before replacing the visible history. A persistent reset generation survives batched reset/data frames and restarts the snapshot and arrival cursor; the cursor advances only when an arrival update commits, so cancelled effects cannot drop events. Active protocol/kind filters apply before retention; search stays local. Highlights expire without extending their lifetime on each incoming packet. RADIUS accounting and dynamic-authorization events refresh the session list, coalesced to one refetch per 250 ms burst; revision and reset notifications also invalidate session and attribute queries. The Events page shows the cursor-reset notice from that reset until the first live event that arrives after the post-reset refetch has landed. Events in the reset batch or during the refetch do not clear it, a failed refetch does not acknowledge it, neither a filter refetch nor revisiting the page brings an acknowledged notice back (a remount starts a fresh view, so it shows only a reset the stream still flags), and a new reset generation shows it again. A reset reported by the REST snapshot itself (`reset: true`) follows the same rule and clears at the next live event.
 
 MCP read resources use the same revision and event service. Resource/list changes and subscriptions must reflect the same underlying changes, subject to the caller's scopes.
 
@@ -640,3 +640,7 @@ covers retained backlog beyond one cursor page. REST SSE and all MCP listens sha
 Live authorization uses opening token incarnation plus current grants/expiry;
 UI session stream checks never extend idle activity. See
 [ADR 0031](decisions/0031-bounded-admin-event-streams.md).
+
+Admin HTTP security boundary: HTTPS terminates at a reverse proxy; native HTTP `tls.enabled: true` is rejected (ADR 0032). Secure browser cookies require explicit configuration when the proxy provides HTTPS. Process shutdown synchronously marks HTTP readiness false and cancels REST/MCP streams, drains HTTP/metrics/AAA concurrently under one bounded grace, and closes stalled HTTP connections on timeout. Shutdown failures propagate to the process exit status.
+
+Administrative replay keys are implemented in the common registry for users/groups/clients.create, runtime.reset and config.reload. Keys are limited to 256 bytes; completed entries expire after ten minutes. The store admits 128 entries with a reserved 64 KiB result payload per entry (8 MiB total payload budget). Pending entries count against admission and do not expire. Authorization, current token incarnation and grants precede replay. Original payload and expected revision must match. Reset/reload preserve this bounded bookkeeping until TTL or process restart; it is separate from the runtime overlay. Errors retain safe codes only; oversized successful results leave unavailable tombstones. Check state before retrying with a new key. Other operations reject nonempty keys, including one-time bearer creation. See [ADR 0033](decisions/0033-bounded-administrative-idempotency.md).

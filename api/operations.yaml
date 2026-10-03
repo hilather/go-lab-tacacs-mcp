@@ -396,7 +396,7 @@ operations:
     description: Create an API token and return its value once
     parity: PARITY_REQUIRED
     mutating: true
-    idempotent: conditional
+    idempotent: "false"
     scopes: [tokens:manage]
     request_type: CreateTokenRequest
     response_type: CreatedToken

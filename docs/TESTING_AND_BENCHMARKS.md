@@ -398,6 +398,20 @@ Keep deterministic generated fixtures:
 
 Large fixtures are for scheduled/release jobs when ordinary CI runtime is excessive.
 
+### 8.2.1 Browser event retention (`REV-UI-003`)
+
+Run from `web/` with Node 22.14.0: `node --expose-gc scripts/bench-events.mjs`.
+The deterministic fixture starts with 1,000 newest-first history rows and ingests 10,000 live events. One warmup precedes seven measured samples. The benchmark loads the actual production reducer; the legacy checkout uses `mergeEvent`, while the bounded snapshot/live path uses `retainEvents`.
+
+Sequential measurements on the shared development host, 2026-10-03:
+
+| Reducer | Median workload ms | p95 workload ms | Final retained rows |
+|---|---:|---:|---:|
+| Before bounded retention | 10,653.88 | 14,529.20 | 11,000 |
+| Bounded snapshot/live retention | 3,115.25 | 4,940.62 | 1,000 |
+
+These timings are diagnostic comparisons, not product latency guarantees. The fixed workload improves median by 70.8% and p95 by 66.0%; retention remains bounded as the stream continues. Unit/component regressions cover deduplication, newest-first order, late snapshots, filter isolation, batched EventSource delivery, and highlight expiry during continuing traffic. `useEventStream.test.tsx` also covers accounting/revision/reset session invalidation and burst coalescing.
+
 ### 8.3 Required Go benchmarks
 
 Suggested names:
@@ -688,3 +702,37 @@ comparison predates that small optimization and is conservative for that path.
 Reference command (run both revisions on a quiet matching runner to confirm
 latency): `GOMAXPROCS=2 go test -p=2 ./internal/events -run '^$'
 -bench 'BenchmarkEvent(OwnedFanout|Append|ReadPage)$' -benchmem -count=6`.
+
+## Administrative idempotency benchmark evidence (P9.2, 2026-10-03)
+
+Reference: Intel i7-8750H, Go 1.26.8, GOMAXPROCS=2, `go test -p=2
+./internal/api/operations -run '^$' -bench 'BenchmarkRegistryInvoke(Read|Replay)'
+-benchmem -count=5`. Baseline is commit 63b9094 with the identical read benchmark.
+The repository-approved equivalent comparison uses sample medians.
+
+| Workload | Baseline median | Changed median | Bytes / allocations |
+|---|---:|---:|---:|
+| Read users.get | 1115 ns (initial), 2493 ns (repeat) | 1111 ns (final) | 368 B / 5 (unchanged) |
+| Successful keyed users.create replay | unavailable (defect: retry fails) | 30408 ns | 3288 B / 60 |
+
+This shared host was concurrently running review checks; the large variation in
+identical baseline runs prevents a statistically meaningful latency claim. The
+final read median matches the initial baseline within 1%; allocation counts remain
+identical. Replay includes HMAC fingerprinting and independent typed response
+decoding; a dedicated runner should establish a stable replay performance budget.
+
+P9.2 lab hardening: `TestLabAPICreateUsesFreshKeyAfterReset` reproduces the full-create → runtime.reset → separate restart-setup harness sequence with replay entries retained. `TestIdempotencyCreateAfterResetDistinguishesRetryFromNewIntent` verifies the real registry preserves old results for retries and requires a fresh key to recreate a removed user. `TestIdempotencyResetAndReloadReplayPreserveLaterState` verifies original-revision retries neither republish state nor repeat process hooks.
+
+Opaque-key identity hardening (P9.2): hashing the original key bytes adds one
+bounded byte-slice allocation on keyed replay. Three shared-host samples measured
+27054 ns median, 3304 B / 61 allocations, compared with the earlier 3288 B / 60.
+Unkeyed reads remain 368 B / 5 allocations. Latency remains host-load-sensitive;
+this comparison records the allocation cost without claiming a speed improvement.
+`TestIdempotencyOpaqueKeysPreserveInvalidUTF8Bytes` first failed because distinct
+0xff and 0xfe keys normalized to the same JSON string, then passed with byte keys.
+REST adapter key identity: `TestRESTIdempotencyKeyTrailingSpaceIsDistinctAtAdapter` and
+`TestRESTIdempotencyKeyUnicodeWhitespaceIsDistinctOverHTTP` failed on 525b8e2 because the adapter
+applied `strings.TrimSpace` and replayed the first success; both pass once the header value is
+passed unchanged. `TestRESTIdempotencyKeyExactReplay`, `TestRESTIdempotencyKeyOpaqueBytesOverHTTP`
+and `TestRESTIdempotencyKeyWireOWSIsNotPartOfKey` pin exact replay, distinct 0xff/0xfe header
+bytes over a real socket, and RFC 9110 optional-whitespace stripping by net/http.

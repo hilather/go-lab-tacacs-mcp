@@ -20,7 +20,7 @@ func schemaFor(typ reflect.Type, mutating bool) map[string]any {
 				props["expected_revision"] = map[string]any{"type": "integer", "minimum": 0}
 			}
 			if _, exists := props["idempotency_key"]; !exists {
-				props["idempotency_key"] = map[string]any{"type": "string"}
+				props["idempotency_key"] = map[string]any{"type": "string", "maxLength": 256, "description": "Replay supported for users/groups/clients.create, runtime.reset and config.reload only; other operations reject nonempty keys."}
 			}
 			s["properties"] = props
 		}

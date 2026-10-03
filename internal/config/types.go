@@ -316,7 +316,8 @@ type HTTPListener struct {
 	TLS                 HTTPTLS
 }
 
-// HTTPTLS is optional admin TLS. CookieSecure follows Enabled when omitted.
+// HTTPTLS retains the configuration field for compatibility. Enabled must be false;
+// admin HTTPS terminates at a reverse proxy (ADR 0032).
 type HTTPTLS struct {
 	Enabled bool
 }

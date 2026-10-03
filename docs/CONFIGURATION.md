@@ -963,3 +963,9 @@ Before completing a configuration-related task, the implementing agent must conf
 - [ ] Compile/reload benchmarks are added or rerun when the hot path or data shape changes.
 - [ ] Golden exports are intentionally regenerated and reviewed.
 - [ ] `docs/DESIGN.md`, `docs/API_PARITY.md`, and the example configuration remain consistent.
+
+## Admin HTTPS and shutdown
+
+The admin socket serves HTTP. `listeners.http.tls.enabled` must be `false`; `true` is rejected in both schema versions and on reload (ADR 0032). To migrate a configuration that used `true`, set it to `false`, terminate HTTPS at a reverse proxy, and set `api.ui_session.cookie_secure: true` explicitly. Restrict the upstream socket to the trusted proxy network. See `MCP.md` for required proxy headers and stream settings.
+
+On shutdown, readiness becomes false and REST SSE/MCP subscriptions are canceled before draining. HTTP, observability, and AAA drains share `server.shutdown_grace`. HTTP connections that outlast the grace are forcibly closed; an HTTP or observability deadline is reported as a shutdown failure rather than successful exit. Protocol listeners retain their established behavior of canceling unfinished sessions at the grace deadline; other protocol drain errors still fail shutdown.

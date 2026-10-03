@@ -4,6 +4,11 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+- Reject unsupported native admin HTTP TLS instead of silently serving plaintext; hosted HTTPS uses a reverse proxy with explicitly secure browser cookies (ADR 0032).
+- Cancel REST/MCP streams and mark unready before shutdown drains; force-close stalled HTTP connections after the grace and report HTTP/observability shutdown failures. Protocol grace cancellation retains its established behavior.
+- Administrative create/reset/reload retries now share bounded in-memory idempotency replay across REST and MCP, preserving original revisions. Unsupported keys, including one-time token creation, fail before mutation; replay entries expire after ten minutes.
+- REST `Idempotency-Key` values are no longer trimmed by the adapter; keys are compared byte-for-byte after standard HTTP whitespace parsing, so values differing only in Unicode whitespace (for example U+00A0) or other bytes are distinct keys.
+- MCP tool and resource dispatch uses the authenticated snapshot to prevent token replacement during request decoding from crossing credential incarnations.
 - Bind RADIUS credentials and policy to the admitted snapshot, preserve separate UDP/RadSec endpoint policies, and release compiled TACACS policy engines with their snapshots.
 - RadSec loads the published snapshot for each packet on an open connection. Disabled users, password changes, and policy or endpoint edits apply to the next packet; a client that is deleted or no longer matches its certificate closes the connection. The shared secret and TLS identity stay bound at handshake until reconnect.
 - PEAP now matches EAP policy and preserves supported reply profiles in its final Access-Accept.

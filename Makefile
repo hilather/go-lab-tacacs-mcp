@@ -165,7 +165,7 @@ check-hooks:
 	./tools/check-hooks.sh
 
 .PHONY: ci
-ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build web-e2e secrets check-registries check-generated docs-check check-hooks check-release-notes build
+ci: lint test test-race fuzz-smoke web-install web-typecheck web-lint web-test web-build web-e2e secrets check-registries check-generated docs-check check-hooks check-release-notes check-tag-ci build
 
 IMAGE_NAME ?= ghcr.io/hilather/go-lab-tacacs-mcp
 
@@ -243,3 +243,7 @@ build:
 .PHONY: clean
 clean:
 	rm -rf $(BIN_DIR) $(DIST_DIR) web/dist web/coverage
+
+.PHONY: check-tag-ci
+check-tag-ci:
+	bash tools/wait-tag-ci_test.sh

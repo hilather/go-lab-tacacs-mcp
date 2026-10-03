@@ -423,3 +423,11 @@ Streamable HTTP at POST /mcp.
 ```
 
 Operator walkthrough for non-MCP tasks: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First boot: [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).
+
+Administrative streams share a fixed 128-slot process-wide admission limit
+([ADR 0031](decisions/0031-bounded-admin-event-streams.md)). Every
+`subscriptions/listen`, including a listen requesting only discovery changes,
+uses one slot alongside REST SSE. Saturation returns HTTP 503 with `unavailable`
+before acknowledgment; back off before reconnecting. Token revocation, expiry,
+rotation, or grant loss closes an open listen before its next notification or
+heartbeat. A slow subscriber keeps its slot until its handler exits.

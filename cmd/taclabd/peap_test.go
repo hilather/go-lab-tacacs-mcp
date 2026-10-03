@@ -110,6 +110,45 @@ func TestAttachPEAPLeavesUnsetWithoutIdentity(t *testing.T) {
 	}
 }
 
+func TestAttachPEAPMinimumChallengeBytesAdmitsOneTunnel(t *testing.T) {
+	t.Parallel()
+	pki, err := tacacstls.GenerateLabPKI(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lookup := func(ref config.SecretRef) ([]byte, error) { return os.ReadFile(ref.File) }
+	doc := config.Document{Listeners: config.Listeners{
+		RADIUSRadSec: config.RADIUSRadSecListener{TLS: labTLS(pki, "radsec-default")},
+	}}
+	doc.Listeners.RADIUSAccess.ChallengeEntries = config.RADIUSChallengeEntriesMin
+	doc.Listeners.RADIUSAccess.ChallengeBytes = config.RADIUSChallengeBytesMin
+	doc.Listeners.RADIUSAccess.ChallengeTTL = config.RADIUSChallengeTTLDefault
+	access, err := attachPEAP(radiusserver.Access{}, &doc, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if access.PEAP == nil || access.Tunnels == nil {
+		t.Fatal("PEAP not attached")
+	}
+	t.Cleanup(access.Tunnels.Reset)
+	first, err := access.PEAP.NewTunnel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !access.Tunnels.Put("first", first) {
+		first.Close()
+		t.Fatal("minimum challenge_bytes admitted no PEAP tunnel")
+	}
+	second, err := access.PEAP.NewTunnel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	if access.Tunnels.Put("second", second) {
+		t.Fatal("minimum challenge_bytes admitted a second PEAP tunnel")
+	}
+}
+
 func TestServePEAPUsesConfiguredIdentity(t *testing.T) {
 	pki, err := tacacstls.GenerateLabPKI(t.TempDir())
 	if err != nil {

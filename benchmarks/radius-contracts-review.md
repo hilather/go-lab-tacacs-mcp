@@ -29,3 +29,13 @@ The atomic journal is a new workload, measured with `go test -p=2 ./internal/rad
 | JournalSemanticReserveCommit | 5165.5 | 112 | 1 |
 
 Reserve/commit uses a one-nanosecond injected clock/TTL to expire the prior key each iteration and keep the fixture bounded; completed retries reuse one accepted identity. Pending identities count toward both journal limits, cannot expire while their owner executes, and wait within the request cancellation boundary.
+
+## RadSec per-packet snapshot (`RAD-REV-003` follow-up)
+
+The command was `GOMAXPROCS=2 go test -p=2 ./internal/radius/tls -run '^$' -bench BenchmarkRadSecAccountingOnOpenConnection -benchtime=1000x -benchmem -count=6`, run on an Intel Core i7-6600U, linux/amd64, Go 1.26.8. The baseline is the same benchmark run against the pre-fix `process.go`, which bound the snapshot at handshake. Latency figures are noisy on this host.
+
+| Workload | Before median | After median | Before B/op | After B/op | Before allocs/op | After allocs/op |
+|---|---:|---:|---:|---:|---:|---:|
+| RadSecAccountingOnOpenConnection | 1.072 ms ± 52% | 1.221 ms ± 32% (p=0.818, no significant change) | 5.210 KiB | 5.644 KiB (+8.3%) | 111 | 117 (+5.4%) |
+
+The added allocations come from re-admitting the client on every packet with one `MatchRADIUSTLS` lookup for the packet's role (access or accounting) against the packet's snapshot. The full access+accounting match runs only when that lookup fails, to decide between dropping the packet and closing the connection. This is the cost of making deletes and endpoint edits fail closed on open connections. The first revision of this fix ran both role lookups on every packet and measured +16.8% B/op, which is over the 15% budget; the role-specific lookup brings it back under. Per-packet round-trip latency is dominated by TLS and I/O and shows no significant change. The host load average was about 21–25 during this measurement.

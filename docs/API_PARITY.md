@@ -184,6 +184,8 @@ Names are proposed stable contracts. A naming change requires migration notes an
 | `users.update` | `state:write` | `PATCH /api/v1/users/{name}` | tool `taclab.users.update` | PARITY_REQUIRED |
 | `users.delete` | `state:write` | `DELETE /api/v1/users/{name}` | tool `taclab.users.delete` | PARITY_REQUIRED |
 
+All user operations apply the UsernameCasePreserved profile before identity lookup or mutation. Successful results report the normalized ID, including inputs whose Unicode representation changes during normalization.
+
 User outputs expose credential capability metadata only, such as `ascii_pap_configured` and `challenge_configured`. Secret values and verifier strings are omitted.
 
 Top-level `must_change_login` / `must_change_enable` are readable bools (default `false`) on `users.create` / `users.update` / `users.get` / `users.list`. They are not `restrictions` fields and are not nested under write-only secrets. `authentication.test` `status` includes `must_change` after successful verify plus the applicable flag (not a TACACS or RADIUS packet status). `radius.access.test` `reason_code` includes `reject_password_change_required`.
@@ -221,6 +223,8 @@ Client objects are additive: existing TACACS flatten fields stay. `endpoints` is
 | `tokens.list` | `tokens:manage` | `GET /api/v1/tokens` | tool `taclab.tokens.list` | PARITY_REQUIRED |
 | `tokens.create` | `tokens:manage` | `POST /api/v1/tokens` | tool `taclab.tokens.create` | PARITY_REQUIRED |
 | `tokens.revoke` | `tokens:manage` | `DELETE /api/v1/tokens/{id}` | tool `taclab.tokens.revoke` | PARITY_REQUIRED |
+
+Browser sessions bind the current token credential incarnation. Rotation, revocation/recreation, and restoration from an override invalidate older cookies even when replacement token bytes match. Changes to scopes, enabled status, or expiry also invalidate earlier cookies; unrelated state mutations preserve sessions.
 
 The token value appears exactly once in the successful create response on both surfaces. It is never returned by list/get and never embedded in events. Handlers live in `internal/api/operations`; adapters are not required for the operations to function. Lab static bearer (no OAuth PRM) is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md).
 
@@ -379,3 +383,17 @@ For any new or changed administrative feature:
 - [ ] Update generated parity documentation.
 - [ ] Update UI when the feature is operator-facing.
 - [ ] Update benchmark when operation affects a hot path or large list.
+
+Administrative stream admission and grant lifetime are shared across the existing
+`events.subscribe` bindings ([ADR 0031](decisions/0031-bounded-admin-event-streams.md)).
+REST SSE and MCP listen (including discovery-only notification subscriptions)
+share 128 live admission slots. Saturation returns domain `unavailable` / HTTP
+503 before SSE success or acknowledgment. Slow-consumer detachment retains its
+slot until handler cleanup. Both adapters bind to the opening token incarnation
+and check current credentials/grants before sends and heartbeats; grant loss
+closes the stream. REST additionally checks cookie session lifetime/idle expiry
+without refreshing idle activity. `events:sensitive` remains the body-redaction
+grant. REST Last-Event-ID replay captures all matching retained events in one
+finite window before live handoff, rather than one 200-item page. MCP remains
+URI-only and does not replay bodies. No operation, schema, or registry disposition
+is added; transport framing stays `PARITY_DIFFERENT_BINDING`.

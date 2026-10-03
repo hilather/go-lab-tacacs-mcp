@@ -1,6 +1,7 @@
 package events
 
 import (
+	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,7 @@ const (
 	DefaultLimit        = 50
 	MaxLimit            = 200
 	SchemaVersion       = 1
+	MaxSubscribers      = 128
 )
 
 // Event categories stored in the ring.
@@ -130,6 +132,7 @@ type Ring struct {
 	stdoutCh      chan Event
 	stdoutDropped atomic.Uint64
 	subs          []subscriber
+	admitted      int
 	stop          chan struct{}
 	closed        bool
 	metrics       *observability.Recorder
@@ -193,7 +196,8 @@ func (r *Ring) SetReject(v bool) {
 	r.reject.Store(v)
 }
 
-// Accept assigns an ID and timestamp and stores e. The stored copy is returned.
+// Accept assigns an ID and timestamp and stores an owned copy of e.
+// The returned event has independent mutable payloads.
 // A zero ID means the record was not accepted (nil ring or injected reject).
 func (r *Ring) Accept(e Event) Event {
 	if r == nil || r.reject.Load() {
@@ -204,6 +208,7 @@ func (r *Ring) Accept(e Event) Event {
 		r.mu.Unlock()
 		return Event{}
 	}
+	e = CloneEvent(e)
 	r.seq++
 	e.ID = r.seq
 	if e.SchemaVersion == 0 {
@@ -221,12 +226,14 @@ func (r *Ring) Accept(e Event) Event {
 		r.buf[(r.start+r.n)%r.cap] = e
 		r.n++
 	}
-	outCh := r.stdoutCh
-	subs := append([]subscriber(nil), r.subs...)
+	if r.stdoutCh != nil {
+		r.emitStdout(r.stdoutCh, CloneEvent(e))
+	}
+	if len(r.subs) > 0 {
+		r.fanoutLocked(e)
+	}
 	r.mu.Unlock()
-	r.emitStdout(outCh, e)
-	r.fanout(subs, e)
-	return e
+	return CloneEvent(e)
 }
 
 // Len is the number of retained events.
@@ -268,7 +275,7 @@ func (r *Ring) Latest() (Event, bool) {
 		return Event{}, false
 	}
 	idx := (r.start + r.n - 1) % r.cap
-	return r.buf[idx], true
+	return CloneEvent(r.buf[idx]), true
 }
 
 // Snapshot returns retained events in id order (oldest first).
@@ -280,9 +287,20 @@ func (r *Ring) Snapshot() []Event {
 	defer r.mu.Unlock()
 	out := make([]Event, r.n)
 	for i := 0; i < r.n; i++ {
-		out[i] = r.buf[(r.start+i)%r.cap]
+		out[i] = CloneEvent(r.buf[(r.start+i)%r.cap])
 	}
 	return out
+}
+
+// Replay returns a finite window of all currently retained matching events.
+// Subscribe before Replay to bridge its high-water mark into live delivery.
+func (r *Ring) Replay(q Query) Page {
+	if r == nil {
+		return Page{}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.readLocked(q, r.cap)
 }
 
 // Read returns a cursor page. AfterID is exclusive. An evicted cursor sets Reset.
@@ -297,9 +315,13 @@ func (r *Ring) Read(q Query) Page {
 	if limit > MaxLimit {
 		limit = MaxLimit
 	}
-	want := categorySet(q.Categories)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.readLocked(q, limit)
+}
+
+func (r *Ring) readLocked(q Query, limit int) Page {
+	want := categorySet(q.Categories)
 	page := Page{Overwritten: r.overwritten}
 	if r.n == 0 {
 		return page
@@ -320,7 +342,7 @@ func (r *Ring) Read(q Query) Page {
 		if !queryMatch(q, want, ev) {
 			continue
 		}
-		out = append(out, ev)
+		out = append(out, CloneEvent(ev))
 	}
 	page.Items = out
 	if len(out) > 0 {
@@ -343,41 +365,55 @@ func (r *Ring) Read(q Query) Page {
 	return page
 }
 
+// ErrSubscriptionCapacity indicates unavailable or exhausted stream admission.
+var ErrSubscriptionCapacity = errors.New("event subscription capacity exceeded")
+
 // Subscribe receives new events on a bounded channel. A full queue detaches
 // the subscriber and closes dropped; Accept never blocks on it. The event
-// channel is not closed on drop (another Accept may still hold a copy).
-func (r *Ring) Subscribe(buf int) (events <-chan Event, dropped <-chan struct{}, cancel func()) {
+// channel is not closed on drop; consumers select on dropped. Failed admission
+// returns already-closed event and dropped channels.
+func (r *Ring) Subscribe(buf int) (<-chan Event, <-chan struct{}, func()) {
+	ch, drop, cancel, err := r.TrySubscribe(buf)
+	if err == nil {
+		return ch, drop, cancel
+	}
+	failed := make(chan Event)
+	done := make(chan struct{})
+	close(failed)
+	close(done)
+	return failed, done, func() {}
+}
+
+// TrySubscribe admits at most MaxSubscribers concurrent streams, shared by
+// REST and MCP. Rejection happens before adapters commit their response.
+func (r *Ring) TrySubscribe(buf int) (<-chan Event, <-chan struct{}, func(), error) {
 	if r == nil {
-		ch := make(chan Event)
-		done := make(chan struct{})
-		close(ch)
-		close(done)
-		return ch, done, func() {}
+		return nil, nil, nil, ErrSubscriptionCapacity
 	}
 	if buf <= 0 {
 		buf = defaultSubBuffer
 	}
-	sub := subscriber{
-		ch:   make(chan Event, buf),
-		drop: make(chan struct{}),
-		once: &sync.Once{},
+	if buf > r.cap {
+		buf = r.cap
 	}
 	r.mu.Lock()
-	if r.closed {
-		r.mu.Unlock()
-		close(sub.ch)
-		sub.signalDrop()
-		return sub.ch, sub.drop, func() {}
+	defer r.mu.Unlock()
+	if r.closed || r.admitted >= MaxSubscribers {
+		return nil, nil, nil, ErrSubscriptionCapacity
 	}
+	sub := subscriber{ch: make(chan Event, buf), drop: make(chan struct{}), once: &sync.Once{}}
 	r.subs = append(r.subs, sub)
-	n := len(r.subs)
-	r.mu.Unlock()
-	r.metrics.SetEventSubscribers(n)
+	r.admitted++
+	r.metrics.SetEventSubscribers(len(r.subs))
 	var once sync.Once
-	cancel = func() {
-		once.Do(func() { r.unsubscribe(sub.ch) })
-	}
-	return sub.ch, sub.drop, cancel
+	return sub.ch, sub.drop, func() {
+		once.Do(func() {
+			r.unsubscribe(sub.ch)
+			r.mu.Lock()
+			r.admitted--
+			r.mu.Unlock()
+		})
+	}, nil
 }
 
 // Close stops the stdout loop and subscriber fan-out. Accept after Close is rejected.
@@ -427,20 +463,25 @@ func (r *Ring) stdoutLoop() {
 	}
 }
 
-func (r *Ring) fanout(subs []subscriber, e Event) {
+// fanoutLocked serializes ID assignment and bounded, nonblocking delivery.
+func (r *Ring) fanoutLocked(e Event) {
 	if e.SuppressExport {
 		return
 	}
-	for _, sub := range subs {
+	count := len(r.subs)
+	kept := r.subs[:0]
+	for _, sub := range r.subs {
 		select {
-		case sub.ch <- e:
+		case sub.ch <- CloneEvent(e):
+			kept = append(kept, sub)
 		default:
-			// Drop the slow subscriber. Do not close the event channel:
-			// another Accept may still hold a copy of this slice and send.
-			r.detach(sub.ch)
 			sub.signalDrop()
 			r.metrics.EventSubscriberReset()
 		}
+	}
+	r.subs = kept
+	if len(r.subs) != count {
+		r.metrics.SetEventSubscribers(len(r.subs))
 	}
 }
 
@@ -526,7 +567,7 @@ func Match(q Query, ev Event) bool {
 
 // CloneEvent copies e including argument slices.
 func CloneEvent(e Event) Event {
-	if len(e.Arguments) > 0 {
+	if e.Arguments != nil {
 		e.Arguments = append([]EventAV(nil), e.Arguments...)
 	}
 	if e.StartTime != nil {

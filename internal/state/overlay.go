@@ -151,3 +151,26 @@ func baselineToken(doc *config.Document, id string) (config.BootstrapToken, bool
 	}
 	return config.BootstrapToken{}, false
 }
+
+// pruneOverlaySecrets removes material no longer reachable from a live overlay
+// user. The bag is already privately copied by mutate, so old snapshots remain
+// valid for protocol sessions bound before deletion or replacement.
+func pruneOverlaySecrets(ov overlay) {
+	live := make(map[string]struct{})
+	for _, e := range ov.users {
+		if e.deleted {
+			continue
+		}
+		for _, ref := range []config.SecretRef{e.user.Credentials.Login.Verifier, e.user.Credentials.Enable.Verifier, e.user.Credentials.Challenge.Secret} {
+			if ref.MemoryID != "" {
+				live[ref.MemoryID] = struct{}{}
+			}
+		}
+	}
+	for id, material := range ov.secrets {
+		if _, ok := live[id]; !ok {
+			wipeBytes(material)
+			delete(ov.secrets, id)
+		}
+	}
+}

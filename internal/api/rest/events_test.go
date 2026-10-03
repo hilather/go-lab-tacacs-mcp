@@ -8,11 +8,17 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/auth"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
 func TestEventsStreamSurvivesWriteTimeout(t *testing.T) {
@@ -236,5 +242,184 @@ func TestEventsStreamRedactsWithoutSensitive(t *testing.T) {
 	body := string(buf[:n])
 	if strings.Contains(body, "alice") || strings.Contains(body, "configure") {
 		t.Fatalf("leaked sensitive: %s", body)
+	}
+}
+
+func TestEventsStreamCompleteReplay(t *testing.T) {
+	h := restHarness(t)
+	ring := events.New(1000, nil)
+	defer ring.Close()
+	h.Server.Events = ring
+	for i := 0; i < 450; i++ {
+		ring.Accept(events.Event{Category: events.CategoryAcct, Type: "replay"})
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", nil)
+	req.Header.Set("Authorization", "Bearer "+h.Token)
+	req.Header.Set("Last-Event-ID", "0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	ring.Accept(events.Event{Category: events.CategoryAcct, Type: "live"})
+	sc := bufio.NewScanner(resp.Body)
+	count := 0
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.HasPrefix(line, "data: ") {
+			count++
+			if strings.Contains(line, `"type":"live"`) {
+				break
+			}
+		}
+	}
+	if count != 451 {
+		t.Fatalf("replay plus live count=%d want451", count)
+	}
+}
+
+func TestEventsStreamRevocation(t *testing.T) {
+	h := restHarness(t)
+	h.Server.WriteTimeout = 20 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", nil)
+	req.Header.Set("Authorization", "Bearer "+h.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	rev := h.Mgr.Revision()
+	if _, err := h.Mgr.DeleteToken("lab", state.DeleteOptions{}, &rev); err != nil {
+		t.Fatal(err)
+	}
+	h.Ring.Accept(events.Event{Category: events.CategoryAcct, Type: "must-not-leak"})
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("stream did not terminate: %v", err)
+	}
+	if strings.Contains(string(raw), "must-not-leak") {
+		t.Fatalf("revoked stream leaked: %s", raw)
+	}
+}
+
+func TestEventsStreamSharedAdmission(t *testing.T) {
+	h := restHarness(t)
+	for i := 0; i < events.MaxSubscribers; i++ {
+		_, _, cancel, err := h.Ring.TrySubscribe(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
+	}
+	req, _ := http.NewRequest(http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", nil)
+	req.Header.Set("Authorization", "Bearer "+h.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("saturated SSE status%d", resp.StatusCode)
+	}
+}
+
+func TestEventsStreamCookieRecreation(t *testing.T) {
+	h := restHarness(t)
+	sess, err := h.Auth.Create(operations.Actor{ID: "lab"}, h.Mgr.Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", nil)
+	req.AddCookie(auth.SessionCookie(sess))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("cookie stream status %d", resp.StatusCode)
+	}
+	if _, err = h.Mgr.DeleteToken("lab", state.DeleteOptions{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = h.Mgr.CreateToken(state.CreateToken{ID: "lab", Scopes: []string{"events:read", "events:sensitive"}, Material: credentials.NewTokenMaterial([]byte(h.Token))}, nil); err != nil {
+		t.Fatal(err)
+	}
+	h.Ring.Accept(events.Event{Category: events.CategoryAcct, Type: "must-not-leak"})
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("recreated cookie stream did not terminate: %v", err)
+	}
+	if strings.Contains(string(raw), "must-not-leak") {
+		t.Fatalf("recreated cookie stream leaked: %s", raw)
+	}
+}
+
+func TestEventsStreamShutdown(t *testing.T) {
+	h := restHarness(t)
+	stop := make(chan struct{})
+	h.Server.Done = stop
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, h.HTTP.URL+"/api/v1/events/stream", nil)
+	req.Header.Set("Authorization", "Bearer "+h.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	close(stop)
+	if _, err = io.ReadAll(resp.Body); err != nil {
+		t.Fatalf("shutdown stream did not terminate: %v", err)
+	}
+}
+
+type replayStopWriter struct {
+	*httptest.ResponseRecorder
+	stop func()
+	once sync.Once
+}
+
+func (w *replayStopWriter) Write(p []byte) (int, error) {
+	n, err := w.ResponseRecorder.Write(p)
+	if bytes.Contains(p, []byte(`"type":"replay"`)) {
+		w.once.Do(w.stop)
+	}
+	return n, err
+}
+
+func TestEventsReplayStopsDuringWindow(t *testing.T) {
+	for _, kind := range []string{"shutdown", "request-cancel"} {
+		t.Run(kind, func(t *testing.T) {
+			h := restHarness(t)
+			ring := events.New(1000, nil)
+			defer ring.Close()
+			h.Server.Events = ring
+			for i := 0; i < 450; i++ {
+				ring.Accept(events.Event{Category: events.CategoryAcct, Type: "replay"})
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stop := make(chan struct{})
+			h.Server.Done = stop
+			signal := cancel
+			if kind == "shutdown" {
+				signal = func() { close(stop) }
+			}
+			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/api/v1/events/stream", nil)
+			req.Header.Set("Authorization", "Bearer "+h.Token)
+			req.Header.Set("Last-Event-ID", "0")
+			w := &replayStopWriter{ResponseRecorder: httptest.NewRecorder(), stop: signal}
+			h.Server.Handler().ServeHTTP(w, req)
+			if count := strings.Count(w.Body.String(), `"type":"replay"`); count != 1 {
+				t.Fatalf("replay ignored %s: delivered%d bodies", kind, count)
+			}
+		})
 	}
 }

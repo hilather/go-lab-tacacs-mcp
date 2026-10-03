@@ -623,3 +623,12 @@ The initial architecture allows but does not require:
 No extension may change the default ephemeral runtime behavior or bypass common operations and policy services.
 
 State publication connects to metrics and the shared event ring through the manager publication hook. Each successful mutation, reset, or baseline reload appends one `state.revision.changed` event (`category: config`, published `revision`); failed candidates append none. REST SSE and MCP resource notifications observe this same ring, so clients refresh their state views after external mutations and SIGHUP reloads.
+
+Administrative event distribution serializes ID assignment and nonblocking
+fanout under the ring lock, with deep payload copies at every ownership boundary.
+REST replay captures a finite retained window after subscribing, so the handoff
+covers retained backlog beyond one cursor page. REST SSE and all MCP listens share
+128 admission leases held until handler cleanup, including slow-detached streams.
+Live authorization uses opening token incarnation plus current grants/expiry;
+UI session stream checks never extend idle activity. See
+[ADR 0031](decisions/0031-bounded-admin-event-streams.md).

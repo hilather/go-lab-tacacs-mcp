@@ -30,3 +30,16 @@ func BenchmarkEventReadPage(b *testing.B) {
 		_ = r.Read(Query{Limit: 50, Categories: []string{CategoryAcct}})
 	}
 }
+
+func BenchmarkEventOwnedFanout(b *testing.B) {
+	r := New(10000, nil)
+	ch, _, cancel := r.Subscribe(1)
+	defer cancel()
+	e := Event{Category: CategoryAcct, Arguments: []EventAV{{Name: "cmd", Value: "show"}, {Name: "cmd-arg", Value: "version"}}}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		r.Accept(e)
+		<-ch
+	}
+}

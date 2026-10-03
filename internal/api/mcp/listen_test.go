@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/events"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
@@ -337,5 +338,76 @@ func readSSEData(t testing.TB, r io.Reader) map[string]any {
 			}
 			return out
 		}
+	}
+}
+
+func TestListenRevocation(t *testing.T) {
+	h := mcpHarness(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	resp := startListen(t, ctx, h, map[string]any{"resourceSubscriptions": []string{resourceEventsRecent}})
+	defer resp.Body.Close()
+	_ = readSSEData(t, resp.Body)
+	if _, err := h.Mgr.DeleteToken("lab", state.DeleteOptions{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	h.Ring.Accept(events.Event{Category: events.CategoryAcct, Type: "revoked"})
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("revoked listen did not terminate: %v", err)
+	}
+	if strings.Contains(string(raw), "notifications/resources/updated") {
+		t.Fatalf("revoked listen notified: %s", raw)
+	}
+}
+
+func TestListenSharedAdmission(t *testing.T) {
+	h := mcpHarness(t)
+	for i := 0; i < events.MaxSubscribers; i++ {
+		_, _, cancel, err := h.Ring.TrySubscribe(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	resp := startListen(t, ctx, h, map[string]any{"toolsListChanged": true})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("saturated metadata listen status %d", resp.StatusCode)
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(raw), "acknowledged") {
+		t.Fatalf("saturated stream acknowledged: %s", raw)
+	}
+}
+
+func TestListenAdmissionKeepsAuthenticatedIncarnation(t *testing.T) {
+	h := mcpHarness(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	calls := 0
+	opts := h.Opts
+	opts.Snapshot = func() *state.Snapshot {
+		calls++
+		if calls == 2 {
+			tok, _ := h.Mgr.Snapshot().Token("lab")
+			scopes := tok.Scopes
+			if _, err := h.Mgr.DeleteToken("lab", state.DeleteOptions{}, nil); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := h.Mgr.CreateToken(state.CreateToken{ID: "lab", Scopes: scopes, Material: credentials.NewTokenMaterial([]byte(h.Token))}, nil); err != nil {
+				t.Fatal(err)
+			}
+			cancel()
+		}
+		return h.Mgr.Snapshot()
+	}
+	req := listenRequest(t, ctx, "http://localhost/mcp", h.Token, map[string]any{"resourceSubscriptions": []string{resourceEventsRecent}})
+	w := httptest.NewRecorder()
+	Handler(opts).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized || strings.Contains(w.Body.String(), "acknowledged") {
+		t.Fatalf("replacement incarnation admitted old bearer principal: status%d body%s", w.Code, w.Body.String())
 	}
 }

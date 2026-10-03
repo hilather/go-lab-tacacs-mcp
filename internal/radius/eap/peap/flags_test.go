@@ -57,7 +57,7 @@ func TestParseRejectsEmptyAndShortLength(t *testing.T) {
 
 func TestParseIgnoresReservedFlagBits(t *testing.T) {
 	t.Parallel()
-	p, err := Parse([]byte{FlagStart | 0x18})
+	p, err := Parse([]byte{FlagStart | reservedFlagBits})
 	if err != nil {
 		t.Fatalf("reserved bits must be ignored on receipt: %v", err)
 	}
@@ -72,10 +72,10 @@ func TestParseIgnoresReservedFlagBits(t *testing.T) {
 	if !p.LengthIncluded || !p.MoreFragments || p.TLSMessageLen != 4 || !bytes.Equal(p.TLSData, []byte{1, 2, 3, 4}) {
 		t.Fatalf("%+v", p)
 	}
-	if enc := Encode(p); enc[0]&0x18 != 0 {
+	if enc := Encode(p); enc[0]&reservedFlagBits != 0 {
 		t.Fatalf("reserved bits re-sent: %#x", enc[0])
 	}
-	if _, err := Parse([]byte{FlagStart | 0x18 | 0x01}); err == nil {
+	if _, err := Parse([]byte{FlagStart | reservedFlagBits | 0x01}); err == nil {
 		t.Fatal("unsupported version accepted alongside reserved bits")
 	}
 }

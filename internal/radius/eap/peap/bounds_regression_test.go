@@ -51,7 +51,7 @@ func TestPEAPRegistryAdmitsOneTunnelBelowReservation(t *testing.T) {
 	for _, tc := range []struct{ entries, bytes, want int }{
 		{16, 64 << 10, 1},
 		{16, (256 << 10) - 1, 1},
-		{16, 256 << 10, 1},
+		{16, 256 << 10, 1}, // exactly one reservation: fits without the floor
 		{16, 1 << 20, 4},
 		{2, 8 << 20, 2},
 	} {

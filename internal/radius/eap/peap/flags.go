@@ -46,7 +46,7 @@ func Parse(data []byte) (Payload, error) {
 	if len(data) < 1 {
 		return Payload{}, errors.New("peap: empty TLS-in-EAP payload")
 	}
-	flags := data[0]
+	flags := data[0] &^ reservedFlagBits
 	if flags&VersionMask != Version0 {
 		return Payload{}, errors.New("peap: unsupported version")
 	}

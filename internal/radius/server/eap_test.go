@@ -265,6 +265,9 @@ func TestEAPPEAPStartWithMinimumChallengeBytes(t *testing.T) {
 	if res.Reason != ReasonChallengeCapacity || len(res.Response) == 0 || res.Response[0] != byte(codec.CodeAccessReject) {
 		t.Fatalf("second tunnel beyond the one-tunnel floor: got %+v", res)
 	}
+	if h.Tunnels.Get(tunnelIDFromState(state)) == nil {
+		t.Fatal("first tunnel lost; capacity reject did not come from the tunnel registry")
+	}
 	pkt, err := codec.Decode(res.Response)
 	if err != nil {
 		t.Fatal(err)

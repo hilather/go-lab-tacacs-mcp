@@ -1734,3 +1734,7 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-API-002`, `UL-RAD-001`) lands together. Do not merge flags while RADIUS still Accepts a must-change user or `authentication.test` still returns `pass` after a good password.
 
 `UL-AAA-003` must not gate that merge.
+
+## 24. Protocol review hardening
+
+- [x] `RAD-REV-001` RadSec passes the authenticated peer certificate fingerprint to the Challenge gate. Configured CRLs must authenticate against the verified leaf issuer and be current; unrelated or expired CRLs fail closed. Evidence: `TestRadSecPropagatesCertificateChallengeBinding`, `TestRadSecCRLAuthenticityAndFreshness`; `go test -race ./internal/radius/tls`; `BenchmarkRadSecCRLValidation`. Affected rows: `PRJ-RADSEC-001`, `R65-ACCESS-004`. No administrative contract or parity change.

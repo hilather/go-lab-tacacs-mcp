@@ -183,6 +183,8 @@ Requires `schema_version: 2` and enabled `listeners.radius.access` (and `account
 
 `certificate_only` requires a TACACS TLS **or** RADIUS TLS endpoint. A RADIUS/UDP-only client cannot use `certificate_only` and still requires `source_cidrs`. A RadSec-only client may use `certificate_only` (TCP peer IP is not the Challenge bind). A TLS-only RADIUS client cannot originate CoA/Disconnect — DAC always uses the client’s **UDP** RADIUS endpoint secret and dest; add a UDP endpoint (and dest) if you need CoA.
 
+RadSec Challenge continuations bind to the authenticated peer certificate fingerprint. When CRL revocation is configured, a signed, current CRL from the client certificate issuer is required; a missing issuer, unrelated CRL, expired CRL, or future-dated CRL rejects the handshake. The issuer is taken from the verified certificate chain, including roots omitted by the peer.
+
 ### RADIUS RadSec NAS
 
 Requires `schema_version: 2` and `listeners.radius.radsec.enabled: true` plus a `protocol: radius` / `transport: tls` endpoint. TLS 1.3 mTLS is required (`client_authentication: require_and_verify_certificate`). After handshake, TacLab selects the client from the peer certificate (and `source_cidrs` unless `certificate_only`). Point the NAS at host TCP **2083**. Do not describe this as encrypting UDP 1812.

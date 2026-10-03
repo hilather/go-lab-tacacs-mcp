@@ -184,6 +184,8 @@ Names are proposed stable contracts. A naming change requires migration notes an
 | `users.update` | `state:write` | `PATCH /api/v1/users/{name}` | tool `taclab.users.update` | PARITY_REQUIRED |
 | `users.delete` | `state:write` | `DELETE /api/v1/users/{name}` | tool `taclab.users.delete` | PARITY_REQUIRED |
 
+All user operations apply the UsernameCasePreserved profile before identity lookup or mutation. Successful results report the normalized ID, including inputs whose Unicode representation changes during normalization.
+
 User outputs expose credential capability metadata only, such as `ascii_pap_configured` and `challenge_configured`. Secret values and verifier strings are omitted.
 
 Top-level `must_change_login` / `must_change_enable` are readable bools (default `false`) on `users.create` / `users.update` / `users.get` / `users.list`. They are not `restrictions` fields and are not nested under write-only secrets. `authentication.test` `status` includes `must_change` after successful verify plus the applicable flag (not a TACACS or RADIUS packet status). `radius.access.test` `reason_code` includes `reject_password_change_required`.
@@ -222,7 +224,7 @@ Client objects are additive: existing TACACS flatten fields stay. `endpoints` is
 | `tokens.create` | `tokens:manage` | `POST /api/v1/tokens` | tool `taclab.tokens.create` | PARITY_REQUIRED |
 | `tokens.revoke` | `tokens:manage` | `DELETE /api/v1/tokens/{id}` | tool `taclab.tokens.revoke` | PARITY_REQUIRED |
 
-Browser sessions bind the current token credential incarnation. Rotation, revocation/recreation, and restoration from an override invalidate older cookies even when replacement token bytes match; unrelated state mutations preserve sessions.
+Browser sessions bind the current token credential incarnation. Rotation, revocation/recreation, and restoration from an override invalidate older cookies even when replacement token bytes match. Changes to scopes, enabled status, or expiry also invalidate earlier cookies; unrelated state mutations preserve sessions.
 
 The token value appears exactly once in the successful create response on both surfaces. It is never returned by list/get and never embedded in events. Handlers live in `internal/api/operations`; adapters are not required for the operations to function. Lab static bearer (no OAuth PRM) is [ADR 0010](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0010-lab-static-bearer.md).
 

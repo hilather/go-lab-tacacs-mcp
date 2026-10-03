@@ -95,6 +95,9 @@ func (m *Manager) ValidateCandidate(newBaseline *config.Document) error {
 		return domain.NewError(domain.CodeInvalidArgument, "baseline is required")
 	}
 	ov := copyOverlay(m.overlay)
+	if newBaseline.Runtime.ReloadOverlayBehavior == "reset" {
+		ov = newOverlay()
+	}
 	_, _, err := m.compile(cloneDocument(newBaseline), ov, domain.Revision(m.revision.Load()+1), m.clock.Now(), true)
 	return err
 }
@@ -124,7 +127,7 @@ func (m *Manager) Reset(expected *domain.Revision) (*Snapshot, error) {
 // CreateUser inserts a runtime user or an explicit baseline override.
 func (m *Manager) CreateUser(req CreateUser, expected *domain.Revision) (*Snapshot, error) {
 	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {
-		id, err := normalizeUserID(req.ID)
+		id, err := NormalizeUserID(req.ID)
 		if err != nil {
 			return ov, nil, err
 		}
@@ -192,7 +195,7 @@ func (m *Manager) OverrideLoginVerifier(userID string, verifier []byte, expected
 		return nil, domain.NewError(domain.CodeInvalidArgument, "login verifier is not a valid argon2id PHC string")
 	}
 	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {
-		id, err := normalizeUserID(userID)
+		id, err := NormalizeUserID(userID)
 		if err != nil {
 			return ov, nil, err
 		}
@@ -243,7 +246,7 @@ func (m *Manager) OverrideEnableVerifier(userID string, verifier []byte, expecte
 		return nil, domain.NewError(domain.CodeInvalidArgument, "enable verifier is not a valid argon2id PHC string")
 	}
 	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {
-		id, err := normalizeUserID(userID)
+		id, err := NormalizeUserID(userID)
 		if err != nil {
 			return ov, nil, err
 		}
@@ -289,7 +292,7 @@ func (m *Manager) OverrideEnableVerifier(userID string, verifier []byte, expecte
 // UpdateUser applies a typed patch to the current effective user.
 func (m *Manager) UpdateUser(id string, patch UpdateUser, expected *domain.Revision) (*Snapshot, error) {
 	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {
-		id, err := normalizeUserID(id)
+		id, err := NormalizeUserID(id)
 		if err != nil {
 			return ov, nil, err
 		}
@@ -329,7 +332,7 @@ func (m *Manager) UpdateUser(id string, patch UpdateUser, expected *domain.Revis
 // reveals the baseline when deleting an override without Tombstone.
 func (m *Manager) DeleteUser(id string, opts DeleteOptions, expected *domain.Revision) (*Snapshot, error) {
 	return m.mutate(expected, func(ov overlay, now time.Time, rev domain.Revision) (overlay, *config.Document, error) {
-		id, err := normalizeUserID(id)
+		id, err := NormalizeUserID(id)
 		if err != nil {
 			return ov, nil, err
 		}
@@ -697,6 +700,7 @@ func (m *Manager) mutate(expected *domain.Revision, fn func(ov overlay, now time
 	if newBase != nil {
 		base = newBase
 	}
+	pruneOverlaySecrets(ov)
 	snap, born, err := m.compile(base, ov, nextRev, now, newBase != nil)
 	if err != nil {
 		return nil, err

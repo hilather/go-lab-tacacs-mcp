@@ -742,7 +742,8 @@ func clientFromCreate(base *config.Client, req CreateClient) (config.Client, err
 	})
 }
 
-func normalizeUserID(id string) (string, error) {
+// NormalizeUserID applies the canonical UsernameCasePreserved identity profile.
+func NormalizeUserID(id string) (string, error) {
 	if id == "" {
 		return "", domain.NewError(domain.CodeInvalidArgument, "id is required").WithPath("id")
 	}

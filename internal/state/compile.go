@@ -130,10 +130,23 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	matchWarns = append(matchWarns, accessTLS.Warnings()...)
 	matchWarns = append(matchWarns, acctTLS.Warnings()...)
 	matchWarns = append(matchWarns, dynIdx.Warnings()...)
+	baselineHash := ""
+	if previous := m.current.Load(); previous != nil && base == m.baseline && !touchBaseline {
+		baselineHash = previous.BaselineHash
+	} else {
+		baselineHash, err = hashBaseline(base)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	overlayHash, err := hashOverlay(ov, m.hmacKey)
+	if err != nil {
+		return nil, nil, err
+	}
 	snap := &Snapshot{
 		Revision:             rev,
-		BaselineHash:         hashBaseline(base),
-		OverlayHash:          hashOverlay(ov),
+		BaselineHash:         baselineHash,
+		OverlayHash:          overlayHash,
 		CompiledAt:           now,
 		settings:             cloneDocument(base),
 		users:                map[string]EffectiveUser{},

@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"testing"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )

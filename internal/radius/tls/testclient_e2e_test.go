@@ -169,6 +169,10 @@ type radSecLab struct {
 }
 
 func startRadSecPolicy(t *testing.T) (*radSecLab, *state.Manager) {
+	return startRadSecHandler(t, nil)
+}
+
+func startRadSecHandler(t *testing.T, access server.Handler) (*radSecLab, *state.Manager) {
 	t.Helper()
 	dir := t.TempDir()
 	pki := generateLabPKI(t, dir)
@@ -203,6 +207,9 @@ func startRadSecPolicy(t *testing.T) (*radSecLab, *state.Manager) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if access == nil {
+		access = server.Access{AAA: svc}
+	}
 	settings := doc.Listeners.RADIUSRadSec
 	settings.Enabled = true
 	ln, err := Listen(Options{
@@ -211,7 +218,7 @@ func startRadSecPolicy(t *testing.T) (*radSecLab, *state.Manager) {
 		Settings: settings,
 		Snapshot: mgr.Snapshot,
 		Secrets:  lookup,
-		Access:   server.Access{AAA: svc},
+		Access:   access,
 		Recorder: svc,
 	})
 	if err != nil {

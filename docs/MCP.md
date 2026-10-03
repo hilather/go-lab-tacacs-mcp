@@ -273,7 +273,7 @@ Terminate TLS at Caddy or nginx. Forward **only POST** `/mcp` plus the UI and `/
 
 Set `listeners.http.trusted_proxy_cidrs` to the proxy addresses if you rely on forwarded client IPs for HTTP (this still does **not** affect TACACS client match).
 
-If you enable `listeners.http.tls` on taclabd itself, `cookie_secure` follows that unless overridden.
+Native admin TLS is unsupported: `listeners.http.tls.enabled: true` is rejected (ADR 0032). Keep it false, terminate HTTPS at the reverse proxy, and explicitly set `api.ui_session.cookie_secure: true` for HTTPS browser access.
 
 **Caddy** (`Caddyfile`):
 

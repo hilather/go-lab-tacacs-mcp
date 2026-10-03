@@ -1786,3 +1786,12 @@ REST replay. Relevant `go vet -p=2`, `make check-registries` (`-release`),
 `make docs-check`, and `git diff --check` passed. Six alternating benchmark samples
 and the explicitly reviewed ownership allocation exception are recorded in
 TESTING_AND_BENCHMARKS.md. Source/registry/schema generation is unaffected.
+
+### REVIEW-RUNTIME-001 — Correct admin TLS and shutdown contracts
+
+- [x] Reject unsupported native admin HTTP TLS in v1/v2 configuration and defend startup before bootstrap; ADR 0032 records migration to proxy HTTPS and explicit secure cookies.
+- [x] Mark unready/cancel REST SSE and MCP streams before drain; give HTTP, observability, and AAA the same grace concurrently.
+- [x] Force-close stalled HTTP connections and report HTTP/observability grace deadline failures; preserve established protocol grace cancellation behavior.
+- Acceptance: `TestAdminHTTPRejectsUnsupportedTLS`, `TestStartHTTPRejectsUnsupportedTLSBeforeBootstrap`, `TestServeShutdownDeadlineClosesHTTPAndReturnsFailure`, and HTTP readiness/stream shutdown tests. No administrative capability/schema or conformance-row changes; REST SSE/health and MCP subscription mechanics retain their protocol-only dispositions. No hot parsing/policy/serialization path changes; benchmarks are not applicable.
+
+REVIEW-RUNTIME-001 evidence: original HTTP shutdown regression returned nil after a stalled peer exhausted grace; original config validation accepted native HTTP TLS. `GOMAXPROCS=2 go test -race -p=2 ./cmd/taclabd ./internal/config` passed, including existing TACACS in-flight drain/e2e contracts and readiness/REST stream cancellation integration. Relevant `go vet -p=2`, `make check-registries` (`-release`), and `make docs-check` passed. Schemas/registries remain unchanged because the retained TLS field is validation-only and no operation changes.

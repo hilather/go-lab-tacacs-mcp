@@ -267,7 +267,7 @@ enabled, labels, created_at, updated_at
 
 #### C7. Browser cookie `Secure` flag
 
-**Resolution:** `api.ui_session.cookie_secure` defaults to **true when `listeners.http.tls.enabled` is true**, false otherwise. The lab example may set `cookie_secure: false` for HTTP-only lab use. CSRF protection is mandatory whenever cookie auth is enabled. The UI never stores the bearer token in `localStorage` / `sessionStorage`.
+**Resolution:** Admin HTTPS terminates at a reverse proxy ([ADR 0032](decisions/0032-admin-https-reverse-proxy.md)); `listeners.http.tls.enabled: true` is rejected. Set `api.ui_session.cookie_secure: true` explicitly for HTTPS browser access; its default is false for the HTTP lab. The lab example may set `cookie_secure: false` for HTTP-only lab use. CSRF protection is mandatory whenever cookie auth is enabled. The UI never stores the bearer token in `localStorage` / `sessionStorage`.
 
 #### C8. MCP event subscription mechanism
 
@@ -966,7 +966,7 @@ The annotated example in `CONFIGURATION.md` is the reference lab document, with 
 2. YAML `action: permit` is a YAML-only alias of `permit_add` (comment in the example). REST/MCP writes use only `permit_add` / `permit_replace` / `deny`.
 3. Add `events:sensitive` to the bootstrap token **only if** the lab wants unredacted usernames/commands; default example may omit it (fail closed).
 4. `lab-disabled` persona from LAB_DEPLOYMENT must exist in the checked-in example.
-5. HTTP TLS remains off in the reference Compose (**C7, user-confirmed**); `cookie_secure` follows `listeners.http.tls.enabled`; CSRF still required; operator docs warn this is lab-only.
+5. HTTP TLS remains off in the reference Compose (**C7, user-confirmed**); HTTPS requires a reverse proxy and explicit `cookie_secure: true`; native HTTP TLS is rejected (ADR 0032). CSRF still required; operator docs warn this is lab-only.
 6. Comment that `default_command_action: deny` is required-if-present and does not permit commands.
 7. There is no `config.import` in 1.0.
 8. Comment `api.mcp.allowed_origins` (empty list + same-host UI origin) and `api.mcp.require_origin: false`. Strict YAML must accept these keys in PR-04a.
@@ -1300,7 +1300,7 @@ All previously user-owned items are **Resolved**. Implementers must use these va
    **Resolved:** Independent **software peer required**. Cisco / second-NOS device rows are **optional** with a documented skip when lab hardware is absent. Do not claim those rows as PASS without equipment.
 
 3. **Reference Compose HTTP vs HTTPS for the admin listener.**  
-   **Resolved (C7):** HTTP lab. `cookie_secure` follows `listeners.http.tls.enabled`. CSRF still required.
+   **Resolved (C7, ADR 0032):** HTTP lab; hosted HTTPS terminates at a reverse proxy. Set `cookie_secure: true` explicitly for HTTPS. CSRF still required.
 
 4. **Public product name / binary branding.**  
    **Resolved:** Ship as **TacLab** / **`taclabd`**. Repository name stays `go-lab-tacacs-mcp`.

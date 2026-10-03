@@ -632,3 +632,5 @@ covers retained backlog beyond one cursor page. REST SSE and all MCP listens sha
 Live authorization uses opening token incarnation plus current grants/expiry;
 UI session stream checks never extend idle activity. See
 [ADR 0031](decisions/0031-bounded-admin-event-streams.md).
+
+Admin HTTP security boundary: HTTPS terminates at a reverse proxy; native HTTP `tls.enabled: true` is rejected (ADR 0032). Secure browser cookies require explicit configuration when the proxy provides HTTPS. Process shutdown synchronously marks HTTP readiness false and cancels REST/MCP streams, drains HTTP/metrics/AAA concurrently under one bounded grace, and closes stalled HTTP connections on timeout. Shutdown failures propagate to the process exit status.

@@ -4,6 +4,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+- Reject unsupported native admin HTTP TLS instead of silently serving plaintext; hosted HTTPS uses a reverse proxy with explicitly secure browser cookies (ADR 0032).
+- Cancel REST/MCP streams and mark unready before shutdown drains; force-close stalled HTTP connections after the grace and report HTTP/observability shutdown failures. Protocol grace cancellation retains its established behavior.
+
 ## [1.5.2] — 2026-09-21
 
 Post-1.5.1 Dependabot refreshes: x/crypto, MCP go-sdk, and frontend lint/build toolchain (including tip deps #92–#96 after #91). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

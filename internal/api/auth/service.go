@@ -181,6 +181,26 @@ func (s *Service) VerifyCookie(cookie, csrf string, mutating bool, snap *state.S
 	}, nil
 }
 
+// Revalidate checks an authenticated stream's original token incarnation and
+// current grants without storing bearer material or extending session idle time.
+func (s *Service) Revalidate(actor operations.Actor, generation domain.Revision, snap *state.Snapshot) (operations.Actor, error) {
+	if s == nil || snap == nil || generation == 0 || snap.TokenGeneration(actor.ID) != generation {
+		return operations.Actor{}, unauthenticated()
+	}
+	tok, ok := snap.Token(actor.ID)
+	if !ok || !tok.Enabled || (tok.ExpiresAt != nil && !s.now().Before(tok.ExpiresAt.UTC())) {
+		return operations.Actor{}, unauthenticated()
+	}
+	if actor.SessionID != "" {
+		sess, err := s.Get(actor.SessionID, snap)
+		if err != nil || sess.TokenID != actor.ID {
+			return operations.Actor{}, unauthenticated()
+		}
+	}
+	actor.Scopes = append([]string(nil), tok.Scopes...)
+	return actor, nil
+}
+
 // Create implements operations.SessionService.
 func (s *Service) Create(actor operations.Actor, snap *state.Snapshot) (operations.Session, error) {
 	if actor.ID == "" {

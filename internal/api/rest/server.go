@@ -89,6 +89,7 @@ type Server struct {
 	IdleTimeout  time.Duration
 	MaxInFlight  int
 	SSEBuffer    int
+	Done         <-chan struct{}
 	Logger       *slog.Logger
 	// Assets is the SPA tree. Nil uses the embedded UI (stub or production copy).
 	Assets  fs.FS

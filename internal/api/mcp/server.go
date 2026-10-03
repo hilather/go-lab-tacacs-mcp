@@ -194,7 +194,7 @@ func Handler(opts Options) http.Handler {
 				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: rpcErr})
 				return
 			}
-			handleListen(w, r, opts, p, req)
+			handleListen(w, r, opts, p, req, snap.TokenGeneration(p.TokenID))
 			return
 		}
 

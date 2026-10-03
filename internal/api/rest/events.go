@@ -83,6 +83,50 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter.Limit = events.MaxLimit
+	if s.Events == nil {
+		writeDomainID(w, domain.NewError(domain.CodeUnavailable, "event service unavailable"), rid)
+		return
+	}
+	generation := snap.TokenGeneration(actor.ID)
+	valid := func() bool {
+		select {
+		case <-s.Done:
+			return false
+		case <-r.Context().Done():
+			return false
+		default:
+		}
+		current := s.Snapshot()
+		refreshed, err := s.Auth.Revalidate(actor, generation, current)
+		if err != nil || !auth.Has(refreshed.Scopes, "events:read") {
+			return false
+		}
+		// Losing sensitive grants terminates rather than sending a mixed-view stream.
+		if auth.Has(actor.Scopes, "events:sensitive") && !auth.Has(refreshed.Scopes, "events:sensitive") {
+			return false
+		}
+		return true
+	}
+	sensitive := auth.Has(actor.Scopes, "events:sensitive")
+	var sub <-chan events.Event
+	var dropped <-chan struct{}
+	if s.Events != nil {
+		buf := s.SSEBuffer
+		if buf <= 0 {
+			buf = 16
+		}
+		var cancel func()
+		sub, dropped, cancel, err = s.Events.TrySubscribe(buf)
+		if err != nil {
+			writeDomainID(w, domain.NewError(domain.CodeUnavailable, "event subscription capacity exceeded"), rid)
+			return
+		}
+		defer cancel()
+	}
+	if !valid() {
+		writeDomainID(w, domain.NewError(domain.CodeUnauthenticated, "authentication required"), rid)
+		return
+	}
 	if err := ClearWriteDeadline(w); err != nil && s.Logger != nil {
 		s.Logger.Info("rest sse deadline", "err", err, "request_id", rid)
 	}
@@ -96,28 +140,18 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
-	sensitive := auth.Has(actor.Scopes, "events:sensitive")
-
-	var sub <-chan events.Event
-	var dropped <-chan struct{}
-	var cancel func()
-	if s.Events != nil {
-		buf := s.SSEBuffer
-		if buf <= 0 {
-			buf = 16
-		}
-		sub, dropped, cancel = s.Events.Subscribe(buf)
-		defer cancel()
-	}
 
 	last := after
 	if s.Events != nil && lastEventHdr != "" {
-		page := s.Events.Read(filter)
+		page := s.Events.Replay(filter)
 		if page.Reset {
 			writeSSE(w, "0", "reset", map[string]any{"reset": true, "overwritten": page.Overwritten})
 			flush()
 		}
 		for _, ev := range page.Items {
+			if !valid() {
+				return
+			}
 			writeSSE(w, strconv.FormatUint(ev.ID, 10), "", operations.ViewEvent(ev, sensitive))
 			last = ev.ID
 		}
@@ -132,9 +166,14 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 	defer tick.Stop()
 	for {
 		select {
+		case <-s.Done:
+			return
 		case <-r.Context().Done():
 			return
 		case <-tick.C:
+			if !valid() {
+				return
+			}
 			_, _ = io.WriteString(w, ": keepalive\n\n")
 			flush()
 		case <-dropOrNil(dropped):
@@ -142,6 +181,9 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 			flush()
 			return
 		case ev, ok := <-subOrNil(sub):
+			if !valid() {
+				return
+			}
 			if !ok {
 				sub = nil
 				continue

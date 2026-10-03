@@ -643,3 +643,11 @@ Tests should generate or feed:
 - build/spec version report.
 
 CI must fail if generated reports differ from checked-in release metadata where the repository policy requires checked-in outputs.
+
+### REVIEW-STATE-01 session binding evidence (2026-10-03)
+
+Reference: Go 1.26.8, linux/amd64, Intel Core i7-8750H. Command:
+`go test ./internal/api/auth -run '^$' -bench 'BenchmarkVerify(Cookie|Bearer)$' -benchmem -cpu=1 -count=5`.
+The baseline uses the same new cookie benchmark through a Go source overlay; the candidate adds token incarnation validation.
+Median comparison of five samples: bearer 4019 → 3770 ns/op; cookie 10678 → 6862 ns/op.
+Both remain 160 B/op and 5 allocs/op. Concurrent review workloads caused substantial timing variance, so these measurements establish allocation stability and show no median regression rather than a performance improvement claim.

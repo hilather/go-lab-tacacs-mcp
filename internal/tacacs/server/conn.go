@@ -279,7 +279,8 @@ func (s *session) offer(ctx context.Context, p packet) bool {
 func (s *session) stop() {
 	s.close.Do(func() {
 		close(s.done)
-		s.seq.Close()
+		// The session goroutine owns Sequence. Closing done signals termination
+		// without racing its dispatch/Closed calls.
 	})
 }
 

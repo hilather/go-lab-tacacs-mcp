@@ -303,6 +303,8 @@ rows:
     evidence_required: Integration test
     status: PASS
     evidence:
+      - unit:internal/tacacs/server.TestNonSingleConnectRejectsSecondLiveSession
+      - race:internal/tacacs/server.TestSessionStopDoesNotRaceSequenceOwner
       - unit:internal/tacacs/server.TestNonSingleConnectClosesAfterSession
       - unit:internal/tacacs/tls.TestNonSingleConnectCloses
   - id: T89-SC-004

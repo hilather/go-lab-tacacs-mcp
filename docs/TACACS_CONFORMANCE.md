@@ -108,7 +108,7 @@ TacLab is a TACACS+ server. Server-applicable RFC requirements are release gates
 |---|---|---|---|---|
 | T89-SC-001 | MUST | Negotiate single-connect only through the first request/reply flag exchange | Positive and invalid late-flag tests | [x] |
 | T89-SC-002 | MUST | Client cannot send a second packet before negotiation is established | Connection-state negative test | [x] |
-| T89-SC-003 | MUST | If single-connect is not established, close after the first session | Integration test | [x] |
+| T89-SC-003 | MUST | If single-connect is not established, reject a second live session and close after the first session | Integration and session-stop race tests | [x] |
 | T89-SC-004 | MAY | Server may refuse single-connect per client configuration | Config and interop test | [x] |
 | T89-SC-005 | PROJECT MUST | Multiplex sessions by session ID on one connection | Concurrent authen/author/acct test | [x] |
 | T89-SC-006 | PROJECT MUST | Preserve packet order within one session while allowing concurrency across sessions | Race test and stress test | [x] |

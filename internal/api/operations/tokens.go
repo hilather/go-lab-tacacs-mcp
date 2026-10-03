@@ -109,7 +109,11 @@ func handleTokensCreate(deps Deps) handleFunc {
 		if !ok {
 			return nil, domain.NewError(domain.CodeInternal, "created token is missing from snapshot")
 		}
+		if deps.Usage != nil {
+			deps.Usage.Forget(id)
+		}
 		view := tokenView(tok, deps.Usage)
+		audit(deps, "api.token.created", "ok", published.Revision)
 		return CreatedToken{TokenView: view, Token: value, Revision: published.Revision}, nil
 	}
 }
@@ -133,6 +137,7 @@ func handleTokensRevoke(deps Deps) handleFunc {
 		if deps.Usage != nil {
 			deps.Usage.Forget(req.ID)
 		}
+		audit(deps, "api.token.revoked", "ok", published.Revision)
 		return DeleteResult{ID: req.ID, Revision: published.Revision}, nil
 	}
 }

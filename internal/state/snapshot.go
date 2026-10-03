@@ -46,6 +46,7 @@ type Snapshot struct {
 	clientIDs            []string
 	tokenIDs             []string
 	tokenIndex           map[tokenDigestKey]string
+	tokenDigests         map[string]credentials.TokenDigest
 	tombstones           []domain.Tombstone
 	fallback             config.RuleSet
 	fallbackRules        CompiledRuleSet
@@ -130,13 +131,14 @@ type EffectiveClient struct {
 
 // EffectiveToken is a non-secret token descriptor.
 type EffectiveToken struct {
-	Meta      domain.ObjectMeta
-	ID        string
-	Name      string
-	Scopes    []string
-	Enabled   bool
-	ExpiresAt *time.Time
-	HasDigest bool
+	Meta                 domain.ObjectMeta
+	ID                   string
+	Name                 string
+	Scopes               []string
+	Enabled              bool
+	ExpiresAt            *time.Time
+	HasDigest            bool
+	credentialGeneration domain.Revision
 }
 
 // RuntimeSecret copies in-process overlay material for id. Callers wipe the buffer.
@@ -289,6 +291,26 @@ func (s *Snapshot) Tokens() []EffectiveToken {
 		}
 	}
 	return out
+}
+
+// TokenGeneration identifies the current credential incarnation. It survives
+// unrelated mutations but changes on replacement, removal and recreation, or
+// restoration from an override, even when the credential bytes are identical.
+func (s *Snapshot) TokenGeneration(id string) domain.Revision {
+	if s == nil {
+		return 0
+	}
+	return s.tokens[id].credentialGeneration
+}
+
+// tokenCredential returns a redacted digest used only to compare credential
+// incarnations during publication. It never appears in administrative output.
+func (s *Snapshot) tokenCredential(id string) (credentials.TokenDigest, bool) {
+	if s == nil {
+		return credentials.TokenDigest{}, false
+	}
+	d, ok := s.tokenDigests[id]
+	return credentials.NewTokenDigest(d.Bytes()), ok
 }
 
 // AuthenticateToken looks up a presented bearer by SHA-256 digest. Failures

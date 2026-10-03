@@ -52,13 +52,14 @@ type Service struct {
 }
 
 type sessionRec struct {
-	id         string
-	tokenID    string
-	scopes     []string
-	cookieHash credentials.TokenDigest
-	csrfHash   credentials.TokenDigest
-	created    time.Time
-	lastSeen   time.Time
+	id              string
+	tokenID         string
+	tokenGeneration domain.Revision
+	scopes          []string
+	cookieHash      credentials.TokenDigest
+	csrfHash        credentials.TokenDigest
+	created         time.Time
+	lastSeen        time.Time
 }
 
 // New returns a Service. Zero Options select production clock and entropy.
@@ -161,7 +162,7 @@ func (s *Service) VerifyCookie(cookie, csrf string, mutating bool, snap *state.S
 		}
 	}
 	tok, ok := snap.Token(rec.tokenID)
-	if !ok || !tok.Enabled {
+	if !ok || !tok.Enabled || snap.TokenGeneration(rec.tokenID) != rec.tokenGeneration {
 		delete(s.sessions, rec.id)
 		return Principal{}, unauthenticated()
 	}
@@ -203,6 +204,10 @@ func (s *Service) Create(actor operations.Actor, snap *state.Snapshot) (operatio
 	if tok.ExpiresAt != nil && !now.Before(tok.ExpiresAt.UTC()) {
 		return operations.Session{}, unauthenticated()
 	}
+	tokenGeneration := snap.TokenGeneration(actor.ID)
+	if tokenGeneration == 0 {
+		return operations.Session{}, unauthenticated()
+	}
 	cookieVal, cookieHash, err := issueSecret(s.entropy)
 	if err != nil {
 		return operations.Session{}, domain.NewError(domain.CodeInternal, "cannot issue session")
@@ -222,13 +227,14 @@ func (s *Service) Create(actor operations.Actor, snap *state.Snapshot) (operatio
 		return operations.Session{}, domain.NewError(domain.CodeUnavailable, "session capacity exceeded")
 	}
 	s.sessions[id] = sessionRec{
-		id:         id,
-		tokenID:    actor.ID,
-		scopes:     append([]string(nil), tok.Scopes...),
-		cookieHash: cookieHash,
-		csrfHash:   csrfHash,
-		created:    now,
-		lastSeen:   now,
+		id:              id,
+		tokenID:         actor.ID,
+		tokenGeneration: tokenGeneration,
+		scopes:          append([]string(nil), tok.Scopes...),
+		cookieHash:      cookieHash,
+		csrfHash:        csrfHash,
+		created:         now,
+		lastSeen:        now,
 	}
 	lifetime := cfg.Lifetime
 	if lifetime <= 0 {
@@ -273,7 +279,7 @@ func (s *Service) Get(sessionID string, snap *state.Snapshot) (operations.Sessio
 		return operations.Session{}, unauthenticated()
 	}
 	tok, ok := snap.Token(rec.tokenID)
-	if !ok || !tok.Enabled {
+	if !ok || !tok.Enabled || snap.TokenGeneration(rec.tokenID) != rec.tokenGeneration {
 		delete(s.sessions, rec.id)
 		return operations.Session{}, unauthenticated()
 	}
@@ -363,13 +369,18 @@ func (s *Service) LastUsed(id string) (time.Time, bool) {
 	return ts, ok
 }
 
-// Forget drops last-used metadata for a revoked token id.
+// Forget drops usage metadata and all sessions for a revoked or replaced token.
 func (s *Service) Forget(id string) {
 	if s == nil || id == "" {
 		return
 	}
 	s.mu.Lock()
 	delete(s.lastUsed, id)
+	for sessionID, rec := range s.sessions {
+		if rec.tokenID == id {
+			delete(s.sessions, sessionID)
+		}
+	}
 	s.mu.Unlock()
 }
 

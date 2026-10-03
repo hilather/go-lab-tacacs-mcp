@@ -622,4 +622,6 @@ The initial architecture allows but does not require:
 
 No extension may change the default ephemeral runtime behavior or bypass common operations and policy services.
 
+State publication connects to metrics and the shared event ring through the manager publication hook. Each successful mutation, reset, or baseline reload appends one `state.revision.changed` event (`category: config`, published `revision`); failed candidates append none. REST SSE and MCP resource notifications observe this same ring, so clients refresh their state views after external mutations and SIGHUP reloads.
+
 RADIUS client access policies are indexed by client and endpoint, so UDP and TLS endpoints can select independent policies. An omitted endpoint in diagnostics selects a client policy only when that client has one RADIUS endpoint; ambiguous calls fail closed before group/client/fallback evaluation. Semantic accounting journals reserve pending identities atomically before entering the shared sink. Duplicates wait within their request deadline; success commits the identity and sink failure releases it. Pending identities consume the same entry/byte budget and are not evicted by TTL while executing. Saturation retains the documented miss/record/reply behavior.

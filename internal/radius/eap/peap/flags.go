@@ -20,6 +20,10 @@ const (
 	FlagStart   byte = 0x20
 	VersionMask byte = 0x07
 	Version0    byte = 0
+	// reservedFlagBits are the TLS-in-EAP R bits left after PEAP claims the
+	// low three bits for its version (RFC 5216 section 3.1; MS-PEAP flags).
+	// They are ignored on receipt and never sent.
+	reservedFlagBits byte = 0x18
 )
 
 // Payload is one TLS-in-EAP PEAP body (flags + optional length + TLS data).
@@ -42,9 +46,9 @@ func Parse(data []byte) (Payload, error) {
 	if len(data) < 1 {
 		return Payload{}, errors.New("peap: empty TLS-in-EAP payload")
 	}
-	flags := data[0]
-	if flags&VersionMask != Version0 || flags&0x18 != 0 {
-		return Payload{}, errors.New("peap: unsupported flags or version")
+	flags := data[0] &^ reservedFlagBits
+	if flags&VersionMask != Version0 {
+		return Payload{}, errors.New("peap: unsupported version")
 	}
 	p := Payload{
 		LengthIncluded: flags&FlagLength != 0,

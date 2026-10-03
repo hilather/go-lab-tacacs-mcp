@@ -47,8 +47,11 @@ function EventsBody() {
   const lastProcessedID = useRef(0);
   const lastResetGeneration = useRef(stream.resetGeneration);
   // Highest reset generation whose notice was cleared by a live event that
-  // arrived after that generation's re-drain landed.
-  const acknowledgedGeneration = useRef(0);
+  // arrived after that generation's re-drain landed. The stream outlives this
+  // page (EventStreamProvider), so a remount starts from the current
+  // generation; a reset still unacknowledged by the stream shows through
+  // stream.reset.
+  const acknowledgedGeneration = useRef(stream.resetGeneration);
   const liveDuringDrain = useRef<EventView[] | null>(null);
   const hasFlashes = flashIds.size > 0;
   useEffect(() => {
@@ -79,6 +82,7 @@ function EventsBody() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
+          liveDuringDrain.current = null;
           setLoadError(errorDetail(err, "Unable to load events."));
         }
       })

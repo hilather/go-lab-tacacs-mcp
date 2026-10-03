@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { envelope, json, renderApp, seedSession } from "../test/render";
 import { sampleEvent } from "../test/fixtures";
+import { EventStreamProvider } from "../hooks/EventStreamProvider";
 import { EventsPage } from "./EventsPage";
 
 class FakeEventSource {
@@ -341,5 +342,37 @@ it("clears the reset banner on the first live event after the post-reset drain",
   await waitFor(() => expect(reads).toBeGreaterThan(beforeSecond));
   await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
   expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+it("does not resurrect an acknowledged reset banner when the page remounts", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  // The app-level provider owns the stream, so its reset generation survives
+  // navigating away from and back to the Events page.
+  const page = (key: string) => <EventStreamProvider><EventsPage key={key} /></EventStreamProvider>;
+  const { rerender } = renderApp(page("first"));
+  await screen.findByText("No events match the filters.");
+  const before = reads;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "in-reset-batch" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 2, user_id: "after-drain" })));
+  await waitFor(() => expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument());
+
+  const beforeRemount = reads;
+  rerender(page("second"));
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeRemount));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument();
   vi.unstubAllGlobals();
 });

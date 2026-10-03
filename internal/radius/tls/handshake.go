@@ -181,7 +181,7 @@ func (l *Listener) verifyPeer(cs tls.ConnectionState) error {
 				issuers = append(issuers, chain[1:]...)
 			}
 		}
-		if err := revokedBy(lists, leaf, issuers); err != nil {
+		if err := revokedBy(lists, leaf, issuers, l.now()); err != nil {
 			return err
 		}
 	}
@@ -234,7 +234,7 @@ func loadCRLs(path string) ([]*x509.RevocationList, error) {
 	return lists, nil
 }
 
-func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*x509.Certificate) error {
+func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*x509.Certificate, now time.Time) error {
 	if cert == nil {
 		return errors.New("client certificate is required")
 	}
@@ -248,7 +248,6 @@ func revokedBy(lists []*x509.RevocationList, cert *x509.Certificate, issuers []*
 	if issuer == nil {
 		return errors.New("client CRL issuer is unavailable")
 	}
-	now := time.Now()
 	matched := false
 	for _, crl := range lists {
 		if crl == nil || crl.CheckSignatureFrom(issuer) != nil {

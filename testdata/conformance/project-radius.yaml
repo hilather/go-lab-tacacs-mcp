@@ -274,6 +274,8 @@ rows:
       - unit:internal/radius/tls.TestIndependentTestclientPAPOnRadSec
       - unit:internal/radius/tls.TestRadSecPropagatesCertificateChallengeBinding
       - unit:internal/radius/tls.TestRadSecCRLAuthenticityAndFreshness
+      - unit:internal/radius/tls.TestRadSecCRLSignatureAndIssuerIsolation
+      - unit:internal/radius/tls.TestRadSecCRLUsesVerifiedRootOmittedByPeer
       - bench:internal/radius/tls.BenchmarkRadSecCRLValidation
       - unit:internal/radius/tls.TestReadPacketDoesNotStitch
       - unit:internal/radius/tls.TestNoForbiddenImports

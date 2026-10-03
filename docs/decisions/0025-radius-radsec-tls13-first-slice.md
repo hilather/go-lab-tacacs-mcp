@@ -24,7 +24,7 @@ The tree currently allows at most one RADIUS UDP endpoint per client. RadSec add
 5. **DAC CoA stays UDP** ([ADR 0024](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0024-radius-coa-disconnect.md)): even when Accounting-Start arrives on RadSec, originate uses the client's UDP RADIUS endpoint secret and dest knobs. A TLS-only RADIUS client cannot originate CoA.
 6. Shared secret remains **required** for User-Password hide, authenticators, and Message-Authenticator. Do not default the informal well-known secret `radsec`. Do not special-case that string.
 7. Client match after TLS handshake uses a cert index (`address_and_certificate` or `certificate_only`). `certificate_only` requires a TACACS TLS **or** RADIUS TLS endpoint.
-Configured CRLs are verified against the client certificate issuer from the verified chain, including a root omitted from the peer chain. An unauthenticated or out-of-date CRL fails closed.
+   Configured CRLs are verified against the client certificate issuer from the verified chain, including a root omitted from the peer chain. An unauthenticated or out-of-date CRL fails closed.
 
 8. Challenge bind on RadSec is `tls_cert` (peer certificate fingerprint), not TCP peer IP ([ADR 0021](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/decisions/0021-radius-access-challenge-state-gate.md)).
 9. `internal/radius/tls` must not import `internal/radius/udp` or `internal/tacacs/tls`. Shared TLS policy lives in `internal/config` (`SecureTLS`). Shared tables live in `internal/radius/runtime`.

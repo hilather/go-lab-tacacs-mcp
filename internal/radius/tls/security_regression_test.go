@@ -2,9 +2,13 @@ package tls
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
+	cryptotls "crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -75,7 +79,7 @@ func TestRadSecCRLAuthenticityAndFreshness(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = revokedBy([]*x509.RevocationList{crl}, leaf, []*x509.Certificate{ca})
+			err = revokedBy([]*x509.RevocationList{crl}, leaf, []*x509.Certificate{ca}, now)
 			if (err != nil) != tc.invalid {
 				t.Fatalf("invalid=%v err=%v", tc.invalid, err)
 			}
@@ -99,8 +103,63 @@ func BenchmarkRadSecCRLValidation(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if err := revokedBy(lists, leaf, issuers); err != nil {
+		if err := revokedBy(lists, leaf, issuers, now); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestRadSecCRLSignatureAndIssuerIsolation(t *testing.T) {
+	now := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	ca, key := mustCA(t, "issuer", now)
+	leaf, _ := mustLeaf(t, leafReq{ca: ca, caKey: key, now: now})
+	other, otherKey := mustCA(t, "other", now)
+	makeList := func(issuer *x509.Certificate, signer *ecdsa.PrivateKey, revoked bool) *x509.RevocationList {
+		tmpl := &x509.RevocationList{Number: big.NewInt(1), ThisUpdate: now.Add(-time.Hour), NextUpdate: now.Add(time.Hour)}
+		if revoked {
+			tmpl.RevokedCertificateEntries = []x509.RevocationListEntry{{SerialNumber: leaf.SerialNumber, RevocationTime: now.Add(-time.Minute)}}
+		}
+		der, err := x509.CreateRevocationList(rand.Reader, tmpl, issuer, signer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list, err := x509.ParseRevocationList(der)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return list
+	}
+	valid := makeList(ca, key, false)
+	unrelated := makeList(other, otherKey, true)
+	if err := revokedBy([]*x509.RevocationList{unrelated, valid}, leaf, []*x509.Certificate{ca}, now); err != nil {
+		t.Fatalf("unrelated same-serial CRL affected client: %v", err)
+	}
+	valid.Signature[0] ^= 1
+	if err := revokedBy([]*x509.RevocationList{valid}, leaf, []*x509.Certificate{ca}, now); err == nil {
+		t.Fatal("bad signature admitted client")
+	}
+	if err := revokedBy([]*x509.RevocationList{makeList(ca, key, true)}, leaf, []*x509.Certificate{ca}, now); err == nil {
+		t.Fatal("signed revocation admitted client")
+	}
+}
+
+func TestRadSecCRLUsesVerifiedRootOmittedByPeer(t *testing.T) {
+	pki := generateLabPKI(t, t.TempDir())
+	readCert := func(path string) *x509.Certificate {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		block, _ := pem.Decode(raw)
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cert
+	}
+	leaf, root := readCert(pki.ClientCert), readCert(pki.ClientCA)
+	l := &Listener{crlPath: pki.CRL, opts: Options{Now: time.Now}}
+	if err := l.verifyPeer(cryptotls.ConnectionState{PeerCertificates: []*x509.Certificate{leaf}, VerifiedChains: [][]*x509.Certificate{{leaf, root}}}); err != nil {
+		t.Fatalf("verified root missing from peer chain: %v", err)
 	}
 }

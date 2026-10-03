@@ -215,6 +215,60 @@ func TestRadSecEndpointPolicyChangeVisibleOnOpenConnection(t *testing.T) {
 	}
 }
 
+// TestRadSecCrossRoleAmbiguityClosesOnNextAccessPacket pins per-role
+// re-admission: a higher-priority access-only client claiming the same
+// certificate leaves the accounting index on the bound client, so accounting
+// is still answered, while the next Access-Request sees access and accounting
+// resolve to different clients and closes the connection as ambiguous.
+func TestRadSecCrossRoleAmbiguityClosesOnNextAccessPacket(t *testing.T) {
+	t.Parallel()
+	ln, mgr := startRadSecPolicy(t)
+	c := dialRadSec(t, ln)
+	if code := radSecPAP(t, c, 1, accessTestPassword); code != tcodec.AccessAccept {
+		t.Fatalf("before change: %s", code)
+	}
+	cur, ok := mgr.Snapshot().Client("radsec")
+	if !ok {
+		t.Fatal("radsec client missing")
+	}
+	eps := append([]config.ClientEndpoint(nil), cur.Client.Endpoints...)
+	for i := range eps {
+		eps[i].Roles = []domain.ListenerRole{domain.RoleAccess}
+	}
+	match := cur.Client.Match
+	pri := cur.Client.Priority - 5
+	if _, err := mgr.CreateClient(state.CreateClient{ID: "radsec-shadow", Priority: &pri, Match: &match, Endpoints: &eps}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, ra, err := radSecAccounting(t, c, 2); err != nil {
+		t.Fatalf("accounting after access-only shadow client: %v", err)
+	} else if _, err := testclient.DecodeAccountingResponse([]byte(labSecret), ra, got); err != nil {
+		t.Fatal(err)
+	}
+	secret := []byte(labSecret)
+	var ra [16]byte
+	ra[0] = 0xa3
+	pap, err := testclient.EncodeAccessRequest(secret, testclient.AccessRequest{
+		Identifier: 3, Authenticator: ra, UserName: "lab-admin", Password: []byte(accessTestPassword), IncludeMA: true,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WritePacket(pap); err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.ReadPacket()
+	if err == nil {
+		t.Fatal("ambiguous binding received an Access reply")
+	}
+	if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, syscall.ECONNRESET) {
+		t.Fatalf("want connection close on cross-role ambiguity, got %v", err)
+	}
+	if got := ln.Status().LastErrorCode; got != reasonAmbiguousClient {
+		t.Fatalf("last discard reason = %q, want %q", got, reasonAmbiguousClient)
+	}
+}
+
 // BenchmarkRadSecAccountingOnOpenConnection measures one accounting
 // round trip on an established RadSec connection, which now includes the
 // per-packet snapshot load and client re-admission.

@@ -976,7 +976,7 @@ Machine-readable `testdata/conformance/rfc9887.yaml` is filled in PR-22 (PSK con
 - [x] Implement status, config validation/reload/export, runtime reset, user/group/client/token CRUD, authentication test, policy explain, and event queries.
 - [x] Return typed errors and stable codes.
 - [x] Apply expected-revision semantics centrally.
-- [ ] Bounded in-memory idempotency store for create/reset/reload (header is parsed; replay is not).
+- [x] Bounded in-memory idempotency store for supported create/reset/reload operations (ADR 0033); original revision replay, concurrent coalescing, cancellation, capacity, expiry, authorization and REST/MCP regression tests. Reset/reload retries preserve later runtime objects and invoke process hooks only once; lab create fixtures use a fresh key for each logical create, including setup after reset.
 - [x] Emit redacted audit events centrally.
 
 **Regression tests**
@@ -1764,6 +1764,41 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 - [x] Cache immutable baseline fingerprints across runtime publications.
 - [x] Emit one `state.revision.changed` config event per successful publication, including concurrent mutations, reset, and reload; emit none on failure.
 - [x] Regression evidence: `internal/state/review_hash_test.go`, `cmd/taclabd/review_revision_test.go`, and file-reference replacement verifier-retention tests.
+
+### REVIEW-EVENT-01 Immutable ordered history and bounded live streams
+
+- [x] Reproduce concurrent fanout reordering and argument/timestamp aliases with failing ring regressions; serialize bounded nonblocking delivery and deep-copy ownership boundaries.
+- [x] Reproduce REST's 200-event replay truncation and revoked stream continuation; capture a finite full retained replay window with live handoff.
+- [x] Bind REST/MCP streams to opening token incarnation and recheck grants/expiry before sends and heartbeats; check UI session idle lifetime without extending activity.
+- [x] Share fixed 128 live admissions across REST SSE and all MCP listens; reject saturation before success/ack and release exactly once on handler exit.
+- [x] Record final race, parity, registry/docs checks and benchmark comparison after review.
+
+Existing P7.2/P7.4/P10.4/P11.5 contracts are hardened; no TACACS/RADIUS conformance
+row or typed schema changes. `events.subscribe` retains `PARITY_DIFFERENT_BINDING`.
+Decision: [ADR 0031](decisions/0031-bounded-admin-event-streams.md).
+
+REVIEW-EVENT-01 acceptance evidence: `GOMAXPROCS=2 go test -race -p=2
+./internal/events ./internal/api/auth ./internal/api/rest ./internal/api/mcp
+./internal/api/parity` passed, including redaction/equivalence and fuzz seed tests.
+Focused race regressions additionally prove failed Subscribe channels close,
+MCP authenticated-incarnation handoff, cookie recreation, and cancellation during
+REST replay. Relevant `go vet -p=2`, `make check-registries` (`-release`),
+`make docs-check`, and `git diff --check` passed. Six alternating benchmark samples
+and the explicitly reviewed ownership allocation exception are recorded in
+TESTING_AND_BENCHMARKS.md. Source/registry/schema generation is unaffected.
+
+### REVIEW-RUNTIME-001 — Correct admin TLS and shutdown contracts
+
+- [x] Reject unsupported native admin HTTP TLS in v1/v2 configuration and defend startup before bootstrap; ADR 0032 records migration to proxy HTTPS and explicit secure cookies.
+- [x] Mark unready/cancel REST SSE and MCP streams before drain; give HTTP, observability, and AAA the same grace concurrently.
+- [x] Force-close stalled HTTP connections and report HTTP/observability grace deadline failures; preserve established protocol grace cancellation behavior.
+- Acceptance: `TestAdminHTTPRejectsUnsupportedTLS`, `TestStartHTTPRejectsUnsupportedTLSBeforeBootstrap`, `TestServeShutdownDeadlineClosesHTTPAndReturnsFailure`, and HTTP readiness/stream shutdown tests. No administrative capability/schema or conformance-row changes; REST SSE/health and MCP subscription mechanics retain their protocol-only dispositions. No hot parsing/policy/serialization path changes; benchmarks are not applicable.
+
+REVIEW-RUNTIME-001 evidence: original HTTP shutdown regression returned nil after a stalled peer exhausted grace; original config validation accepted native HTTP TLS. `GOMAXPROCS=2 go test -race -p=2 ./cmd/taclabd ./internal/config` passed, including existing TACACS in-flight drain/e2e contracts and readiness/REST stream cancellation integration. Relevant `go vet -p=2`, `make check-registries` (`-release`), and `make docs-check` passed. Schemas/registries remain unchanged because the retained TLS field is validation-only and no operation changes.
+
+REVIEW-RUNTIME-001 documentation follow-up: leftover "`cookie_secure` follows `listeners.http.tls.enabled`" wording in ARCHITECTURE, OPERATOR, API_PARITY, ADR 0010, the lab example, the REST package doc and OpenAPI descriptions now states the ADR 0032 rule (default false, explicit true behind an HTTPS proxy); `api/openapi.json` regenerated and `make check-generated` clean.
+
+REVIEW-RUNTIME-001 migration regression evidence: session authentication tests cover explicit secure cookies behind proxy HTTPS, explicit/default HTTP cookie behavior, and rejection of native admin TLS during snapshot creation. Parse-only legacy flag normalization remains covered independently of validation. Full `go test -race -p=2 ./internal/api/auth ./internal/config ./cmd/taclabd` passed after aligning the old secure-cookie fixture with ADR 0032; the native TLS fixture scan found no other valid-snapshot uses outside the rejection tests.
 
 ## 24. Protocol review hardening
 

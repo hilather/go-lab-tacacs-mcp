@@ -125,7 +125,7 @@ Compose uses `taclabd healthcheck --url http://127.0.0.1:8080/health/ready` insi
 
 Do not store the raw bearer in the browser. The SPA does not use `localStorage` for it.
 
-Hosted over HTTPS: see [MCP.md §4](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) and set `cookie_secure` to follow TLS.
+Hosted over HTTPS: see [MCP.md §4](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/MCP.md) and explicitly set `api.ui_session.cookie_secure: true`. Native admin TLS is unsupported; keep `listeners.http.tls.enabled: false` and terminate HTTPS at the proxy (ADR 0032).
 
 ---
 

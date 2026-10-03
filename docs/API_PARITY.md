@@ -138,7 +138,7 @@ Internal causes may be logged with a correlation ID but are not exposed as stack
 
 ### 7.2 Idempotency
 
-- REST uses `Idempotency-Key`.
+- REST uses `Idempotency-Key`. The adapter passes the parsed field value unchanged; HTTP parsing strips only leading/trailing SP/HTAB (RFC 9110 §5.5), and all other bytes are significant (ADR 0033).
 - MCP mutating tool input uses `idempotency_key` when the operation supports replay protection.
 - Both map to the same bounded in-memory idempotency service and response replay rules.
 - Idempotency entries disappear on restart with other runtime state unless a future persistence ADR says otherwise.
@@ -261,7 +261,7 @@ Sensitive event fields require `events:sensitive` in addition to `events:read`. 
 |---|---|---|---|
 | Liveness and readiness probes | REST `/health/live`, `/health/ready` | REST_ONLY_PROTOCOL | Infrastructure HTTP probes, not administrative features |
 | OpenAPI document | REST `/api/openapi.json` or YAML | REST_ONLY_PROTOCOL | Describes REST protocol |
-| Browser token exchange/session get/logout | REST `POST`/`GET`/`DELETE /api/v1/session` | REST_ONLY_PROTOCOL | Browser cookie/CSRF mechanics. `GET` is cookie whoami (no CSRF). CSRF is required when cookie auth is on for mutations. `cookie_secure` follows HTTP TLS. |
+| Browser token exchange/session get/logout | REST `POST`/`GET`/`DELETE /api/v1/session` | REST_ONLY_PROTOCOL | Browser cookie/CSRF mechanics. `GET` is cookie whoami (no CSRF). CSRF is required when cookie auth is on for mutations. `cookie_secure` defaults to false; set it explicitly behind an HTTPS reverse proxy (ADR 0032). |
 | SSE framing/heartbeat | REST | REST_ONLY_PROTOCOL | HTTP event transport mechanics |
 | MCP endpoint, discovery, tools/list, resources/list, capability metadata | MCP | MCP_ONLY_PROTOCOL | Required MCP protocol surface |
 | MCP tool/list-changed and resource notifications | MCP | MCP_ONLY_PROTOCOL | MCP protocol mechanics; underlying state capability remains parity-covered |
@@ -383,3 +383,19 @@ For any new or changed administrative feature:
 - [ ] Update generated parity documentation.
 - [ ] Update UI when the feature is operator-facing.
 - [ ] Update benchmark when operation affects a hot path or large list.
+
+Administrative stream admission and grant lifetime are shared across the existing
+`events.subscribe` bindings ([ADR 0031](decisions/0031-bounded-admin-event-streams.md)).
+REST SSE and MCP listen (including discovery-only notification subscriptions)
+share 128 live admission slots. Saturation returns domain `unavailable` / HTTP
+503 before SSE success or acknowledgment. Slow-consumer detachment retains its
+slot until handler cleanup. Both adapters bind to the opening token incarnation
+and check current credentials/grants before sends and heartbeats; grant loss
+closes the stream. REST additionally checks cookie session lifetime/idle expiry
+without refreshing idle activity. `events:sensitive` remains the body-redaction
+grant. REST Last-Event-ID replay captures all matching retained events in one
+finite window before live handoff, rather than one 200-item page. MCP remains
+URI-only and does not replay bodies. No operation, schema, or registry disposition
+is added; transport framing stays `PARITY_DIFFERENT_BINDING`.
+
+Administrative replay keys are implemented in the common registry for users/groups/clients.create, runtime.reset and config.reload. Keys are limited to 256 bytes; completed entries expire after ten minutes. The store admits 128 entries with a reserved 64 KiB result payload per entry (8 MiB total payload budget). Pending entries count against admission and do not expire. Authorization, current token incarnation and grants precede replay. Original payload and expected revision must match. Reset/reload preserve this bounded bookkeeping until TTL or process restart; it is separate from the runtime overlay. Errors retain safe codes only; oversized successful results leave unavailable tombstones. Check state before retrying with a new key. Other operations reject nonempty keys, including one-time bearer creation. See [ADR 0033](decisions/0033-bounded-administrative-idempotency.md).

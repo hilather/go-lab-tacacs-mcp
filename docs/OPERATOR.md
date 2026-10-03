@@ -220,7 +220,7 @@ Explain a RADIUS decision: UI RADIUS Policy page or `POST /api/v1/radius/policy:
 - Scopes are exact (`state:write` does not imply `tokens:manage`, `runtime:reset`, `config:reload`, or `radius:dynamic`). The example `lab-admin` token does not receive `radius:dynamic`.
 - Browser: `POST /api/v1/session` exchanges `Authorization: Bearer` for an HttpOnly cookie. `GET /api/v1/session` rehydrates the signed-in principal (scopes) on a new tab or other cold load. CSRF is required on cookie mutations. The UI never stores the bearer in `localStorage`.
 - Operator SPA chrome is a dark grouped rail (Lab / Directory / TACACS+ / RADIUS). Events is a live AAA log (protocol + Auth/Acct/Fail chips). Status shows one Lab posture strip and last-N events. Remaining pages use the same muted lede, tables, and confirm dialogs (Cancel first).
-- Reference Compose leaves HTTP admin without TLS (`cookie_secure` follows `listeners.http.tls.enabled`). Lab-only.
+- Reference Compose leaves HTTP admin without TLS (`cookie_secure: false`, the default). Native admin TLS is rejected; for HTTPS, terminate at a reverse proxy and set `api.ui_session.cookie_secure: true` explicitly (ADR 0032). Lab-only.
 - RADIUS pages show an insecure-compatibility badge when Message-Authenticator is not required (UDP `allow_missing` only). Secret inputs are write-only and cleared after submit.
 - RADIUS Sessions (`/radius-sessions`) lists the in-memory accounting index (`state:read`). CoA/Disconnect DAC buttons require `radius:dynamic`. Inbound :3799 is an RFC 5176 test fixture; it does not kick a device.
 - RADIUS Auth Test methods are `pap`, `chap`, `mschapv1`, `mschapv2`, and `eap`. Challenge outcomes show `state_present` only.

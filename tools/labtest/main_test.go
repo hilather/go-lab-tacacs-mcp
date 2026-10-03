@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -206,5 +208,66 @@ func TestConsumeSSEPastTimeoutRequiresPostTimeoutFrame(t *testing.T) {
 	}
 	if !strings.Contains(string(buf), "keepalive") {
 		t.Fatalf("body=%q", buf)
+	}
+}
+
+func TestLabAPICreateUsesFreshKeyAfterReset(t *testing.T) {
+	users := false
+	replay := map[string]int{}
+	var keys []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/users" && r.Method == http.MethodPost:
+			key := r.Header.Get("Idempotency-Key")
+			keys = append(keys, key)
+			if status, ok := replay[key]; ok {
+				w.WriteHeader(status)
+				return
+			}
+			status := http.StatusCreated
+			if users {
+				status = http.StatusConflict
+			}
+			users = true
+			replay[key] = status
+			w.WriteHeader(status)
+		case r.URL.Path == "/api/v1/users/lab-runtime-tmp":
+			if !users {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			io.WriteString(w, `{"source":"runtime"}`)
+		case r.URL.Path == "/api/v1/runtime/reset":
+			users = false
+		case r.URL.Path == "/mcp":
+			io.WriteString(w, `{}`)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	h := &harness{HTTP: server.URL}
+	if err := h.labAPICreate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.labReset(); err != nil {
+		t.Fatal(err)
+	}
+	// The compose restart-setup phase starts another harness against the same
+	// live process, after runtime.reset has removed its earlier runtime user.
+	next := &harness{HTTP: server.URL}
+	if err := next.labAPICreate(); err != nil {
+		t.Fatalf("new logical create after reset replayed old success: %v", err)
+	}
+	if len(keys) != 3 {
+		t.Fatalf("create calls=%d", len(keys))
+	}
+	seen := map[string]bool{}
+	for _, key := range keys {
+		if key == "" || seen[key] {
+			t.Fatalf("logical creates reused key %q", key)
+		}
+		seen[key] = true
 	}
 }

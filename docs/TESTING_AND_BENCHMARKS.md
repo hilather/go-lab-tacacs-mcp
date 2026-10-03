@@ -671,3 +671,68 @@ Compare medians of seven samples on the same Go 1.26.8/i7-8750H runner:
 | SnapshotPublish_Medium | 2327164 | 1580609 | 1469143 | 1411546 | 6068 | 6060 |
 
 Complete normalized configuration hashing increases parse/compile memory by 12.66% and allocation count by 0.89%, below the 15% limit. Caching the immutable baseline reduces publication memory by 3.92% and allocation count by 0.13%. Neither median latency regressed. This later coordinated measurement supersedes the noisy REVIEW-STATE-02/03/04 short-run latency concern; runner variance still prevents claiming a portable speedup.
+
+### REVIEW-EVENT-01 ownership benchmark evidence (2026-10-03)
+
+Go 1.26.8, Intel i7-8750H, `GOMAXPROCS=2`. Three alternating baseline/candidate
+trials, two samples per trial, `-benchtime=300ms -benchmem`; baseline ring source
+is `510b77f`. Use `BenchmarkEventOwnedFanout` (two representative accounting AVs,
+one subscriber drained synchronously), plus EventAppend/EventReadPage. Compare
+six-sample medians with the documented equivalent median comparison:
+
+| Workload | Baseline ns/op | Candidate ns/op | Baseline B/op / allocs | Candidate B/op / allocs |
+| --- | ---: | ---: | ---: | ---: |
+| EventAppend | 1192 | 1459.5 | 0 / 0 | 0 / 0 |
+| EventReadPage | 165195.5 | 133229 | 24576 / 1 | 24576 / 1 |
+| EventOwnedFanout | 2331.5 | 11860.5 | 24 / 1 | 288 / 3 |
+
+Runner load changed substantially even within alternating trials (owned fanout
+candidate samples ranged 3517–17060 ns/op); latency budgets are **not claimed
+passed**, and these numbers do not establish a portable regression or speedup.
+The stable allocation increase is intentional and approved in design review:
+three independent 96-byte AV copies isolate stored history, the Accept result,
+and the subscriber. The baseline allocated only its subscriber-list copy and
+shared mutable AV storage. Deep copying closes a demonstrated alias/race defect;
+removing it to recover allocation numbers would violate event ownership.
+Append/read payloads in these existing benchmarks contain no mutable slices,
+so their allocation counts remain unchanged. The final implementation additionally
+avoids updating the subscriber gauge on every undropped event; the recorded
+comparison predates that small optimization and is conservative for that path.
+
+Reference command (run both revisions on a quiet matching runner to confirm
+latency): `GOMAXPROCS=2 go test -p=2 ./internal/events -run '^$'
+-bench 'BenchmarkEvent(OwnedFanout|Append|ReadPage)$' -benchmem -count=6`.
+
+## Administrative idempotency benchmark evidence (P9.2, 2026-10-03)
+
+Reference: Intel i7-8750H, Go 1.26.8, GOMAXPROCS=2, `go test -p=2
+./internal/api/operations -run '^$' -bench 'BenchmarkRegistryInvoke(Read|Replay)'
+-benchmem -count=5`. Baseline is commit 63b9094 with the identical read benchmark.
+The repository-approved equivalent comparison uses sample medians.
+
+| Workload | Baseline median | Changed median | Bytes / allocations |
+|---|---:|---:|---:|
+| Read users.get | 1115 ns (initial), 2493 ns (repeat) | 1111 ns (final) | 368 B / 5 (unchanged) |
+| Successful keyed users.create replay | unavailable (defect: retry fails) | 30408 ns | 3288 B / 60 |
+
+This shared host was concurrently running review checks; the large variation in
+identical baseline runs prevents a statistically meaningful latency claim. The
+final read median matches the initial baseline within 1%; allocation counts remain
+identical. Replay includes HMAC fingerprinting and independent typed response
+decoding; a dedicated runner should establish a stable replay performance budget.
+
+P9.2 lab hardening: `TestLabAPICreateUsesFreshKeyAfterReset` reproduces the full-create → runtime.reset → separate restart-setup harness sequence with replay entries retained. `TestIdempotencyCreateAfterResetDistinguishesRetryFromNewIntent` verifies the real registry preserves old results for retries and requires a fresh key to recreate a removed user. `TestIdempotencyResetAndReloadReplayPreserveLaterState` verifies original-revision retries neither republish state nor repeat process hooks.
+
+Opaque-key identity hardening (P9.2): hashing the original key bytes adds one
+bounded byte-slice allocation on keyed replay. Three shared-host samples measured
+27054 ns median, 3304 B / 61 allocations, compared with the earlier 3288 B / 60.
+Unkeyed reads remain 368 B / 5 allocations. Latency remains host-load-sensitive;
+this comparison records the allocation cost without claiming a speed improvement.
+`TestIdempotencyOpaqueKeysPreserveInvalidUTF8Bytes` first failed because distinct
+0xff and 0xfe keys normalized to the same JSON string, then passed with byte keys.
+REST adapter key identity: `TestRESTIdempotencyKeyTrailingSpaceIsDistinctAtAdapter` and
+`TestRESTIdempotencyKeyUnicodeWhitespaceIsDistinctOverHTTP` failed on 525b8e2 because the adapter
+applied `strings.TrimSpace` and replayed the first success; both pass once the header value is
+passed unchanged. `TestRESTIdempotencyKeyExactReplay`, `TestRESTIdempotencyKeyOpaqueBytesOverHTTP`
+and `TestRESTIdempotencyKeyWireOWSIsNotPartOfKey` pin exact replay, distinct 0xff/0xfe header
+bytes over a real socket, and RFC 9110 optional-whitespace stripping by net/http.

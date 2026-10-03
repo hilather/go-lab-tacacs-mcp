@@ -98,6 +98,7 @@ type paramsMeta struct {
 }
 
 type principalCtxKey struct{}
+type authenticatedSnapshotCtxKey struct{}
 
 // Handler is POST /mcp. GET and DELETE return 405.
 // Framing, headers, server/discover, tools, and resources go through the
@@ -113,7 +114,10 @@ func Handler(opts Options) http.Handler {
 	}
 	sdk := sdkmcp.NewStreamableHTTPHandler(func(r *http.Request) *sdkmcp.Server {
 		p, _ := r.Context().Value(principalCtxKey{}).(auth.Principal)
-		return newSDKServer(opts, p)
+		bound := opts
+		snap, _ := r.Context().Value(authenticatedSnapshotCtxKey{}).(*state.Snapshot)
+		bound.Snapshot = func() *state.Snapshot { return snap }
+		return newSDKServer(bound, p)
 	}, &sdkmcp.StreamableHTTPOptions{
 		Stateless:                    true,
 		JSONResponse:                 true,
@@ -194,11 +198,13 @@ func Handler(opts Options) http.Handler {
 				writeRPC(w, http.StatusBadRequest, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: rpcErr})
 				return
 			}
-			handleListen(w, r, opts, p, req)
+			handleListen(w, r, opts, p, req, snap.TokenGeneration(p.TokenID))
 			return
 		}
 
-		r = r.WithContext(context.WithValue(r.Context(), principalCtxKey{}, p))
+		ctx := context.WithValue(r.Context(), principalCtxKey{}, p)
+		ctx = context.WithValue(ctx, authenticatedSnapshotCtxKey{}, snap)
+		r = r.WithContext(ctx)
 		sdk.ServeHTTP(w, r)
 	})
 }

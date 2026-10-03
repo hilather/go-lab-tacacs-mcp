@@ -89,6 +89,7 @@ type Server struct {
 	IdleTimeout  time.Duration
 	MaxInFlight  int
 	SSEBuffer    int
+	Done         <-chan struct{}
 	Logger       *slog.Logger
 	// Assets is the SPA tree. Nil uses the embedded UI (stub or production copy).
 	Assets  fs.FS
@@ -328,7 +329,7 @@ func (s *Server) invoke(w http.ResponseWriter, r *http.Request, id string, req a
 	res, err := s.Registry.Invoke(ctx, id, snap, operations.Input{
 		Actor:            actor,
 		ExpectedRevision: rev,
-		IdempotencyKey:   strings.TrimSpace(r.Header.Get(headerIdempotency)),
+		IdempotencyKey:   r.Header.Get(headerIdempotency),
 		Request:          req,
 	})
 	if err != nil {

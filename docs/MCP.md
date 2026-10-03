@@ -273,7 +273,7 @@ Terminate TLS at Caddy or nginx. Forward **only POST** `/mcp` plus the UI and `/
 
 Set `listeners.http.trusted_proxy_cidrs` to the proxy addresses if you rely on forwarded client IPs for HTTP (this still does **not** affect TACACS client match).
 
-If you enable `listeners.http.tls` on taclabd itself, `cookie_secure` follows that unless overridden.
+Native admin TLS is unsupported: `listeners.http.tls.enabled: true` is rejected (ADR 0032). Keep it false, terminate HTTPS at the reverse proxy, and explicitly set `api.ui_session.cookie_secure: true` for HTTPS browser access.
 
 **Caddy** (`Caddyfile`):
 
@@ -423,3 +423,11 @@ Streamable HTTP at POST /mcp.
 ```
 
 Operator walkthrough for non-MCP tasks: [OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md). First boot: [QUICKSTART.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/QUICKSTART.md).
+
+Administrative streams share a fixed 128-slot process-wide admission limit
+([ADR 0031](decisions/0031-bounded-admin-event-streams.md)). Every
+`subscriptions/listen`, including a listen requesting only discovery changes,
+uses one slot alongside REST SSE. Saturation returns HTTP 503 with `unavailable`
+before acknowledgment; back off before reconnecting. Token revocation, expiry,
+rotation, or grant loss closes an open listen before its next notification or
+heartbeat. A slow subscriber keeps its slot until its handler exits.

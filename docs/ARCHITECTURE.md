@@ -277,7 +277,7 @@ Responsibilities:
 - Verify lab static bearer tokens against the snapshot digest index (SHA-256, constant-time compare).
 - Evaluate the exact-match scope matrix. `state:write` does not grant `tokens:manage`, `runtime:reset`, or `config:reload`.
 - Load bootstrap tokens from secret files through `config.FileLookup` at snapshot compile.
-- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`, `Secure` follows `listeners.http.tls.enabled`).
+- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`; `Secure` only when `api.ui_session.cookie_secure: true`, which defaults to false and must be set explicitly when HTTPS terminates at a reverse proxy, ADR 0032).
 - Rehydrate the UI principal (`GET /api/v1/session`) from that cookie. CSRF plaintext is not recoverable and is not reissued.
 - Require a CSRF token on cookie-authenticated mutations whenever UI sessions are enabled.
 
@@ -296,7 +296,7 @@ Responsibilities:
 - serve OpenAPI.
 - provide SSE event streams.
 
-PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session create/get/delete (CSRF on cookie mutations; `GET` is cookie whoami; `cookie_secure` follows HTTP TLS), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
+PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session create/get/delete (CSRF on cookie mutations; `GET` is cookie whoami; `cookie_secure` is explicit and defaults to false), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
 
 It contains no independent business rules.
 
@@ -623,3 +623,16 @@ The initial architecture allows but does not require:
 No extension may change the default ephemeral runtime behavior or bypass common operations and policy services.
 
 State publication connects to metrics and the shared event ring through the manager publication hook. Each successful mutation, reset, or baseline reload appends one `state.revision.changed` event (`category: config`, published `revision`); failed candidates append none. REST SSE and MCP resource notifications observe this same ring, so clients refresh their state views after external mutations and SIGHUP reloads.
+
+Administrative event distribution serializes ID assignment and nonblocking
+fanout under the ring lock, with deep payload copies at every ownership boundary.
+REST replay captures a finite retained window after subscribing, so the handoff
+covers retained backlog beyond one cursor page. REST SSE and all MCP listens share
+128 admission leases held until handler cleanup, including slow-detached streams.
+Live authorization uses opening token incarnation plus current grants/expiry;
+UI session stream checks never extend idle activity. See
+[ADR 0031](decisions/0031-bounded-admin-event-streams.md).
+
+Admin HTTP security boundary: HTTPS terminates at a reverse proxy; native HTTP `tls.enabled: true` is rejected (ADR 0032). Secure browser cookies require explicit configuration when the proxy provides HTTPS. Process shutdown synchronously marks HTTP readiness false and cancels REST/MCP streams, drains HTTP/metrics/AAA concurrently under one bounded grace, and closes stalled HTTP connections on timeout. Shutdown failures propagate to the process exit status.
+
+Administrative replay keys are implemented in the common registry for users/groups/clients.create, runtime.reset and config.reload. Keys are limited to 256 bytes; completed entries expire after ten minutes. The store admits 128 entries with a reserved 64 KiB result payload per entry (8 MiB total payload budget). Pending entries count against admission and do not expire. Authorization, current token incarnation and grants precede replay. Original payload and expected revision must match. Reset/reload preserve this bounded bookkeeping until TTL or process restart; it is separate from the runtime overlay. Errors retain safe codes only; oversized successful results leave unavailable tombstones. Check state before retrying with a new key. Other operations reject nonempty keys, including one-time bearer creation. See [ADR 0033](decisions/0033-bounded-administrative-idempotency.md).

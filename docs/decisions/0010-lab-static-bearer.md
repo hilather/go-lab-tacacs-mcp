@@ -20,7 +20,7 @@ Implementing OAuth PRM, dynamic client registration, and a token endpoint would 
 2. This is **`EXEMPT_BY_ADR`** relative to the MCP HTTP-authorization OAuth PRM **SHOULD**. TacLab 1.0 does **not** implement `.well-known/oauth-protected-resource`, authorization servers, or OAuth token issuance.
 3. Unauthenticated HTTP requests return 401. Adapters may send `WWW-Authenticate: Bearer realm="taclab"` as a courtesy. That header is not an OAuth discovery document.
 4. Standard MCP clients that require OAuth PRM will not complete discovery. Operator documentation must state this interop limit. Do not pretend OAuth works.
-5. Browser sessions remain `REST_ONLY_PROTOCOL`. `cookie_secure` follows `listeners.http.tls.enabled` unless explicitly overridden. CSRF is required on cookie-authenticated mutations even when the lab serves HTTP (`cookie_secure: false`).
+5. Browser sessions remain `REST_ONLY_PROTOCOL`. `cookie_secure` defaults to false; set it to true explicitly when HTTPS terminates at a reverse proxy, because native admin TLS is rejected ([ADR 0032](0032-admin-https-reverse-proxy.md)). CSRF is required on cookie-authenticated mutations even when the lab serves HTTP (`cookie_secure: false`).
 6. A future standards-oriented OAuth mode may be added behind the same principal and scope interface. That change requires a new ADR and must not silently replace lab static bearer.
 
 ## Alternatives considered
@@ -72,7 +72,7 @@ None. 1.0 ships only lab static bearer. A later OAuth mode is additive.
 - Exact required scope, missing scope, and extra unrelated scopes.
 - Bootstrap file load fail-closed.
 - Cookie mutation without CSRF is denied.
-- `cookie_secure` follows TLS.
+- `cookie_secure` defaults to false and is true only when explicitly configured ([ADR 0032](0032-admin-https-reverse-proxy.md)).
 - Canaries scan create-once vs list/errors.
 
 ## Documentation impact

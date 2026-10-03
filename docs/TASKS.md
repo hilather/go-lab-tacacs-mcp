@@ -1734,3 +1734,9 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-API-002`, `UL-RAD-001`) lands together. Do not merge flags while RADIUS still Accepts a must-change user or `authentication.test` still returns `pass` after a good password.
 
 `UL-AAA-003` must not gate that merge.
+
+### REVIEW-STATE-01 Browser session credential incarnation
+
+- [x] Reject browser cookies after token rotation, revocation/recreation, or baseline restoration, including reuse of identical token bytes.
+- [x] Preserve sessions across unrelated state publications; reclaim sessions when a token is forgotten.
+- [x] Regression evidence: `internal/api/auth/review_security_test.go`; auth/state unit and race suites.

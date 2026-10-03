@@ -53,6 +53,9 @@ function EventsBody() {
   // stream.reset.
   const acknowledgedGeneration = useRef(stream.resetGeneration);
   const liveDuringDrain = useRef<EventView[] | null>(null);
+  // False after a failed drain: a live event then must not acknowledge a
+  // reset whose view was never refreshed.
+  const drainLanded = useRef(true);
   const hasFlashes = flashIds.size > 0;
   useEffect(() => {
     if (!hasFlashes) return;
@@ -74,6 +77,7 @@ function EventsBody() {
         }
         const arrivals = liveDuringDrain.current ?? [];
         liveDuringDrain.current = null;
+        drainLanded.current = true;
         setBuffer(retainEvents(page.items, arrivals));
         setOverwritten(page.overwritten);
         setReset(page.reset || stream.resetGeneration > acknowledgedGeneration.current);
@@ -83,6 +87,7 @@ function EventsBody() {
       .catch((err: unknown) => {
         if (!cancelled) {
           liveDuringDrain.current = null;
+          drainLanded.current = false;
           setLoadError(errorDetail(err, "Unable to load events."));
         }
       })
@@ -109,7 +114,7 @@ function EventsBody() {
     // Any live event after this generation's re-drain landed ends the reset
     // notice, as the stream hook does; events in the reset batch or during
     // the re-drain belong to the drain and keep it.
-    const drained = liveDuringDrain.current === null;
+    const drained = liveDuringDrain.current === null && drainLanded.current;
     const generation = stream.resetGeneration;
     if (arrivals.length > 0 && liveDuringDrain.current !== null) {
       liveDuringDrain.current = retainEvents(liveDuringDrain.current, arrivals);

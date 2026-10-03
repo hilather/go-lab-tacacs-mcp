@@ -376,3 +376,36 @@ it("does not resurrect an acknowledged reset banner when the page remounts", asy
   expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument();
   vi.unstubAllGlobals();
 });
+
+it("keeps a reset unacknowledged when its re-drain fails", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  let failNext = false;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    if (failNext) {
+      failNext = false;
+      return json(500, { error: { code: "internal", message: "boom" } });
+    }
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  const before = reads;
+  failNext = true;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "in-reset-batch" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 2, user_id: "after-failed-drain" })));
+  // The next successful refetch still owes the user the reset notice.
+  const beforeRetry = reads;
+  await userEvent.click(screen.getByRole("button", { name: "Acct" }));
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeRetry));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});

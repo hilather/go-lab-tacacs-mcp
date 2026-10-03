@@ -89,6 +89,7 @@ func handleRadiusAccessTest(deps Deps) handleFunc {
 		}
 
 		dec, err := deps.AAA.AuthenticateAccess(ctx, aaa.RadiusAccessAttempt{
+			Snapshot: snap,
 			Context: domain.RequestContext{
 				Protocol:         domain.ProtocolRADIUS,
 				Carrier:          domain.CarrierRADIUSUDP,

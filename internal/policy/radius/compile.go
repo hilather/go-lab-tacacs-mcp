@@ -31,8 +31,7 @@ type Engine struct {
 }
 
 type compiledClient struct {
-	endpointID      string
-	policyID        string
+	endpoints       map[string]string
 	defaultGroupIDs []string
 }
 
@@ -136,11 +135,12 @@ func Compile(in Input) (*Engine, error) {
 						WithPath("radius_policies." + pid)
 				}
 			}
-			e.clients[c.ID] = compiledClient{
-				endpointID:      ep.ID,
-				policyID:        pid,
-				defaultGroupIDs: append([]string(nil), c.Authorization.DefaultGroupIDs...),
+			binding, ok := e.clients[c.ID]
+			if !ok {
+				binding = compiledClient{endpoints: make(map[string]string), defaultGroupIDs: append([]string(nil), c.Authorization.DefaultGroupIDs...)}
 			}
+			binding.endpoints[ep.ID] = pid
+			e.clients[c.ID] = binding
 		}
 	}
 	for _, g := range in.Groups {

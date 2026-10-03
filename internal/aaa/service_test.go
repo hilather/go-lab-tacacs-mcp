@@ -3,8 +3,10 @@ package aaa
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -253,5 +255,49 @@ func TestNewRequiresSnapshot(t *testing.T) {
 	var de domain.Error
 	if !errors.As(err, &de) || de.Code != domain.CodeInvalidArgument {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestPolicyEngineLifetimeBelongsToSnapshot(t *testing.T) {
+	svc, _, _ := testService(t)
+	snap := svc.snap()
+	other, err := New(Options{Snapshot: func() *state.Snapshot { return snap }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := svc.engine(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := other.engine(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a != b {
+		t.Fatal("services compiled separate engines instead of sharing published immutable engine")
+	}
+}
+
+func BenchmarkPublishedPolicyEngineLookup(b *testing.B) {
+	svc, _, _ := testService(b)
+	snap := svc.snap()
+	if _, err := svc.engine(snap); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := svc.engine(snap); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestBoundSnapshotHandleDoesNotExposeSecrets(t *testing.T) {
+	svc, _, _ := testService(t)
+	snap := svc.snap()
+	got := fmt.Sprintf("%#v %#v", snap, *snap)
+	if !strings.HasPrefix(got, "Snapshot{revision=") || strings.Contains(got, testPassword) || strings.Contains(got, testSecret) {
+		t.Fatal("snapshot formatting is not redacted")
 	}
 }

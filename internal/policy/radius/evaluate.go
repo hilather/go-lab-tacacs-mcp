@@ -19,6 +19,9 @@ func (e *Engine) Evaluate(req Request) Result {
 	if e == nil {
 		return errorResult(newTrace(req), "policy engine is not compiled")
 	}
+	if binding, ok := e.clients[req.ClientID]; ok && req.EndpointID == "" && len(binding.endpoints) > 1 {
+		return errorResult(newTrace(req), "endpoint is required for a client with multiple RADIUS endpoints")
+	}
 	if _, ok := e.users[req.UserID]; ok {
 		req.Groups = groupIDs(e.effectiveGroups(req.UserID, req.ClientID))
 	}
@@ -37,11 +40,17 @@ func (e *Engine) Evaluate(req Request) Result {
 		}
 	}
 	if binding, ok := e.clients[req.ClientID]; ok {
-		if req.EndpointID == "" || req.EndpointID == binding.endpointID {
-			if binding.policyID != "" {
-				if res, done := e.walk(sourceClientPrefix+binding.policyID, binding.policyID, req, &tr); done {
-					return res
-				}
+		pid := binding.endpoints[req.EndpointID]
+		// Unqualified diagnostic calls remain supported for single-endpoint
+		// clients. Multiple endpoint bindings require an explicit endpoint.
+		if req.EndpointID == "" && len(binding.endpoints) == 1 {
+			for _, only := range binding.endpoints {
+				pid = only
+			}
+		}
+		if pid != "" {
+			if res, done := e.walk(sourceClientPrefix+pid, pid, req, &tr); done {
+				return res
 			}
 		}
 	}

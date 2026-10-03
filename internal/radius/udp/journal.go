@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,15 +13,17 @@ import (
 // Acct-Delay-Time, Identifier, Request Authenticator, and the declared
 // packet digest (design §5.5 / KD-18).
 type journal struct {
-	mu         sync.Mutex
-	entries    map[server.JournalKey]time.Time
-	sizes      map[server.JournalKey]int
-	maxEntries int
-	maxBytes   int
-	usedBytes  int
-	ttl        time.Duration
-	now        func() time.Time
-	sat        atomic.Uint64
+	mu           sync.Mutex
+	pending      map[server.JournalKey]chan struct{}
+	pendingBytes int
+	entries      map[server.JournalKey]time.Time
+	sizes        map[server.JournalKey]int
+	maxEntries   int
+	maxBytes     int
+	usedBytes    int
+	ttl          time.Duration
+	now          func() time.Time
+	sat          atomic.Uint64
 }
 
 func newJournal(entries, bytes int, ttl time.Duration, now func() time.Time) *journal {
@@ -38,6 +41,7 @@ func newJournal(entries, bytes int, ttl time.Duration, now func() time.Time) *jo
 	}
 	return &journal{
 		entries:    make(map[server.JournalKey]time.Time, entries),
+		pending:    make(map[server.JournalKey]chan struct{}),
 		sizes:      make(map[server.JournalKey]int, entries),
 		maxEntries: entries,
 		maxBytes:   bytes,
@@ -151,4 +155,64 @@ func (s *minuteSampler) Allow() bool {
 	}
 	s.count++
 	return true
+}
+
+// Begin reserves a semantic identity before sink execution. Duplicates wait
+// for that operation; an abandoned failure can be retried. Pending rows are
+// capacity charged and never expired while their owner is in flight.
+func (j *journal) Begin(ctx context.Context, key server.JournalKey) (owner, saturated bool, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return false, false, err
+		}
+		j.mu.Lock()
+		now := j.now()
+		j.expireLocked(now)
+		if exp, ok := j.entries[key]; ok && exp.After(now) {
+			j.mu.Unlock()
+			return false, false, nil
+		}
+		if done, ok := j.pending[key]; ok {
+			j.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return false, false, ctx.Err()
+			case <-done:
+				continue
+			}
+		}
+		n := journalKeyBytes(key)
+		if len(j.entries)+len(j.pending) >= j.maxEntries || j.usedBytes+j.pendingBytes+n > j.maxBytes {
+			j.sat.Add(1)
+			j.mu.Unlock()
+			return true, true, nil
+		}
+		j.pending[key] = make(chan struct{})
+		j.pendingBytes += n
+		j.mu.Unlock()
+		return true, false, nil
+	}
+}
+
+// Finish commits the identity only after the sink accepts, otherwise releases
+// it so a retry can execute. All waiters observe the completed state atomically.
+func (j *journal) Finish(key server.JournalKey, accepted bool) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	done, ok := j.pending[key]
+	if !ok {
+		return
+	}
+	delete(j.pending, key)
+	n := journalKeyBytes(key)
+	j.pendingBytes -= n
+	if accepted {
+		j.entries[key] = j.now().Add(j.ttl)
+		j.sizes[key] = n
+		j.usedBytes += n
+	}
+	close(done)
 }

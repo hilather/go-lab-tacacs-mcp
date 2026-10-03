@@ -168,11 +168,11 @@ type radSecLab struct {
 	pki labPKI
 }
 
-func startRadSecPolicy(t *testing.T) (*radSecLab, *state.Manager) {
+func startRadSecPolicy(t testing.TB) (*radSecLab, *state.Manager) {
 	return startRadSecHandler(t, nil)
 }
 
-func startRadSecHandler(t *testing.T, access server.Handler) (*radSecLab, *state.Manager) {
+func startRadSecHandler(t testing.TB, access server.Handler) (*radSecLab, *state.Manager) {
 	t.Helper()
 	dir := t.TempDir()
 	pki := generateLabPKI(t, dir)
@@ -246,7 +246,7 @@ func startRadSecHandler(t *testing.T, access server.Handler) (*radSecLab, *state
 	return &radSecLab{Listener: ln, pki: pki}, mgr
 }
 
-func clientTLS(t *testing.T, p labPKI) *tls.Config {
+func clientTLS(t testing.TB, p labPKI) *tls.Config {
 	t.Helper()
 	cert, err := tls.LoadX509KeyPair(p.ClientCert, p.ClientKey)
 	if err != nil {

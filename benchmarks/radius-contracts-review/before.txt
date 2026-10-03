@@ -1,0 +1,60 @@
+goos: linux
+goarch: amd64
+pkg: github.com/hilather/go-lab-tacacs-mcp/internal/aaa
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkPublishedPolicyEngineLookup-2   	 1000000	       103.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedPolicyEngineLookup-2   	 1000000	       164.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedPolicyEngineLookup-2   	 1000000	       194.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedPolicyEngineLookup-2   	 1000000	       237.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedPolicyEngineLookup-2   	 1000000	       192.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedPolicyEngineLookup-2   	 1000000	       177.0 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/hilather/go-lab-tacacs-mcp/internal/aaa	2.100s
+goos: linux
+goarch: amd64
+pkg: github.com/hilather/go-lab-tacacs-mcp/internal/state
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkSnapshotPublish_Medium-2   	       4	  46751400 ns/op	 1469136 B/op	    6068 allocs/op
+BenchmarkSnapshotPublish_Medium-2   	      14	  29367429 ns/op	 1469185 B/op	    6069 allocs/op
+BenchmarkSnapshotPublish_Medium-2   	      24	  22906796 ns/op	 1469143 B/op	    6068 allocs/op
+BenchmarkSnapshotPublish_Medium-2   	       7	  16100976 ns/op	 1469139 B/op	    6068 allocs/op
+BenchmarkSnapshotPublish_Medium-2   	       8	  42422502 ns/op	 1469142 B/op	    6068 allocs/op
+BenchmarkSnapshotPublish_Medium-2   	       7	  31616795 ns/op	 1469139 B/op	    6068 allocs/op
+PASS
+ok  	github.com/hilather/go-lab-tacacs-mcp/internal/state	5.542s
+goos: linux
+goarch: amd64
+pkg: github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkRadiusPolicyEvaluate-2   	     841	    223833 ns/op	    8120 B/op	      11 allocs/op
+BenchmarkRadiusPolicyEvaluate-2   	     594	    468328 ns/op	    8120 B/op	      11 allocs/op
+BenchmarkRadiusPolicyEvaluate-2   	    1076	    253093 ns/op	    8120 B/op	      11 allocs/op
+BenchmarkRadiusPolicyEvaluate-2   	     579	    305408 ns/op	    8120 B/op	      11 allocs/op
+BenchmarkRadiusPolicyEvaluate-2   	    6700	    136625 ns/op	    8120 B/op	      11 allocs/op
+BenchmarkRadiusPolicyEvaluate-2   	    2331	     83211 ns/op	    8120 B/op	      11 allocs/op
+BenchmarkRadiusPolicyCompile-2    	   10000	     24643 ns/op	    1072 B/op	      11 allocs/op
+BenchmarkRadiusPolicyCompile-2    	   10000	     15653 ns/op	    1072 B/op	      11 allocs/op
+BenchmarkRadiusPolicyCompile-2    	   10000	     10060 ns/op	    1072 B/op	      11 allocs/op
+BenchmarkRadiusPolicyCompile-2    	   10000	     18181 ns/op	    1072 B/op	      11 allocs/op
+BenchmarkRadiusPolicyCompile-2    	   10000	     19692 ns/op	    1072 B/op	      11 allocs/op
+BenchmarkRadiusPolicyCompile-2    	   10000	     17413 ns/op	    1072 B/op	      11 allocs/op
+PASS
+ok  	github.com/hilather/go-lab-tacacs-mcp/internal/policy/radius	4.385s
+goos: linux
+goarch: amd64
+pkg: github.com/hilather/go-lab-tacacs-mcp/internal/radius/server
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkAccountingHandle-2          	   10000	     49952 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkAccountingHandle-2          	   10000	     53287 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkAccountingHandle-2          	   10000	    108750 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkAccountingHandle-2          	   10000	     63012 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkAccountingHandle-2          	    1200	     94632 ns/op	    1009 B/op	      21 allocs/op
+BenchmarkAccountingHandle-2          	   10000	     86493 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkRadiusAccountingRequest-2   	   10000	     83026 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkRadiusAccountingRequest-2   	   10000	     62129 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkRadiusAccountingRequest-2   	   10000	     59993 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkRadiusAccountingRequest-2   	   10000	     56500 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkRadiusAccountingRequest-2   	   10000	     52452 ns/op	    1008 B/op	      21 allocs/op
+BenchmarkRadiusAccountingRequest-2   	   10000	     57651 ns/op	    1008 B/op	      21 allocs/op
+PASS
+ok  	github.com/hilather/go-lab-tacacs-mcp/internal/radius/server	8.647s

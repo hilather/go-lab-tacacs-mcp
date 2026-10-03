@@ -82,6 +82,10 @@ rows:
     evidence:
       - unit:internal/radius/server.TestAccountingJournalHitDoesNotRerecord
       - unit:internal/radius/udp.TestAccountingExactRetryAndDelayTimeAndInterim
+      - unit:internal/radius/udp.TestAccountingSemanticReservationConcurrent
+      - unit:internal/radius/tls.TestAccountingSemanticReservationConcurrent
+      - unit:internal/radius/udp.TestAccountingSemanticReservationFailureRetryAndCancellation
+      - unit:internal/radius/tls.TestAccountingSemanticReservationFailureRetryAndCancellation
       - unit:internal/radius/server.TestAccountingInterimNotCollapsed
   - id: PRJ-ACCT-002
     section: accounting-behavior
@@ -120,6 +124,14 @@ rows:
       - unit:internal/config.TestRADIUSIndexRoleSeparation
       - unit:internal/config.TestRADIUSIndexLongestPrefix
       - unit:internal/state.TestSnapshotCompilesRADIUSIndexes
+      - unit:internal/aaa.TestAccessBoundRevisionDoesNotUseReloadedSnapshot
+      - unit:internal/radius/udp.TestUDPAdmissionSnapshotSurvivesReloadBeforeAAA
+      - unit:internal/radius/tls.TestRadSecDisabledUserRejectedOnOpenConnection
+      - unit:internal/radius/tls.TestRadSecPasswordChangeVisibleOnOpenConnection
+      - unit:internal/radius/tls.TestRadSecDeletedClientClosesOpenConnection
+      - unit:internal/radius/tls.TestRadSecEndpointPolicyChangeVisibleOnOpenConnection
+      - unit:internal/aaa.TestAccessRevisionWithoutBoundSnapshotFailsClosed
+      - unit:internal/policy/radius.TestClientPoliciesAreBoundToEachEndpoint
       - unit:internal/radius/udp.TestUnknownClientDiscardUsesCompiledRADIUSIndex
       - bench:internal/state.BenchmarkRADIUSLookup_IPv4
   - id: PRJ-CFG-001
@@ -277,6 +289,7 @@ rows:
       - unit:internal/radius/tls.TestRadSecCRLSignatureAndIssuerIsolation
       - unit:internal/radius/tls.TestRadSecCRLUsesVerifiedRootOmittedByPeer
       - bench:internal/radius/tls.BenchmarkRadSecCRLValidation
+      - bench:internal/radius/tls.BenchmarkRadSecAccountingOnOpenConnection
       - unit:internal/radius/tls.TestReadPacketDoesNotStitch
       - unit:internal/radius/tls.TestNoForbiddenImports
       - unit:internal/config.TestRADIUSTransportTLSAndUDPPerCarrier

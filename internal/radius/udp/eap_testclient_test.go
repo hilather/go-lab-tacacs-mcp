@@ -482,6 +482,12 @@ func startAccessEAPWithMethods(t *testing.T, methods string, mustChange bool) (*
 		t.Fatal(err)
 	}
 	doc := mustParse(t, radiusEAPYAML(sec, login, chal, methods, mustChange))
+	if methods == "[peap]" {
+		eapMethod, msMethod := domain.AuthMethodEAP, domain.AuthMethodMSCHAPv2
+		rules := doc.RADIUSPolicies[0].Rules
+		rules[0].Match.Method = &eapMethod
+		doc.RADIUSPolicies[0].Rules = append([]config.RADIUSRule{{ID: "deny-direct-mschap-policy", Enabled: true, Match: config.RADIUSMatch{Method: &msMethod}, Effect: domain.EffectDeny}}, rules...)
+	}
 	lookup := func(ref config.SecretRef) ([]byte, error) { return os.ReadFile(ref.File) }
 	mgr, err := state.New(doc, state.Options{Secrets: lookup})
 	if err != nil {

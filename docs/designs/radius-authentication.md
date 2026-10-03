@@ -534,7 +534,7 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 
 Pipeline inside `AuthenticateAccess` (no UDP, no packets):
 
-1. Load the snapshot already bound in `Context.SnapshotRevision` (do not call `s.snapshot()` again if revision is set; if missing, load current once).
+1. Use the immutable snapshot handle carried in `RadiusAccessAttempt.Snapshot` with `Context.SnapshotRevision`. UDP (per datagram), RadSec (per packet; the shared secret and certificate identity stay bound per connection), and the shared diagnostic operation bind it at admission. A nonzero revision without a matching handle fails closed; an unbound direct call loads current once. Never reload a bound request.
 2. Resolve user (UsernameCasePreserved). Apply `UserRestrictions` (client IDs, valid_after/before) using the existing TACACS restriction fields — users are shared identities.
 3. Verify credentials via `VerifyCredentials`.
 4. On pass, evaluate `policy/radius` with user/groups/client/typed attributes. The policy request uses `domain.AuthMethod`, not an `aaa` type.
@@ -2043,3 +2043,5 @@ Parallel after PR 2 (interfaces frozen): PR 3+6, PR 10–13, PR 9. **`serve.go` 
 ---
 
 *End of design. Implementation starts at PR 1. Pack task IDs (`RAD-GOV-001` … `RAD-REL-007`) remain the backlog keys; this PR plan is the merge DAG.*
+
+Review hardening (`RAD-REV-003`–`005`): client policy selection is per endpoint, preserving distinct UDP/TLS attachments. PEAP policy uses `eap` while its credential evidence remains MSCHAPv2. Sanitized ordered policy reply attributes are deep-copied into the Challenge finish record and included in its byte budget; final Accept restores them before outer EAP-Success and normal response signing. Semantic accounting admission reserves each identity atomically, waits for an existing pending owner with request cancellation, commits after sink success and abandons failures. Pending rows count toward journal capacity. Saturation remains a documented semantic miss.

@@ -9,8 +9,10 @@ import (
 	"sync"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/aaa"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/attribute"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/eap/peap"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 )
@@ -24,6 +26,17 @@ func TestEAPPEAPInnerMSCHAPAccept(t *testing.T) {
 		{Type: attribute.TypeUserName, Value: []byte("lab-admin")},
 		eapIdentityAttr(1, "lab-admin"),
 	}, []string{methodPEAP}, store, nil)
+	auth := h.AAA.(*scriptedAuth)
+	auth.dec.ReplyAttributes = attribute.RawSet{uint32Raw(attribute.TypeSessionTimeout, 600),
+		{Type: attribute.TypeVendorSpecific, Value: []byte{0, 0, 0, 9, 1, 8, 'r', 'o', 'l', 'e', '=', 'x'}},
+	}
+	auth.dec.ReplyAttributes = append(auth.dec.ReplyAttributes,
+		attribute.Raw{Type: attribute.TypeVendorSpecific, Value: []byte{0, 0, 0, 9, 1, 8, 'r', 'o', 'l', 'e', '=', 'y'}},
+		attribute.Raw{Type: attribute.TypeUserPassword, Value: []byte("secret-material")},
+		attribute.Raw{Type: attribute.TypeState, Value: []byte("injected-state")},
+		attribute.Raw{Type: attribute.TypeMessageAuthenticator, Value: make([]byte, 16)},
+		attribute.Raw{Type: attribute.TypeEAPMessage, Value: []byte("injected-eap")},
+		attribute.Raw{Type: attribute.TypeVendorSpecific, Value: []byte{0, 0, 1, 55, 11, 3, 42}})
 	peer := newPEAPTestPeer(t)
 	state, eapID := peapIdentityStart(t, h, in)
 	res := peapPumpHandshake(t, h, in, ra, peer, state, eapID)
@@ -76,6 +89,30 @@ func TestEAPPEAPInnerMSCHAPAccept(t *testing.T) {
 	if res.Reason != ReasonOK || res.Response[0] != byte(codec.CodeAccessAccept) {
 		t.Fatalf("accept=%+v", res)
 	}
+	if auth.got.Evidence.Method != domain.AuthMethodMSCHAPv2 || auth.got.PolicyMethod != domain.AuthMethodEAP {
+		t.Fatalf("PEAP methods: evidence=%s policy=%s", auth.got.Evidence.Method, auth.got.PolicyMethod)
+	}
+	pkt, err := codec.Decode(res.Response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := crypto.ValidateResponseAuthenticator(in.Secret, res.Response, ra); err != nil {
+		t.Fatal(err)
+	}
+	if pkt.Attributes.AllOf(attribute.TypeMessageAuthenticator).Len() != 1 || pkt.Attributes.AllOf(attribute.TypeEAPMessage).Len() != 1 {
+		t.Fatal("injected MA or EAP attributes survived")
+	}
+	if pkt.Attributes.AllOf(attribute.TypeUserPassword).Len() != 0 || pkt.Attributes.AllOf(attribute.TypeState).Len() != 0 {
+		t.Fatal("final Accept exposed credential or injected State")
+	}
+	if timeout, ok := pkt.Attributes.First(attribute.TypeSessionTimeout); !ok || string(timeout.Value) != string(auth.dec.ReplyAttributes[0].Value) {
+		t.Fatal("final Accept lost Session-Timeout")
+	}
+	vsas := pkt.Attributes.AllOf(attribute.TypeVendorSpecific)
+	if len(vsas) != 2 || string(vsas[0].Value) != string(auth.dec.ReplyAttributes[1].Value) || string(vsas[1].Value) != string(auth.dec.ReplyAttributes[2].Value) {
+		t.Fatal("final Accept lost Cisco attribute order or duplicates")
+	}
+
 	got := firstEAP(t, res.Response)
 	if got.Code != eapCodeSuccess {
 		t.Fatalf("outer eap=%+v", got)

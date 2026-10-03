@@ -96,6 +96,7 @@ func (l *Listener) process(ctx context.Context, buf []byte, src net.Addr) {
 		requireMA = true
 	}
 	req := server.Request{
+		Snapshot:                    snap,
 		Role:                        l.role,
 		Carrier:                     domain.CarrierRADIUSUDP,
 		Packet:                      pkt,

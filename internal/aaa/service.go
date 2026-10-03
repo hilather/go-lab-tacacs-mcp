@@ -26,7 +26,6 @@ type Service struct {
 
 	mu       sync.Mutex
 	sessions map[sessionKey]*authSession
-	engines  map[domain.Revision]*policy.Engine
 }
 
 type sessionKey struct {
@@ -100,7 +99,6 @@ func New(opts Options) (*Service, error) {
 		metrics:        opts.Metrics,
 		radiusSessions: opts.Sessions,
 		sessions:       map[sessionKey]*authSession{},
-		engines:        map[domain.Revision]*policy.Engine{},
 	}, nil
 }
 
@@ -131,50 +129,20 @@ func (s *Service) engine(snap *state.Snapshot) (*policy.Engine, error) {
 	if snap == nil {
 		return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
 	}
-	s.mu.Lock()
-	if e, ok := s.engines[snap.Revision]; ok {
-		s.mu.Unlock()
-		return e, nil
+	e := snap.TACACSPolicies()
+	if e == nil {
+		return nil, domain.NewError(domain.CodeUnavailable, "policy engine is not compiled")
 	}
-	s.mu.Unlock()
-	e, err := CompileSnapshot(snap)
-	if err != nil {
-		return nil, err
-	}
-	s.mu.Lock()
-	s.engines[snap.Revision] = e
-	s.mu.Unlock()
 	return e, nil
 }
 
-// CompileSnapshot builds the two policy evaluators from the effective snapshot.
+// CompileSnapshot returns the evaluator compiled before snapshot publication.
+// Kept for the shared diagnostic operation; it never compiles on a request.
 func CompileSnapshot(snap *state.Snapshot) (*policy.Engine, error) {
-	if snap == nil {
-		return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
+	if snap == nil || snap.TACACSPolicies() == nil {
+		return nil, domain.NewError(domain.CodeUnavailable, "policy engine is not compiled")
 	}
-	users := make([]config.User, 0, len(snap.Users()))
-	for _, u := range snap.Users() {
-		users = append(users, u.User)
-	}
-	groups := make([]config.Group, 0, len(snap.Groups()))
-	for _, g := range snap.Groups() {
-		groups = append(groups, g.Group)
-	}
-	clients := make([]config.Client, 0, len(snap.Clients()))
-	for _, c := range snap.Clients() {
-		clients = append(clients, c.Client)
-	}
-	limits := config.Limits{}
-	if settings := snap.Settings(); settings != nil {
-		limits = settings.Limits
-	}
-	return policy.Compile(policy.Input{
-		Users:    users,
-		Groups:   groups,
-		Clients:  clients,
-		Fallback: snap.FallbackRules(),
-		Limits:   limits,
-	})
+	return snap.TACACSPolicies(), nil
 }
 
 func (s *Service) record(e events.Event, _ bool) events.Event {

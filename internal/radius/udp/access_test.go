@@ -329,6 +329,10 @@ func startAccessUsers(t *testing.T, requireMA, limitPS bool, h server.Handler) (
 }
 
 func startAccessPolicy(t *testing.T) (*Listener, *state.Manager) {
+	return startAccessPolicyWrapped(t, nil)
+}
+
+func startAccessPolicyWrapped(t *testing.T, wrap func(server.Handler) server.Handler) (*Listener, *state.Manager) {
 	t.Helper()
 	dir := t.TempDir()
 	sec := writeSecret(t, dir)
@@ -363,6 +367,10 @@ func startAccessPolicy(t *testing.T) (*Listener, *state.Manager) {
 	settings.Workers = 2
 	settings.QueueCapacity = 32
 	settings.WorkerDeadline = 2 * time.Second
+	handler := server.Handler(server.Access{AAA: svc})
+	if wrap != nil {
+		handler = wrap(handler)
+	}
 	ln, err := Listen(Options{
 		Role:     domain.RoleAccess,
 		Bind:     "127.0.0.1:0",
@@ -370,7 +378,7 @@ func startAccessPolicy(t *testing.T) (*Listener, *state.Manager) {
 		Settings: settings,
 		Snapshot: mgr.Snapshot,
 		Secrets:  lookup,
-		Handler:  server.Access{AAA: svc},
+		Handler:  handler,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -504,4 +512,55 @@ func bytesEqual(a, b []byte) bool {
 		}
 	}
 	return true
+}
+
+func TestUDPAdmissionSnapshotSurvivesReloadBeforeAAA(t *testing.T) {
+	gate := &holdHandler{started: make(chan struct{}), release: make(chan struct{})}
+	ln, mgr := startAccessPolicyWrapped(t, func(inner server.Handler) server.Handler { gate.inner = inner; return gate })
+	c := dialUDP(t, ln.Addr().String())
+	secret := []byte(labSecret)
+	var ra [16]byte
+	ra[0] = 77
+	hidden, err := crypto.HideUserPassword(secret, ra, []byte(accessTestPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := signAccessRequest(t, secret, codec.Packet{Code: codec.CodeAccessRequest, Identifier: 1, Authenticator: ra, Attributes: attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}, {Type: attribute.TypeUserPassword, Value: hidden}}})
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-gate.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("request not admitted")
+	}
+	disabled := false
+	groups := []string{}
+	if _, err := mgr.UpdateUser("lab-admin", state.UpdateUser{Enabled: &disabled, GroupIDs: &groups}, nil); err != nil {
+		t.Fatal(err)
+	}
+	close(gate.release)
+	response := readUDP(t, c, 2*time.Second)
+	if response == nil || response[0] != byte(codec.CodeAccessAccept) {
+		t.Fatalf("old admitted request did not accept: %v", response)
+	}
+	if err := crypto.ValidateResponseAuthenticator(secret, response, ra); err != nil {
+		t.Fatal(err)
+	}
+	pkt, err := codec.Decode(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, ok := pkt.Attributes.First(attribute.TypeSessionTimeout); !ok || string(a.Value) != string([]byte{0, 0, 2, 88}) {
+		t.Fatal("old admitted request lost old policy reply")
+	}
+	wire[1] = 2
+	wire = signAccessRequest(t, secret, codec.Packet{Code: codec.CodeAccessRequest, Identifier: 2, Authenticator: ra, Attributes: attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}, {Type: attribute.TypeUserPassword, Value: hidden}}})
+	if _, err := c.Write(wire); err != nil {
+		t.Fatal(err)
+	}
+	response = readUDP(t, c, 2*time.Second)
+	if response == nil || response[0] != byte(codec.CodeAccessReject) {
+		t.Fatalf("new request did not use disabled user: %v", response)
+	}
 }

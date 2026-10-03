@@ -7,6 +7,7 @@ import (
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/crypto"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
 
 // Action is the wire outcome after decode.
@@ -22,6 +23,7 @@ const (
 // Request is one decoded packet plus the endpoint secret selected by the
 // listener (UDP LPM or TLS cert index).
 type Request struct {
+	Snapshot                    *state.Snapshot `json:"-"` // immutable admission snapshot
 	Role                        domain.ListenerRole
 	Carrier                     domain.Carrier
 	Packet                      codec.Packet

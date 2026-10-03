@@ -1,57 +1,120 @@
 package peap
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
-// Registry holds live PEAP tunnels keyed by a consume-on-use handle.
+// Each admitted tunnel reserves its bounded input, output, fragment and
+// queued-flight buffers against the registry byte budget.
+const tunnelReservationBytes = 4 * MaxTLSFlightBytes
+
+type registryEntry struct {
+	tunnel  *Tunnel
+	expires time.Time
+	timer   *time.Timer
+}
+
+// Registry holds a bounded, expiring table of live PEAP tunnels.
 type Registry struct {
-	mu    sync.Mutex
-	items map[string]*Tunnel
+	mu         sync.Mutex
+	items      map[string]registryEntry
+	maxEntries int
+	ttl        time.Duration
+	now        func() time.Time
 }
 
-// NewRegistry builds an empty tunnel table.
-func NewRegistry() *Registry {
-	return &Registry{items: make(map[string]*Tunnel)}
+func NewRegistry() *Registry { return NewRegistryWithLimits(4096, 1<<20, 30*time.Second, nil) }
+
+// NewRegistryWithLimits reuses the Challenge capacity/TTL configuration
+// for a separate PEAP reservation budget, not shared byte accounting.
+// Buffer reservations can make the tunnel cap smaller than the State cap.
+func NewRegistryWithLimits(entries, bytes int, ttl time.Duration, now func() time.Time) *Registry {
+	if entries <= 0 {
+		entries = 4096
+	}
+	if bytes <= 0 {
+		bytes = 1 << 20
+	}
+	if ttl <= 0 {
+		ttl = 30 * time.Second
+	}
+	if now == nil {
+		now = time.Now
+	}
+	return &Registry{items: make(map[string]registryEntry), maxEntries: min(entries, bytes/tunnelReservationBytes), ttl: ttl, now: now}
 }
 
-// Put stores t under id. A nil registry is a no-op.
-func (r *Registry) Put(id string, t *Tunnel) {
+// Put admits a tunnel without evicting a live conversation. The caller
+// retains ownership on failure and must close the unadmitted tunnel.
+func (r *Registry) Put(id string, t *Tunnel) bool {
 	if r == nil || id == "" || t == nil {
-		return
+		return false
 	}
 	r.mu.Lock()
-	r.items[id] = t
-	r.mu.Unlock()
+	defer r.mu.Unlock()
+	now := r.now()
+	r.expireLocked(now)
+	if _, exists := r.items[id]; exists || len(r.items) >= r.maxEntries {
+		return false
+	}
+	timer := time.AfterFunc(r.ttl, func() { r.mu.Lock(); defer r.mu.Unlock(); r.expireLocked(r.now()) })
+	r.items[id] = registryEntry{tunnel: t, expires: now.Add(r.ttl), timer: timer}
+	return true
 }
 
-// Get returns the tunnel for id, or nil.
+// Get returns a live tunnel and extends its continuation deadline.
 func (r *Registry) Get(id string) *Tunnel {
 	if r == nil || id == "" {
 		return nil
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.items[id]
+	now := r.now()
+	r.expireLocked(now)
+	e, ok := r.items[id]
+	if !ok {
+		return nil
+	}
+	e.expires = now.Add(r.ttl)
+	e.timer.Reset(r.ttl)
+	r.items[id] = e
+	return e.tunnel
 }
 
-// Delete removes id without closing the tunnel.
+// Delete closes and removes the tunnel.
 func (r *Registry) Delete(id string) {
-	if r == nil || id == "" {
+	if r == nil {
 		return
 	}
 	r.mu.Lock()
-	delete(r.items, id)
-	r.mu.Unlock()
+	defer r.mu.Unlock()
+	if e, ok := r.items[id]; ok {
+		e.timer.Stop()
+		e.tunnel.Close()
+		delete(r.items, id)
+	}
 }
 
-// Reset closes and drops every tunnel.
+func (r *Registry) expireLocked(now time.Time) {
+	for id, e := range r.items {
+		if !e.expires.After(now) {
+			e.timer.Stop()
+			e.tunnel.Close()
+			delete(r.items, id)
+		}
+	}
+}
+
 func (r *Registry) Reset() {
 	if r == nil {
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for id, t := range r.items {
-		t.Close()
+	for id, e := range r.items {
+		e.timer.Stop()
+		e.tunnel.Close()
 		delete(r.items, id)
 	}
 }

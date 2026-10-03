@@ -76,3 +76,7 @@ Operators who want PEAP Start add `peap` to `allowed_authentication_methods` aft
 - Inner EAP (PEAPv0/EAP-MSCHAPv2 or PEAPv1/GTC) is ready (`RAD-PEAP-002`).
 - Operator needs PEAP-EAP-TLS, crypto-binding, or session resumption.
 - Windows / wpa_supplicant interop is an advertised PASS.
+
+PEAP review hardening (`RAD-REV-002`) limits each TLS flight and each input/output pipe to 64 KiB. Fragmented flights must declare their total length in the first fragment; repeated length flags, mismatched totals, unsupported versions and overflow fail closed. Continuations must match the challenged EAP identifier. Terminal failures, idle TTL expiry, runtime reset and shutdown close the tunnel. Successful handshakes clear the handshake deadline; inner reads retain their bounded per-read timeout.
+
+The PEAP registry reuses `challenge_entries`, `challenge_bytes` and `challenge_ttl` as a **separate** reservation budget, rather than sharing Challenge byte accounting. Each tunnel reserves four 64 KiB buffers (input, output, reassembly and queued output); the cap is the smaller of the entry limit and byte budget divided by 256 KiB. The default 1 MiB therefore permits four concurrent PEAP tunnels. Output queued for fragmentation comes from the bounded TLS output pipe. Admission never evicts a live tunnel. Complete tunneled EAP remains deferred.

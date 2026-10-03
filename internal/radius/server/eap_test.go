@@ -641,3 +641,38 @@ type testAddr string
 
 func (a testAddr) Network() string { return "test" }
 func (a testAddr) String() string  { return string(a) }
+
+func TestPEAPRejectClosesTunnel(t *testing.T) {
+	store := runtime.NewChallengeStore(16, 64<<10, time.Minute, nil)
+	in, h := eapReq(t, [16]byte{1}, attribute.RawSet{eapIdentityAttr(1, "lab-admin")}, []string{methodPEAP}, store, nil)
+	defer h.Tunnels.Reset()
+	start := h.Handle(context.Background(), in)
+	state := firstState(t, start.Response)
+	tid := tunnelIDFromState(state)
+	if h.Tunnels.Get(tid) == nil {
+		t.Fatal("initial tunnel missing")
+	}
+	next := signedAccessReq(t, [16]byte{2}, attribute.RawSet{{Type: attribute.TypeState, Value: state}, eapTypeAttr(2, eapTypeNAK, nil)}, true)
+	next.ClientID, next.EndpointID, next.Peer, next.Carrier, next.AllowedMethods = in.ClientID, in.EndpointID, in.Peer, in.Carrier, in.AllowedMethods
+	res := h.Handle(context.Background(), next)
+	if res.Reason == ReasonChallenge {
+		t.Fatal("NAK unexpectedly continued PEAP")
+	}
+	if h.Tunnels.Get(tid) != nil {
+		t.Fatal("terminal rejection leaked tunnel")
+	}
+}
+
+func TestPEAPContinuationIdentifierMatchesChallenge(t *testing.T) {
+	store := runtime.NewChallengeStore(16, 64<<10, time.Minute, nil)
+	in, h := eapReq(t, [16]byte{1}, attribute.RawSet{eapIdentityAttr(1, "lab-admin")}, []string{methodPEAP}, store, nil)
+	defer h.Tunnels.Reset()
+	start := h.Handle(context.Background(), in)
+	state := firstState(t, start.Response)
+	next := signedAccessReq(t, [16]byte{2}, attribute.RawSet{{Type: attribute.TypeState, Value: state}, eapTypeAttr(99, eapTypePEAP, []byte{0})}, true)
+	next.ClientID, next.EndpointID, next.Peer, next.Carrier, next.AllowedMethods = in.ClientID, in.EndpointID, in.Peer, in.Carrier, in.AllowedMethods
+	res := h.Handle(context.Background(), next)
+	if res.Reason != ReasonInvalidState {
+		t.Fatalf("wrong EAP identifier accepted: %s", res.Reason)
+	}
+}

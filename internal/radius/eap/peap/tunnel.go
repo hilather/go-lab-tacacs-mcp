@@ -19,6 +19,8 @@ type Tunnel struct {
 	hsDone  bool
 	closed  bool
 	frag    []byte
+	fragLen uint32
+	fragErr error
 	pending [][]byte
 }
 
@@ -41,6 +43,9 @@ func (t *Tunnel) handshake() {
 	t.mu.Lock()
 	t.hsErr = err
 	t.hsDone = err == nil
+	if err == nil {
+		_ = t.conn.SetDeadline(time.Time{})
+	}
 	t.mu.Unlock()
 }
 
@@ -138,16 +143,44 @@ func (t *Tunnel) BufferFragment(p Payload) (complete []byte, done bool) {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if t.fragErr != nil {
+		return nil, false
+	}
+	if p.MoreFragments && len(t.frag) == 0 && t.fragLen == 0 && !p.LengthIncluded {
+		t.fragErr = errors.New("peap: fragmented flight requires length")
+		return nil, false
+	}
+	if p.LengthIncluded {
+		if t.fragLen != 0 || len(t.frag) != 0 || p.TLSMessageLen == 0 || p.TLSMessageLen > MaxTLSFlightBytes {
+			t.fragErr = errors.New("peap: invalid TLS flight length")
+			t.frag = nil
+			return nil, false
+		}
+		t.fragLen = p.TLSMessageLen
+	}
+	if len(p.TLSData) > MaxTLSFlightBytes-len(t.frag) || (t.fragLen > 0 && len(t.frag)+len(p.TLSData) > int(t.fragLen)) {
+		t.fragErr = errors.New("peap: TLS flight capacity exceeded")
+		t.frag = nil
+		return nil, false
+	}
 	t.frag = append(t.frag, p.TLSData...)
 	if p.MoreFragments {
 		return nil, false
 	}
+	if t.fragLen > 0 && len(t.frag) != int(t.fragLen) {
+		t.fragErr = errors.New("peap: incomplete TLS flight")
+		t.frag = nil
+		return nil, false
+	}
 	out := t.frag
 	t.frag = nil
+	t.fragLen = 0
 	return out, true
 }
 
-// QueueFlight fragments tlsRec and returns the first PEAP body.
+// QueueFlight fragments tlsRec and returns the first PEAP body. Production
+// callers pass DrainOutput, whose bytePipe caps each flight at MaxTLSFlightBytes;
+// therefore pending fragments fit the reserved queued-flight buffer.
 func (t *Tunnel) QueueFlight(tlsRec []byte) []byte {
 	if t == nil {
 		return Encode(Payload{Version: Version0})
@@ -193,3 +226,6 @@ func (t *Tunnel) Close() {
 	_ = t.in.Close()
 	_ = t.out.Close()
 }
+
+// FragmentError reports a terminal framing/size error.
+func (t *Tunnel) FragmentError() error { t.mu.Lock(); defer t.mu.Unlock(); return t.fragErr }

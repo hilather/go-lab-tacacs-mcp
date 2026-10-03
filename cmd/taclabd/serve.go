@@ -160,12 +160,17 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		nil,
 		obs.Rec.RADIUSChallengeSaturation,
 	)
+	resetRadius := challenges.Reset
 	var radiusAccess radiusserver.Handler = radiusserver.Stub{}
 	if aaaSvc != nil {
 		access := radiusserver.Access{AAA: aaaSvc, Store: challenges, Entropy: rand.Reader, Metrics: obs.Rec}
 		access, err = attachPEAP(access, doc, lookup)
 		if err != nil {
 			return fmt.Errorf("peap identity: %w", err)
+		}
+		if access.Tunnels != nil {
+			resetRadius = func() { challenges.Reset(); access.Tunnels.Reset() }
+			defer access.Tunnels.Reset()
 		}
 		radiusAccess = access
 	}
@@ -344,7 +349,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 	var httpSrv *http.Server
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
-		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, aaaSvc, logger, obs, challenges.Reset)
+		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, aaaSvc, logger, obs, resetRadius)
 		if err != nil {
 			_ = listeners.Drain(context.Background())
 			return err

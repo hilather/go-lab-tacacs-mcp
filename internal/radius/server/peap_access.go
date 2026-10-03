@@ -16,6 +16,9 @@ import (
 )
 
 func (a Access) handlePEAP(ctx context.Context, in Request, rec runtime.ChallengeRecord, pkt eapPacket) Result {
+	if pkt.Identifier != rec.EAPID {
+		return a.eapReject(in, ReasonInvalidState, pkt.Identifier, pkt.Type, pkt.HasType)
+	}
 	if pkt.Type != eapTypePEAP {
 		return a.eapReject(in, ReasonUnsupportedEAPMethod, pkt.Identifier, pkt.Type, pkt.HasType)
 	}
@@ -37,6 +40,9 @@ func (a Access) handlePEAP(ctx context.Context, in Request, rec runtime.Challeng
 		return a.issuePEAPContinue(in, rec, next, rec.Step)
 	}
 	complete, done := tun.BufferFragment(body)
+	if tun.FragmentError() != nil {
+		return a.eapReject(in, ReasonEAPTooLong, pkt.Identifier, pkt.Type, pkt.HasType)
+	}
 	if !done {
 		return a.issuePEAPContinue(in, rec, peap.Encode(peap.Payload{Version: peap.Version0}), rec.Step)
 	}

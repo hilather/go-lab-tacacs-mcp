@@ -7,6 +7,9 @@ import (
 	"errors"
 )
 
+// MaxTLSFlightBytes bounds a reassembled TLS flight and each pipe buffer.
+const MaxTLSFlightBytes = 64 << 10
+
 // Type is EAP type PEAP (25).
 const Type byte = 25
 
@@ -40,6 +43,9 @@ func Parse(data []byte) (Payload, error) {
 		return Payload{}, errors.New("peap: empty TLS-in-EAP payload")
 	}
 	flags := data[0]
+	if flags&VersionMask != Version0 || flags&0x18 != 0 {
+		return Payload{}, errors.New("peap: unsupported flags or version")
+	}
 	p := Payload{
 		LengthIncluded: flags&FlagLength != 0,
 		MoreFragments:  flags&FlagMore != 0,

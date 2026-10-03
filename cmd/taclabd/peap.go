@@ -28,7 +28,7 @@ func attachPEAP(access radiusserver.Access, doc *config.Document, lookup config.
 		return access, fmt.Errorf("peap server: %w", err)
 	}
 	access.PEAP = srv
-	access.Tunnels = peap.NewRegistry()
+	access.Tunnels = peap.NewRegistryWithLimits(doc.Listeners.RADIUSAccess.ChallengeEntries, doc.Listeners.RADIUSAccess.ChallengeBytes, doc.Listeners.RADIUSAccess.ChallengeTTL, nil)
 	return access, nil
 }
 

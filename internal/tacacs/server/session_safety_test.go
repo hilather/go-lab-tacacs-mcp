@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/tacacs/codec"
 	"sync"
 	"testing"
@@ -49,5 +50,31 @@ func TestSessionStopDoesNotRaceSequenceOwner(t *testing.T) {
 		}()
 		close(start)
 		wg.Wait()
+	}
+}
+
+type stoppedSessionProbe struct {
+	Stub
+	calls int
+}
+
+func (p *stoppedSessionProbe) Authorize(context.Context, Env, codec.AuthorRequest) (codec.AuthorResponse, error) {
+	p.calls++
+	return codec.AuthorResponse{Status: codec.AuthorStatusFail}, nil
+}
+
+func TestStoppedQueuedSessionNeverDispatches(t *testing.T) {
+	p := &stoppedSessionProbe{}
+	cs := &connState{h: p, sessions: make(map[uint32]*session)}
+	cs.closed.Store(true)
+	for i := 0; i < 100; i++ {
+		s := newSession(1, codec.TypeAuthor)
+		s.in <- packet{hdr: codec.Header{Version: codec.VersionByte(0), Type: codec.TypeAuthor, SeqNo: 1, SessionID: 1}, body: authorBody("stopped")}
+		s.stop()
+		cs.wg.Add(1)
+		cs.runSession(context.Background(), s)
+	}
+	if p.calls != 0 {
+		t.Fatalf("stopped queued session dispatched %d requests", p.calls)
 	}
 }

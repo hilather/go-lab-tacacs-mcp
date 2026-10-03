@@ -324,7 +324,15 @@ func (cs *connState) runSession(ctx context.Context, sess *session) {
 			if !ok {
 				return
 			}
+			// Both done and a queued packet can be ready in select. Recheck
+			// cancellation before allowing the session owner to dispatch it.
+			if sessionStopped(ctx, sess) {
+				return
+			}
 			out, err := cs.dispatch(ctx, sess, pkt.hdr, pkt.body)
+			if sessionStopped(ctx, sess) {
+				return
+			}
 			if err != nil {
 				if errors.Is(err, ErrSecretMismatch) {
 					cs.replyError(ctx, pkt.hdr)
@@ -581,5 +589,16 @@ func (cs *connState) shutdownSessions(grace time.Duration) {
 	select {
 	case <-done:
 	case <-timer.C:
+	}
+}
+
+func sessionStopped(ctx context.Context, sess *session) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	case <-sess.done:
+		return true
+	default:
+		return false
 	}
 }

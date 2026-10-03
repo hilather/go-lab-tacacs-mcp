@@ -3079,7 +3079,7 @@
     }
   },
   "info": {
-    "description": "TacLab REST API. CSRF is required on cookie-authenticated mutations. cookie_secure follows listeners.http.tls.enabled.",
+    "description": "TacLab REST API. CSRF is required on cookie-authenticated mutations. cookie_secure defaults to false; set it explicitly when HTTPS terminates at a reverse proxy (native admin TLS is rejected, ADR 0032).",
     "title": "TacLab REST API",
     "version": "0.16.0"
   },
@@ -5874,7 +5874,7 @@
         "summary": "Read the current UI session principal"
       },
       "post": {
-        "description": "REST_ONLY. CSRF is issued. cookie_secure follows HTTP TLS. Requires Authorization: Bearer.",
+        "description": "REST_ONLY. CSRF is issued. The cookie is Secure only when api.ui_session.cookie_secure is true (default false; ADR 0032). Requires Authorization: Bearer.",
         "operationId": "session.create",
         "responses": {
           "200": {

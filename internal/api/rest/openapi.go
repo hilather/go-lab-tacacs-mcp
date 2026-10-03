@@ -90,7 +90,7 @@ func BuildOpenAPI(reg *operations.Registry) map[string]any {
 		"info": map[string]any{
 			"title":       openAPITitle,
 			"version":     "0.16.0",
-			"description": "TacLab REST API. CSRF is required on cookie-authenticated mutations. cookie_secure follows listeners.http.tls.enabled.",
+			"description": "TacLab REST API. CSRF is required on cookie-authenticated mutations. cookie_secure defaults to false; set it explicitly when HTTPS terminates at a reverse proxy (native admin TLS is rejected, ADR 0032).",
 		},
 		"paths": paths,
 		"components": map[string]any{
@@ -618,7 +618,7 @@ func sessionPath() map[string]any {
 		"post": map[string]any{
 			"operationId": operations.IDSessionCreate,
 			"summary":     "Exchange a bearer token for an HttpOnly UI session cookie",
-			"description": "REST_ONLY. CSRF is issued. cookie_secure follows HTTP TLS. Requires Authorization: Bearer.",
+			"description": "REST_ONLY. CSRF is issued. The cookie is Secure only when api.ui_session.cookie_secure is true (default false; ADR 0032). Requires Authorization: Bearer.",
 			"security":    []any{map[string]any{"bearerAuth": []any{}}},
 			"responses": map[string]any{
 				"200": jsonResponse("OK", envelopeRef("Session")),

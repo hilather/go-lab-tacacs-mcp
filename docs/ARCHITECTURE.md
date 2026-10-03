@@ -277,7 +277,7 @@ Responsibilities:
 - Verify lab static bearer tokens against the snapshot digest index (SHA-256, constant-time compare).
 - Evaluate the exact-match scope matrix. `state:write` does not grant `tokens:manage`, `runtime:reset`, or `config:reload`.
 - Load bootstrap tokens from secret files through `config.FileLookup` at snapshot compile.
-- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`, `Secure` follows `listeners.http.tls.enabled`).
+- Exchange a verified principal for an HttpOnly UI session cookie (`SameSite=Strict`; `Secure` only when `api.ui_session.cookie_secure: true`, which defaults to false and must be set explicitly when HTTPS terminates at a reverse proxy, ADR 0032).
 - Rehydrate the UI principal (`GET /api/v1/session`) from that cookie. CSRF plaintext is not recoverable and is not reissued.
 - Require a CSRF token on cookie-authenticated mutations whenever UI sessions are enabled.
 
@@ -296,7 +296,7 @@ Responsibilities:
 - serve OpenAPI.
 - provide SSE event streams.
 
-PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session create/get/delete (CSRF on cookie mutations; `GET` is cookie whoami; `cookie_secure` follows HTTP TLS), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
+PR-16b serves the full REST column: `/health/live`, `/health/ready`, `/api/openapi.json`, status/build, config effective/validate/reload/export, runtime reset, user/group/client/token CRUD, policy.evaluate, authentication.test, session create/get/delete (CSRF on cookie mutations; `GET` is cookie whoami; `cookie_secure` is explicit and defaults to false), `GET /api/v1/events`, and `GET /api/v1/events/stream` (SSE bodies, Last-Event-ID, write-deadline opt-out). MCP-only operations are not bound. Adapters invoke the operation registry and never the MCP package. Authentication uses `auth.Service` (snapshot bearer + UI session + CSRF).
 
 It contains no independent business rules.
 

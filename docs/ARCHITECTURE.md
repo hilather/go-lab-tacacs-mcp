@@ -125,7 +125,13 @@ All mutations follow:
 7. On success, update overlay, increment revision, and atomically publish the snapshot.
 8. Emit a state-change event after publication.
 
-Protocol request paths load the snapshot once and retain it for the request. UDP requests, RadSec connection admission and the shared RADIUS diagnostic operation carry the immutable snapshot handle into AAA alongside its revision; AAA never reopens a bound request against a newer publication. They never hold the state write lock. Both policy engines are compiled before publication, owned by that snapshot and released when its last request/session reference disappears; AAA retains no historical engine map. TACACS validity windows use the manager clock.
+Protocol request paths load the snapshot once and retain it for the request. UDP datagrams, RadSec packets and the shared RADIUS diagnostic operation each load one snapshot for client admission, endpoint policy and AAA, and carry that immutable handle into AAA alongside its revision; AAA never reopens a bound request against a newer publication. They never hold the state write lock. Both policy engines are compiled before publication, owned by that snapshot and released when its last request/session reference disappears; AAA retains no historical engine map. TACACS validity windows use the manager clock.
+
+When published changes become visible:
+
+- RADIUS/UDP and RadSec: on the next request read after publication. A request that was already admitted finishes on the snapshot it was admitted with. On a RadSec connection, each packet re-runs client and endpoint admission against its snapshot, using the certificate identity and peer address verified at handshake. If the client is deleted or now matches a different client or endpoint, the packet is dropped and the connection closed. The shared secret and TLS identity stay bound per connection; secret or certificate changes need a reconnect (or `idle_timeout`).
+- Multi-round EAP/PEAP: each round uses the snapshot current when that round is read. The Challenge record stores its issuing revision, but no later round compares against it, on either carrier.
+- TACACS+: sessions bind the snapshot loaded at Authentication START; accepted connections keep their bound client identity and legacy secret until close (see CANONICAL_DESIGN, protocol sessions).
 
 Compile attaches the TACACS `ClientIndex`, independent RADIUS access and accounting LPM indexes, and an empty dictionary placeholder (`SetDictionaryCompiler` is the later hook). v1 TACACS fields stay equivalent. Invalid RADIUS compile discards the candidate. Overlay patches retain omitted RADIUS secrets.
 

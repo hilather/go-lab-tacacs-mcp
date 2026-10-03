@@ -25,7 +25,7 @@ type labPKI struct {
 	CRL         string
 }
 
-func generateLabPKI(t *testing.T, dir string) labPKI {
+func generateLabPKI(t testing.TB, dir string) labPKI {
 	t.Helper()
 	now := time.Now().UTC()
 	serverCA, serverCAKey := mustCA(t, "RadSec Server Root", now)
@@ -132,7 +132,7 @@ func mustLeaf(t testing.TB, req leafReq) (*x509.Certificate, *ecdsa.PrivateKey) 
 	return cert, key
 }
 
-func mustCRL(t *testing.T, ca *x509.Certificate, key *ecdsa.PrivateKey, now time.Time) []byte {
+func mustCRL(t testing.TB, ca *x509.Certificate, key *ecdsa.PrivateKey, now time.Time) []byte {
 	t.Helper()
 	tmpl := &x509.RevocationList{
 		Number:     big.NewInt(1),
@@ -150,7 +150,7 @@ func encodeCert(c *x509.Certificate) []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})
 }
 
-func writePEM(t *testing.T, path, typ string, der []byte) {
+func writePEM(t testing.TB, path, typ string, der []byte) {
 	t.Helper()
 	if typ == "CERTIFICATE" {
 		if err := os.WriteFile(path, der, 0o644); err != nil {
@@ -163,7 +163,7 @@ func writePEM(t *testing.T, path, typ string, der []byte) {
 	}
 }
 
-func writeKey(t *testing.T, path string, key *ecdsa.PrivateKey) {
+func writeKey(t testing.TB, path string, key *ecdsa.PrivateKey) {
 	t.Helper()
 	der, err := x509.MarshalECPrivateKey(key)
 	if err != nil {

@@ -534,7 +534,7 @@ func (s *Service) AuthenticateAccess(ctx context.Context, in RadiusAccessAttempt
 
 Pipeline inside `AuthenticateAccess` (no UDP, no packets):
 
-1. Use the immutable snapshot handle carried in `RadiusAccessAttempt.Snapshot` with `Context.SnapshotRevision`. UDP, RadSec, and the shared diagnostic operation bind it at admission. A nonzero revision without a matching handle fails closed; an unbound direct call loads current once. Never reload a bound request.
+1. Use the immutable snapshot handle carried in `RadiusAccessAttempt.Snapshot` with `Context.SnapshotRevision`. UDP (per datagram), RadSec (per packet; the shared secret and certificate identity stay bound per connection), and the shared diagnostic operation bind it at admission. A nonzero revision without a matching handle fails closed; an unbound direct call loads current once. Never reload a bound request.
 2. Resolve user (UsernameCasePreserved). Apply `UserRestrictions` (client IDs, valid_after/before) using the existing TACACS restriction fields — users are shared identities.
 3. Verify credentials via `VerifyCredentials`.
 4. On pass, evaluate `policy/radius` with user/groups/client/typed attributes. The policy request uses `domain.AuthMethod`, not an `aaa` type.

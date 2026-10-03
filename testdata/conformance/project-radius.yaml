@@ -126,6 +126,10 @@ rows:
       - unit:internal/state.TestSnapshotCompilesRADIUSIndexes
       - unit:internal/aaa.TestAccessBoundRevisionDoesNotUseReloadedSnapshot
       - unit:internal/radius/udp.TestUDPAdmissionSnapshotSurvivesReloadBeforeAAA
+      - unit:internal/radius/tls.TestRadSecDisabledUserRejectedOnOpenConnection
+      - unit:internal/radius/tls.TestRadSecPasswordChangeVisibleOnOpenConnection
+      - unit:internal/radius/tls.TestRadSecDeletedClientClosesOpenConnection
+      - unit:internal/radius/tls.TestRadSecEndpointPolicyChangeVisibleOnOpenConnection
       - unit:internal/aaa.TestAccessRevisionWithoutBoundSnapshotFailsClosed
       - unit:internal/policy/radius.TestClientPoliciesAreBoundToEachEndpoint
       - unit:internal/radius/udp.TestUnknownClientDiscardUsesCompiledRADIUSIndex
@@ -285,6 +289,7 @@ rows:
       - unit:internal/radius/tls.TestRadSecCRLSignatureAndIssuerIsolation
       - unit:internal/radius/tls.TestRadSecCRLUsesVerifiedRootOmittedByPeer
       - bench:internal/radius/tls.BenchmarkRadSecCRLValidation
+      - bench:internal/radius/tls.BenchmarkRadSecAccountingOnOpenConnection
       - unit:internal/radius/tls.TestReadPacketDoesNotStitch
       - unit:internal/radius/tls.TestNoForbiddenImports
       - unit:internal/config.TestRADIUSTransportTLSAndUDPPerCarrier

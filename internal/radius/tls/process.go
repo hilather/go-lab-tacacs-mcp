@@ -24,14 +24,17 @@ const (
 	reasonSecretMissing   = "secret_unavailable"
 )
 
+// boundConn is the per-connection TLS admission: verified certificate,
+// peer address, matched client/endpoint and the shared secret selected at
+// handshake. Snapshot, endpoint policy and AAA state are loaded per packet.
 type boundConn struct {
-	snapshot   *state.Snapshot
-	client     state.EffectiveClient
+	ip         net.IP
+	certID     *config.CertIdentity
+	clientID   string
 	endpointID string
 	secret     []byte
 	srcKey     string
 	peer       netip.AddrPort
-	revision   domain.Revision
 	certFP     [32]byte
 }
 
@@ -60,7 +63,8 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 		return
 	}
 	ip := peerIP(tlsConn.RemoteAddr())
-	client, endpointID, err := matchTLSClient(snap, ip, certIdentity(leaf))
+	certID := certIdentity(leaf)
+	client, endpointID, err := matchTLSClient(snap, ip, certID)
 	if err != nil {
 		if isAmbiguous(err) {
 			l.note(reasonAmbiguousClient, domain.RoleAccess)
@@ -78,13 +82,13 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 	defer wipe(secret)
 	fp := certFingerprint(leaf)
 	bound := boundConn{
-		snapshot:   snap,
-		client:     client,
+		ip:         ip,
+		certID:     certID,
+		clientID:   client.Client.ID,
 		endpointID: endpointID,
 		secret:     secret,
 		srcKey:     "tls:" + hex.EncodeToString(fp[:]),
 		peer:       peerAddrPort(tlsConn.RemoteAddr()),
-		revision:   snap.Revision,
 		certFP:     fp,
 	}
 	for {
@@ -106,8 +110,11 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 			return
 		}
 		l.inflight.Add(1)
-		l.process(ctx, tlsConn, body, bound)
+		keep := l.process(ctx, tlsConn, body, bound)
 		l.inflight.Add(-1)
+		if !keep {
+			return
+		}
 	}
 }
 
@@ -135,50 +142,72 @@ func matchTLSClient(snap *state.Snapshot, ip net.IP, cert *config.CertIdentity) 
 	return state.EffectiveClient{}, "", accErr
 }
 
-func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound boundConn) {
+// process handles one packet against the snapshot published when it is
+// read. It re-admits the handshake-bound certificate and peer against that
+// snapshot; it returns false when the connection's client binding no longer
+// holds, and the caller closes the connection.
+func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound boundConn) bool {
 	pkt, err := codec.DecodeBounded(body, l.bounds)
 	if err != nil {
 		l.note(codec.DiscardReason(err), domain.RoleAccess)
-		return
+		return true
+	}
+	snap := l.opts.Snapshot()
+	if snap == nil {
+		l.note(reasonSecretMissing, domain.RoleAccess)
+		return true
+	}
+	client, endpointID, err := matchTLSClient(snap, bound.ip, bound.certID)
+	if err != nil {
+		if isAmbiguous(err) {
+			l.note(reasonAmbiguousClient, domain.RoleAccess)
+		} else {
+			l.note(reasonUnknownClient, domain.RoleAccess)
+		}
+		return false
+	}
+	if client.Client.ID != bound.clientID || endpointID != bound.endpointID {
+		l.note(reasonUnknownClient, domain.RoleAccess)
+		return false
 	}
 	role, ok := roleForCode(pkt.Code)
-	if !ok || !endpointHasRole(bound.client, bound.endpointID, role) {
+	if !ok || !endpointHasRole(client, endpointID, role) {
 		l.note(server.ReasonInvalidCode, role)
-		return
+		return true
 	}
 	if role == domain.RoleAccounting {
 		if reason := server.CheckAccountingIntegrity(bound.secret, body, pkt); reason != "" {
 			l.note(reason, role)
-			return
+			return true
 		}
 	}
-	requireMA, limitPS, methods := endpointAccessPolicy(bound.client, bound.endpointID)
+	requireMA, limitPS, methods := endpointAccessPolicy(client, endpointID)
 	req := server.Request{
-		Snapshot:                    bound.snapshot,
+		Snapshot:                    snap,
 		Role:                        role,
 		Carrier:                     domain.CarrierRADIUSTLS,
 		Packet:                      pkt,
 		Declared:                    body,
 		Secret:                      bound.secret,
-		ClientID:                    bound.client.Client.ID,
-		EndpointID:                  bound.endpointID,
+		ClientID:                    client.Client.ID,
+		EndpointID:                  endpointID,
 		ListenerID:                  l.ID(),
-		Revision:                    bound.revision,
+		Revision:                    snap.Revision,
 		Peer:                        bound.peer,
 		TLSCertFP:                   bound.certFP,
 		RequireMessageAuthenticator: requireMA,
 		LimitProxyState:             limitPS,
 		AllowedMethods:              methods,
-		AcceptStatusTypes:           radiusAcceptStatusTypes(bound.client, bound.endpointID),
+		AcceptStatusTypes:           radiusAcceptStatusTypes(client, endpointID),
 		Journal:                     l.journal,
 		Sampler:                     l.sampler,
 	}
 	if reason := server.CheckIntegrity(req); reason != "" {
 		l.note(reason, role)
-		return
+		return true
 	}
 	key := slotKey{
-		endpointID: bound.endpointID,
+		endpointID: endpointID,
 		role:       role,
 		src:        bound.srcKey,
 		listenerID: l.ID(),
@@ -189,12 +218,12 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 	switch got, cached := l.cache.Begin(key, fp); got {
 	case lookupHit:
 		_ = WritePacket(w, cached)
-		return
+		return true
 	case lookupPending:
-		return
+		return true
 	case lookupSaturated:
 		l.note(reasonOverload, role)
-		return
+		return true
 	}
 	handler := l.access
 	if role == domain.RoleAccounting {
@@ -208,13 +237,14 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 		if res.Reason != "" {
 			l.note(res.Reason, role)
 		}
-		return
+		return true
 	}
 	l.cache.Complete(key, fp, res.Response)
 	l.observeRequest(pkt.Code, res, elapsed)
 	if err := WritePacket(w, res.Response); err != nil {
 		l.setError("send")
 	}
+	return true
 }
 
 func roleForCode(code codec.Code) (domain.ListenerRole, bool) {

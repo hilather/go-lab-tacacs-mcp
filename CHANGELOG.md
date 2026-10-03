@@ -5,6 +5,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ## [Unreleased]
 
 - Bind RADIUS credentials and policy to the admitted snapshot, preserve separate UDP/RadSec endpoint policies, and release compiled TACACS policy engines with their snapshots.
+- RadSec loads the published snapshot for each packet on an open connection. Disabled users, password changes, and policy or endpoint edits apply to the next packet; a client that is deleted or no longer matches its certificate closes the connection. The shared secret and TLS identity stay bound at handshake until reconnect.
 - PEAP now matches EAP policy and preserves supported reply profiles in its final Access-Accept.
 - Concurrent accounting retries with changed identifiers or delay times produce one event while retaining independently signed replies; failed sink calls remain retryable. RADIUS conformance stays partial.
 

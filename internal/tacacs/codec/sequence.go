@@ -164,9 +164,9 @@ func (s *SingleConnect) Pending() bool { return s.sawClient && !s.done }
 // Complete reports that the first reply has been recorded.
 func (s *SingleConnect) Complete() bool { return s.done }
 
-// AllowNewSession rejects a second session while the first pair is incomplete.
+// AllowNewSession permits another session only after single-connect negotiation.
 func (s *SingleConnect) AllowNewSession() error {
-	if s.Pending() {
+	if !s.Negotiated() {
 		return ErrPrematurePacket
 	}
 	return nil

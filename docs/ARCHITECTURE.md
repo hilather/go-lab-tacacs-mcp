@@ -621,3 +621,5 @@ The initial architecture allows but does not require:
 - Kubernetes packaging.
 
 No extension may change the default ephemeral runtime behavior or bypass common operations and policy services.
+
+State publication connects to metrics and the shared event ring through the manager publication hook. Each successful mutation, reset, or baseline reload appends one `state.revision.changed` event (`category: config`, published `revision`); failed candidates append none. REST SSE and MCP resource notifications observe this same ring, so clients refresh their state views after external mutations and SIGHUP reloads.

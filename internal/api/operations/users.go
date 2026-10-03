@@ -57,6 +57,11 @@ func handleUsersGet(_ context.Context, snap *state.Snapshot, in Input) (any, err
 		return nil, domain.NewError(domain.CodeUnavailable, "no published snapshot")
 	}
 	req, _ := in.Request.(GetUserRequest)
+	canonicalID, err := state.NormalizeUserID(req.ID)
+	if err != nil {
+		return nil, err
+	}
+	req.ID = canonicalID
 	if err := requireID(req.ID); err != nil {
 		return nil, err
 	}
@@ -77,6 +82,11 @@ func handleUsersCreate(deps Deps) handleFunc {
 			return nil, err
 		}
 		req, _ := in.Request.(CreateUserRequest)
+		canonicalID, err := state.NormalizeUserID(req.ID)
+		if err != nil {
+			return nil, err
+		}
+		req.ID = canonicalID
 		if err := requireID(req.ID); err != nil {
 			return nil, err
 		}
@@ -118,6 +128,11 @@ func handleUsersUpdate(deps Deps) handleFunc {
 			return nil, err
 		}
 		req, _ := in.Request.(UpdateUserRequest)
+		canonicalID, err := state.NormalizeUserID(req.ID)
+		if err != nil {
+			return nil, err
+		}
+		req.ID = canonicalID
 		if err := requireID(req.ID); err != nil {
 			return nil, err
 		}
@@ -157,6 +172,11 @@ func handleUsersDelete(deps Deps) handleFunc {
 			return nil, err
 		}
 		req, _ := in.Request.(DeleteUserRequest)
+		canonicalID, err := state.NormalizeUserID(req.ID)
+		if err != nil {
+			return nil, err
+		}
+		req.ID = canonicalID
 		if err := requireID(req.ID); err != nil {
 			return nil, err
 		}

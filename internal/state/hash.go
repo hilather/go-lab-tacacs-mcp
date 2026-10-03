@@ -1,217 +1,109 @@
 package state
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"sort"
-	"strconv"
-	"strings"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 )
 
-func hashBaseline(doc *config.Document) string {
-	var b strings.Builder
-	b.WriteString("v1\n")
-	writeUsers(&b, doc.Users)
-	writeGroups(&b, doc.Groups)
-	writeClients(&b, doc.Clients)
-	for _, tok := range doc.API.BootstrapTokens {
-		b.WriteString("t\t")
-		b.WriteString(tok.ID)
-		b.WriteByte('\n')
-	}
-	for _, p := range doc.RADIUSPolicies {
-		b.WriteString("rp\t")
-		b.WriteString(p.ID)
-		b.WriteByte('\n')
-		for _, r := range p.Rules {
-			b.WriteString("rpr\t")
-			b.WriteString(r.ID)
-			b.WriteByte('\t')
-			b.WriteString(r.Effect.String())
-			b.WriteByte('\n')
-		}
-	}
-	for _, p := range doc.RADIUSReplyProfiles {
-		b.WriteString("rr\t")
-		b.WriteString(p.ID)
-		b.WriteByte('\n')
-	}
-	if doc.FallbackRADIUSPolicyID != "" {
-		b.WriteString("rpf\t")
-		b.WriteString(doc.FallbackRADIUSPolicyID)
-		b.WriteByte('\n')
-	}
-	for _, d := range doc.RADIUSDictionaries {
-		b.WriteString("rd\t")
-		b.WriteString(d.ID)
-		b.WriteByte('\t')
-		b.WriteString(d.File)
-		b.WriteByte('\t')
-		b.WriteString(strconv.FormatBool(d.Enabled))
-		b.WriteByte('\n')
-	}
-	return sha256Hex(b.String())
+// Baseline configuration contains references, never resolved secret bytes.
+// Normalize the source schema and identity collections so equivalent v1/v2
+// documents and map insertion order produce the same configuration identity.
+func hashBaseline(doc *config.Document) (string, error) {
+	canonical := cloneDocument(doc)
+	canonical.SchemaVersion = config.SchemaVersionV2
+	sort.Slice(canonical.Users, func(i, j int) bool { return canonical.Users[i].ID < canonical.Users[j].ID })
+	sort.Slice(canonical.Groups, func(i, j int) bool { return canonical.Groups[i].ID < canonical.Groups[j].ID })
+	sort.Slice(canonical.Clients, func(i, j int) bool { return canonical.Clients[i].ID < canonical.Clients[j].ID })
+	sort.Slice(canonical.API.BootstrapTokens, func(i, j int) bool { return canonical.API.BootstrapTokens[i].ID < canonical.API.BootstrapTokens[j].ID })
+	sort.Slice(canonical.RADIUSPolicies, func(i, j int) bool { return canonical.RADIUSPolicies[i].ID < canonical.RADIUSPolicies[j].ID })
+	sort.Slice(canonical.RADIUSReplyProfiles, func(i, j int) bool { return canonical.RADIUSReplyProfiles[i].ID < canonical.RADIUSReplyProfiles[j].ID })
+	sort.Slice(canonical.RADIUSDictionaries, func(i, j int) bool { return canonical.RADIUSDictionaries[i].ID < canonical.RADIUSDictionaries[j].ID })
+	return hashJSON(canonical)
 }
 
-func hashOverlay(ov overlay) string {
-	var b strings.Builder
-	uids := make([]string, 0, len(ov.users))
-	for id := range ov.users {
-		uids = append(uids, id)
-	}
-	sort.Strings(uids)
-	for _, id := range uids {
-		e := ov.users[id]
-		b.WriteString("u\t")
-		b.WriteString(id)
-		b.WriteByte('\t')
-		if e.deleted {
-			b.WriteString("D\n")
-			continue
-		}
-		b.WriteString(string(e.meta.Source))
-		b.WriteByte('\t')
-		b.WriteString(e.user.DisplayName)
-		b.WriteByte('\t')
-		b.WriteString(secretRefKey(e.user.Credentials.Login.Verifier))
-		b.WriteByte('\t')
-		b.WriteString(strconv.FormatBool(e.user.MustChangeLogin))
-		b.WriteByte('\t')
-		b.WriteString(strconv.FormatBool(e.user.MustChangeEnable))
-		b.WriteByte('\t')
-		b.WriteString(e.user.RADIUSPolicyID)
-		b.WriteByte('\n')
-	}
-	gids := make([]string, 0, len(ov.groups))
-	for id := range ov.groups {
-		gids = append(gids, id)
-	}
-	sort.Strings(gids)
-	for _, id := range gids {
-		e := ov.groups[id]
-		b.WriteString("g\t")
-		b.WriteString(id)
-		if e.deleted {
-			b.WriteString("\tD\n")
-			continue
-		}
-		b.WriteByte('\t')
-		b.WriteString(e.group.RADIUSPolicyID)
-		b.WriteByte('\n')
-	}
-	cids := make([]string, 0, len(ov.clients))
-	for id := range ov.clients {
-		cids = append(cids, id)
-	}
-	sort.Strings(cids)
-	for _, id := range cids {
-		e := ov.clients[id]
-		b.WriteString("c\t")
-		b.WriteString(id)
-		if e.deleted {
-			b.WriteString("\tD\n")
-			continue
-		}
-		b.WriteByte('\t')
-		b.WriteString(secretRefKey(e.client.Legacy.SharedSecret))
-		if rad := overlayRADIUSSecretKey(e.client); rad != "" {
-			b.WriteByte('\t')
-			b.WriteString(rad)
-		}
-		b.WriteByte('\n')
-	}
-	tids := make([]string, 0, len(ov.tokens))
-	for id := range ov.tokens {
-		tids = append(tids, id)
-	}
-	sort.Strings(tids)
-	for _, id := range tids {
-		e := ov.tokens[id]
-		b.WriteString("t\t")
-		b.WriteString(id)
-		if e.deleted {
-			b.WriteString("\tD\n")
-			continue
-		}
-		b.WriteByte('\n')
-	}
-	if ov.fallback != nil {
-		b.WriteString("fb\n")
-	}
-	return sha256Hex(b.String())
+type hashEntry struct {
+	Deleted bool
+	Source  domain.ObjectSource
+	Value   any
 }
 
-func writeUsers(b *strings.Builder, users []config.User) {
-	for _, u := range users {
-		b.WriteString("u\t")
-		b.WriteString(u.ID)
-		b.WriteByte('\t')
-		b.WriteString(u.DisplayName)
-		b.WriteByte('\t')
-		b.WriteString(strconv.FormatBool(u.Enabled))
-		b.WriteByte('\t')
-		b.WriteString(secretRefKey(u.Credentials.Login.Verifier))
-		b.WriteByte('\t')
-		b.WriteString(strconv.FormatBool(u.MustChangeLogin))
-		b.WriteByte('\t')
-		b.WriteString(strconv.FormatBool(u.MustChangeEnable))
-		b.WriteByte('\t')
-		b.WriteString(u.RADIUSPolicyID)
-		b.WriteByte('\n')
-	}
+type hashToken struct {
+	ID              string
+	Name            string
+	Scopes          []string
+	Enabled         bool
+	ExpiresAt       *time.Time
+	MaterialVersion string
 }
 
-func writeGroups(b *strings.Builder, groups []config.Group) {
-	for _, g := range groups {
-		b.WriteString("g\t")
-		b.WriteString(g.ID)
-		b.WriteByte('\t')
-		b.WriteString(g.RADIUSPolicyID)
-		b.WriteByte('\n')
-	}
-}
-
-func writeClients(b *strings.Builder, clients []config.Client) {
-	for _, c := range clients {
-		b.WriteString("c\t")
-		b.WriteString(c.ID)
-		b.WriteByte('\t')
-		b.WriteString(secretRefKey(c.Legacy.SharedSecret))
-		if rad := overlayRADIUSSecretKey(c); rad != "" {
-			b.WriteByte('\t')
-			b.WriteString(rad)
+func hashOverlay(ov overlay, key []byte) (string, error) {
+	view := struct {
+		Users    map[string]hashEntry
+		Groups   map[string]hashEntry
+		Clients  map[string]hashEntry
+		Tokens   map[string]hashEntry
+		Secrets  map[string]string
+		Fallback *config.RuleSet
+	}{Users: map[string]hashEntry{}, Groups: map[string]hashEntry{}, Clients: map[string]hashEntry{}, Tokens: map[string]hashEntry{}, Secrets: map[string]string{}, Fallback: ov.fallback}
+	for id, e := range ov.users {
+		entry := hashEntry{Deleted: e.deleted, Source: e.meta.Source}
+		if !e.deleted {
+			entry.Value = e.user
 		}
-		b.WriteByte('\n')
+		view.Users[id] = entry
 	}
-}
-
-func overlayRADIUSSecretKey(c config.Client) string {
-	for i := range c.Endpoints {
-		ep := c.Endpoints[i]
-		if ep.Protocol == domain.ProtocolRADIUS && ep.RADIUS != nil && ep.RADIUS.SharedSecret.Set() {
-			return "r:" + secretRefKey(ep.RADIUS.SharedSecret)
+	for id, e := range ov.groups {
+		entry := hashEntry{Deleted: e.deleted, Source: e.meta.Source}
+		if !e.deleted {
+			entry.Value = e.group
 		}
+		view.Groups[id] = entry
 	}
-	return ""
+	for id, e := range ov.clients {
+		entry := hashEntry{Deleted: e.deleted, Source: e.meta.Source}
+		if !e.deleted {
+			entry.Value = e.client
+		}
+		view.Clients[id] = entry
+	}
+	for id, e := range ov.tokens {
+		entry := hashEntry{Deleted: e.deleted, Source: e.meta.Source}
+		if !e.deleted {
+			raw := e.token.Digest.Bytes()
+			entry.Value = hashToken{ID: e.token.ID, Name: e.token.Name, Scopes: e.token.Scopes, Enabled: e.token.Enabled, ExpiresAt: e.token.ExpiresAt, MaterialVersion: secretVersion(raw, key)}
+			wipeBytes(raw)
+		}
+		view.Tokens[id] = entry
+	}
+	for id, raw := range ov.secrets {
+		view.Secrets[id] = secretVersion(raw, key)
+	}
+	return hashJSON(view)
 }
 
-func secretRefKey(r config.SecretRef) string {
-	if r.MemoryID != "" {
-		return "m:" + r.MemoryID
+// Secret versions are process-keyed and only contribute to the final aggregate
+// hash. Neither raw material nor individual fingerprints leave this function.
+func secretVersion(raw, key []byte) string {
+	if len(raw) == 0 {
+		return ""
 	}
-	if r.File != "" {
-		return "f:" + r.File
-	}
-	if r.Environment != "" {
-		return "e:" + r.Environment
-	}
-	return "-"
+	h := hmac.New(sha256.New, key)
+	_, _ = h.Write([]byte("taclab-state-hash-v2\x00"))
+	_, _ = h.Write(raw)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
-func sha256Hex(s string) string {
-	sum := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(sum[:])
+func hashJSON(value any) (string, error) {
+	h := sha256.New()
+	if err := json.NewEncoder(h).Encode(value); err != nil {
+		return "", domain.NewError(domain.CodeInternal, "cannot fingerprint state")
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

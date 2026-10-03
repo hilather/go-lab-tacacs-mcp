@@ -5,6 +5,7 @@ export type StreamState = {
   connected: boolean;
   reconnecting: boolean;
   reset: boolean;
+  resetGeneration: number;
   lastEvent: EventView | null;
   recentEvents: EventView[];
 };

@@ -36,7 +36,7 @@ function invalidateResources(queryClient: ReturnType<typeof useQueryClient>): vo
   }
 }
 
-const idle: StreamState = { connected: false, reconnecting: false, reset: false, lastEvent: null, recentEvents: [] };
+const idle: StreamState = { connected: false, reconnecting: false, reset: false, resetGeneration: 0, lastEvent: null, recentEvents: [] };
 
 /** Always calls the same hooks. When enabled is false, no EventSource is opened. */
 export function useOwnedEventStream(enabled: boolean): StreamState {
@@ -59,7 +59,7 @@ export function useOwnedEventStream(enabled: boolean): StreamState {
       setStream((prev) => ({ ...prev, connected: false, reconnecting: true }));
     };
     const onReset = () => {
-      setStream((prev) => ({ ...prev, reset: true, lastEvent: null, recentEvents: [] }));
+      setStream((prev) => ({ ...prev, reset: true, resetGeneration: prev.resetGeneration + 1, lastEvent: null, recentEvents: [] }));
       invalidateResources(queryClient);
     };
     const onMessage = (ev: MessageEvent<string>) => {

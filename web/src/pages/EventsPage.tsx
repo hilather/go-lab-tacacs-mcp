@@ -36,7 +36,7 @@ function EventsBody() {
   const [pending, setPending] = useState(true);
   const [flashIds, setFlashIds] = useState<Set<number>>(new Set());
   const searchId = useId();
-  const drainKey = `${kind}\0${protocol}\0${String(stream.reset)}`;
+  const drainKey = `${kind}\0${protocol}\0${String(stream.resetGeneration)}`;
   const [trackedDrainKey, setTrackedDrainKey] = useState(drainKey);
   if (trackedDrainKey !== drainKey) {
     setTrackedDrainKey(drainKey);
@@ -45,6 +45,7 @@ function EventsBody() {
 
   const incoming = stream.recentEvents;
   const lastProcessedID = useRef(0);
+  const lastResetGeneration = useRef(stream.resetGeneration);
   const liveDuringDrain = useRef<EventView[] | null>(null);
   const hasFlashes = flashIds.size > 0;
   useEffect(() => {
@@ -69,7 +70,7 @@ function EventsBody() {
         liveDuringDrain.current = null;
         setBuffer(retainEvents(page.items, arrivals));
         setOverwritten(page.overwritten);
-        setReset(page.reset);
+        setReset(page.reset || stream.resetGeneration > 0);
         setVisible(PAGE);
         setLoadError(null);
       })
@@ -87,26 +88,32 @@ function EventsBody() {
       cancelled = true;
       liveDuringDrain.current = null;
     };
-  }, [kind, protocol, stream.reset]);
+  }, [kind, protocol, stream.resetGeneration]);
 
   useEffect(() => {
-    if (stream.reset) lastProcessedID.current = 0;
+    if (lastResetGeneration.current !== stream.resetGeneration) {
+      lastProcessedID.current = 0;
+      lastResetGeneration.current = stream.resetGeneration;
+    }
     const arrivals = incoming.filter((event) => event.id > lastProcessedID.current &&
       matchEvent(event, { kind, protocol, search: "" }));
     const latest = incoming.at(-1);
-    if (latest) lastProcessedID.current = latest.id;
-    if (arrivals.length === 0) return;
+    if (arrivals.length === 0) {
+      if (latest) lastProcessedID.current = latest.id;
+      return;
+    }
     if (liveDuringDrain.current !== null) {
       liveDuringDrain.current = retainEvents(liveDuringDrain.current, arrivals);
     }
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
+      if (latest) lastProcessedID.current = latest.id;
       setBuffer((prev) => retainEvents(prev, arrivals));
       setFlashIds((prev) => new Set([...prev, ...arrivals.map((event) => event.id)].slice(-EVENT_RETENTION)));
     });
     return () => { cancelled = true; };
-  }, [incoming, kind, protocol, stream.reset]);
+  }, [incoming, kind, protocol, stream.resetGeneration]);
 
   const items = useMemo(() => {
     return buffer.filter((ev) => matchEvent(ev, { kind, protocol, search })).slice(0, visible);

@@ -261,3 +261,42 @@ it("expires highlights even when more events arrive before the deadline", async 
     vi.unstubAllGlobals();
   }
 });
+
+it("reconciles a reset followed by a lower ID in the same batch", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1000, user_id: "before-reset" })));
+  const before = reads;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "after-reset" }));
+  });
+  expect(await screen.findByText("after-reset")).toBeInTheDocument();
+  expect(screen.queryByText("before-reset")).not.toBeInTheDocument();
+  expect(reads).toBeGreaterThan(before);
+  expect(screen.getByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+it("retries arrivals when effect cleanup cancels their queued commit", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", vi.fn(async () => json(200, envelope({ items: [], overwritten: 0, reset: false }))));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  const queued: VoidFunction[] = [];
+  vi.stubGlobal("queueMicrotask", (callback: VoidFunction) => queued.push(callback));
+  act(() => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 100, user_id: "cancelled-arrival" })));
+  act(() => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 101, user_id: "next-arrival" })));
+  act(() => { for (const callback of queued) callback(); });
+  expect(screen.getByText("cancelled-arrival")).toBeInTheDocument();
+  expect(screen.getByText("next-arrival")).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});

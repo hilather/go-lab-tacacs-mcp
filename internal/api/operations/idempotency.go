@@ -79,8 +79,8 @@ func (r *Registry) invokeReplay(ctx context.Context, id string, snap *state.Snap
 		Actor      string
 		Generation domain.Revision
 		Scopes     []string
-		Key        string
-	}{in.Actor.ID, snap.TokenGeneration(in.Actor.ID), scopes, in.IdempotencyKey})
+		Key        []byte
+	}{in.Actor.ID, snap.TokenGeneration(in.Actor.ID), scopes, []byte(in.IdempotencyKey)})
 	if err != nil {
 		return Result{}, err
 	}

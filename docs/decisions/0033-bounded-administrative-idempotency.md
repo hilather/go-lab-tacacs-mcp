@@ -17,7 +17,7 @@ clients.create, runtime.reset and config.reload. Other operations reject nonempt
 keys before effects, including tokens.create as an EXEMPT_BY_ADR exception to the
 general create replay rule. Both adapters retain equivalent token creation behavior.
 
-Keys are limited to 256 bytes. The store admits at most 128 entries and reserves
+Keys are opaque byte sequences limited to 256 bytes. Identity hashing encodes key bytes injectively, preserving distinct HTTP header values even when they are not valid UTF-8. The store admits at most 128 entries and reserves
 64 KiB per entry within an 8 MiB payload budget; fixed entry metadata is additional
 bounded overhead. Pending entries count against capacity and never expire or get
 evicted. Completed entries expire ten minutes after completion. Full capacity

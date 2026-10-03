@@ -708,3 +708,11 @@ identical. Replay includes HMAC fingerprinting and independent typed response
 decoding; a dedicated runner should establish a stable replay performance budget.
 
 P9.2 lab hardening: `TestLabAPICreateUsesFreshKeyAfterReset` reproduces the full-create → runtime.reset → separate restart-setup harness sequence with replay entries retained. `TestIdempotencyCreateAfterResetDistinguishesRetryFromNewIntent` verifies the real registry preserves old results for retries and requires a fresh key to recreate a removed user. `TestIdempotencyResetAndReloadReplayPreserveLaterState` verifies original-revision retries neither republish state nor repeat process hooks.
+
+Opaque-key identity hardening (P9.2): hashing the original key bytes adds one
+bounded byte-slice allocation on keyed replay. Three shared-host samples measured
+27054 ns median, 3304 B / 61 allocations, compared with the earlier 3288 B / 60.
+Unkeyed reads remain 368 B / 5 allocations. Latency remains host-load-sensitive;
+this comparison records the allocation cost without claiming a speed improvement.
+`TestIdempotencyOpaqueKeysPreserveInvalidUTF8Bytes` first failed because distinct
+0xff and 0xfe keys normalized to the same JSON string, then passed with byte keys.

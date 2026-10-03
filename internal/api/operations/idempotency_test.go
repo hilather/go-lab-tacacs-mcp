@@ -317,3 +317,23 @@ func TestIdempotencyResetAndReloadReplayPreserveLaterState(t *testing.T) {
 		})
 	}
 }
+
+func TestIdempotencyOpaqueKeysPreserveInvalidUTF8Bytes(t *testing.T) {
+	m := mustMgr(t, smallYAML)
+	r := mustStateRegistry(t, m)
+	actor := Actor{ID: "op", Scopes: []string{"state:write"}}
+	for i, key := range []string{string([]byte{0xff}), string([]byte{0xfe})} {
+		in := Input{Actor: actor, IdempotencyKey: key, Request: CreateUserRequest{ID: fmt.Sprintf("opaque-key-%d", i)}}
+		first, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), in)
+		if err != nil {
+			t.Fatalf("distinct opaque key %x aliases another key: %v", []byte(key), err)
+		}
+		retry, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(first, retry) {
+			t.Fatal("same opaque key failed replay")
+		}
+	}
+}

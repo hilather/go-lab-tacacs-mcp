@@ -142,6 +142,48 @@ func matchTLSClient(snap *state.Snapshot, ip net.IP, cert *config.CertIdentity) 
 	return state.EffectiveClient{}, "", accErr
 }
 
+// readmit re-checks the handshake-bound peer and certificate against snap
+// for the packet's role. The common case costs one role-specific lookup that
+// must still resolve to the bound client and endpoint. When that lookup
+// fails, the full access+accounting match decides between closing the
+// connection (client deleted, rebound or ambiguous) and dropping only this
+// packet (the bound endpoint no longer serves this role). keep reports
+// whether the connection stays open; admitted reports whether the packet
+// may be processed.
+func (l *Listener) readmit(snap *state.Snapshot, bound boundConn, role domain.ListenerRole) (client state.EffectiveClient, endpointID string, keep, admitted bool) {
+	client, endpointID, err := snap.MatchRADIUSTLS(role, bound.ip, bound.certID)
+	if err == nil && client.Client.ID == bound.clientID && endpointID == bound.endpointID {
+		if !endpointHasRole(client, endpointID, role) {
+			l.note(server.ReasonInvalidCode, role)
+			return state.EffectiveClient{}, "", true, false
+		}
+		return client, endpointID, true, true
+	}
+	full, fullEP, fullErr := matchTLSClient(snap, bound.ip, bound.certID)
+	switch {
+	case fullErr != nil && isAmbiguous(fullErr):
+		l.note(reasonAmbiguousClient, role)
+		return state.EffectiveClient{}, "", false, false
+	case fullErr != nil, full.Client.ID != bound.clientID, fullEP != bound.endpointID:
+		l.note(reasonUnknownClient, role)
+		return state.EffectiveClient{}, "", false, false
+	case err != nil && isAmbiguous(err):
+		l.note(reasonAmbiguousClient, role)
+		return state.EffectiveClient{}, "", false, false
+	case err == nil:
+		// The role index resolves to a different client or endpoint than
+		// the binding, while the full match still names the bound one.
+		l.note(reasonUnknownClient, role)
+		return state.EffectiveClient{}, "", false, false
+	}
+	if !endpointHasRole(full, fullEP, role) {
+		l.note(server.ReasonInvalidCode, role)
+		return state.EffectiveClient{}, "", true, false
+	}
+	l.note(reasonUnknownClient, role)
+	return state.EffectiveClient{}, "", false, false
+}
+
 // process handles one packet against the snapshot published when it is
 // read. It re-admits the handshake-bound certificate and peer against that
 // snapshot; it returns false when the connection's client binding no longer
@@ -152,28 +194,19 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 		l.note(codec.DiscardReason(err), domain.RoleAccess)
 		return true
 	}
-	snap := l.opts.Snapshot()
-	if snap == nil {
-		l.note(reasonSecretMissing, domain.RoleAccess)
-		return true
-	}
-	client, endpointID, err := matchTLSClient(snap, bound.ip, bound.certID)
-	if err != nil {
-		if isAmbiguous(err) {
-			l.note(reasonAmbiguousClient, domain.RoleAccess)
-		} else {
-			l.note(reasonUnknownClient, domain.RoleAccess)
-		}
-		return false
-	}
-	if client.Client.ID != bound.clientID || endpointID != bound.endpointID {
-		l.note(reasonUnknownClient, domain.RoleAccess)
-		return false
-	}
 	role, ok := roleForCode(pkt.Code)
-	if !ok || !endpointHasRole(client, endpointID, role) {
+	if !ok {
 		l.note(server.ReasonInvalidCode, role)
 		return true
+	}
+	snap := l.opts.Snapshot()
+	if snap == nil {
+		l.note(reasonSecretMissing, role)
+		return true
+	}
+	client, endpointID, keep, admitted := l.readmit(snap, bound, role)
+	if !admitted {
+		return keep
 	}
 	if role == domain.RoleAccounting {
 		if reason := server.CheckAccountingIntegrity(bound.secret, body, pkt); reason != "" {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"syscall"
 	"testing"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -66,6 +67,13 @@ func radSecPAP(t *testing.T, c *tctls.Conn, id byte, password string) tcodec.Cod
 
 func radSecAccounting(t *testing.T, c *tctls.Conn, id byte) ([]byte, [16]byte, error) {
 	t.Helper()
+	ra := writeRadSecAccounting(t, c, id)
+	got, err := c.ReadPacket()
+	return got, ra, err
+}
+
+func writeRadSecAccounting(t *testing.T, c *tctls.Conn, id byte) [16]byte {
+	t.Helper()
 	secret := []byte(labSecret)
 	acct, err := testclient.EncodeAccountingRequest(secret, testclient.AccountingRequest{
 		Identifier: id,
@@ -83,8 +91,7 @@ func radSecAccounting(t *testing.T, c *tctls.Conn, id byte) ([]byte, [16]byte, e
 	if err := c.WritePacket(acct); err != nil {
 		t.Fatal(err)
 	}
-	got, err := c.ReadPacket()
-	return got, pkt.Authenticator, err
+	return pkt.Authenticator
 }
 
 func TestRadSecDisabledUserRejectedOnOpenConnection(t *testing.T) {
@@ -166,8 +173,8 @@ func TestRadSecDeletedClientClosesOpenConnection(t *testing.T) {
 	if errors.As(err, &ne) && ne.Timeout() {
 		t.Fatalf("connection left open after client delete: %v", err)
 	}
-	if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		t.Logf("connection closed with %v", err)
+	if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, syscall.ECONNRESET) {
+		t.Fatalf("want connection close after client delete, got %v", err)
 	}
 }
 
@@ -198,8 +205,13 @@ func TestRadSecEndpointPolicyChangeVisibleOnOpenConnection(t *testing.T) {
 	if _, err := mgr.UpdateClient("radsec", state.UpdateClient{Endpoints: &eps}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := radSecAccounting(t, c, 2); err == nil {
-		t.Fatal("accounting answered after the endpoint dropped the accounting role")
+	// The accounting packet must be dropped without closing the
+	// connection: the next reply on the stream is the Access-Accept for
+	// id 3 (radSecPAP rejects any reply that does not authenticate against
+	// its request), and a closed connection fails the read.
+	writeRadSecAccounting(t, c, 2)
+	if code := radSecPAP(t, c, 3, accessTestPassword); code != tcodec.AccessAccept {
+		t.Fatalf("access after the endpoint dropped the accounting role: %s", code)
 	}
 }
 

@@ -32,10 +32,10 @@ Reserve/commit uses a one-nanosecond injected clock/TTL to expire the prior key 
 
 ## RadSec per-packet snapshot (`RAD-REV-003` follow-up)
 
-The command was `GOMAXPROCS=2 go test -p=2 ./internal/radius/tls -run '^$' -bench BenchmarkRadSecAccountingOnOpenConnection -benchtime=1000x -benchmem -count=6`, run on an Intel Core i7-6600U, linux/amd64, Go 1.26.8. The baseline is the same benchmark run against the pre-fix `process.go`, which bound the snapshot at handshake. The host load average was about 33 during measurement, so the latency figures are noisy.
+The command was `GOMAXPROCS=2 go test -p=2 ./internal/radius/tls -run '^$' -bench BenchmarkRadSecAccountingOnOpenConnection -benchtime=1000x -benchmem -count=6`, run on an Intel Core i7-6600U, linux/amd64, Go 1.26.8. The baseline is the same benchmark run against the pre-fix `process.go`, which bound the snapshot at handshake. Latency figures are noisy on this host.
 
 | Workload | Before median | After median | Before B/op | After B/op | Before allocs/op | After allocs/op |
 |---|---:|---:|---:|---:|---:|---:|
-| RadSecAccountingOnOpenConnection | 1.476 ms ± 24% | 1.381 ms ± 34% (p=0.485, no significant change) | 5.211 KiB | 6.085 KiB (+16.8%) | 111 | 123 (+10.8%) |
+| RadSecAccountingOnOpenConnection | 1.072 ms ± 52% | 1.221 ms ± 32% (p=0.818, no significant change) | 5.210 KiB | 5.644 KiB (+8.3%) | 111 | 117 (+5.4%) |
 
-The added allocations come from re-admitting the client on every packet: one access and one accounting `MatchRADIUSTLS` lookup against the packet's snapshot. That is the same per-request admission work RADIUS/UDP already does for each datagram, and it is the price of making deletes and endpoint edits fail closed on open connections. The per-packet round-trip latency is dominated by TLS and I/O and shows no measurable change.
+The added allocations come from re-admitting the client on every packet with one `MatchRADIUSTLS` lookup for the packet's role (access or accounting) against the packet's snapshot. The full access+accounting match runs only when that lookup fails, to decide between dropping the packet and closing the connection. This is the cost of making deletes and endpoint edits fail closed on open connections. The first revision of this fix ran both role lookups on every packet and measured +16.8% B/op, which is over the 15% budget; the role-specific lookup brings it back under. Per-packet round-trip latency is dominated by TLS and I/O and shows no significant change. The host load average was about 21–25 during this measurement.

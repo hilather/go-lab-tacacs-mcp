@@ -108,6 +108,9 @@ jobs:
       - name: Release-notes script
         run: make check-release-notes
 
+      - name: Tag CI selection regression
+        run: make check-tag-ci
+
       - name: Cisco IOL lab skip (no operator image)
         env:
           TACLAB_IOL_IMAGE: ""

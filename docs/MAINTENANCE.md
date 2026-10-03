@@ -86,4 +86,4 @@ Agents must follow [AGENTS.md](https://github.com/hilather/go-lab-tacacs-mcp/blo
    - `ghcr.io/hilather/go-lab-tacacs-mcp:vX.Y.Z-ubuntu` (Ubuntu 24.04)
    - `ghcr.io/hilather/go-lab-tacacs-mcp:vX.Y.Z-rocky` (Rocky Linux 9)
 
-A tag without notes or without both distro images is not a release.
+A tag without notes or without both distro images is not a release. The release gate waits for the exact tag push `ci.yml` run at the tagged SHA; a green main or pull-request run at the same commit cannot satisfy it. `make check-tag-ci` verifies this selection and failure propagation.

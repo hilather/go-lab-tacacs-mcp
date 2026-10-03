@@ -1735,8 +1735,18 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 
 `UL-AAA-003` must not gate that merge.
 
+### REVIEW-STATE-01 Browser session credential incarnation
+
+- [x] Reject browser cookies after token rotation, revocation/recreation, or baseline restoration, including reuse of identical token bytes.
+- [x] Preserve sessions across unrelated state publications; reclaim sessions when a token is forgotten.
+- [x] Regression evidence: `internal/api/auth/review_security_test.go`; auth/state unit and race suites.
+
 ## 24. Protocol review hardening
 
 - [x] `RAD-REV-001` RadSec passes the authenticated peer certificate fingerprint to the Challenge gate. Configured CRLs must authenticate against the verified leaf issuer and be current; unrelated or expired CRLs fail closed. Evidence: `TestRadSecPropagatesCertificateChallengeBinding`, `TestRadSecCRLAuthenticityAndFreshness`; `go test -race ./internal/radius/tls`; `BenchmarkRadSecCRLValidation`; additional bad-signature, issuer isolation, omitted-root, and injected-clock evidence. TACACS also rejects a signed future-dated CRL (`TestFutureCRLDoesNotAdmit`). Affected rows: `PRJ-RADSEC-001`, `R65-ACCESS-004`. No administrative contract or parity change.
 
 - [x] `TAC-REV-001` Reject a second live session when single-connect was not negotiated; stop signals do not mutate the sequence state owned by the session goroutine. Evidence: pre-fix wrong-status and race-detector failures in `TestNonSingleConnectRejectsSecondLiveSession` / `TestSessionStopDoesNotRaceSequenceOwner`; `TestStoppedQueuedSessionNeverDispatches` proves stopped queued packets never enter AAA; full server/codec race tests; added `FuzzServeConn` seed; recorded dispatch benchmark. Affected rows: `T89-SC-003`, `T98-TLS-007`. No administrative contract or parity change.
+
+## 24. Review regressions (`REV-*`)
+
+- [x] `REV-CI-001` Release publication selects and validates the exact tag push CI run and its SHA, excluding main/PR runs. `make check-tag-ci` covers main-only, matching tag among unrelated runs, and failed tag CI. Public operations and conformance rows are unchanged.

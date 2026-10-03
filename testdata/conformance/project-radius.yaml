@@ -328,6 +328,7 @@ rows:
     status: DEFERRED_MAY
     evidence:
       - adr:docs/decisions/0022-radius-eap-identity-md5.md
+      - adr:docs/decisions/0030-radius-peap-tls-in-eap-start.md
   - id: PRJ-PROXY-001
     section: runtime-and-compatibility
     section_title: Runtime and compatibility

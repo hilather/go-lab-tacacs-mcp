@@ -182,3 +182,5 @@ A green row in this file does **not** make TacLab a production RADIUS server. Re
 | `system.build.get` `partial` | Do not market “complete RADIUS” |
 
 Operator onboarding and silent-discard troubleshooting: [docs/OPERATOR.md](https://github.com/hilather/go-lab-tacacs-mcp/blob/main/docs/OPERATOR.md).
+
+PEAP bounded framing and lifecycle evidence (`RAD-REV-002`): `TestPEAPDeclaredFragmentLength`, `TestEAPPEAPStartWithMinimumChallengeBytes`, `TestPEAPRegistryAdmitsOneTunnelBelowReservation`, `TestParseIgnoresReservedFlagBits`, `TestPEAPRepeatedLengthFlagRejected`, `TestPEAPRegistryExpiresWithoutTraffic`, `TestPEAPContinuationIdentifierMatchesChallenge` and `FuzzPEAPBoundedFragments`. These harden the lab increment; `PRJ-EAP-003` remains `DEFERRED_MAY`.

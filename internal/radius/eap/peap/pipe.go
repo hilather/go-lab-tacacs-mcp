@@ -1,6 +1,7 @@
 package peap
 
 import (
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -8,7 +9,7 @@ import (
 	"time"
 )
 
-// bytePipe is an unbounded in-memory pipe. Writes never block. Reads wait
+// bytePipe is a bounded in-memory pipe. Writes never block. Reads wait
 // for data, close, or deadline.
 type bytePipe struct {
 	mu       sync.Mutex
@@ -63,6 +64,9 @@ func (p *bytePipe) Write(b []byte) (int, error) {
 	defer p.mu.Unlock()
 	if p.closed {
 		return 0, io.ErrClosedPipe
+	}
+	if len(b) > MaxTLSFlightBytes-len(p.buf) {
+		return 0, errors.New("peap: TLS pipe capacity exceeded")
 	}
 	p.buf = append(p.buf, b...)
 	p.cond.Broadcast()

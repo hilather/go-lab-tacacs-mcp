@@ -314,7 +314,10 @@ func (a Access) issuePEAPStart(in Request, user string, peerID byte) Result {
 	}
 	id := peerID + 1
 	tid := tunnelIDFromState(state)
-	a.Tunnels.Put(tid, tun)
+	if !a.Tunnels.Put(tid, tun) {
+		tun.Close()
+		return a.eapReject(in, ReasonChallengeCapacity, peerID, eapTypeIdentity, true)
+	}
 	reason := IssueChallenge(a.Store, in, runtime.ChallengeIssue{
 		State:      state,
 		UserID:     user,

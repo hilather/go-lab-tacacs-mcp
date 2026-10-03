@@ -65,7 +65,11 @@ func (a Access) Handle(ctx context.Context, in Request) Result {
 			return replyAccess(in, codec.CodeAccessReject, reason, nil)
 		}
 		defer crypto.Wipe(rec.MD5Challenge)
-		return a.handleEAPContinuation(ctx, in, rec)
+		res := a.handleEAPContinuation(ctx, in, rec)
+		if rec.Method == methodPEAP && res.Reason != ReasonChallenge {
+			a.Tunnels.Delete(rec.TunnelID)
+		}
+		return res
 	}
 	if in.Packet.Attributes.AllOf(attribute.TypeEAPMessage).Len() > 0 {
 		return a.handleEAPStart(ctx, in)

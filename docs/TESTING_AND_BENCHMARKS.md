@@ -706,3 +706,5 @@ identical baseline runs prevents a statistically meaningful latency claim. The
 final read median matches the initial baseline within 1%; allocation counts remain
 identical. Replay includes HMAC fingerprinting and independent typed response
 decoding; a dedicated runner should establish a stable replay performance budget.
+
+P9.2 lab hardening: `TestLabAPICreateUsesFreshKeyAfterReset` reproduces the full-create → runtime.reset → separate restart-setup harness sequence with replay entries retained. `TestIdempotencyCreateAfterResetDistinguishesRetryFromNewIntent` verifies the real registry preserves old results for retries and requires a fresh key to recreate a removed user. `TestIdempotencyResetAndReloadReplayPreserveLaterState` verifies original-revision retries neither republish state nor repeat process hooks.

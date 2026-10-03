@@ -976,7 +976,7 @@ Machine-readable `testdata/conformance/rfc9887.yaml` is filled in PR-22 (PSK con
 - [x] Implement status, config validation/reload/export, runtime reset, user/group/client/token CRUD, authentication test, policy explain, and event queries.
 - [x] Return typed errors and stable codes.
 - [x] Apply expected-revision semantics centrally.
-- [x] Bounded in-memory idempotency store for supported create/reset/reload operations (ADR 0033); original revision replay, concurrent coalescing, cancellation, capacity, expiry, authorization and REST/MCP regression tests.
+- [x] Bounded in-memory idempotency store for supported create/reset/reload operations (ADR 0033); original revision replay, concurrent coalescing, cancellation, capacity, expiry, authorization and REST/MCP regression tests. Reset/reload retries preserve later runtime objects and invoke process hooks only once; lab create fixtures use a fresh key for each logical create, including setup after reset.
 - [x] Emit redacted audit events centrally.
 
 **Regression tests**

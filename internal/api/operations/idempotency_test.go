@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
@@ -235,5 +236,84 @@ func TestIdempotencyTokenIncarnationIsolation(t *testing.T) {
 	createToken(strings.Repeat("b", 32))
 	if _, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), in); !errors.Is(err, domain.NewError(domain.CodeAlreadyExists, "")) {
 		t.Fatalf("new token incarnation reused old replay: %v", err)
+	}
+}
+
+func TestIdempotencyCreateAfterResetDistinguishesRetryFromNewIntent(t *testing.T) {
+	m := mustMgr(t, smallYAML)
+	r := mustStateRegistry(t, m)
+	actor := Actor{ID: "op", Scopes: []string{"state:write", "runtime:reset"}}
+	in := Input{Actor: actor, IdempotencyKey: "original-create", Request: CreateUserRequest{ID: "reset-user"}}
+	first, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Invoke(context.Background(), IDRuntimeReset, m.Snapshot(), Input{Actor: actor, Request: ResetRuntimeRequest{}}); err != nil {
+		t.Fatal(err)
+	}
+	resetRevision := m.Revision()
+	retry, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first, retry) || m.Revision() != resetRevision {
+		t.Fatal("original retry did not preserve original result")
+	}
+	if _, exists := m.Snapshot().User("reset-user"); exists {
+		t.Fatal("retry recreated a reset user")
+	}
+	in.IdempotencyKey = "new-create-after-reset"
+	fresh, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fresh.Revision <= resetRevision {
+		t.Fatal("new intent replayed old revision")
+	}
+	if _, exists := m.Snapshot().User("reset-user"); !exists {
+		t.Fatal("new logical create failed to recreate user")
+	}
+}
+
+func TestIdempotencyResetAndReloadReplayPreserveLaterState(t *testing.T) {
+	for _, id := range []string{IDRuntimeReset, IDConfigReload} {
+		t.Run(id, func(t *testing.T) {
+			m := mustMgr(t, smallYAML)
+			resets, loads := 0, 0
+			r, err := New(mustSpec(t), Deps{State: m, OnRuntimeReset: func() { resets++ }, LoadBaseline: func() (*config.Document, error) { loads++; return config.Parse([]byte(smallYAML)) }})
+			if err != nil {
+				t.Fatal(err)
+			}
+			actor := Actor{ID: "op", Scopes: []string{"state:write", "runtime:reset", "config:reload"}}
+			rev := m.Revision()
+			in := Input{Actor: actor, ExpectedRevision: &rev, IdempotencyKey: "reset-or-reload"}
+			if id == IDRuntimeReset {
+				in.Request = ResetRuntimeRequest{}
+			} else {
+				in.Request = ReloadConfigRequest{}
+			}
+			first, err := r.Invoke(context.Background(), id, m.Snapshot(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resetCount, loadCount := resets, loads
+			if _, err := r.Invoke(context.Background(), IDUsersCreate, m.Snapshot(), Input{Actor: actor, Request: CreateUserRequest{ID: "created-after-operation"}}); err != nil {
+				t.Fatal(err)
+			}
+			later := m.Revision()
+			retry, err := r.Invoke(context.Background(), id, m.Snapshot(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(first, retry) || m.Revision() != later {
+				t.Fatal("retry published another revision")
+			}
+			if resets != resetCount || loads != loadCount {
+				t.Fatal("retry invoked reset/reload side effects")
+			}
+			if _, ok := m.Snapshot().User("created-after-operation"); !ok {
+				t.Fatal("retry cleared later runtime object")
+			}
+		})
 	}
 }

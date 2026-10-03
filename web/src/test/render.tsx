@@ -38,7 +38,7 @@ export function envelope<T>(data: T, revision = 3): { revision: number; request_
   return { revision, request_id: "t", data };
 }
 
-/** Seeded page fixtures include a real session-read response; explicit auth failures are preserved. */
+/** seedSession declares the session endpoint; page mocks handle their own operations. */
 function installSeededSessionEndpoint() {
   const raw = sessionStorage.getItem(SESSION_META_KEY);
   const fixture = raw ? JSON.parse(raw) as { testFixture?: boolean } : null;
@@ -48,12 +48,11 @@ function installSeededSessionEndpoint() {
   }
   const backend = globalThis.fetch;
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
-    const response = await backend(input, init);
-    if (String(input) === "/api/v1/session" && (init?.method ?? "GET") === "GET" && response.status === 404) {
+    if (String(input) === "/api/v1/session" && (init?.method ?? "GET") === "GET") {
       return json(200, envelope({ ...principal, csrf_token: "", cookie_name: "taclab_session",
         cookie_secure: false, same_site: "strict", cookie_path: "/", cookie_max_age: 1800, revision: 3 }));
     }
-    return response;
+    return backend(input, init);
   });
 }
 

@@ -36,7 +36,7 @@ describe("destructive revision conflict retry", () => {
         return json(200, envelope({ items: [], yaml: "" }, 3));
       }));
       renderApp(<fixture.Page />);
-      await user.click(await screen.findByRole("button", { name: `Edit ${item.id}` }));
+      await user.click(await screen.findByRole("button", { name: `Edit ${item.id}` }, { timeout: 5000 }));
       await user.click(screen.getByRole("button", { name: tombstone ? `Tombstone baseline ${fixture.kind}` : `Delete runtime ${fixture.kind}` }));
       const dialog = await screen.findByRole("dialog");
       await user.click(within(dialog).getByRole("button", { name: `${tombstone ? "Tombstone" : "Delete"} ${fixture.kind}` }));

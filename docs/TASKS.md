@@ -1734,3 +1734,7 @@ In-LOGIN / in-ENABLE GETPASS is a **lab/vendor extension**, not RFC 8907 LOGIN (
 Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-API-002`, `UL-RAD-001`) lands together. Do not merge flags while RADIUS still Accepts a must-change user or `authentication.test` still returns `pass` after a good password.
 
 `UL-AAA-003` must not gate that merge.
+
+## 24. Review regressions (`REV-*`)
+
+- [x] `REV-CI-001` Release publication selects and validates the exact tag push CI run and its SHA, excluding main/PR runs. `make check-tag-ci` covers main-only, matching tag among unrelated runs, and failed tag CI. Public operations and conformance rows are unchanged.

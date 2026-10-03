@@ -1,6 +1,8 @@
 import { listEvents } from "../api/client";
 import type { EventView } from "../generated/api";
 
+export const EVENT_RETENTION = 1000;
+
 export type EventKind = "auth" | "acct" | "fail";
 
 export const AUTH_CATEGORIES = ["authen", "author"] as const;
@@ -155,8 +157,20 @@ export function sortNewestFirst(items: EventView[]): EventView[] {
   return [...items].sort((a, b) => b.id - a.id);
 }
 
+export function retainEvents(...pages: readonly EventView[][]): EventView[] {
+  const byID = new Map<number, EventView>();
+  for (const page of pages) {
+    for (const event of page) byID.set(event.id, event);
+  }
+  return sortNewestFirst([...byID.values()]).slice(0, EVENT_RETENTION);
+}
+
+/** prev is the newest-first retained window returned by retainEvents/mergeEvent. */
 export function mergeEvent(prev: EventView[], incoming: EventView): EventView[] {
-  return sortNewestFirst([incoming, ...prev.filter((ev) => ev.id !== incoming.id)]);
+  const rows = prev.filter((event) => event.id !== incoming.id);
+  const position = rows.findIndex((event) => event.id < incoming.id);
+  rows.splice(position < 0 ? rows.length : position, 0, incoming);
+  return rows.slice(0, EVENT_RETENTION);
 }
 
 export function drainCategories(kind: EventKind): string[] | undefined {
@@ -173,7 +187,7 @@ export async function drainRecent(filters: {
   categories?: string[];
   protocol?: string;
 }): Promise<{ items: EventView[]; overwritten: number; reset: boolean }> {
-  const items: EventView[] = [];
+  let items: EventView[] = [];
   let cursor: string | undefined;
   let overwritten = 0;
   let reset = false;
@@ -186,7 +200,7 @@ export async function drainRecent(filters: {
     });
     overwritten = env.data.overwritten;
     reset = reset || env.data.reset;
-    items.push(...env.data.items);
+    items = retainEvents(items, env.data.items);
     if (!env.data.next_cursor) {
       break;
     }

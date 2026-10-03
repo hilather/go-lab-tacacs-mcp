@@ -1,8 +1,9 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { envelope, json, renderApp, seedSession } from "../test/render";
 import { sampleEvent } from "../test/fixtures";
+import { EventStreamProvider } from "../hooks/EventStreamProvider";
 import { EventsPage } from "./EventsPage";
 
 class FakeEventSource {
@@ -197,4 +198,214 @@ describe("EventsPage", () => {
     expect(screen.getAllByText("TACACS+").length).toBeGreaterThan(0);
     expect(screen.queryByText("<redacted>")).not.toBeInTheDocument();
   });
+});
+
+
+it("keeps a live event received while the initial snapshot is pending", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let finish: ((response: Response) => void) | undefined;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).includes("/api/v1/events")) return new Promise<Response>((resolve) => { finish = resolve; });
+    return json(404, {});
+  }));
+  renderApp(<EventsPage />);
+  await waitFor(() => expect(finish).toBeDefined());
+  FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1000, user_id: "live-user" }));
+  expect(await screen.findByText("live-user")).toBeInTheDocument();
+  finish?.(json(200, envelope({ items: [sampleEvent], overwritten: 0, reset: false })));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(screen.getByText("live-user")).toBeInTheDocument();
+  sessionStorage.clear();
+  vi.unstubAllGlobals();
+});
+
+
+it("preserves matching history under unrelated traffic and every event in a batched burst", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", vi.fn(async () => json(200, envelope({ items: [sampleEvent], overwritten: 0, reset: false }))));
+  renderApp(<EventsPage />);
+  await screen.findByText("alice");
+  await act(async () => {
+    for (let id = 10; id <= 1020; id += 1) {
+      FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id, category: "acct", user_id: "unrelated" }));
+    }
+  });
+  expect(screen.getByText("alice")).toBeInTheDocument();
+  await act(async () => {
+    for (let id = 1021; id <= 1030; id += 1) FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id, user_id: `burst-${String(id)}` }));
+  });
+  for (let id = 1021; id <= 1030; id += 1) expect(screen.getByText(`burst-${String(id)}`)).toBeInTheDocument();
+  sessionStorage.clear();
+  vi.unstubAllGlobals();
+});
+
+
+it("expires highlights even when more events arrive before the deadline", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", vi.fn(async () => json(200, envelope({ items: [], overwritten: 0, reset: false }))));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  vi.useFakeTimers();
+  try {
+    await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 100, user_id: "first-flash" })));
+    expect(screen.getByText("first-flash").closest("tr")).toHaveClass("event-row--new");
+    await act(async () => { vi.advanceTimersByTime(800); });
+    await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 101, user_id: "second-flash" })));
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(screen.getByText("first-flash").closest("tr")).not.toHaveClass("event-row--new");
+  } finally {
+    vi.useRealTimers();
+    sessionStorage.clear();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("reconciles a reset followed by a lower ID in the same batch", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1000, user_id: "before-reset" })));
+  const before = reads;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "after-reset" }));
+  });
+  expect(await screen.findByText("after-reset")).toBeInTheDocument();
+  expect(screen.queryByText("before-reset")).not.toBeInTheDocument();
+  expect(reads).toBeGreaterThan(before);
+  expect(screen.getByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+it("retries arrivals when effect cleanup cancels their queued commit", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", vi.fn(async () => json(200, envelope({ items: [], overwritten: 0, reset: false }))));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  const queued: VoidFunction[] = [];
+  vi.stubGlobal("queueMicrotask", (callback: VoidFunction) => queued.push(callback));
+  act(() => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 100, user_id: "cancelled-arrival" })));
+  act(() => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 101, user_id: "next-arrival" })));
+  act(() => { for (const callback of queued) callback(); });
+  expect(screen.getByText("cancelled-arrival")).toBeInTheDocument();
+  expect(screen.getByText("next-arrival")).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+it("clears the reset banner on the first live event after the post-reset drain", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  const before = reads;
+  // Batched reset: the hook's own reset flag is cleared by the same-batch
+  // event, so only the page's generation tracking keeps the banner.
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "in-reset-batch" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 2, user_id: "after-drain" })));
+  expect(await screen.findByText("after-drain")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument());
+
+  // A filter re-drain must not resurrect the acknowledged reset.
+  const beforeFilter = reads;
+  await userEvent.click(screen.getByRole("button", { name: "Acct" }));
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeFilter));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument();
+
+  // A new batched reset re-arms the banner through the generation check.
+  const beforeSecond = reads;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, category: "acct", user_id: "second-reset" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeSecond));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+it("does not resurrect an acknowledged reset banner when the page remounts", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  // The app-level provider owns the stream, so its reset generation survives
+  // navigating away from and back to the Events page.
+  const page = (key: string) => <EventStreamProvider><EventsPage key={key} /></EventStreamProvider>;
+  const { rerender } = renderApp(page("first"));
+  await screen.findByText("No events match the filters.");
+  const before = reads;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "in-reset-batch" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 2, user_id: "after-drain" })));
+  await waitFor(() => expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument());
+
+  const beforeRemount = reads;
+  rerender(page("second"));
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeRemount));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(screen.queryByRole("heading", { name: /cursor reset/i })).not.toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+it("keeps a reset unacknowledged when its re-drain fails", async () => {
+  seedSession();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  let reads = 0;
+  let failNext = false;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    reads += 1;
+    if (failNext) {
+      failNext = false;
+      return json(500, { error: { code: "internal", message: "boom" } });
+    }
+    return json(200, envelope({ items: [], overwritten: 0, reset: false }));
+  }));
+  renderApp(<EventsPage />);
+  await screen.findByText("No events match the filters.");
+  const before = reads;
+  failNext = true;
+  await act(async () => {
+    FakeEventSource.instances.at(-1)?.emit("reset");
+    FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 1, user_id: "in-reset-batch" }));
+  });
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  await act(async () => FakeEventSource.instances.at(-1)?.emit("message", JSON.stringify({ ...sampleEvent, id: 2, user_id: "after-failed-drain" })));
+  // The next successful refetch still owes the user the reset notice.
+  const beforeRetry = reads;
+  await userEvent.click(screen.getByRole("button", { name: "Acct" }));
+  await waitFor(() => expect(reads).toBeGreaterThan(beforeRetry));
+  await waitFor(() => expect(screen.queryByText("Loading events…")).not.toBeInTheDocument());
+  expect(await screen.findByRole("heading", { name: /cursor reset/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
 });

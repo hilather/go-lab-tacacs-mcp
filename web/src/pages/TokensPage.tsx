@@ -36,6 +36,7 @@ function TokensBody() {
   const [conflict, setConflict] = useState<string | null>(null);
   const [once, setOnce] = useState<CreatedToken | null>(null);
   const [acked, setAcked] = useState(false);
+  const [failedRevokeId, setFailedRevokeId] = useState<string | null>(null);
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const tokenInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +94,7 @@ function TokensBody() {
     },
     onError: (err) => {
       if (isRevisionMismatch(err)) {
+        setFailedRevokeId(null);
         setConflict(errorDetail(err, "expected revision does not match published snapshot"));
         return;
       }
@@ -105,11 +107,14 @@ function TokensBody() {
     onSuccess: async () => {
       setRevokeId(null);
       setAnnounce("Token revoked.");
+      setConflict(null);
+      setFailedRevokeId(null);
       await queryClient.invalidateQueries({ queryKey: ["tokens"] });
     },
-    onError: (err) => {
+    onError: (err, args) => {
       setRevokeId(null);
       if (isRevisionMismatch(err)) {
+        setFailedRevokeId(args.id);
         setConflict(errorDetail(err, "expected revision does not match published snapshot"));
         return;
       }
@@ -164,10 +169,18 @@ function TokensBody() {
           detail={conflict}
           onReload={() => {
             setConflict(null);
+            setFailedRevokeId(null);
+            void queryClient.invalidateQueries({ queryKey: ["tokens"] });
           }}
           onRetry={() => {
             void latestRevision().then((revision) => {
-              create.mutate(revision);
+              if (failedRevokeId !== null) {
+                revoke.mutate({ id: failedRevokeId, revision });
+              } else {
+                create.mutate(revision);
+              }
+            }).catch((err: unknown) => {
+              setMessages([errorDetail(err, "Could not read the current revision.")]);
             });
           }}
         />

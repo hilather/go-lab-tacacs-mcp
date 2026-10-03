@@ -310,6 +310,7 @@ function ClientEditor({
   const [loadedRevision, setLoadedRevision] = useState(existing?.effective_revision ?? revision);
   const [messages, setMessages] = useState<string[]>([]);
   const [conflict, setConflict] = useState<string | null>(null);
+  const [failedDelete, setFailedDelete] = useState<boolean | null>(null);
   const [pendingDelete, setPendingDelete] = useState<"remove" | "tombstone" | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const headingId = useId();
@@ -392,6 +393,7 @@ function ClientEditor({
     },
     onError: (err) => {
       if (isRevisionMismatch(err)) {
+        setFailedDelete(null);
         setConflict(errorDetail(err, "expected revision does not match published snapshot"));
         return;
       }
@@ -417,9 +419,10 @@ function ClientEditor({
       await queryClient.invalidateQueries({ queryKey: ["clients"] });
       onClose();
     },
-    onError: (err) => {
+    onError: (err, args) => {
       setPendingDelete(null);
       if (isRevisionMismatch(err)) {
+        setFailedDelete(args.tombstone);
         setConflict(errorDetail(err, "expected revision does not match published snapshot"));
         return;
       }
@@ -479,10 +482,18 @@ function ClientEditor({
   }
 
   async function retryWithCurrent() {
-    const revision = await latestRevision();
-    setLoadedRevision(revision);
-    setConflict(null);
-    save.mutate(revision);
+    try {
+      const revision = await latestRevision();
+      setLoadedRevision(revision);
+      setConflict(null);
+      if (failedDelete !== null) {
+        remove.mutate({ revision, tombstone: failedDelete });
+      } else {
+        save.mutate(revision);
+      }
+    } catch (err) {
+      setMessages([errorDetail(err, "Could not read the current revision.")]);
+    }
   }
 
   return (

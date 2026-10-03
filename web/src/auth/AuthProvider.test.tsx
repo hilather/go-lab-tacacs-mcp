@@ -42,7 +42,7 @@ describe("AuthProvider probe vs login", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
-      if (url.includes("/api/v1/status")) {
+      if (url.includes("/api/v1/session") && method === "GET") {
         return probe;
       }
       if (url.includes("/api/v1/session") && method === "POST") {
@@ -269,4 +269,37 @@ describe("AuthProvider cold load without principal cache", () => {
     expect(screen.getByText(/tokens:manage/)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "API tokens" })).not.toBeInTheDocument();
   });
+});
+
+
+describe("AuthProvider scoped session reload", () => {
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["events:read", "policy:test", "tokens:manage"])("restores a %s-only session when status denies access", async (scope) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/api/v1/status")) {
+        return json(403, { type: "about:blank", title: "permission_denied", status: 403,
+          detail: "missing state:read", code: "permission_denied" });
+      }
+      return sessionJSON([scope]);
+    }));
+    renderApp(<AuthProbe />);
+    await waitFor(() => expect(screen.getByTestId("auth-status")).toHaveTextContent("signed_in"));
+    expect(screen.getByTestId("auth-scopes")).toHaveTextContent(scope);
+  });
+});
+
+
+it("replaces stale cached principal fields with the current server session", async () => {
+  sessionStorage.setItem(SESSION_META_KEY, JSON.stringify({ token_id: "old", scopes: ["tokens:manage"], expires_at: futureExpiry() }));
+  vi.stubGlobal("fetch", vi.fn(async () => sessionJSON(["events:read"])));
+  renderApp(<AuthProbe />);
+  await waitFor(() => expect(screen.getByTestId("auth-status")).toHaveTextContent("signed_in"));
+  expect(screen.getByTestId("auth-scopes")).toHaveTextContent("events:read");
+  expect(screen.getByTestId("auth-scopes")).not.toHaveTextContent("tokens:manage");
+  expect(sessionStorage.getItem(SESSION_META_KEY)).not.toContain("tokens:manage");
 });

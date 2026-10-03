@@ -31,6 +31,7 @@ type boundConn struct {
 	srcKey     string
 	peer       netip.AddrPort
 	revision   domain.Revision
+	certFP     [32]byte
 }
 
 func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
@@ -82,6 +83,7 @@ func (l *Listener) handleConn(ctx context.Context, nc net.Conn) {
 		srcKey:     "tls:" + hex.EncodeToString(fp[:]),
 		peer:       peerAddrPort(tlsConn.RemoteAddr()),
 		revision:   snap.Revision,
+		certFP:     fp,
 	}
 	for {
 		if l.closed.Load() || ctx.Err() != nil {
@@ -160,6 +162,7 @@ func (l *Listener) process(ctx context.Context, w io.Writer, body []byte, bound 
 		ListenerID:                  l.ID(),
 		Revision:                    bound.revision,
 		Peer:                        bound.peer,
+		TLSCertFP:                   bound.certFP,
 		RequireMessageAuthenticator: requireMA,
 		LimitProxyState:             limitPS,
 		AllowedMethods:              methods,

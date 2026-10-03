@@ -79,7 +79,7 @@ type leafReq struct {
 	now   time.Time
 }
 
-func mustCA(t *testing.T, cn string, now time.Time) (*x509.Certificate, *ecdsa.PrivateKey) {
+func mustCA(t testing.TB, cn string, now time.Time) (*x509.Certificate, *ecdsa.PrivateKey) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -105,7 +105,7 @@ func mustCA(t *testing.T, cn string, now time.Time) (*x509.Certificate, *ecdsa.P
 	return cert, key
 }
 
-func mustLeaf(t *testing.T, req leafReq) (*x509.Certificate, *ecdsa.PrivateKey) {
+func mustLeaf(t testing.TB, req leafReq) (*x509.Certificate, *ecdsa.PrivateKey) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

@@ -255,6 +255,7 @@ rows:
     evidence:
       - unit:internal/tacacs/tls.TestRevokedClientRejected
       - unit:internal/tacacs/tls.TestWrongIssuerCRLDoesNotAdmit
+      - unit:internal/tacacs/tls.TestFutureCRLDoesNotAdmit
       - docs:docs/OPERATOR.md revocation.mode configured_crl
   - id: T98-CERT-010
     section: 15-2-mutual-authentication-and-certificates

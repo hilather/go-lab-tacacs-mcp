@@ -629,3 +629,31 @@ Tests should generate or feed:
 - build/spec version report.
 
 CI must fail if generated reports differ from checked-in release metadata where the repository policy requires checked-in outputs.
+
+### REVIEW-STATE-01 session binding evidence (2026-10-03)
+
+Reference: Go 1.26.8, linux/amd64, Intel Core i7-8750H. Command:
+`go test ./internal/api/auth -run '^$' -bench 'BenchmarkVerify(Cookie|Bearer)$' -benchmem -cpu=1 -count=5`.
+The baseline uses the same new cookie benchmark through a Go source overlay; the candidate adds token incarnation validation.
+Median comparison of five samples: bearer 4019 → 3770 ns/op; cookie 10678 → 6862 ns/op.
+Both remain 160 B/op and 5 allocs/op. Concurrent review workloads caused substantial timing variance, so these measurements establish allocation stability and show no median regression rather than a performance improvement claim.
+
+### REVIEW-STATE-02/03/04 publication evidence (2026-10-03)
+
+Reference fixture: `BenchmarkSnapshotPublish_Medium` (50 clients, 200 users, 20 groups), Go 1.26.8, same host as session evidence.
+Command: `go test ./internal/state -run '^$' -bench '^BenchmarkSnapshotPublish_Medium$' -benchmem -cpu=1 -benchtime=100ms -count=5`.
+Baseline median 3861340 ns/op, 1469143 B/op, 6068 allocs/op; candidate median 4422034 ns/op, 1469191 B/op, 6069 allocs/op.
+Memory changes are 48 bytes and one allocation per publication. Short-run latency varies under concurrent race suites; the observed 14.5% median delta requires a quiet-run confirmation before treating it as a stable regression or publishing performance claims.
+
+### REVIEW-STATE-05 complete fingerprint comparison (2026-10-03)
+
+After other heavy tests finished, repeat the baseline and final candidate sequentially using
+`go test ./internal/state -run '^$' -bench '^(BenchmarkSnapshotPublish_Medium|BenchmarkParseCompile_Medium)$' -benchmem -cpu=1 -benchtime=300ms -count=7`.
+Compare medians of seven samples on the same Go 1.26.8/i7-8750H runner:
+
+| Fixture | Baseline ns/op | Candidate ns/op | Baseline B/op | Candidate B/op | Baseline allocs/op | Candidate allocs/op |
+|---|---:|---:|---:|---:|---:|---:|
+| ParseCompile_Medium | 20487470 | 15714603 | 4710791 | 5307383 | 55937 | 56437 |
+| SnapshotPublish_Medium | 2327164 | 1580609 | 1469143 | 1411546 | 6068 | 6060 |
+
+Complete normalized configuration hashing increases parse/compile memory by 12.66% and allocation count by 0.89%, below the 15% limit. Caching the immutable baseline reduces publication memory by 3.92% and allocation count by 0.13%. Neither median latency regressed. This later coordinated measurement supersedes the noisy REVIEW-STATE-02/03/04 short-run latency concern; runner variance still prevents claiming a portable speedup.

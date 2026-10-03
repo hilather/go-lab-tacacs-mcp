@@ -1735,6 +1735,36 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 
 `UL-AAA-003` must not gate that merge.
 
+### REVIEW-STATE-01 Browser session credential incarnation
+
+- [x] Reject browser cookies after token rotation, revocation/recreation, or baseline restoration, including reuse of identical token bytes.
+- [x] Preserve sessions across unrelated state publications; reclaim sessions when a token is forgotten.
+- [x] Regression evidence: `internal/api/auth/review_security_test.go`; auth/state unit and race suites.
+
+### REVIEW-STATE-02 Canonical user IDs and token audit
+
+- [x] Normalize UsernameCasePreserved IDs before every user operation and return the canonical ID after successful publication.
+- [x] Emit declared secret-free token create/revoke audit records only after successful publication.
+- [x] Regression evidence: `review_users_test.go` and `review_token_audit_test.go`; targeted operations race tests.
+
+### REVIEW-STATE-03 Reclaim orphaned runtime verifiers
+
+- [x] Prune verifier material after deleting users or replacing memory references while retaining session-bound old snapshots.
+- [x] Regression evidence: `internal/state/review_retention_test.go`; state race suite.
+
+### REVIEW-STATE-04 Candidate validation matches reload behavior
+
+- [x] Validate candidates with the overlay selected by `reload_overlay_behavior`; reset candidates are not rejected by objects they discard.
+- [x] Regression evidence: `internal/state/review_validate_test.go`; validation never publishes state and the same candidate reloads successfully.
+
+### REVIEW-STATE-05 Complete state fingerprints and publication events
+
+- [x] Fingerprint all normalized non-secret configuration and overlay fields, preserving ordered policy attributes and stable identity/map order.
+- [x] Include overlay credential changes through process-keyed aggregate contributions; never expose raw secrets or individual fingerprints.
+- [x] Cache immutable baseline fingerprints across runtime publications.
+- [x] Emit one `state.revision.changed` config event per successful publication, including concurrent mutations, reset, and reload; emit none on failure.
+- [x] Regression evidence: `internal/state/review_hash_test.go`, `cmd/taclabd/review_revision_test.go`, and file-reference replacement verifier-retention tests.
+
 ## 24. Protocol review hardening
 
 - [x] `RAD-REV-001` RadSec passes the authenticated peer certificate fingerprint to the Challenge gate. Configured CRLs must authenticate against the verified leaf issuer and be current; unrelated or expired CRLs fail closed. Evidence: `TestRadSecPropagatesCertificateChallengeBinding`, `TestRadSecCRLAuthenticityAndFreshness`; `go test -race ./internal/radius/tls`; `BenchmarkRadSecCRLValidation`; additional bad-signature, issuer isolation, omitted-root, and injected-clock evidence. TACACS also rejects a signed future-dated CRL (`TestFutureCRLDoesNotAdmit`). Affected rows: `PRJ-RADSEC-001`, `R65-ACCESS-004`. No administrative contract or parity change.
@@ -1742,3 +1772,7 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 - [x] `TAC-REV-001` Reject a second live session when single-connect was not negotiated; stop signals do not mutate the sequence state owned by the session goroutine. Evidence: pre-fix wrong-status and race-detector failures in `TestNonSingleConnectRejectsSecondLiveSession` / `TestSessionStopDoesNotRaceSequenceOwner`; `TestStoppedQueuedSessionNeverDispatches` proves stopped queued packets never enter AAA; full server/codec race tests; added `FuzzServeConn` seed; recorded dispatch benchmark. Affected rows: `T89-SC-003`, `T98-TLS-007`. No administrative contract or parity change.
 
 - [x] `RAD-REV-002` Bound PEAPv0 TLS flight/reassembly/pipe memory, validate declared fragment lengths and continuation identifiers, and close tunnels on terminal failure, TTL expiry, runtime reset and shutdown. Evidence: pre-fix storage/version/capacity/identifier failures; `TestPEAPRegistryExpiresWithoutTraffic`, `TestPEAPDeclaredFragmentLength`, `TestPEAPRepeatedLengthFlagRejected`, `TestPEAPRejectClosesTunnel`, `FuzzPEAPBoundedFragments`; radius PEAP/server/UDP and daemon race tests. Recorded benchmark security cost approved by reviewing root agent. `PRJ-EAP-003` remains deferred; no administrative schema/parity change.
+
+## 24. Review regressions (`REV-*`)
+
+- [x] `REV-CI-001` Release publication selects and validates the exact tag push CI run and its SHA, excluding main/PR runs. `make check-tag-ci` covers main-only, matching tag among unrelated runs, and failed tag CI. Public operations and conformance rows are unchanged.

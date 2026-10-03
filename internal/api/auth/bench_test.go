@@ -3,6 +3,7 @@ package auth
 import (
 	"testing"
 
+	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/credentials"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/state"
 )
@@ -37,3 +38,21 @@ func BenchmarkAuthenticateToken(b *testing.B) {
 
 var _ = credentials.TokenByteLength
 var _ = state.CreateToken{}
+
+func BenchmarkVerifyCookie(b *testing.B) {
+	m, _, clock := mustTokenMgr(b, []string{"state:read"}, nil)
+	svc := New(Options{Clock: clock})
+	sess, err := svc.Create(operations.Actor{ID: "rt"}, m.Snapshot())
+	if err != nil {
+		b.Fatal(err)
+	}
+	cookie := string(sess.Cookie.Bytes())
+	snap := m.Snapshot()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := svc.VerifyCookie(cookie, "", false, snap); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

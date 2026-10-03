@@ -2,6 +2,7 @@ package state
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"time"
 
@@ -129,10 +130,23 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	matchWarns = append(matchWarns, accessTLS.Warnings()...)
 	matchWarns = append(matchWarns, acctTLS.Warnings()...)
 	matchWarns = append(matchWarns, dynIdx.Warnings()...)
+	baselineHash := ""
+	if previous := m.current.Load(); previous != nil && base == m.baseline && !touchBaseline {
+		baselineHash = previous.BaselineHash
+	} else {
+		baselineHash, err = hashBaseline(base)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	overlayHash, err := hashOverlay(ov, m.hmacKey)
+	if err != nil {
+		return nil, nil, err
+	}
 	snap := &Snapshot{
 		Revision:             rev,
-		BaselineHash:         hashBaseline(base),
-		OverlayHash:          hashOverlay(ov),
+		BaselineHash:         baselineHash,
+		OverlayHash:          overlayHash,
 		CompiledAt:           now,
 		settings:             cloneDocument(base),
 		users:                map[string]EffectiveUser{},
@@ -213,7 +227,24 @@ func (m *Manager) compile(base *config.Document, ov overlay, rev domain.Revision
 	if err := indexTokenDigests(snap, base, tokens, tokenDigests, m.lookup); err != nil {
 		return nil, nil, err
 	}
+	previous := m.current.Load()
 	for _, tok := range tokens {
+		tok.credentialGeneration = rev
+		if previous != nil {
+			old, exists := previous.tokens[tok.ID]
+			before, boundBefore := previous.tokenCredential(tok.ID)
+			after, boundAfter := snap.tokenCredential(tok.ID)
+			sameCredential := boundBefore == boundAfter && credentials.EqualDigest(before, after)
+			sameOverlay := tok.Meta.Source == domain.SourceConfig || old.Meta.RevisionUpdated == tok.Meta.RevisionUpdated
+			sameExpiry := old.ExpiresAt == nil && tok.ExpiresAt == nil
+			if old.ExpiresAt != nil && tok.ExpiresAt != nil {
+				sameExpiry = old.ExpiresAt.Equal(*tok.ExpiresAt)
+			}
+			sameGrant := old.Enabled == tok.Enabled && slices.Equal(old.Scopes, tok.Scopes) && sameExpiry
+			if exists && sameCredential && sameGrant && old.Meta.Source == tok.Meta.Source && sameOverlay {
+				tok.credentialGeneration = old.credentialGeneration
+			}
+		}
 		tok.Meta.EffectiveRevision = rev
 		snap.tokens[tok.ID] = tok
 		snap.tokenIDs = append(snap.tokenIDs, tok.ID)
@@ -443,6 +474,7 @@ func indexTokenDigests(snap *Snapshot, base *config.Document, tokens []Effective
 	if snap.tokenIndex == nil {
 		snap.tokenIndex = map[tokenDigestKey]string{}
 	}
+	snap.tokenDigests = make(map[string]credentials.TokenDigest, len(tokens))
 	live := make(map[string]struct{}, len(tokens))
 	for _, tok := range tokens {
 		live[tok.ID] = struct{}{}
@@ -451,6 +483,7 @@ func indexTokenDigests(snap *Snapshot, base *config.Document, tokens []Effective
 		if _, ok := live[id]; !ok || d.Empty() {
 			continue
 		}
+		snap.tokenDigests[id] = credentials.NewTokenDigest(d.Bytes())
 		if err := putTokenDigest(snap.tokenIndex, d, id); err != nil {
 			return err
 		}
@@ -479,6 +512,7 @@ func indexTokenDigests(snap *Snapshot, base *config.Document, tokens []Effective
 		if d.Empty() {
 			continue
 		}
+		snap.tokenDigests[boot.ID] = credentials.NewTokenDigest(d.Bytes())
 		if err := putTokenDigest(snap.tokenIndex, d, boot.ID); err != nil {
 			return err
 		}

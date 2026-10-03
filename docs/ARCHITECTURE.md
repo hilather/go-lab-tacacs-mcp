@@ -338,7 +338,7 @@ React/TypeScript responsibilities:
 - manage server state with a query/cache library.
 - consume SSE for live events and state-change invalidation.
 - show source and revision metadata.
-- provide accessible forms and conflict handling.
+- provide accessible forms and conflict handling. Revision retries retain the failed operation and its target, including deletion, tombstone, and token revocation.
 - show protocol/role listener state, client RADIUS endpoints, RADIUS test/explain pages, and event protocol/role filters without claiming complete RADIUS.
 - never reproduce credential verification or authorization policy on the client.
 

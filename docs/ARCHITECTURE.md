@@ -631,3 +631,12 @@ No extension may change the default ephemeral runtime behavior or bypass common 
 State publication connects to metrics and the shared event ring through the manager publication hook. Each successful mutation, reset, or baseline reload appends one `state.revision.changed` event (`category: config`, published `revision`); failed candidates append none. REST SSE and MCP resource notifications observe this same ring, so clients refresh their state views after external mutations and SIGHUP reloads.
 
 RADIUS client access policies are indexed by client and endpoint, so UDP and TLS endpoints can select independent policies. An omitted endpoint in diagnostics selects a client policy only when that client has one RADIUS endpoint; ambiguous calls fail closed before group/client/fallback evaluation. Semantic accounting journals reserve pending identities atomically before entering the shared sink. Duplicates wait within their request deadline; success commits the identity and sink failure releases it. Pending identities consume the same entry/byte budget and are not evicted by TTL while executing. Saturation retains the documented miss/record/reply behavior.
+
+Administrative event distribution serializes ID assignment and nonblocking
+fanout under the ring lock, with deep payload copies at every ownership boundary.
+REST replay captures a finite retained window after subscribing, so the handoff
+covers retained backlog beyond one cursor page. REST SSE and all MCP listens share
+128 admission leases held until handler cleanup, including slow-detached streams.
+Live authorization uses opening token incarnation plus current grants/expiry;
+UI session stream checks never extend idle activity. See
+[ADR 0031](decisions/0031-bounded-admin-event-streams.md).

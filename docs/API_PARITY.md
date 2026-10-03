@@ -383,3 +383,17 @@ For any new or changed administrative feature:
 - [ ] Update generated parity documentation.
 - [ ] Update UI when the feature is operator-facing.
 - [ ] Update benchmark when operation affects a hot path or large list.
+
+Administrative stream admission and grant lifetime are shared across the existing
+`events.subscribe` bindings ([ADR 0031](decisions/0031-bounded-admin-event-streams.md)).
+REST SSE and MCP listen (including discovery-only notification subscriptions)
+share 128 live admission slots. Saturation returns domain `unavailable` / HTTP
+503 before SSE success or acknowledgment. Slow-consumer detachment retains its
+slot until handler cleanup. Both adapters bind to the opening token incarnation
+and check current credentials/grants before sends and heartbeats; grant loss
+closes the stream. REST additionally checks cookie session lifetime/idle expiry
+without refreshing idle activity. `events:sensitive` remains the body-redaction
+grant. REST Last-Event-ID replay captures all matching retained events in one
+finite window before live handoff, rather than one 200-item page. MCP remains
+URI-only and does not replay bodies. No operation, schema, or registry disposition
+is added; transport framing stays `PARITY_DIFFERENT_BINDING`.

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"testing"
+	"time"
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/api/operations"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
@@ -127,6 +128,72 @@ func TestSessionRejectsBaselineGrantChanges(t *testing.T) {
 			}
 			if _, err = svc.VerifyCookie(string(sess.Cookie.Bytes()), "", false, m.Snapshot()); !isCode(err, domain.CodeUnauthenticated) {
 				t.Fatalf("%s preserved old grant: %v", kind, err)
+			}
+		})
+	}
+}
+
+func TestStreamRevalidation(t *testing.T) {
+	for _, kind := range []string{"expiry", "recreate", "grant-loss", "cookie-idle", "cookie-delete"} {
+		t.Run(kind, func(t *testing.T) {
+			m, value, clock := mustTokenMgr(t, []string{"events:read", "events:sensitive"}, nil)
+			svc := New(Options{Clock: clock})
+			snap := m.Snapshot()
+			p, err := svc.VerifyBearer([]byte(value), snap)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind == "cookie-idle" || kind == "cookie-delete" {
+				sess, err := svc.Create(p.Actor(), snap)
+				if err != nil {
+					t.Fatal(err)
+				}
+				p, err = svc.VerifyCookie(string(sess.Cookie.Bytes()), "", false, snap)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			generation := snap.TokenGeneration(p.TokenID)
+			if _, err = svc.Revalidate(p.Actor(), generation, snap); err != nil {
+				t.Fatal(err)
+			}
+			switch kind {
+			case "expiry":
+				exp := clock.Now().Add(time.Minute)
+				if _, err = m.CreateToken(state.CreateToken{ID: "rt", Override: true, Scopes: p.Scopes, Material: credentials.NewTokenMaterial([]byte(value)), ExpiresAt: &exp}, nil); err != nil {
+					t.Fatal(err)
+				}
+				snap = m.Snapshot()
+				generation = snap.TokenGeneration("rt")
+				clock.t = exp
+			case "recreate":
+				if _, err = m.DeleteToken("rt", state.DeleteOptions{}, nil); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = m.CreateToken(state.CreateToken{ID: "rt", Scopes: p.Scopes, Material: credentials.NewTokenMaterial([]byte(value))}, nil); err != nil {
+					t.Fatal(err)
+				}
+			case "grant-loss":
+				if _, err = m.CreateToken(state.CreateToken{ID: "rt", Override: true, Scopes: []string{"state:read"}, Material: credentials.NewTokenMaterial([]byte(value))}, nil); err != nil {
+					t.Fatal(err)
+				}
+			case "cookie-idle":
+				idle := snap.Settings().API.UISession.IdleTimeout
+				if idle <= 0 {
+					t.Fatal("fixture idle timeout missing")
+				}
+				clock.t = clock.Now().Add(idle / 2)
+				if _, err = svc.Revalidate(p.Actor(), generation, snap); err != nil {
+					t.Fatal(err)
+				}
+				clock.t = clock.Now().Add(idle / 2)
+			case "cookie-delete":
+				if _, err = svc.Delete(p.SessionID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err = svc.Revalidate(p.Actor(), generation, m.Snapshot()); !isCode(err, domain.CodeUnauthenticated) {
+				t.Fatalf("%s accepted: %v", kind, err)
 			}
 		})
 	}

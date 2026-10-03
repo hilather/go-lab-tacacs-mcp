@@ -20,7 +20,7 @@ type listenNotifications struct {
 	ResourceSubscriptions []string `json:"resourceSubscriptions"`
 }
 
-func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.Principal, req rpcRequest) {
+func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.Principal, req rpcRequest, generation domain.Revision) {
 	var params struct {
 		Notifications listenNotifications `json:"notifications"`
 	}
@@ -58,12 +58,38 @@ func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.P
 		}
 	}
 
+	if opts.Events == nil {
+		writeRPC(w, http.StatusServiceUnavailable, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: toolRPCError(domain.NewError(domain.CodeUnavailable, "event service unavailable"))})
+		return
+	}
 	var sub <-chan events.Event
 	var dropped <-chan struct{}
 	var cancel func()
-	if wantEvents && opts.Events != nil {
-		sub, dropped, cancel = opts.Events.Subscribe(16)
+	if opts.Events != nil {
+		var err error
+		sub, dropped, cancel, err = opts.Events.TrySubscribe(16)
+		if err != nil {
+			writeRPC(w, http.StatusServiceUnavailable, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: toolRPCError(domain.NewError(domain.CodeUnavailable, "event subscription capacity exceeded"))})
+			return
+		}
 		defer cancel()
+	}
+
+	valid := func() bool {
+		actor, err := opts.Auth.Revalidate(p.Actor(), generation, snapshotOf(opts))
+		if err != nil {
+			return false
+		}
+		for _, scope := range p.Scopes {
+			if !auth.Has(actor.Scopes, scope) {
+				return false
+			}
+		}
+		return true
+	}
+	if !valid() {
+		writeRPC(w, http.StatusUnauthorized, rpcResponse{JSONRPC: jsonRPCVersion, ID: req.ID, Error: toolRPCError(domain.NewError(domain.CodeUnauthenticated, "authentication required"))})
+		return
 	}
 
 	var lastRev domain.Revision
@@ -109,6 +135,9 @@ func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.P
 			flush()
 			return
 		case <-tick.C:
+			if !valid() {
+				return
+			}
 			_, _ = io.WriteString(w, ": keepalive\n\n")
 			flush()
 			if notifyRevision(w, opts, accepted, subID, &lastRev) {
@@ -119,6 +148,9 @@ func handleListen(w http.ResponseWriter, r *http.Request, opts Options, p auth.P
 			flush()
 			return
 		case ev, ok := <-subOrNil(sub):
+			if !valid() {
+				return
+			}
 			if !ok {
 				sub = nil
 				continue

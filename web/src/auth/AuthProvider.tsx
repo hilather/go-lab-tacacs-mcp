@@ -9,9 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createSession, deleteSession, getSession, getStatus, readCsrfCookie } from "../api/client";
+import { createSession, deleteSession, getSession, readCsrfCookie } from "../api/client";
 import type { Session } from "../generated/api";
-import { clearSessionMeta, loadSessionMeta, saveSessionMeta, type SessionMeta } from "./sessionMeta";
+import { clearSessionMeta, saveSessionMeta } from "./sessionMeta";
 
 type AuthState =
   | { status: "loading" }
@@ -27,21 +27,6 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function sessionFromCookie(revision: number, meta: SessionMeta): Session {
-  return {
-    token_id: meta.token_id,
-    scopes: meta.scopes,
-    expires_at: meta.expires_at,
-    csrf_token: readCsrfCookie(),
-    cookie_name: "taclab_session",
-    cookie_secure: false,
-    same_site: "strict",
-    cookie_path: "/",
-    cookie_max_age: 0,
-    revision,
-  };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({ status: "loading" });
@@ -52,20 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       try {
-        const env = await getStatus();
-        if (cancelled || authGen.current !== gen) {
-          return;
-        }
-        const meta = loadSessionMeta();
-        if (meta && meta.scopes.length > 0) {
-          setState((prev) => {
-            if (prev.status !== "loading") {
-              return prev;
-            }
-            return { status: "signed_in", session: sessionFromCookie(env.revision, meta) };
-          });
-          return;
-        }
         const sess = await getSession();
         if (cancelled || authGen.current !== gen) {
           return;
@@ -84,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             session: {
               ...sess.data,
               csrf_token: readCsrfCookie() || sess.data.csrf_token,
-              revision: env.revision,
+              revision: sess.revision,
             },
           };
         });
@@ -92,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled || authGen.current !== gen) {
           return;
         }
+        clearSessionMeta();
         setState((prev) => (prev.status === "loading" ? { status: "anonymous" } : prev));
       }
     })();

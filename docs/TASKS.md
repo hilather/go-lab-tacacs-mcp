@@ -1738,3 +1738,4 @@ Login-class fail-closed vertical (`UL-MDL-001`, `UL-AAA-001`, `UL-AAA-002`, `UL-
 ## 24. Review regressions (`REV-*`)
 
 - [x] `REV-CI-001` Release publication selects and validates the exact tag push CI run and its SHA, excluding main/PR runs. `make check-tag-ci` covers main-only, matching tag among unrelated runs, and failed tag CI. Public operations and conformance rows are unchanged.
+- [x] `REV-UI-001` Restore sessions without requiring `state:read`: `AuthProvider.test.tsx` covers events-, policy-, and token-only principals when status returns permission denied. REST/MCP contracts and conformance rows are unchanged; `session.get` remains `REST_ONLY_PROTOCOL` with no administrative scope.

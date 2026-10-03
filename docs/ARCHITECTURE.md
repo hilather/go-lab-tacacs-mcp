@@ -342,7 +342,7 @@ React/TypeScript responsibilities:
 - show protocol/role listener state, client RADIUS endpoints, RADIUS test/explain pages, and event protocol/role filters without claiming complete RADIUS.
 - never reproduce credential verification or authorization policy on the client.
 
-The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`. A cold load with a valid cookie rehydrates scopes from `GET /api/v1/session` rather than inventing a truncated scope list.
+The compiled application is copied into `internal/ui/dist` (`make web-build`) and embedded with `go:embed`. `web/` is a nested module, so the parent cannot embed it directly. Unknown non-API, non-health, non-MCP, non-metrics routes fall back to `index.html`. Hashed `/assets/*` files are served with `Cache-Control: public, max-age=31536000, immutable`; `index.html` is `no-cache`. The UI exchanges a bearer for an HttpOnly session cookie and never stores the token in `localStorage` or `sessionStorage`. A cold load with a valid cookie rehydrates scopes from `GET /api/v1/session` rather than inventing a truncated scope list. Status access is optional during this rehydration: principals without `state:read` can restore their session and use their granted operations.
 
 ### 4.16 `internal/observability`
 

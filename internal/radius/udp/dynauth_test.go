@@ -14,6 +14,7 @@ import (
 
 	"github.com/hilather/go-lab-tacacs-mcp/internal/config"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/domain"
+	productionCodec "github.com/hilather/go-lab-tacacs-mcp/internal/radius/codec"
 	radiusruntime "github.com/hilather/go-lab-tacacs-mcp/internal/radius/runtime"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/server"
 	"github.com/hilather/go-lab-tacacs-mcp/internal/radius/testclient"
@@ -118,7 +119,7 @@ func TestDynAuthMissingAndInvalidMADiscardNoCacheMutation(t *testing.T) {
 	if got == nil {
 		t.Fatal("valid MA after bad MA must be processed, not treated as a cache hit")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(good), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +154,7 @@ func TestDynAuthSessionMissNAK503NeverForwards(t *testing.T) {
 	if got == nil {
 		t.Fatal("session miss must NAK")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +192,7 @@ func TestDynAuthDisconnectACKDeletesIndexOnly(t *testing.T) {
 	if got == nil {
 		t.Fatal("missing ACK")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +234,7 @@ func TestDynAuthCoAStoresLastAttrsAndRejectsUnsupported(t *testing.T) {
 	if got == nil {
 		t.Fatal("missing CoA-ACK")
 	}
-	ack, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	ack, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(ok), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +264,7 @@ func TestDynAuthCoAStoresLastAttrsAndRejectsUnsupported(t *testing.T) {
 	if nakWire == nil {
 		t.Fatal("missing CoA-NAK")
 	}
-	nak, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, nakWire)
+	nak, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(bad), nakWire)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +313,7 @@ func TestDynAuthDuplicateIdentifierRaceAndCacheHit(t *testing.T) {
 	if first == nil {
 		t.Fatal("missing first ACK")
 	}
-	ack, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, first)
+	ack, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(req), first)
 	if err != nil || ack.Code != tcodec.DisconnectACK {
 		t.Fatalf("first=%+v err=%v", ack, err)
 	}
@@ -359,7 +360,7 @@ func TestDynAuthMALastACKNot401(t *testing.T) {
 	if got == nil {
 		t.Fatal("missing reply")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +396,7 @@ func TestDynAuthMultipleSessionsNAK508(t *testing.T) {
 	if got == nil {
 		t.Fatal("missing NAK")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,7 +443,7 @@ func TestDynAuthToolClientTargetsNASSession(t *testing.T) {
 	if got == nil {
 		t.Fatal("missing ACK")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte("ToolRadius-Secret-32-bytes-ok!"), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte("ToolRadius-Secret-32-bytes-ok!"), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,7 +496,7 @@ func TestDynAuthUserNameNASIPOnUDP(t *testing.T) {
 	if got == nil {
 		t.Fatal("missing ACK")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -533,7 +534,7 @@ func TestDynAuthInboundDoesNotRequireRadiusDynamicScope(t *testing.T) {
 	if got == nil {
 		t.Fatal("packet path must ACK without radius:dynamic")
 	}
-	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), ra, got)
+	reply, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -689,5 +690,77 @@ listeners:
 	}
 	if doc.Listeners.RADIUSDynAuth.Bind != "0.0.0.0:3799" {
 		t.Fatalf("bind=%q", doc.Listeners.RADIUSDynAuth.Bind)
+	}
+}
+
+func dynAuthChecksum(wire []byte) (auth [16]byte) { copy(auth[:], wire[4:20]); return auth }
+
+func TestDynAuthAuthenticatorNegativesNoSideEffects(t *testing.T) {
+	for _, code := range []tcodec.Code{tcodec.CoARequest, tcodec.DisconnectRequest} {
+		for _, kind := range []string{"request-authenticator", "message-authenticator"} {
+			t.Run(code.String()+"/"+kind, func(t *testing.T) {
+				dir := t.TempDir()
+				sec := writeSecret(t, dir)
+				doc := mustParse(t, dynAuthYAML(sec, "127.0.0.0/8"))
+				ln, sessions := startDynAuth(t, doc)
+				insertSession(t, sessions, "integrity-1")
+				c := dialUDP(t, ln.Addr().String())
+				wire, err := testclient.EncodeDynAuthRequest([]byte(labSecret), testclient.DynAuthRequest{Code: code, Identifier: 39, AcctSessionID: "integrity-1"}, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				bad := append([]byte(nil), wire...)
+				if kind == "request-authenticator" {
+					bad[4] ^= 1
+				} else {
+					bad[22] ^= 1
+					auth, err := tcodec.AccountingRequestAuthenticator([]byte(labSecret), bad)
+					if err != nil {
+						t.Fatal(err)
+					}
+					copy(bad[4:20], auth[:])
+				}
+				// Check precise rejection reason as well as actual listener side effects.
+				decoded, err := productionCodec.Decode(bad)
+				if err != nil {
+					t.Fatal(err)
+				}
+				reason := server.CheckIntegrity(server.Request{Role: domain.RoleDynamicAuthorization, Packet: decoded, Declared: bad, Secret: []byte(labSecret)})
+				want := server.ReasonInvalidDynAuthAuth
+				if kind == "message-authenticator" {
+					want = server.ReasonInvalidMA
+				}
+				if reason != want {
+					t.Fatalf("reason=%s want=%s", reason, want)
+				}
+				if _, err = c.Write(bad); err != nil {
+					t.Fatal(err)
+				}
+				if reply := readUDP(t, c, 150*time.Millisecond); reply != nil {
+					t.Fatal("invalid integrity received response")
+				}
+				if sessions.Len() != 1 {
+					t.Fatal("invalid request mutated session index")
+				}
+				if _, err = c.Write(wire); err != nil {
+					t.Fatal(err)
+				}
+				reply := readUDP(t, c, 2*time.Second)
+				if reply == nil {
+					t.Fatal("invalid request populated retransmission cache")
+				}
+				result, err := testclient.DecodeDynAuthReply([]byte(labSecret), dynAuthChecksum(wire), reply)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantCode := tcodec.CoAACK
+				if code == tcodec.DisconnectRequest {
+					wantCode = tcodec.DisconnectACK
+				}
+				if result.Code != wantCode {
+					t.Fatalf("reply=%s", result.Code)
+				}
+			})
+		}
 	}
 }

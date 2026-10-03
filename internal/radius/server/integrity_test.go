@@ -117,12 +117,10 @@ func TestCheckDynAuthIntegrityAlwaysRequiresMA(t *testing.T) {
 		t.Fatalf("missing MA: %s", got)
 	}
 
-	signed := signRequestMA(t, testSecret, codec.Packet{
-		Code:          codec.CodeCoARequest,
-		Identifier:    2,
-		Authenticator: ra,
-		Attributes:    attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}},
-	})
+	signed, err := SignDynAuthRequest(testSecret, codec.CodeCoARequest, 2, ra, attribute.RawSet{{Type: attribute.TypeUserName, Value: []byte("lab-admin")}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	dec, err := codec.Decode(signed)
 	if err != nil {
 		t.Fatal(err)

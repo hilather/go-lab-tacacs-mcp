@@ -35,8 +35,11 @@ func checkDynAuthIntegrity(in Request) string {
 	if mas.Len() == 0 {
 		return ReasonMissingMA
 	}
-	if err := crypto.ValidateMessageAuthenticator(in.Secret, declared); err != nil {
+	if err := crypto.ValidateDynAuthMessageAuthenticator(in.Secret, declared); err != nil {
 		return ReasonInvalidMA
+	}
+	if err := crypto.ValidateDynAuthRequestAuthenticator(in.Secret, declared); err != nil {
+		return ReasonInvalidDynAuthAuth
 	}
 	return ""
 }

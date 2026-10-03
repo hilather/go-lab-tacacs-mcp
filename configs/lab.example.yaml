@@ -117,7 +117,7 @@ api:
     enabled: true
     lifetime: 30m
     idle_timeout: 10m
-    # Follows listeners.http.tls.enabled when omitted. False is HTTP-only lab use.
+    # Defaults to false (HTTP-only lab). Set true explicitly behind an HTTPS reverse proxy (ADR 0032).
     # CSRF is required whenever cookie authentication is enabled.
     cookie_secure: false
     cookie_same_site: strict

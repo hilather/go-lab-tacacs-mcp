@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { EVENT_RETENTION } from "../ui/events";
 import type { EventView } from "../generated/api";
 import { EventStreamContext, type StreamState } from "./eventStreamContext";
 
@@ -15,6 +16,8 @@ export const RESOURCE_QUERY_KEYS = [
   ["groups"],
   ["clients"],
   ["config"],
+  ["radius-sessions"],
+  ["radius-attributes"],
 ] as const;
 
 export type { StreamState };
@@ -33,7 +36,7 @@ function invalidateResources(queryClient: ReturnType<typeof useQueryClient>): vo
   }
 }
 
-const idle: StreamState = { connected: false, reconnecting: false, reset: false, lastEvent: null };
+const idle: StreamState = { connected: false, reconnecting: false, reset: false, resetGeneration: 0, lastEvent: null, recentEvents: [] };
 
 /** Always calls the same hooks. When enabled is false, no EventSource is opened. */
 export function useOwnedEventStream(enabled: boolean): StreamState {
@@ -47,6 +50,7 @@ export function useOwnedEventStream(enabled: boolean): StreamState {
     if (!enabled || !signedIn || !canRead) {
       return;
     }
+    let sessionRefresh: number | undefined;
     const es = new EventSource("/api/v1/events/stream");
     const onOpen = () => {
       setStream((prev) => ({ ...prev, connected: true, reconnecting: false }));
@@ -55,7 +59,7 @@ export function useOwnedEventStream(enabled: boolean): StreamState {
       setStream((prev) => ({ ...prev, connected: false, reconnecting: true }));
     };
     const onReset = () => {
-      setStream((prev) => ({ ...prev, reset: true }));
+      setStream((prev) => ({ ...prev, reset: true, resetGeneration: prev.resetGeneration + 1, lastEvent: null, recentEvents: [] }));
       invalidateResources(queryClient);
     };
     const onMessage = (ev: MessageEvent<string>) => {
@@ -63,13 +67,22 @@ export function useOwnedEventStream(enabled: boolean): StreamState {
         return;
       }
       try {
-        const payload = JSON.parse(ev.data) as { type?: string; revision?: number; reset?: boolean };
+        const payload = JSON.parse(ev.data) as Partial<EventView> & { reset?: boolean };
         if (payload.reset === true) {
           onReset();
           return;
         }
         if (isEventView(payload)) {
-          setStream((prev) => ({ ...prev, lastEvent: payload, reset: false }));
+          setStream((prev) => ({ ...prev, lastEvent: payload, recentEvents: [...prev.recentEvents, payload].slice(-EVENT_RETENTION), reset: false }));
+        }
+        if (payload.protocol === "radius" && (payload.category === "acct" || payload.listener_role === "dynamic_authorization")) {
+          // Schedule once per burst, rather than extending the wait on every packet.
+          if (sessionRefresh === undefined) {
+            sessionRefresh = window.setTimeout(() => {
+              sessionRefresh = undefined;
+              void queryClient.invalidateQueries({ queryKey: ["radius-sessions"] });
+            }, 250);
+          }
         }
         if (payload.type === REVISION_CHANGED) {
           invalidateResources(queryClient);
@@ -88,6 +101,7 @@ export function useOwnedEventStream(enabled: boolean): StreamState {
       es.removeEventListener("message", onMessage);
       es.removeEventListener("reset", onReset);
       es.close();
+      if (sessionRefresh !== undefined) window.clearTimeout(sessionRefresh);
     };
   }, [enabled, signedIn, canRead, queryClient]);
 

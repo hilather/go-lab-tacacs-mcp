@@ -232,42 +232,58 @@ func TestSessionCookieAndCSRF(t *testing.T) {
 	}
 }
 
-func TestCookieSecureFollowsTLS(t *testing.T) {
+func TestCookieSecureForProxyHTTPSAndHTTPLab(t *testing.T) {
 	t.Parallel()
-	src := `
-schema_version: 1
-listeners:
-  secure_tacacs: {enabled: false}
-  http:
-    tls: {enabled: true}
-`
-	doc, err := config.Parse([]byte(src))
+	for _, tc := range []struct {
+		name     string
+		uiConfig string
+		secure   bool
+	}{
+		{name: "proxy HTTPS", uiConfig: "api:\n  ui_session: {cookie_secure: true}\n", secure: true},
+		{name: "explicit HTTP", uiConfig: "api:\n  ui_session: {cookie_secure: false}\n"},
+		{name: "default HTTP"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, err := config.Parse([]byte("schema_version: 1\nlisteners:\n  secure_tacacs: {enabled: false}\n  http: {tls: {enabled: false}}\n" + tc.uiConfig))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if doc.API.UISession.CookieSecure != tc.secure {
+				t.Fatalf("configured cookie_secure=%v want %v", doc.API.UISession.CookieSecure, tc.secure)
+			}
+			clock := &fixedClock{t: time.Date(2026, 8, 12, 15, 0, 0, 0, time.UTC)}
+			m, err := state.New(doc, state.Options{Clock: clock})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rev := m.Revision()
+			value, _, err := credentials.IssueBearer(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := m.CreateToken(state.CreateToken{ID: "rt", Name: "rt", Scopes: []string{"state:read"}, Material: credentials.NewTokenMaterial([]byte(value))}, &rev); err != nil {
+				t.Fatal(err)
+			}
+			svc := New(Options{Clock: clock})
+			sess, err := svc.Create(operations.Actor{ID: "rt", Scopes: []string{"state:read"}}, m.Snapshot())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if sess.CookieSecure != tc.secure || SessionCookie(sess).Secure != tc.secure {
+				t.Fatalf("session secure=%v cookie secure=%v want %v", sess.CookieSecure, SessionCookie(sess).Secure, tc.secure)
+			}
+		})
+	}
+}
+
+func TestSessionSnapshotRejectsUnsupportedNativeAdminTLS(t *testing.T) {
+	t.Parallel()
+	doc, err := config.Parse([]byte("schema_version: 1\nlisteners:\n  secure_tacacs: {enabled: false}\n  http: {tls: {enabled: true}}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !doc.API.UISession.CookieSecure {
-		t.Fatal("cookie_secure should follow TLS")
-	}
-	m, err := state.New(doc, state.Options{Clock: &fixedClock{t: time.Date(2026, 8, 12, 15, 0, 0, 0, time.UTC)}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rev := m.Revision()
-	value, _, err := credentials.IssueBearer(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := m.CreateToken(state.CreateToken{ID: "rt", Name: "rt", Scopes: []string{"state:read"}, Material: credentials.NewTokenMaterial([]byte(value))}, &rev); err != nil {
-		t.Fatal(err)
-	}
-	clock := &fixedClock{t: time.Date(2026, 8, 12, 15, 0, 0, 0, time.UTC)}
-	svc := New(Options{Clock: clock})
-	sess, err := svc.Create(operations.Actor{ID: "rt", Scopes: []string{"state:read"}}, m.Snapshot())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !sess.CookieSecure || !SessionCookie(sess).Secure {
-		t.Fatalf("secure=%v cookie=%+v", sess.CookieSecure, SessionCookie(sess))
+	if _, err := state.New(doc, state.Options{}); !isCode(err, domain.CodeInvalidArgument) || !strings.Contains(err.Error(), "listeners.http.tls.enabled") {
+		t.Fatalf("native admin TLS must fail snapshot validation: %v", err)
 	}
 }
 

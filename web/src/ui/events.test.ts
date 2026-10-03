@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sampleEvent } from "../test/fixtures";
 import {
+  mergeEvent,
   eventProtocolLabel,
   eventProtocolToken,
   eventWhat,
@@ -56,4 +57,17 @@ describe("event presentation", () => {
     expect(matchEvent(ev, { kind: "auth", protocol: "", search: "access-request" })).toBe(true);
     expect(matchEvent(ev, { kind: "auth", protocol: "", search: "bob" })).toBe(false);
   });
+});
+
+
+it("bounds retained live events while preserving newest order and deduplication", () => {
+  let retained: typeof sampleEvent[] = [];
+  for (let id = 1; id <= 1200; id += 1) retained = mergeEvent(retained, { ...sampleEvent, id });
+  expect(retained).toHaveLength(1000);
+  expect(retained[0]?.id).toBe(1200);
+  expect(retained[999]?.id).toBe(201);
+  retained = mergeEvent(retained, { ...sampleEvent, id: 1100, result: "pass" });
+  expect(retained).toHaveLength(1000);
+  expect(retained.filter((event) => event.id === 1100)).toHaveLength(1);
+  expect(retained.find((event) => event.id === 1100)?.result).toBe("pass");
 });

@@ -104,8 +104,9 @@ func TestParsePermitAliasAndUserRules(t *testing.T) {
 	}
 }
 
-func TestParseCookieSecureFollowsTLS(t *testing.T) {
+func TestParseLegacyTLSFlagNormalizesBeforeValidation(t *testing.T) {
 	t.Parallel()
+	// Parsing retains legacy normalization; validation rejects native HTTP TLS (ADR 0032).
 	doc := mustParseFile(t, "testdata/parse/cookie_follow_tls.yaml")
 	if !doc.Listeners.HTTP.TLS.Enabled {
 		t.Fatal("tls")

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EventRow, EventTableHead } from "../components/EventRow";
 import { RequireScope } from "../components/RequireScope";
 import type { EventView } from "../generated/api";
@@ -9,8 +9,8 @@ import {
   drainRecent,
   type EventKind,
   matchEvent,
-  mergeEvent,
-  sortNewestFirst,
+  retainEvents,
+  EVENT_RETENTION,
 } from "../ui/events";
 
 const PAGE = 100;
@@ -36,35 +36,36 @@ function EventsBody() {
   const [pending, setPending] = useState(true);
   const [flashIds, setFlashIds] = useState<Set<number>>(new Set());
   const searchId = useId();
-  const drainKey = `${kind}\0${protocol}\0${String(stream.reset)}`;
+  const drainKey = `${kind}\0${protocol}\0${String(stream.resetGeneration)}`;
   const [trackedDrainKey, setTrackedDrainKey] = useState(drainKey);
   if (trackedDrainKey !== drainKey) {
     setTrackedDrainKey(drainKey);
     setPending(true);
   }
 
-  const incoming = stream.lastEvent;
-  const [seenEvent, setSeenEvent] = useState(incoming);
-  if (incoming !== null && incoming !== seenEvent) {
-    setSeenEvent(incoming);
-    setBuffer((prev) => mergeEvent(prev, incoming));
-    setFlashIds((prev) => new Set(prev).add(incoming.id));
-  }
-
+  const incoming = stream.recentEvents;
+  const lastProcessedID = useRef(0);
+  const lastResetGeneration = useRef(stream.resetGeneration);
+  // Highest reset generation whose notice was cleared by a live event that
+  // arrived after that generation's re-drain landed. The stream outlives this
+  // page (EventStreamProvider), so a remount starts from the current
+  // generation; a reset still unacknowledged by the stream shows through
+  // stream.reset.
+  const acknowledgedGeneration = useRef(stream.resetGeneration);
+  const liveDuringDrain = useRef<EventView[] | null>(null);
+  // False after a failed drain: a live event then must not acknowledge a
+  // reset whose view was never refreshed.
+  const drainLanded = useRef(true);
+  const hasFlashes = flashIds.size > 0;
   useEffect(() => {
-    if (flashIds.size === 0) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setFlashIds(new Set());
-    }, 1300);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [flashIds]);
+    if (!hasFlashes) return;
+    const timer = window.setTimeout(() => setFlashIds(new Set()), 1300);
+    return () => window.clearTimeout(timer);
+  }, [hasFlashes]);
 
   useEffect(() => {
     let cancelled = false;
+    liveDuringDrain.current = [];
     const categories = drainCategories(kind);
     void drainRecent({
       ...(categories ? { categories } : {}),
@@ -74,14 +75,19 @@ function EventsBody() {
         if (cancelled) {
           return;
         }
-        setBuffer(sortNewestFirst(page.items));
+        const arrivals = liveDuringDrain.current ?? [];
+        liveDuringDrain.current = null;
+        drainLanded.current = true;
+        setBuffer(retainEvents(page.items, arrivals));
         setOverwritten(page.overwritten);
-        setReset(page.reset);
+        setReset(page.reset || stream.resetGeneration > acknowledgedGeneration.current);
         setVisible(PAGE);
         setLoadError(null);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
+          liveDuringDrain.current = null;
+          drainLanded.current = false;
           setLoadError(errorDetail(err, "Unable to load events."));
         }
       })
@@ -92,8 +98,41 @@ function EventsBody() {
       });
     return () => {
       cancelled = true;
+      liveDuringDrain.current = null;
     };
-  }, [kind, protocol, stream.reset]);
+  }, [kind, protocol, stream.resetGeneration]);
+
+  useEffect(() => {
+    if (lastResetGeneration.current !== stream.resetGeneration) {
+      lastProcessedID.current = 0;
+      lastResetGeneration.current = stream.resetGeneration;
+    }
+    const latest = incoming.at(-1);
+    if (!latest || latest.id <= lastProcessedID.current) return;
+    const arrivals = incoming.filter((event) => event.id > lastProcessedID.current &&
+      matchEvent(event, { kind, protocol, search: "" }));
+    // Any live event after this generation's re-drain landed ends the reset
+    // notice, as the stream hook does; events in the reset batch or during
+    // the re-drain belong to the drain and keep it.
+    const drained = liveDuringDrain.current === null && drainLanded.current;
+    const generation = stream.resetGeneration;
+    if (arrivals.length > 0 && liveDuringDrain.current !== null) {
+      liveDuringDrain.current = retainEvents(liveDuringDrain.current, arrivals);
+    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      lastProcessedID.current = latest.id;
+      if (drained) {
+        acknowledgedGeneration.current = generation;
+        setReset(false);
+      }
+      if (arrivals.length === 0) return;
+      setBuffer((prev) => retainEvents(prev, arrivals));
+      setFlashIds((prev) => new Set([...prev, ...arrivals.map((event) => event.id)].slice(-EVENT_RETENTION)));
+    });
+    return () => { cancelled = true; };
+  }, [incoming, kind, protocol, stream.resetGeneration]);
 
   const items = useMemo(() => {
     return buffer.filter((ev) => matchEvent(ev, { kind, protocol, search })).slice(0, visible);
@@ -105,7 +144,7 @@ function EventsBody() {
     <main className="page page--wide">
       <h1>Events</h1>
       <p className="lede">
-        Live AAA. Newest first. Sensitive fields stay redacted without events:sensitive.
+        Live AAA. Newest first. The browser retains the latest {EVENT_RETENTION} events. Sensitive fields stay redacted without events:sensitive.
       </p>
       <p role="status">
         Stream:{" "}

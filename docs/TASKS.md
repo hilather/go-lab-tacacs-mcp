@@ -976,7 +976,7 @@ Machine-readable `testdata/conformance/rfc9887.yaml` is filled in PR-22 (PSK con
 - [x] Implement status, config validation/reload/export, runtime reset, user/group/client/token CRUD, authentication test, policy explain, and event queries.
 - [x] Return typed errors and stable codes.
 - [x] Apply expected-revision semantics centrally.
-- [ ] Bounded in-memory idempotency store for create/reset/reload (header is parsed; replay is not).
+- [x] Bounded in-memory idempotency store for supported create/reset/reload operations (ADR 0033); original revision replay, concurrent coalescing, cancellation, capacity, expiry, authorization and REST/MCP regression tests. Reset/reload retries preserve later runtime objects and invoke process hooks only once; lab create fixtures use a fresh key for each logical create, including setup after reset.
 - [x] Emit redacted audit events centrally.
 
 **Regression tests**
@@ -1787,6 +1787,19 @@ REST replay. Relevant `go vet -p=2`, `make check-registries` (`-release`),
 and the explicitly reviewed ownership allocation exception are recorded in
 TESTING_AND_BENCHMARKS.md. Source/registry/schema generation is unaffected.
 
+### REVIEW-RUNTIME-001 — Correct admin TLS and shutdown contracts
+
+- [x] Reject unsupported native admin HTTP TLS in v1/v2 configuration and defend startup before bootstrap; ADR 0032 records migration to proxy HTTPS and explicit secure cookies.
+- [x] Mark unready/cancel REST SSE and MCP streams before drain; give HTTP, observability, and AAA the same grace concurrently.
+- [x] Force-close stalled HTTP connections and report HTTP/observability grace deadline failures; preserve established protocol grace cancellation behavior.
+- Acceptance: `TestAdminHTTPRejectsUnsupportedTLS`, `TestStartHTTPRejectsUnsupportedTLSBeforeBootstrap`, `TestServeShutdownDeadlineClosesHTTPAndReturnsFailure`, and HTTP readiness/stream shutdown tests. No administrative capability/schema or conformance-row changes; REST SSE/health and MCP subscription mechanics retain their protocol-only dispositions. No hot parsing/policy/serialization path changes; benchmarks are not applicable.
+
+REVIEW-RUNTIME-001 evidence: original HTTP shutdown regression returned nil after a stalled peer exhausted grace; original config validation accepted native HTTP TLS. `GOMAXPROCS=2 go test -race -p=2 ./cmd/taclabd ./internal/config` passed, including existing TACACS in-flight drain/e2e contracts and readiness/REST stream cancellation integration. Relevant `go vet -p=2`, `make check-registries` (`-release`), and `make docs-check` passed. Schemas/registries remain unchanged because the retained TLS field is validation-only and no operation changes.
+
+REVIEW-RUNTIME-001 documentation follow-up: leftover "`cookie_secure` follows `listeners.http.tls.enabled`" wording in ARCHITECTURE, OPERATOR, API_PARITY, ADR 0010, the lab example, the REST package doc and OpenAPI descriptions now states the ADR 0032 rule (default false, explicit true behind an HTTPS proxy); `api/openapi.json` regenerated and `make check-generated` clean.
+
+REVIEW-RUNTIME-001 migration regression evidence: session authentication tests cover explicit secure cookies behind proxy HTTPS, explicit/default HTTP cookie behavior, and rejection of native admin TLS during snapshot creation. Parse-only legacy flag normalization remains covered independently of validation. Full `go test -race -p=2 ./internal/api/auth ./internal/config ./cmd/taclabd` passed after aligning the old secure-cookie fixture with ADR 0032; the native TLS fixture scan found no other valid-snapshot uses outside the rejection tests.
+
 ## 24. Protocol review hardening
 
 - [x] `RAD-REV-001` RadSec passes the authenticated peer certificate fingerprint to the Challenge gate. Configured CRLs must authenticate against the verified leaf issuer and be current; unrelated or expired CRLs fail closed. Evidence: `TestRadSecPropagatesCertificateChallengeBinding`, `TestRadSecCRLAuthenticityAndFreshness`; `go test -race ./internal/radius/tls`; `BenchmarkRadSecCRLValidation`; additional bad-signature, issuer isolation, omitted-root, and injected-clock evidence. TACACS also rejects a signed future-dated CRL (`TestFutureCRLDoesNotAdmit`). Affected rows: `PRJ-RADSEC-001`, `R65-ACCESS-004`. No administrative contract or parity change.
@@ -1804,3 +1817,10 @@ TESTING_AND_BENCHMARKS.md. Source/registry/schema generation is unaffected.
 ## 24. Review regressions (`REV-*`)
 
 - [x] `REV-CI-001` Release publication selects and validates the exact tag push CI run and its SHA, excluding main/PR runs. `make check-tag-ci` covers main-only, matching tag among unrelated runs, and failed tag CI. Public operations and conformance rows are unchanged.
+- [x] `REV-UI-001` Restore sessions without requiring `state:read`: `AuthProvider.test.tsx` covers events-, policy-, and token-only principals when status returns permission denied. REST/MCP contracts and conformance rows are unchanged; `session.get` remains `REST_ONLY_PROTOCOL` with no administrative scope.
+
+- [x] `REV-UI-002` Preserve destructive mutation intent across revision retry: seven regression cases in `destructiveConflicts.test.tsx` verify user/group/client remove and tombstone plus token revocation resend DELETE against the current revision, never PATCH/POST. All 29 affected CRUD tests pass. Public REST/MCP parity and schemas are unchanged.
+
+- [x] `REV-UI-003` Bound and reconcile browser event retention, preserve batched SSE arrivals, filter before retention, expire highlights under continuous traffic, and refresh RADIUS sessions/attributes from accounting/revision/reset notifications. Acceptance: `events.test.ts`, `EventsPage.test.tsx`, and `useEventStream.test.tsx`; fixed-workload reducer benchmark and comparison in TESTING_AND_BENCHMARKS §8.2.1. REST/MCP schemas, secret policy, and protocol conformance rows are unchanged.
+
+REV-UI-003 follow-up evidence: batched reset plus restarted low event IDs triggers a fresh snapshot and retains arrivals; cancelled microtask commits leave arrivals eligible for the next effect. Both regressions failed before the persistent reset generation and commit-bound cursor fix. The reset notice now ends at the first live event after the post-reset refetch, rather than staying up permanently once `resetGeneration > 0`; filter refetches do not bring an acknowledged reset back (`clears the reset banner on the first live event after the post-reset drain`, `does not resurrect an acknowledged reset banner when the page remounts`, `keeps a reset unacknowledged when its re-drain fails`).

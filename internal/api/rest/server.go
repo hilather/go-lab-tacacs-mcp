@@ -329,7 +329,7 @@ func (s *Server) invoke(w http.ResponseWriter, r *http.Request, id string, req a
 	res, err := s.Registry.Invoke(ctx, id, snap, operations.Input{
 		Actor:            actor,
 		ExpectedRevision: rev,
-		IdempotencyKey:   strings.TrimSpace(r.Header.Get(headerIdempotency)),
+		IdempotencyKey:   r.Header.Get(headerIdempotency),
 		Request:          req,
 	})
 	if err != nil {

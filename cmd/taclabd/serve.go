@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -336,7 +338,7 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 	}
 
-	var httpSrv *http.Server
+	var httpSrv *adminHTTPServer
 	var httpLn net.Listener
 	if doc.Listeners.HTTP.Enabled {
 		httpSrv, httpLn, err = startHTTP(path, doc, mgr, lookup, listeners, ring, aaaSvc, logger, obs, resetRadius)
@@ -378,23 +380,41 @@ func runServeWith(ctx context.Context, path string, stdout, stderr io.Writer, h 
 		}
 	}
 
+	// Publish unready and stop long-lived streams before waiting for drains.
+	if httpSrv != nil {
+		httpSrv.beginShutdown()
+	}
+	stop()
 	shutCtx, cancel := context.WithTimeout(context.Background(), doc.Server.ShutdownGrace)
 	defer cancel()
+	// Every listener gets the same grace, including when HTTP has a stalled peer.
+	shutdownErrors := make(chan error, 3)
+	go func() {
+		if httpSrv == nil {
+			shutdownErrors <- nil
+			return
+		}
+		shutdownErrors <- httpSrv.Shutdown(shutCtx)
+	}()
+	go func() { shutdownErrors <- obs.Shutdown(shutCtx) }()
+	go func() {
+		err := listeners.Drain(shutCtx)
+		// Protocol listeners deliberately cancel unfinished sessions at grace.
+		// Preserve that established drain contract; HTTP timeout still fails.
+		if err == shutCtx.Err() {
+			err = nil
+		}
+		shutdownErrors <- err
+	}()
 	var shutErr error
-	if httpSrv != nil {
-		shutErr = httpSrv.Shutdown(shutCtx)
+	for range 3 {
+		shutErr = errors.Join(shutErr, <-shutdownErrors)
 	}
-	if err := obs.Shutdown(shutCtx); err != nil && shutErr == nil {
-		shutErr = err
+	if serveErr != nil && !isHTTPClosed(serveErr) && !errors.Is(serveErr, context.Canceled) {
+		shutErr = errors.Join(serveErr, shutErr)
 	}
-	if err := listeners.Drain(shutCtx); err != nil && shutErr == nil {
-		shutErr = err
-	}
-	if serveErr != nil && serveCtx.Err() == nil && !isHTTPClosed(serveErr) {
-		return serveErr
-	}
-	if shutErr != nil && shutCtx.Err() == nil {
-		return shutErr
+	if shutErr != nil {
+		return fmt.Errorf("serve shutdown: %w", shutErr)
 	}
 	return nil
 }
@@ -403,7 +423,10 @@ func isHTTPClosed(err error) bool {
 	return err == http.ErrServerClosed
 }
 
-func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, aaaSvc *aaa.Service, logger *slog.Logger, obs *observability.Server, onReset func()) (*http.Server, net.Listener, error) {
+func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, lookup config.SecretLookup, listeners *runtime.Registry, ring *events.Ring, aaaSvc *aaa.Service, logger *slog.Logger, obs *observability.Server, onReset func()) (*adminHTTPServer, net.Listener, error) {
+	if doc.Listeners.HTTP.TLS.Enabled {
+		return nil, nil, fmt.Errorf("listeners.http.tls.enabled: in-process HTTP TLS is unsupported; terminate HTTPS at a reverse proxy")
+	}
 	if obs == nil {
 		obs = observability.New(observability.Options{})
 	}
@@ -448,7 +471,13 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 	if err != nil {
 		return nil, nil, err
 	}
+	streamStop := make(chan struct{})
 	ready := func() bool {
+		select {
+		case <-streamStop:
+			return false
+		default:
+		}
 		if mgr.Snapshot() == nil {
 			return false
 		}
@@ -461,6 +490,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		return listeners != nil && listeners.HasReadyAAA()
 	}
 	restSrv := &rest.Server{
+		Done:         streamStop,
 		Registry:     reg,
 		Snapshot:     mgr.Snapshot,
 		Auth:         authSvc,
@@ -481,7 +511,6 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		}
 		mux.Handle(path, admin)
 	}
-	mcpStop := make(chan struct{})
 	mcpH := mcpapi.Handler(mcpapi.Options{
 		Registry:     reg,
 		Snapshot:     mgr.Snapshot,
@@ -494,7 +523,7 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 		MaxBody:      doc.Listeners.HTTP.MaxRequestBodyBytes,
 		Metrics:      obs.Rec,
 		Tracer:       obs.Tr,
-		Done:         mcpStop,
+		Done:         streamStop,
 	})
 	mux.Handle("/mcp", mcpH)
 	mux.Handle("/mcp/", mcpH)
@@ -514,8 +543,9 @@ func startHTTP(configPath string, doc *config.Document, mgr *state.Manager, look
 	if hs.ReadHeaderTimeout == 0 {
 		hs.ReadHeaderTimeout = 5 * time.Second
 	}
-	hs.RegisterOnShutdown(func() { close(mcpStop) })
-	return hs, ln, nil
+	admin := &adminHTTPServer{Server: hs, streams: streamStop}
+	hs.RegisterOnShutdown(admin.beginShutdown)
+	return admin, ln, nil
 }
 
 func loadRegistry(deps operations.Deps) (*operations.Registry, error) {
@@ -646,4 +676,25 @@ func newSnapshotObserver(rec *observability.Recorder, ring func() *events.Ring) 
 			}
 		}
 	}
+}
+
+// adminHTTPServer owns readiness and cancellation for both HTTP stream adapters.
+type adminHTTPServer struct {
+	*http.Server
+	streams  chan struct{}
+	stopOnce sync.Once
+}
+
+func (s *adminHTTPServer) beginShutdown() {
+	s.stopOnce.Do(func() { close(s.streams) })
+}
+
+func (s *adminHTTPServer) Shutdown(ctx context.Context) error {
+	s.beginShutdown()
+	if err := s.Server.Shutdown(ctx); err != nil {
+		// Shutdown deliberately leaves active connections open on timeout.
+		// Force close them and preserve the deadline as a process failure.
+		return errors.Join(err, s.Server.Close())
+	}
+	return nil
 }

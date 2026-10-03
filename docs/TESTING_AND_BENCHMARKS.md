@@ -716,3 +716,9 @@ Unkeyed reads remain 368 B / 5 allocations. Latency remains host-load-sensitive;
 this comparison records the allocation cost without claiming a speed improvement.
 `TestIdempotencyOpaqueKeysPreserveInvalidUTF8Bytes` first failed because distinct
 0xff and 0xfe keys normalized to the same JSON string, then passed with byte keys.
+REST adapter key identity: `TestRESTIdempotencyKeyTrailingSpaceIsDistinctAtAdapter` and
+`TestRESTIdempotencyKeyUnicodeWhitespaceIsDistinctOverHTTP` failed on 525b8e2 because the adapter
+applied `strings.TrimSpace` and replayed the first success; both pass once the header value is
+passed unchanged. `TestRESTIdempotencyKeyExactReplay`, `TestRESTIdempotencyKeyOpaqueBytesOverHTTP`
+and `TestRESTIdempotencyKeyWireOWSIsNotPartOfKey` pin exact replay, distinct 0xff/0xfe header
+bytes over a real socket, and RFC 9110 optional-whitespace stripping by net/http.

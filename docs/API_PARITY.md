@@ -138,7 +138,7 @@ Internal causes may be logged with a correlation ID but are not exposed as stack
 
 ### 7.2 Idempotency
 
-- REST uses `Idempotency-Key`.
+- REST uses `Idempotency-Key`. The adapter passes the parsed field value unchanged; HTTP parsing strips only leading/trailing SP/HTAB (RFC 9110 §5.5), and all other bytes are significant (ADR 0033).
 - MCP mutating tool input uses `idempotency_key` when the operation supports replay protection.
 - Both map to the same bounded in-memory idempotency service and response replay rules.
 - Idempotency entries disappear on restart with other runtime state unless a future persistence ADR says otherwise.

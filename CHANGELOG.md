@@ -6,7 +6,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [1.6.0] — 2026-10-04
 
-Security and contract fixes from the 2026-10-03 review series (#103–#114) plus frontend Dependabot refreshes (#98–#102). v1.5.2 is a catch-up tag at `1a94f18` (its section below is unchanged), so this section lists everything merged after that commit. Several fixes change behavior an operator or client can see; see **Changed**. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+Security and contract fixes from the review series (#103–#114) plus frontend Dependabot refreshes (#98–#102). v1.5.2 is a catch-up tag at `1a94f18` (its section below is unchanged), so this section lists everything merged after that commit. Several fixes change behavior an operator or client can see; see **Changed**. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
 
 ### Security
 

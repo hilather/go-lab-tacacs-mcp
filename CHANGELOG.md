@@ -4,15 +4,46 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
-- Reject unsupported native admin HTTP TLS instead of silently serving plaintext; hosted HTTPS uses a reverse proxy with explicitly secure browser cookies (ADR 0032).
-- Cancel REST/MCP streams and mark unready before shutdown drains; force-close stalled HTTP connections after the grace and report HTTP/observability shutdown failures. Protocol grace cancellation retains its established behavior.
-- Administrative create/reset/reload retries now share bounded in-memory idempotency replay across REST and MCP, preserving original revisions. Unsupported keys, including one-time token creation, fail before mutation; replay entries expire after ten minutes.
-- REST `Idempotency-Key` values are no longer trimmed by the adapter; keys are compared byte-for-byte after standard HTTP whitespace parsing, so values differing only in Unicode whitespace (for example U+00A0) or other bytes are distinct keys.
-- MCP tool and resource dispatch uses the authenticated snapshot to prevent token replacement during request decoding from crossing credential incarnations.
-- Bind RADIUS credentials and policy to the admitted snapshot, preserve separate UDP/RadSec endpoint policies, and release compiled TACACS policy engines with their snapshots.
-- RadSec loads the published snapshot for each packet on an open connection. Disabled users, password changes, and policy or endpoint edits apply to the next packet; a client that is deleted or no longer matches its certificate closes the connection. The shared secret and TLS identity stay bound at handshake until reconnect.
-- PEAP now matches EAP policy and preserves supported reply profiles in its final Access-Accept.
-- Concurrent accounting retries with changed identifiers or delay times produce one event while retaining independently signed replies; failed sink calls remain retryable. RADIUS conformance stays partial.
+## [1.6.0] — 2026-10-04
+
+Security and contract fixes from the 2026-10-03 review series (#103–#114) plus frontend Dependabot refreshes (#98–#102). v1.5.2 is a catch-up tag at `1a94f18` (its section below is unchanged), so this section lists everything merged after that commit. Several fixes change behavior an operator or client can see; see **Changed**. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
+### Security
+
+- TLS: RadSec passes the authenticated peer certificate fingerprint into challenge processing, so certificate-bound challenges work. CRL checks fail closed unless a current CRL is signed by the verified certificate issuer; before this, serial numbers were trusted without checking the issuer, signature or validity. TACACS also rejects CRLs whose `ThisUpdate` is in the future. Authenticating a configured CRL costs about 249 µs per handshake, not per RADIUS packet ([#103](https://github.com/hilather/go-lab-tacacs-mcp/pull/103)).
+- Browser sessions are bound to a token incarnation. Revoking and recreating a token ID, replacing its credential or grants, or restoring an override invalidates existing cookies, so an old cookie can no longer come back to life or pick up the replacement token's permissions. Unrelated state changes keep sessions, and forgetting a token reclaims its sessions ([#104](https://github.com/hilather/go-lab-tacacs-mcp/pull/104)).
+- REST/MCP event streams re-check the authenticated token incarnation and session, so a stream no longer keeps its original authorization forever. At most 128 REST/MCP streams are admitted at once (ADR 0031) ([#111](https://github.com/hilather/go-lab-tacacs-mcp/pull/111)).
+- RADIUS CoA/Disconnect follow RFC 5176: requests carry a Message-Authenticator computed with zeroed authenticator fields, then the MD5 Request Authenticator. Inbound packets are checked for both before any side effect. Outbound exchanges ignore replies from the wrong sender, with the wrong Identifier, or from the wrong ACK/NAK family, wait until the original deadline, and stop promptly on cancellation (ADR 0024) ([#113](https://github.com/hilather/go-lab-tacacs-mcp/pull/113)).
+
+### Added
+
+- Administrative create/reset/reload retries now share bounded in-memory idempotency replay across REST and MCP, preserving original revisions. Unsupported keys, including one-time token creation, fail before mutation; replay entries expire after ten minutes ([#114](https://github.com/hilather/go-lab-tacacs-mcp/pull/114), ADR 0033).
+- REST `Idempotency-Key` values are no longer trimmed by the adapter; keys are compared byte-for-byte after standard HTTP whitespace parsing, so values differing only in Unicode whitespace (for example U+00A0) or other bytes are distinct keys ([#114](https://github.com/hilather/go-lab-tacacs-mcp/pull/114)).
+- MCP tool and resource dispatch uses the authenticated snapshot to prevent token replacement during request decoding from crossing credential incarnations ([#114](https://github.com/hilather/go-lab-tacacs-mcp/pull/114)).
+
+### Changed
+
+- Reject unsupported native admin HTTP TLS instead of silently serving plaintext; hosted HTTPS uses a reverse proxy with explicitly secure browser cookies (ADR 0032). Configurations with `listeners.http.tls.enabled: true` now fail validation (including reload) and startup; set it to `false`, terminate HTTPS at a reverse proxy, and set `api.ui_session.cookie_secure: true` ([#112](https://github.com/hilather/go-lab-tacacs-mcp/pull/112)).
+- Cancel REST/MCP streams and mark unready before shutdown drains; force-close stalled HTTP connections after the grace and report HTTP/observability shutdown failures. Protocol grace cancellation retains its established behavior ([#112](https://github.com/hilather/go-lab-tacacs-mcp/pull/112)).
+- Configuration fingerprints cover all normalized non-secret content (policy matches and replies, memberships, grants, limits); runtime credential changes contribute through a process-keyed aggregate. Fingerprints stay opaque, and their values differ from earlier releases. Every successful publication, including reset and SIGHUP reload, emits exactly one ordered `state.revision.changed` event, so connected clients refresh after external changes ([#107](https://github.com/hilather/go-lab-tacacs-mcp/pull/107)).
+- Release CI: the release workflow now requires the CI run for the exact tag push (tag name, `push` event and SHA) and watches it to completion. A green `main` or pull-request run for the same commit no longer satisfies the gate. Tag names are passed as quoted environment values. `make check-tag-ci` runs in `make ci` and GitHub CI ([#108](https://github.com/hilather/go-lab-tacacs-mcp/pull/108)).
+- RADIUS lab fixtures signed with the old CoA/Disconnect nonce must be regenerated. Legacy internal nonce inputs still compile but are ignored when encoding ([#113](https://github.com/hilather/go-lab-tacacs-mcp/pull/113)).
+
+### Fixed
+
+- TACACS+: a second live session on a connection is rejected unless the first request/reply negotiated single-connect, so an interactive login can no longer be multiplexed without negotiation. The shutdown race on sequence state is gone, and a stopped session no longer dispatches queued packets or sends a handler result ([#105](https://github.com/hilather/go-lab-tacacs-mcp/pull/105)).
+- PEAP: input, output and reassembly flights are capped at 64 KiB, and tunnel capacity is reserved from the Challenge limits (four 64 KiB buffers per tunnel, so the default 1 MiB admits four concurrent tunnels; ADR 0030). Tunnels close on terminal responses, idle expiry, runtime reset and shutdown. Malformed declared lengths, repeated length flags, unsupported versions and wrong continuation identifiers fail closed ([#106](https://github.com/hilather/go-lab-tacacs-mcp/pull/106)).
+- State: normalized Unicode user IDs no longer publish and then return an error; token mutations write audit records; deleted or replaced runtime verifiers are released; reset-style candidate validation ignores the overlay that reload would discard ([#107](https://github.com/hilather/go-lab-tacacs-mcp/pull/107)).
+- UI: session restore no longer requires `state:read` (it uses the canonical session response); a stale-write retry keeps the original delete/revoke intent instead of turning into another operation; live event views keep and reconcile the latest 1,000 events, including batched resets and cancelled updates; accounting and state events refresh the affected RADIUS views ([#109](https://github.com/hilather/go-lab-tacacs-mcp/pull/109)).
+- Bind RADIUS credentials and policy to the admitted snapshot, preserve separate UDP/RadSec endpoint policies, and release compiled TACACS policy engines with their snapshots ([#110](https://github.com/hilather/go-lab-tacacs-mcp/pull/110)).
+- RadSec loads the published snapshot for each packet on an open connection. Disabled users, password changes, and policy or endpoint edits apply to the next packet; a client that is deleted or no longer matches its certificate closes the connection. The shared secret and TLS identity stay bound at handshake until reconnect ([#110](https://github.com/hilather/go-lab-tacacs-mcp/pull/110)).
+- PEAP now matches EAP policy and preserves supported reply profiles in its final Access-Accept ([#110](https://github.com/hilather/go-lab-tacacs-mcp/pull/110)).
+- Concurrent accounting retries with changed identifiers or delay times produce one event while retaining independently signed replies; failed sink calls remain retryable. RADIUS conformance stays partial ([#110](https://github.com/hilather/go-lab-tacacs-mcp/pull/110)).
+- Events: concurrent acceptance delivers IDs in order, each consumer gets its own copy of the payload so retained history cannot be changed, and REST reconnect replays the whole bounded window instead of stopping after 200 entries ([#111](https://github.com/hilather/go-lab-tacacs-mcp/pull/111)).
+
+### Security / toolchain
+
+- Frontend: `jsdom` 30.1.0 → 30.1.1 ([#98](https://github.com/hilather/go-lab-tacacs-mcp/pull/98)); `vite` 8.3.0 → 8.3.1 ([#99](https://github.com/hilather/go-lab-tacacs-mcp/pull/99)); `react-router-dom` 7.18.3 → 7.18.4 ([#100](https://github.com/hilather/go-lab-tacacs-mcp/pull/100)); `@tanstack/react-query` 5.102.8 → 5.104.0 ([#101](https://github.com/hilather/go-lab-tacacs-mcp/pull/101)); `typescript-eslint` 8.70.0 → 8.70.1 ([#102](https://github.com/hilather/go-lab-tacacs-mcp/pull/102)).
 
 ## [1.5.2] — 2026-09-21
 

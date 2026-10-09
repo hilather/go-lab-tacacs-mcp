@@ -246,4 +246,5 @@ clean:
 
 .PHONY: check-tag-ci
 check-tag-ci:
+	$(GO) run ./tools/check-workflows
 	bash tools/wait-tag-ci_test.sh

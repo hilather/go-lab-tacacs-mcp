@@ -6,6 +6,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Security / toolchain
 
+- Release workflow values for the version input and the tag name pass through environment variables and are validated by `tools/release-version.sh` (vX.Y.Z or X.Y.Z with an optional pre-release; no build metadata) before they are used. The workflow token defaults to no permissions. Job grants are notes `contents: read`; wait-ci `contents: read` and `actions: read`; images `contents: read`, `packages: write`, and `id-token: write`; publish `contents: write`. `make check-tag-ci` rejects `${{ }}` in `run` and `shell` values anywhere in `.github/workflows` and any drift in these permissions.
 - Release workflow pins every action to a full commit SHA and grants `packages: write` only on the image job, which is the job that pushes to GHCR. Release notes, the CI wait, and the GitHub Release no longer receive that permission.
 - Frontend: `source-map-js` 1.2.1 → 1.2.2 (lockfile only; GHSA-68fv-2mgg-jv7q, high: event-loop denial of service through indexed source-map section offsets). Built UI assets are byte-identical.
 - Frontend: `brace-expansion` 1.1.18 → 1.1.21 and 5.0.9 → 5.0.12 (lockfile only, via eslint/minimatch; GHSA-qhr7-859c-m2p7 and GHSA-6j4f-fj2g-mc7p high, GHSA-q2hr-2g5m-vwhr moderate). Built UI assets are byte-identical.

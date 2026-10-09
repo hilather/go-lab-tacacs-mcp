@@ -1,12 +1,13 @@
-// Command check-workflows rejects expression injection, permission drift,
-// release concurrency drift, and release GOTOOLCHAIN drift in GitHub Actions
-// workflows.
+// Command check-workflows rejects expression injection, unpinned action refs
+// in ci.yml and release.yml, permission drift, release concurrency drift,
+// and release GOTOOLCHAIN drift in GitHub Actions workflows.
 package main
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -45,7 +46,26 @@ fi`
 	// tag-push group; dispatch version vX.Y.Z or X.Y.Z now shares
 	// release-<workflow>-refs/tags/vX.Y.Z with the tag push.
 	releaseConcurrencyGroup = "release-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && (startsWith(github.event.inputs.version, 'v') && format('refs/tags/{0}', github.event.inputs.version) || format('refs/tags/v{0}', github.event.inputs.version)) || github.ref }}"
+
+	// pinnedUsesMessage is the parsed-uses pin failure for ci.yml and release.yml.
+	// tools/wait-tag-ci_test.sh still checks the version comment on lines it can see.
+	pinnedUsesMessage = "uses must be owner/repo@<40 hex>"
 )
+
+// pinnedActionRef is the only uses value accepted in ci.yml and release.yml.
+// The caller trims the scalar first. Local ./ and docker:// refs fail this.
+var pinnedActionRef = regexp.MustCompile(`^[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}$`)
+
+func pinnedUsesIssue(file string, line int, uses string) []string {
+	base := filepath.Base(file)
+	if base != "ci.yml" && base != "release.yml" {
+		return nil
+	}
+	if pinnedActionRef.MatchString(uses) {
+		return nil
+	}
+	return []string{at(file, line, pinnedUsesMessage)}
+}
 
 var jobPerms = map[string]map[string]string{
 	"notes": {
@@ -614,9 +634,15 @@ func checkDocument(loader *actionLoader, file string, doc *yaml.Node) []string {
 			issues = append(issues, at(file, usesVal.Line, "uses must be a scalar"))
 			continue
 		}
-		if strings.HasPrefix(usesVal.Value, "./") && loader != nil {
-			issues = append(issues, loader.checkJobUses(file, usesVal)...)
+		// Trim so a quoted leading space cannot skip the local-workflow check.
+		// ${{ is rejected before the ./ branch; the runner expands it first.
+		uses := strings.TrimSpace(usesVal.Value)
+		if strings.Contains(uses, "${{") {
+			issues = append(issues, at(file, usesVal.Line, "${{ }} in uses"))
+		} else if strings.HasPrefix(uses, "./") && loader != nil {
+			issues = append(issues, loader.checkJobUses(file, uses, usesVal.Line)...)
 		}
+		issues = append(issues, pinnedUsesIssue(file, usesVal.Line, uses)...)
 	}
 	return issues
 }
@@ -649,6 +675,7 @@ func checkStepList(loader *actionLoader, file string, steps *yaml.Node) []string
 		if strings.Contains(uses, "${{") {
 			issues = append(issues, at(file, usesVal.Line, "${{ }} in uses"))
 		}
+		issues = append(issues, pinnedUsesIssue(file, usesVal.Line, uses)...)
 		switch {
 		case isGitHubScript(uses):
 			issues = append(issues, checkGitHubScriptStep(file, step)...)
@@ -851,34 +878,33 @@ func newActionLoader(root string) (*actionLoader, error) {
 	}, nil
 }
 
-func (l *actionLoader) checkJobUses(file string, usesVal *yaml.Node) []string {
-	uses := usesVal.Value
+func (l *actionLoader) checkJobUses(file, uses string, line int) []string {
 	if msg := localEscape(uses); msg != "" {
-		return []string{at(file, usesVal.Line, msg)}
+		return []string{at(file, line, msg)}
 	}
 	const prefix = "./.github/workflows/"
 	if !strings.HasPrefix(uses, prefix) {
-		return []string{at(file, usesVal.Line, "job uses path is not a top-level workflow file")}
+		return []string{at(file, line, "job uses path is not a top-level workflow file")}
 	}
 	name := strings.TrimPrefix(uses, prefix)
 	if !singleWorkflowName(name) {
-		return []string{at(file, usesVal.Line, "job uses path is not a top-level workflow file")}
+		return []string{at(file, line, "job uses path is not a top-level workflow file")}
 	}
 	full := filepath.Join(l.root, ".github", "workflows", name)
 	info, err := os.Lstat(full)
 	if err != nil || !info.Mode().IsRegular() {
-		return []string{at(file, usesVal.Line, "job uses path is not a top-level workflow file")}
+		return []string{at(file, line, "job uses path is not a top-level workflow file")}
 	}
 	real, err := filepath.EvalSymlinks(full)
 	if err != nil {
-		return []string{at(file, usesVal.Line, "job uses path is not a top-level workflow file")}
+		return []string{at(file, line, "job uses path is not a top-level workflow file")}
 	}
 	wfReal, err := filepath.EvalSymlinks(filepath.Join(l.root, ".github", "workflows"))
 	if err != nil {
-		return []string{at(file, usesVal.Line, "job uses path is not a top-level workflow file")}
+		return []string{at(file, line, "job uses path is not a top-level workflow file")}
 	}
 	if err := withinRoot(wfReal, real); err != nil || filepath.Dir(real) != wfReal {
-		return []string{at(file, usesVal.Line, "local path escapes the repository")}
+		return []string{at(file, line, "local path escapes the repository")}
 	}
 	return nil
 }
@@ -1028,8 +1054,12 @@ func (l *actionLoader) checkComposite(file string, runs *yaml.Node) []string {
 func checkDockerRuns(file string, runs *yaml.Node) []string {
 	var issues []string
 	_, image := mapEntry(runs, "image")
-	if image != nil && image.Kind == yaml.ScalarNode && strings.Contains(image.Value, "${{") {
-		issues = append(issues, at(file, image.Line, "${{ }} in runs.image"))
+	if image != nil {
+		if image.Kind != yaml.ScalarNode {
+			issues = append(issues, at(file, image.Line, "runs.image must be a scalar"))
+		} else if strings.Contains(image.Value, "${{") {
+			issues = append(issues, at(file, image.Line, "${{ }} in runs.image"))
+		}
 	}
 	_, args := mapEntry(runs, "args")
 	if args != nil {

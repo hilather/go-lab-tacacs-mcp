@@ -3,10 +3,11 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 release="$root/.github/workflows/release.yml"
 
-# Floating majors (actions/checkout@v7) fail. grep -n lines must match
-# owner/repo@<40 hex> # vX.Y.Z from the uses token through the end of the
-# line. A later @<hex> in a comment does not pin the ref.
-# pages.yml is not in this loop: out of scope for this PR.
+# Version-comment backstop for lines spelled like (- )?uses:.
+# tools/check-workflows enforces owner/repo@<40 hex> on every parsed step
+# and job uses in ci.yml and release.yml. This grep still requires the
+# trailing # vX.Y.Z comment. A later @<hex> in a comment does not pin the ref.
+# Floating majors (actions/checkout@v7) fail. pages.yml is not in this loop.
 pin_re='^[0-9]+:[[:space:]]*(- )?uses:[[:space:]]*[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}[[:space:]]+# v[0-9]+\.[0-9]+\.[0-9]+$'
 check_action_pins() {
   local workflow="$1"

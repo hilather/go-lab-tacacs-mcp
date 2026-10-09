@@ -590,6 +590,15 @@ func TestLocalActions(t *testing.T) {
 		mustContain(t, issues, "${{ }} in runs.image")
 		mustNotContain(t, issues, "${{ }} in runs.args")
 	})
+	t.Run("docker metadata image wrong shape", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image:\n    - \"docker://${{ github.sha }}\"\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		mustContain(t, issues, "runs.image must be a scalar")
+		mustNotContain(t, issues, "${{ }}")
+	})
 	t.Run("docker metadata args expression", func(t *testing.T) {
 		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  args:\n    - echo\n    - \"${{ github.sha }}\"\n"
 		issues := checkRepo(t, map[string]string{
@@ -835,6 +844,31 @@ func TestLocalPaths(t *testing.T) {
 		mustContain(t, issues, "uses must be a scalar")
 		mustNotContain(t, issues, "local path escapes the repository")
 	})
+	t.Run("job workflow leading space", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/called.yml": calledWorkflow,
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: \" ./.github/workflows/called.yml\"\n",
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("job workflow leading space escapes", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: \" ./.github/workflows/../../x\"\n",
+		})
+		mustContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "job uses path is not a top-level workflow file")
+		mustNotContain(t, issues, "action file is missing")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("job uses expression before local", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: \" ./.github/workflows/../../${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in uses")
+		mustNotContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "job uses path")
+		mustNotContain(t, issues, "parse error")
+	})
 }
 
 func TestWriteAllEverywhere(t *testing.T) {
@@ -948,6 +982,100 @@ func TestReleaseGoToolchain(t *testing.T) {
 	t.Run("non-release auto stays legal", func(t *testing.T) {
 		src := "name: ci\nenv:\n  GOTOOLCHAIN: auto\njobs:\n  build:\n    env:\n      GOTOOLCHAIN: auto\n    container:\n      image: alpine\n      env:\n        GOTOOLCHAIN: auto\n    services:\n      box:\n        image: alpine\n        env:\n          GOTOOLCHAIN: auto\n    steps:\n      - env:\n          GOTOOLCHAIN: auto\n        run: echo ok\n"
 		issues := checkRepo(t, map[string]string{".github/workflows/ci.yml": src})
+		requireEmpty(t, issues)
+	})
+}
+
+func TestPinnedUses(t *testing.T) {
+	const pin = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+	ciSteps := func(step string) string {
+		return "name: ci\non: push\njobs:\n  build:\n    steps:\n" + step
+	}
+	t.Run("current pin shape", func(t *testing.T) {
+		src := ciSteps("      - uses: " + pin + "\n      - uses: \" " + pin + "\"\n")
+		src += "  call:\n    uses: \" " + pin + "\"\n"
+		requireEmpty(t, checkSource(t, "ci.yml", src))
+	})
+	t.Run("release current pin shape", func(t *testing.T) {
+		src := strings.Replace(validRelease(), "      - run: echo ok\n", "      - uses: "+pin+"\n", 1)
+		if src == validRelease() {
+			t.Fatal("mutation did not change release workflow")
+		}
+		requireEmpty(t, checkSource(t, "release.yml", src))
+	})
+	forms := []struct {
+		name string
+		step string
+	}{
+		{name: "two-space main", step: "      -  uses: actions/checkout@main\n"},
+		{name: "two-space master", step: "      -  uses: actions/checkout@master\n"},
+		{name: "flow main", step: "      - {uses: actions/checkout@main}\n"},
+		{name: "flow master", step: "      - {uses: actions/checkout@master}\n"},
+	}
+	for _, tc := range forms {
+		t.Run(tc.name, func(t *testing.T) {
+			issues := checkSource(t, "ci.yml", ciSteps(tc.step))
+			mustContain(t, issues, pinnedUsesMessage)
+		})
+	}
+	for _, ref := range []string{"main", "master"} {
+		t.Run("tab "+ref, func(t *testing.T) {
+			// A tab between "-" and "uses" is a real step. yaml.v3 rejects that
+			// token, and checkRoot records a parse error. If it parses, the pin
+			// rule still has to reject @main and @master.
+			src := ciSteps("      -\tuses: actions/checkout@" + ref + "\n")
+			issues := checkRepo(t, map[string]string{".github/workflows/ci.yml": src})
+			if len(issues) == 0 {
+				t.Fatal("tab form was accepted")
+			}
+			saw := false
+			for _, issue := range issues {
+				if strings.Contains(issue, pinnedUsesMessage) || strings.Contains(issue, "parse error") {
+					saw = true
+					break
+				}
+			}
+			if !saw {
+				t.Fatalf("tab form rejected for the wrong reason:\n%s", strings.Join(issues, "\n"))
+			}
+		})
+	}
+	t.Run("release two-space main", func(t *testing.T) {
+		src := strings.Replace(validRelease(), "      - run: echo ok\n", "      -  uses: actions/checkout@main\n", 1)
+		if src == validRelease() {
+			t.Fatal("mutation did not change release workflow")
+		}
+		mustContain(t, checkSource(t, "release.yml", src), pinnedUsesMessage)
+	})
+	t.Run("job uses movable ref", func(t *testing.T) {
+		src := "name: ci\non: push\njobs:\n  call:\n    uses: actions/checkout@main\n  call2: {uses: actions/checkout@master}\n"
+		mustContain(t, checkSource(t, "ci.yml", src), pinnedUsesMessage)
+	})
+	t.Run("local and docker are not pins", func(t *testing.T) {
+		for _, uses := range []string{"./actions/hello", "docker://alpine:3.20"} {
+			issues := checkSource(t, "ci.yml", ciSteps("      - uses: "+uses+"\n"))
+			mustContain(t, issues, pinnedUsesMessage)
+		}
+	})
+	t.Run("pages not pinned", func(t *testing.T) {
+		src := "name: pages\non: push\njobs:\n  deploy:\n    steps:\n      -  uses: actions/checkout@main\n      - {uses: actions/checkout@master}\n      - uses: ./actions/hello\n      - uses: docker://alpine:3.20\n"
+		issues := checkSource(t, "pages.yml", src)
+		mustNotContain(t, issues, pinnedUsesMessage)
+		requireEmpty(t, issues)
+	})
+	t.Run("current tree", func(t *testing.T) {
+		_, file, _, ok := runtime.Caller(0)
+		if !ok {
+			t.Fatal("runtime.Caller failed")
+		}
+		root, err := findRoot(filepath.Dir(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		issues, err := checkRoot(root)
+		if err != nil {
+			t.Fatal(err)
+		}
 		requireEmpty(t, issues)
 	})
 }

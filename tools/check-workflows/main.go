@@ -1,5 +1,5 @@
-// Command check-workflows rejects expression injection and permission drift
-// in GitHub Actions workflows.
+// Command check-workflows rejects expression injection, permission drift,
+// and release concurrency drift in GitHub Actions workflows.
 package main
 
 import (
@@ -38,6 +38,12 @@ if gh release view "$tag" >/dev/null 2>&1; then
 else
   gh release create "$tag" --title "TacLab ${tag}" --notes-file dist/RELEASE_NOTES.md
 fi`
+
+	// releaseConcurrencyGroup is the only accepted release.yml concurrency group.
+	// A branch dispatch (github.ref refs/heads/main) previously did not share the
+	// tag-push group; dispatch version vX.Y.Z or X.Y.Z now shares
+	// release-<workflow>-refs/tags/vX.Y.Z with the tag push.
+	releaseConcurrencyGroup = "release-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && (startsWith(github.event.inputs.version, 'v') && format('refs/tags/{0}', github.event.inputs.version) || format('refs/tags/v{0}', github.event.inputs.version)) || github.ref }}"
 )
 
 var jobPerms = map[string]map[string]string{
@@ -218,6 +224,7 @@ func checkRelease(file string, doc *yaml.Node) []string {
 		return []string{at(file, 1, "workflow document must be a mapping")}
 	}
 	var issues []string
+	issues = append(issues, checkReleaseConcurrency(file, root)...)
 	_, perms := mapEntry(root, "permissions")
 	issues = append(issues, checkWorkflowPerms(file, perms, root.Line)...)
 
@@ -282,6 +289,53 @@ func checkRelease(file string, doc *yaml.Node) []string {
 		issues = append(issues, checkPublish(file, publish.val)...)
 	}
 	return issues
+}
+
+func checkReleaseConcurrency(file string, root *yaml.Node) []string {
+	key, conc := mapEntry(root, "concurrency")
+	if conc == nil || conc.Kind != yaml.MappingNode {
+		line := root.Line
+		if conc != nil {
+			line = conc.Line
+		} else if key != nil {
+			line = key.Line
+		}
+		return []string{at(file, line, "concurrency must be a mapping")}
+	}
+	var issues []string
+	gkey, group := mapEntry(conc, "group")
+	if group == nil || group.Kind != yaml.ScalarNode || group.Value != releaseConcurrencyGroup {
+		line := conc.Line
+		if group != nil {
+			line = group.Line
+		} else if gkey != nil {
+			line = gkey.Line
+		}
+		got := "<missing>"
+		if group != nil {
+			if group.Kind == yaml.ScalarNode {
+				got = group.Value
+			} else {
+				got = "<not a scalar>"
+			}
+		}
+		issues = append(issues, at(file, line, fmt.Sprintf("concurrency group must be %q, got %q", releaseConcurrencyGroup, got)))
+	}
+	ckey, cancel := mapEntry(conc, "cancel-in-progress")
+	if !boolFalse(cancel) {
+		line := conc.Line
+		if cancel != nil {
+			line = cancel.Line
+		} else if ckey != nil {
+			line = ckey.Line
+		}
+		issues = append(issues, at(file, line, "concurrency cancel-in-progress must be boolean false"))
+	}
+	return issues
+}
+
+func boolFalse(n *yaml.Node) bool {
+	return n != nil && n.Kind == yaml.ScalarNode && n.Tag == "!!bool" && n.Value == "false"
 }
 
 func checkWorkflowPerms(file string, n *yaml.Node, fallback int) []string {

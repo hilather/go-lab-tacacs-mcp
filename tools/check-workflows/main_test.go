@@ -206,6 +206,44 @@ func TestReleasePermissions(t *testing.T) {
 	})
 }
 
+func TestReleaseConcurrency(t *testing.T) {
+	pass := releaseWorkflow(
+		"permissions: {}",
+		"permissions: {contents: read}",
+		"permissions: {actions: read, contents: read}",
+		"permissions: {contents: read, id-token: write, packages: write}",
+		"permissions: {contents: write}",
+		"",
+	)
+	block := "concurrency:\n  group: " + releaseConcurrencyGroup + "\n  cancel-in-progress: false\n"
+	t.Run("missing concurrency", func(t *testing.T) {
+		src := strings.Replace(pass, block, "", 1)
+		issues := checkSource(t, "release.yml", src)
+		mustContain(t, issues, "concurrency must be a mapping")
+	})
+	t.Run("concurrency not a mapping", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency: release\n", 1)
+		issues := checkSource(t, "release.yml", src)
+		mustContain(t, issues, "concurrency must be a mapping")
+	})
+	t.Run("legacy ref group", func(t *testing.T) {
+		src := strings.Replace(pass, "group: "+releaseConcurrencyGroup, "group: release-${{ github.ref }}", 1)
+		issues := checkSource(t, "release.yml", src)
+		mustContain(t, issues, `got "release-${{ github.ref }}"`)
+		mustContain(t, issues, "concurrency group must be")
+	})
+	t.Run("cancel in progress true", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: false", "cancel-in-progress: true", 1)
+		issues := checkSource(t, "release.yml", src)
+		mustContain(t, issues, "concurrency cancel-in-progress must be boolean false")
+	})
+	t.Run("cancel in progress string false", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: false", `cancel-in-progress: "false"`, 1)
+		issues := checkSource(t, "release.yml", src)
+		mustContain(t, issues, "concurrency cancel-in-progress must be boolean false")
+	})
+}
+
 func TestRepoWorkflows(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -265,6 +303,11 @@ func mustNotContain(t *testing.T, issues []string, sub string) {
 func releaseWorkflow(top, notes, wait, images, publish, tail string) string {
 	var b strings.Builder
 	b.WriteString("name: release\n")
+	b.WriteString("concurrency:\n")
+	b.WriteString("  group: ")
+	b.WriteString(releaseConcurrencyGroup)
+	b.WriteString("\n")
+	b.WriteString("  cancel-in-progress: false\n")
 	b.WriteString(top)
 	b.WriteString("\njobs:\n")
 	writeJob(&b, "notes", notes)

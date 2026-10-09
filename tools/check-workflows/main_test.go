@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -274,7 +275,7 @@ func TestRepoWorkflows(t *testing.T) {
 
 func checkSource(t *testing.T, name, src string) []string {
 	t.Helper()
-	issues, err := checkWorkflow(name, []byte(src))
+	issues, err := checkWorkflow(nil, name, []byte(src))
 	if err != nil {
 		t.Fatalf("parse: %v\nsource:\n%s", err, src)
 	}
@@ -309,7 +310,7 @@ func releaseWorkflow(top, notes, wait, images, publish, tail string) string {
 	b.WriteString("\n")
 	b.WriteString("  cancel-in-progress: false\n")
 	b.WriteString(top)
-	b.WriteString("\njobs:\n")
+	b.WriteString("\nenv:\n  GOTOOLCHAIN: local\njobs:\n")
 	writeJob(&b, "notes", notes)
 	b.WriteString("    outputs:\n")
 	b.WriteString("      version: \"${{ steps.ver.outputs.version }}\"\n")
@@ -363,4 +364,555 @@ func indentScript(body string, spaces int) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+func validRelease() string {
+	return releaseWorkflow(
+		"permissions: {}",
+		"permissions: {contents: read}",
+		"permissions: {actions: read, contents: read}",
+		"permissions: {contents: read, id-token: write, packages: write}",
+		"permissions: {contents: write}",
+		"",
+	)
+}
+
+func writeTree(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	all := make(map[string]string, len(files)+1)
+	for path, content := range files {
+		all[path] = content
+	}
+	if _, ok := all[".github/workflows/release.yml"]; !ok {
+		all[".github/workflows/release.yml"] = validRelease()
+	}
+	for path, content := range all {
+		full := filepath.Join(dir, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func checkRepo(t *testing.T, files map[string]string) []string {
+	t.Helper()
+	return checkPrepared(t, t.TempDir(), files)
+}
+
+func checkPrepared(t *testing.T, dir string, files map[string]string) []string {
+	t.Helper()
+	writeTree(t, dir, files)
+	issues, err := checkRoot(dir)
+	if err != nil {
+		t.Fatalf("checkRoot: %v", err)
+	}
+	return issues
+}
+
+func requireEmpty(t *testing.T, issues []string) {
+	t.Helper()
+	if len(issues) != 0 {
+		t.Fatalf("unexpected issues:\n%s", strings.Join(issues, "\n"))
+	}
+}
+
+func usesWorkflow(uses string) string {
+	return "name: extra\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: " + uses + "\n"
+}
+
+func compositeYAML(run string) string {
+	return fmt.Sprintf(`name: act
+description: act
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: %s
+      env:
+        FOO: ${{ github.sha }}
+      if: ${{ always() }}
+    - uses: actions/checkout@v4
+      if: ${{ always() }}
+      with:
+        ref: ${{ github.sha }}
+`, run)
+}
+
+const calledWorkflow = `name: called
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+`
+
+const imagesJob = "  images:\n    permissions: {contents: read, id-token: write, packages: write}\n    steps:\n      - run: echo ok\n"
+
+func TestSinks(t *testing.T) {
+	t.Run("github-script safe", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with:\n          script: console.log(1)\n",
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("github-script expression", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with:\n          script: \"return ${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in github-script script")
+	})
+	t.Run("github-script ref and case", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("Actions/GitHub-Script@releases/v7") + "        with:\n          Script: \"${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in github-script script")
+	})
+	t.Run("github-script-evil is not github-script", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("actions/github-script-evil@v1") + "        with:\n          script: \"${{ github.sha }}\"\n",
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("docker args safe", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          args: echo hello\n          entrypoint: /bin/sh\n",
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("docker args expression", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          Args: \"echo ${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in docker args")
+	})
+	t.Run("docker entrypoint expression", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          args: echo hello\n          entrypoint: \"${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in docker entrypoint")
+		mustNotContain(t, issues, "${{ }} in docker args")
+	})
+	t.Run("with not a mapping", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with: not-a-mapping\n",
+		})
+		mustContain(t, issues, "with must be a mapping")
+	})
+	t.Run("script not a scalar", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with:\n          script:\n            - echo\n",
+		})
+		mustContain(t, issues, "github-script script must be a scalar")
+	})
+	t.Run("docker args not a scalar", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          args:\n            - echo\n",
+		})
+		mustContain(t, issues, "docker args must be a scalar")
+	})
+	t.Run("non-scalar uses before name match", func(t *testing.T) {
+		src := "name: extra\non: push\njobs:\n  build:\n    steps:\n      - uses:\n          - actions/checkout@v4\n        run: echo ok\n"
+		issues := checkRepo(t, map[string]string{".github/workflows/extra.yml": src})
+		mustContain(t, issues, "uses must be a scalar")
+		mustNotContain(t, issues, "github-script")
+	})
+}
+
+func TestLocalActions(t *testing.T) {
+	t.Run("composite safe", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/hello"),
+			"actions/hello/action.yml":    compositeYAML("echo ok"),
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("composite run expression", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/hello"),
+			"actions/hello/action.yml":    compositeYAML("echo ${{ github.sha }}"),
+		})
+		mustContain(t, issues, "actions/hello/action.yml")
+		mustContain(t, issues, "${{ }} in run/shell")
+		mustNotContain(t, issues, ".github/workflows/extra.yml")
+	})
+	t.Run("docker metadata safe args", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  args:\n    - echo\n    - hello\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("docker metadata omits optional keys", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("docker metadata args expression", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  args:\n    - echo\n    - \"${{ github.sha }}\"\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		mustContain(t, issues, "${{ }} in runs.args")
+	})
+	t.Run("docker metadata args wrong shape", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  args: echo hello\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		mustContain(t, issues, "runs.args must be a sequence of scalars")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("docker metadata entrypoint wrong shape", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  entrypoint:\n    - /bin/sh\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		mustContain(t, issues, "runs.entrypoint must be a scalar")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("docker metadata pre-entrypoint expression", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  pre-entrypoint: \"${{ github.sha }}\"\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		mustContain(t, issues, "${{ }} in runs.pre-entrypoint")
+	})
+	t.Run("node action", func(t *testing.T) {
+		action := "name: n\nruns:\n  using: node20\n  main: index.js\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/node"),
+			"actions/node/action.yml":     action,
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("missing runs.using", func(t *testing.T) {
+		action := "name: n\nruns:\n  image: Dockerfile\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/bad"),
+			"actions/bad/action.yml":      action,
+		})
+		mustContain(t, issues, "runs.using is not composite, docker, or node")
+	})
+	t.Run("missing action file", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/missing"),
+		})
+		mustContain(t, issues, "action file is missing")
+		mustNotContain(t, issues, "local path escapes the repository")
+	})
+	t.Run("both action files", func(t *testing.T) {
+		body := compositeYAML("echo ok")
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/both"),
+			"actions/both/action.yml":     body,
+			"actions/both/action.yaml":    body,
+		})
+		mustContain(t, issues, "both action.yml and action.yaml exist")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("unparseable action", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/bad"),
+			"actions/bad/action.yml":      "runs: [\n",
+		})
+		mustContain(t, issues, "parse error")
+	})
+}
+
+func TestNestedAndDiamond(t *testing.T) {
+	calleeBad := `name: callee
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo ok
+    - uses: docker://alpine:3.20
+      with:
+        args: "echo ${{ github.sha }}"
+`
+	calleeOK := strings.Replace(calleeBad, "echo ${{ github.sha }}", "echo hello", 1)
+	caller := `name: caller
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo ok
+    - uses: ./actions/callee
+`
+	t.Run("nested docker args", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/caller"),
+			"actions/caller/action.yml":   caller,
+			"actions/callee/action.yml":   calleeBad,
+		})
+		mustContain(t, issues, "actions/callee/action.yml")
+		mustContain(t, issues, "${{ }} in docker args")
+		mustNotContain(t, issues, "${{ }} in run/shell")
+		mustNotContain(t, issues, ".github/workflows/extra.yml")
+	})
+	t.Run("nested safe", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/caller"),
+			"actions/caller/action.yml":   caller,
+			"actions/callee/action.yml":   calleeOK,
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("diamond", func(t *testing.T) {
+		shared := "name: shared\nruns:\n  using: composite\n  steps:\n    - shell: bash\n      run: echo ok\n"
+		side := func(name string) string {
+			return "name: " + name + "\nruns:\n  using: composite\n  steps:\n    - shell: bash\n      run: echo ok\n    - uses: ./actions/shared\n"
+		}
+		top := "name: top\nruns:\n  using: composite\n  steps:\n    - uses: ./actions/left\n    - uses: ./actions/right\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/top"),
+			"actions/top/action.yml":      top,
+			"actions/left/action.yml":     side("left"),
+			"actions/right/action.yml":    side("right"),
+			"actions/shared/action.yml":   shared,
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("cycle", func(t *testing.T) {
+		a := "name: a\nruns:\n  using: composite\n  steps:\n    - shell: bash\n      run: echo ok\n    - uses: ./actions/b\n"
+		b := "name: b\nruns:\n  using: composite\n  steps:\n    - shell: bash\n      run: echo ok\n    - uses: ./actions/a\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/a"),
+			"actions/a/action.yml":        a,
+			"actions/b/action.yml":        b,
+		})
+		mustContain(t, issues, "local action cycle")
+		mustNotContain(t, issues, "${{ }}")
+	})
+}
+
+func TestLocalPaths(t *testing.T) {
+	outsideDoc := "name: outside\non: push\njobs:\n  build:\n    steps:\n      - run: echo ok\n"
+	t.Run("dotdot", func(t *testing.T) {
+		parent := t.TempDir()
+		root := filepath.Join(parent, "repo")
+		target := filepath.Join(parent, "x")
+		if err := os.MkdirAll(target, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(target, "action.yml"), []byte(compositeYAML("echo ok")), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		writeTree(t, root, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./../x"),
+		})
+		issues, err := checkRoot(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "action file is missing")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("symlink", func(t *testing.T) {
+		parent := t.TempDir()
+		root := filepath.Join(parent, "repo")
+		outside := filepath.Join(parent, "outside-action")
+		if err := os.MkdirAll(outside, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(outside, "action.yml"), []byte(compositeYAML("echo ok")), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		writeTree(t, root, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./linked"),
+		})
+		if err := os.Symlink(outside, filepath.Join(root, "linked")); err != nil {
+			t.Fatal(err)
+		}
+		issues, err := checkRoot(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "action file is missing")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("slash etc passwd", func(t *testing.T) {
+		// .//etc/passwd strips to absolute /etc/passwd. Join would drop the
+		// repo root and read the host file. Reject before any read.
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow(`".//etc/passwd"`),
+		})
+		mustContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "action file is missing")
+		mustNotContain(t, issues, "parse error")
+		mustNotContain(t, issues, "runs.using")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("job workflow positive", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/called.yml": calledWorkflow,
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: ./.github/workflows/called.yml\n",
+		})
+		requireEmpty(t, issues)
+	})
+	t.Run("job workflow dotdot", func(t *testing.T) {
+		parent := t.TempDir()
+		root := filepath.Join(parent, "repo")
+		if err := os.WriteFile(filepath.Join(parent, "outside.yml"), []byte(outsideDoc), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		writeTree(t, root, map[string]string{
+			"outside.yml":                  outsideDoc,
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: ./.github/workflows/../../outside.yml\n",
+		})
+		issues, err := checkRoot(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "action file is missing")
+		mustNotContain(t, issues, "runs.using")
+		mustNotContain(t, issues, "parse error")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("job local action is not a workflow", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: ./actions/hello\n",
+			"actions/hello/action.yml":     compositeYAML("echo ok"),
+		})
+		mustContain(t, issues, "job uses path is not a top-level workflow file")
+		mustNotContain(t, issues, "${{ }}")
+	})
+	t.Run("non-scalar job uses", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/called.yml": calledWorkflow,
+			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses:\n      - ./.github/workflows/called.yml\n",
+		})
+		mustContain(t, issues, "uses must be a scalar")
+		mustNotContain(t, issues, "local path escapes the repository")
+	})
+}
+
+func TestWriteAllEverywhere(t *testing.T) {
+	t.Run("workflow", func(t *testing.T) {
+		src := "name: pages\non: push\npermissions: write-all\njobs:\n  deploy:\n    steps:\n      - run: echo ok\n"
+		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
+		mustContain(t, issues, ".github/workflows/pages.yml")
+		mustContain(t, issues, "permissions write-all is not allowed")
+	})
+	t.Run("job", func(t *testing.T) {
+		src := "name: pages\non: push\npermissions:\n  contents: read\njobs:\n  deploy:\n    permissions: write-all\n    steps:\n      - run: echo ok\n"
+		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
+		mustContain(t, issues, ".github/workflows/pages.yml")
+		mustContain(t, issues, "permissions write-all is not allowed")
+	})
+	t.Run("reusable call", func(t *testing.T) {
+		src := "name: caller\non: push\njobs:\n  call:\n    permissions: write-all\n    uses: ./.github/workflows/called.yml\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/called.yml": calledWorkflow,
+			".github/workflows/caller.yml": src,
+		})
+		mustContain(t, issues, ".github/workflows/caller.yml")
+		mustContain(t, issues, "permissions write-all is not allowed")
+		mustNotContain(t, issues, "local path escapes the repository")
+		mustNotContain(t, issues, "action file is missing")
+	})
+	t.Run("read-all outside release", func(t *testing.T) {
+		src := "name: pages\non: push\npermissions: read-all\njobs:\n  deploy:\n    steps:\n      - run: echo ok\n"
+		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
+		requireEmpty(t, issues)
+	})
+}
+
+func TestReleaseGoToolchain(t *testing.T) {
+	base := validRelease()
+	if !strings.Contains(base, "GOTOOLCHAIN: local") || !strings.Contains(base, imagesJob) {
+		t.Fatal("release fixture missing GOTOOLCHAIN or images job")
+	}
+	replaceImages := func(body string) string {
+		out := strings.Replace(base, imagesJob, body, 1)
+		if out == base {
+			t.Fatal("images job was not replaced")
+		}
+		return out
+	}
+	cases := []struct {
+		name   string
+		src    string
+		want   string
+		absent string
+	}{
+		{
+			name: "missing workflow key",
+			src:  strings.Replace(base, "  GOTOOLCHAIN: local\n", "", 1),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+		{
+			name: "workflow go1.26.0",
+			src:  strings.Replace(base, "GOTOOLCHAIN: local", "GOTOOLCHAIN: go1.26.0", 1),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+		{
+			name: "workflow auto",
+			src:  strings.Replace(base, "GOTOOLCHAIN: local", "GOTOOLCHAIN: auto", 1),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+		{
+			name: "workflow not scalar",
+			src:  strings.Replace(base, "GOTOOLCHAIN: local", "GOTOOLCHAIN:\n    - local", 1),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+		{
+			name: "job auto",
+			src:  replaceImages("  images:\n    permissions: {contents: read, id-token: write, packages: write}\n    env:\n      GOTOOLCHAIN: auto\n    steps:\n      - run: echo ok\n"),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+		{
+			name:   "step auto",
+			src:    replaceImages("  images:\n    permissions: {contents: read, id-token: write, packages: write}\n    steps:\n      - run: echo ok\n        env:\n          GOTOOLCHAIN: auto\n"),
+			want:   "GOTOOLCHAIN must be scalar local",
+			absent: "notes step ver",
+		},
+		{
+			name: "container auto",
+			src:  replaceImages("  images:\n    permissions: {contents: read, id-token: write, packages: write}\n    container:\n      image: alpine\n      env:\n        GOTOOLCHAIN: auto\n    steps:\n      - run: echo ok\n"),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+		{
+			name: "services auto",
+			src:  replaceImages("  images:\n    permissions: {contents: read, id-token: write, packages: write}\n    services:\n      box:\n        image: alpine\n        env:\n          GOTOOLCHAIN: auto\n    steps:\n      - run: echo ok\n"),
+			want: "GOTOOLCHAIN must be scalar local",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.src == base {
+				t.Fatal("mutation did not change release workflow")
+			}
+			issues := checkRepo(t, map[string]string{".github/workflows/release.yml": tc.src})
+			mustContain(t, issues, tc.want)
+			if tc.absent != "" {
+				mustNotContain(t, issues, tc.absent)
+			}
+		})
+	}
+	t.Run("local in every scope", func(t *testing.T) {
+		src := replaceImages("  images:\n    permissions: {contents: read, id-token: write, packages: write}\n    env:\n      GOTOOLCHAIN: local\n    container:\n      image: alpine\n      env:\n        GOTOOLCHAIN: local\n    services:\n      box:\n        image: alpine\n        env:\n          GOTOOLCHAIN: local\n    steps:\n      - run: echo ok\n        env:\n          GOTOOLCHAIN: local\n")
+		issues := checkRepo(t, map[string]string{".github/workflows/release.yml": src})
+		requireEmpty(t, issues)
+	})
+	t.Run("non-release auto stays legal", func(t *testing.T) {
+		src := "name: ci\nenv:\n  GOTOOLCHAIN: auto\njobs:\n  build:\n    env:\n      GOTOOLCHAIN: auto\n    container:\n      image: alpine\n      env:\n        GOTOOLCHAIN: auto\n    services:\n      box:\n        image: alpine\n        env:\n          GOTOOLCHAIN: auto\n    steps:\n      - env:\n          GOTOOLCHAIN: auto\n        run: echo ok\n"
+		issues := checkRepo(t, map[string]string{".github/workflows/ci.yml": src})
+		requireEmpty(t, issues)
+	})
 }

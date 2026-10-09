@@ -8,12 +8,30 @@ export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${PATH}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# Match the Makefile filter before this value reaches docker --build-arg/-t.
+# TACLAB_VERSION, including set-but-empty, is kept unchanged. The print guard
+# exits before docker so the filter can be checked without a daemon.
+if [[ -v TACLAB_VERSION ]]; then
+  VERSION="$TACLAB_VERSION"
+else
+  v="$(git describe --tags --always --dirty 2>/dev/null || true)"
+  v="$(printf '%s' "$v" | LC_ALL=C tr -cd 'A-Za-z0-9._+-')"
+  if [[ -z "$v" ]]; then
+    VERSION=dev
+  else
+    VERSION="$v"
+  fi
+fi
+if [[ "${TACLAB_PRINT_VERSION:-}" == 1 ]]; then
+  printf '%s\n' "$VERSION"
+  exit 0
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "lab-test: docker is required" >&2
   exit 2
 fi
 
-VERSION="${TACLAB_VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 COMMIT="${TACLAB_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 BUILDTIME="${TACLAB_BUILDTIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 UI_VERSION="${TACLAB_UI_VERSION:-0.0.0}"

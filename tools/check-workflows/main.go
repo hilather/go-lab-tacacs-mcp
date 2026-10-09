@@ -1,6 +1,6 @@
 // Command check-workflows rejects expression injection, unpinned action refs
-// in ci.yml and release.yml, permission drift, release concurrency drift,
-// and release GOTOOLCHAIN drift in GitHub Actions workflows.
+// in ci.yml and release.yml, permission drift, release and ci concurrency
+// drift, and release GOTOOLCHAIN drift in GitHub Actions workflows.
 package main
 
 import (
@@ -46,6 +46,15 @@ fi`
 	// tag-push group; dispatch version vX.Y.Z or X.Y.Z now shares
 	// release-<workflow>-refs/tags/vX.Y.Z with the tag push.
 	releaseConcurrencyGroup = "release-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && (startsWith(github.event.inputs.version, 'v') && format('refs/tags/{0}', github.event.inputs.version) || format('refs/tags/v{0}', github.event.inputs.version)) || github.ref }}"
+
+	// ciConcurrencyGroup is the only accepted ci.yml concurrency group.
+	ciConcurrencyGroup = "ci-${{ github.workflow }}-${{ github.ref }}"
+
+	// ciCancelInProgress is false for a main push and for workflow_dispatch on
+	// refs/heads/main, and true for every other ref. GitHub still keeps one
+	// pending run in the group, and a newer pending run replaces an older one.
+	// The workflow value is this string scalar, not a boolean.
+	ciCancelInProgress = "${{ github.ref != 'refs/heads/main' }}"
 
 	// pinnedUsesMessage is the parsed-uses pin failure for ci.yml and release.yml.
 	// tools/wait-tag-ci_test.sh still checks the version comment on lines it can see.
@@ -193,6 +202,9 @@ func checkWorkflow(loader *actionLoader, name string, data []byte) ([]string, er
 	issues = append(issues, checkDocument(loader, name, &doc)...)
 	if filepath.Base(name) == "release.yml" {
 		issues = append(issues, checkRelease(name, &doc)...)
+	}
+	if filepath.Base(name) == "ci.yml" {
+		issues = append(issues, checkCI(name, &doc)...)
 	}
 	return issues, nil
 }
@@ -363,6 +375,106 @@ func checkReleaseConcurrency(file string, root *yaml.Node) []string {
 
 func boolFalse(n *yaml.Node) bool {
 	return n != nil && n.Kind == yaml.ScalarNode && n.Tag == "!!bool" && n.Value == "false"
+}
+
+func checkCI(file string, doc *yaml.Node) []string {
+	root := mappingRoot(doc)
+	if root == nil || root.Kind != yaml.MappingNode {
+		return []string{at(file, 1, "concurrency must be a mapping")}
+	}
+	var issues []string
+	issues = append(issues, checkCIConcurrency(file, root)...)
+	issues = append(issues, checkCIJobConcurrency(file, root)...)
+	return issues
+}
+
+func checkCIConcurrency(file string, root *yaml.Node) []string {
+	key, conc := mapEntry(root, "concurrency")
+	if conc == nil || conc.Kind != yaml.MappingNode {
+		line := root.Line
+		if conc != nil {
+			line = conc.Line
+		} else if key != nil {
+			line = key.Line
+		}
+		return []string{at(file, line, "concurrency must be a mapping")}
+	}
+	var issues []string
+	gkey, group := mapEntry(conc, "group")
+	if group == nil || group.Kind != yaml.ScalarNode || group.Value != ciConcurrencyGroup {
+		line := conc.Line
+		if group != nil {
+			line = group.Line
+		} else if gkey != nil {
+			line = gkey.Line
+		}
+		got := "<missing>"
+		if group != nil {
+			if group.Kind == yaml.ScalarNode {
+				got = group.Value
+			} else {
+				got = "<not a scalar>"
+			}
+		}
+		issues = append(issues, at(file, line, fmt.Sprintf("concurrency group must be %q, got %q", ciConcurrencyGroup, got)))
+	}
+	ckey, cancel := mapEntry(conc, "cancel-in-progress")
+	if !ciCancelString(cancel) {
+		line := conc.Line
+		if cancel != nil {
+			line = cancel.Line
+		} else if ckey != nil {
+			line = ckey.Line
+		}
+		got := "<missing>"
+		if cancel != nil {
+			if cancel.Kind == yaml.ScalarNode {
+				got = cancel.Value
+			} else {
+				got = "<not a scalar>"
+			}
+		}
+		issues = append(issues, at(file, line, fmt.Sprintf("concurrency cancel-in-progress must be %q, got %q", ciCancelInProgress, got)))
+	}
+	return issues
+}
+
+// ciCancelString accepts only the string scalar. Boolean true, boolean false,
+// and a quoted "false" all fail.
+func ciCancelString(n *yaml.Node) bool {
+	return n != nil && n.Kind == yaml.ScalarNode && n.Tag == "!!str" && n.Value == ciCancelInProgress
+}
+
+// checkCIJobConcurrency rejects a concurrency key on every job. A job-level
+// cancel-in-progress true would cancel an in-progress main job while the
+// workflow mapping still matched.
+func checkCIJobConcurrency(file string, root *yaml.Node) []string {
+	_, jobs := mapEntry(root, "jobs")
+	if jobs == nil || jobs.Kind != yaml.MappingNode {
+		return nil
+	}
+	var issues []string
+	for i := 0; i+1 < len(jobs.Content); i += 2 {
+		key := jobs.Content[i]
+		job := jobs.Content[i+1]
+		if job.Kind != yaml.MappingNode {
+			continue
+		}
+		ckey, conc := mapEntry(job, "concurrency")
+		if ckey == nil && conc == nil {
+			continue
+		}
+		line := job.Line
+		if ckey != nil {
+			line = ckey.Line
+		}
+		name := "<job>"
+		if key.Kind == yaml.ScalarNode {
+			name = key.Value
+		}
+		issues = append(issues, at(file, line, fmt.Sprintf("job %s concurrency is not allowed", name)))
+	}
+	return issues
 }
 
 func checkWorkflowPerms(file string, n *yaml.Node, fallback int) []string {

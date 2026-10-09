@@ -18,57 +18,57 @@ func TestRunShellExpressionBan(t *testing.T) {
 		{
 			name: "literal after blank line",
 			src:  "steps:\n  - run: |\n      echo hi\n\n      tag=\"${{ github.ref_name }}\"\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "strip chomping",
 			src:  "steps:\n  - run: |-\n      echo ${{ x }}\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "explicit indent",
 			src:  "run: |2\n  echo ${{ x }}\n",
-			line: "ci.yml:1: ${{ }} in run/shell",
+			line: "workflow.yml:1: ${{ }} in run/shell",
 		},
 		{
 			name: "folded keep",
 			src:  "steps:\n  - run: >+\n      echo ${{ x }}\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "plain continuation",
 			src:  "steps:\n  - run: echo hello\n      ${{ x }}\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "single line",
 			src:  "steps:\n  - run: echo ${{ x }}\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "unicode escape",
 			src:  "steps:\n  - run: \"\\u0024{{ x }}\"\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "step shell",
 			src:  "steps:\n  - shell: ${{ x }}\n    run: echo ok\n",
-			line: "ci.yml:2: ${{ }} in run/shell",
+			line: "workflow.yml:2: ${{ }} in run/shell",
 		},
 		{
 			name: "workflow defaults shell",
 			src:  "defaults:\n  run:\n    shell: ${{ x }}\n",
-			line: "ci.yml:3: ${{ }} in run/shell",
+			line: "workflow.yml:3: ${{ }} in run/shell",
 		},
 		{
 			name: "job defaults shell",
 			src:  "jobs:\n  a:\n    defaults:\n      run:\n        shell: ${{ x }}\n    steps:\n      - run: echo ok\n",
-			line: "ci.yml:5: ${{ }} in run/shell",
+			line: "workflow.yml:5: ${{ }} in run/shell",
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			issues := checkSource(t, "ci.yml", tc.src)
+			issues := checkSource(t, "workflow.yml", tc.src)
 			if len(issues) != 1 || issues[0] != tc.line {
 				t.Fatalf("got %q\nwant %q", issues, tc.line)
 			}
@@ -77,7 +77,7 @@ func TestRunShellExpressionBan(t *testing.T) {
 }
 
 func TestExpressionsOutsideRunShell(t *testing.T) {
-	src := `
+	src := ciConcurrencyBlock() + `
 name: ${{ github.workflow }}
 defaults:
   run:
@@ -106,27 +106,27 @@ jobs:
 
 func TestAliasAnchorMerge(t *testing.T) {
 	t.Run("alias target has no expression", func(t *testing.T) {
-		issues := checkSource(t, "ci.yml", "payload: &payload echo hello\nsteps:\n  - run: *payload\n")
+		issues := checkSource(t, "workflow.yml", "payload: &payload echo hello\nsteps:\n  - run: *payload\n")
 		mustContain(t, issues, "YAML alias")
 		mustContain(t, issues, "YAML anchor")
 		mustNotContain(t, issues, "${{ }} in run/shell")
 	})
 	t.Run("shell alias", func(t *testing.T) {
-		issues := checkSource(t, "ci.yml", "s: &s bash\nsteps:\n  - shell: *s\n    run: echo ok\n")
+		issues := checkSource(t, "workflow.yml", "s: &s bash\nsteps:\n  - shell: *s\n    run: echo ok\n")
 		mustContain(t, issues, "YAML alias")
 		mustContain(t, issues, "YAML anchor")
 		mustNotContain(t, issues, "${{ }} in run/shell")
 	})
 	t.Run("merge alias", func(t *testing.T) {
 		src := "step: &step\n  run: echo ok\njobs:\n  a:\n    steps:\n      - <<: *step\n"
-		issues := checkSource(t, "ci.yml", src)
+		issues := checkSource(t, "workflow.yml", src)
 		mustContain(t, issues, "YAML alias")
 		mustContain(t, issues, "YAML anchor")
 		mustContain(t, issues, "YAML merge key")
 		mustNotContain(t, issues, "${{ }} in run/shell")
 	})
 	t.Run("merge mapping without anchor", func(t *testing.T) {
-		issues := checkSource(t, "ci.yml", "steps:\n  - <<: {run: echo ok}\n")
+		issues := checkSource(t, "workflow.yml", "steps:\n  - <<: {run: echo ok}\n")
 		mustContain(t, issues, "YAML merge key")
 		mustNotContain(t, issues, "YAML alias")
 		mustNotContain(t, issues, "YAML anchor")
@@ -136,8 +136,8 @@ func TestAliasAnchorMerge(t *testing.T) {
 
 func TestDuplicateMappingKey(t *testing.T) {
 	src := "jobs:\n  a:\n    permissions: {contents: read}\n    permissions: {contents: read}\n"
-	issues := checkSource(t, "ci.yml", src)
-	want := `ci.yml:4: duplicate mapping key "permissions"`
+	issues := checkSource(t, "workflow.yml", src)
+	want := `workflow.yml:4: duplicate mapping key "permissions"`
 	if len(issues) != 1 || issues[0] != want {
 		t.Fatalf("got %q\nwant %q", issues, want)
 	}
@@ -245,6 +245,90 @@ func TestReleaseConcurrency(t *testing.T) {
 	})
 }
 
+func TestCIConcurrency(t *testing.T) {
+	block := ciConcurrencyBlock()
+	pass := ciWorkflow(block)
+	cancelMsg := "concurrency cancel-in-progress must be " + fmt.Sprintf("%q", ciCancelInProgress)
+	t.Run("missing concurrency", func(t *testing.T) {
+		src := strings.Replace(pass, block, "", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, "concurrency must be a mapping")
+	})
+	t.Run("concurrency not a mapping", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency: ci\n", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, "concurrency must be a mapping")
+	})
+	t.Run("wrong group", func(t *testing.T) {
+		src := strings.Replace(pass, "group: "+ciConcurrencyGroup, "group: ci-${{ github.ref }}", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, "concurrency group must be")
+		mustContain(t, issues, `got "ci-${{ github.ref }}"`)
+	})
+	t.Run("omit group", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency:\n  cancel-in-progress: "+ciCancelInProgress+"\n", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, "concurrency group must be")
+		mustContain(t, issues, `got "<missing>"`)
+	})
+	t.Run("omit cancel-in-progress", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency:\n  group: "+ciConcurrencyGroup+"\n", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, cancelMsg)
+		mustContain(t, issues, `got "<missing>"`)
+	})
+	t.Run("cancel boolean true", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: "+ciCancelInProgress, "cancel-in-progress: true", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, cancelMsg)
+		mustContain(t, issues, `got "true"`)
+		mustNotContain(t, issues, "boolean false")
+	})
+	t.Run("cancel boolean false", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: "+ciCancelInProgress, "cancel-in-progress: false", 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, cancelMsg)
+		mustContain(t, issues, `got "false"`)
+		mustNotContain(t, issues, "boolean false")
+	})
+	t.Run("cancel quoted false", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: "+ciCancelInProgress, `cancel-in-progress: "false"`, 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, cancelMsg)
+		mustContain(t, issues, `got "false"`)
+		mustNotContain(t, issues, "boolean false")
+	})
+	t.Run("different expression", func(t *testing.T) {
+		other := "${{ github.ref != 'refs/heads/master' }}"
+		src := strings.Replace(pass, "cancel-in-progress: "+ciCancelInProgress, "cancel-in-progress: "+other, 1)
+		issues := checkSource(t, "ci.yml", src)
+		mustContain(t, issues, cancelMsg)
+		mustContain(t, issues, `got "`+other+`"`)
+		mustNotContain(t, issues, "boolean false")
+	})
+	t.Run("exact", func(t *testing.T) {
+		requireEmpty(t, checkSource(t, "ci.yml", pass))
+	})
+	t.Run("quoted exact expression", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: "+ciCancelInProgress, `cancel-in-progress: "`+ciCancelInProgress+`"`, 1)
+		requireEmpty(t, checkSource(t, "ci.yml", src))
+	})
+	t.Run("job concurrency", func(t *testing.T) {
+		src := strings.Replace(pass, "  check:\n    steps:\n", "  check:\n    concurrency:\n      cancel-in-progress: true\n    steps:\n", 1)
+		issues := checkSource(t, "ci.yml", src)
+		if len(issues) != 1 || !strings.Contains(issues[0], "job check concurrency is not allowed") {
+			t.Fatalf("got %q", issues)
+		}
+	})
+	t.Run("later job concurrency", func(t *testing.T) {
+		src := pass + "  lab:\n    concurrency:\n      cancel-in-progress: true\n    steps:\n      - run: echo ok\n"
+		issues := checkSource(t, "ci.yml", src)
+		if len(issues) != 1 || !strings.Contains(issues[0], "job lab concurrency is not allowed") {
+			t.Fatalf("got %q", issues)
+		}
+	})
+}
+
 func TestRepoWorkflows(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -299,6 +383,14 @@ func mustNotContain(t *testing.T, issues []string, sub string) {
 			t.Fatalf("unexpected %q in %s\nall:\n%s", sub, issue, strings.Join(issues, "\n"))
 		}
 	}
+}
+
+func ciConcurrencyBlock() string {
+	return "concurrency:\n  group: " + ciConcurrencyGroup + "\n  cancel-in-progress: " + ciCancelInProgress + "\n"
+}
+
+func ciWorkflow(concurrency string) string {
+	return "name: ci\n" + concurrency + "jobs:\n  check:\n    steps:\n      - run: echo ok\n"
 }
 
 func releaseWorkflow(top, notes, wait, images, publish, tail string) string {
@@ -980,7 +1072,7 @@ func TestReleaseGoToolchain(t *testing.T) {
 		requireEmpty(t, issues)
 	})
 	t.Run("non-release auto stays legal", func(t *testing.T) {
-		src := "name: ci\nenv:\n  GOTOOLCHAIN: auto\njobs:\n  build:\n    env:\n      GOTOOLCHAIN: auto\n    container:\n      image: alpine\n      env:\n        GOTOOLCHAIN: auto\n    services:\n      box:\n        image: alpine\n        env:\n          GOTOOLCHAIN: auto\n    steps:\n      - env:\n          GOTOOLCHAIN: auto\n        run: echo ok\n"
+		src := ciConcurrencyBlock() + "name: ci\nenv:\n  GOTOOLCHAIN: auto\njobs:\n  build:\n    env:\n      GOTOOLCHAIN: auto\n    container:\n      image: alpine\n      env:\n        GOTOOLCHAIN: auto\n    services:\n      box:\n        image: alpine\n        env:\n          GOTOOLCHAIN: auto\n    steps:\n      - env:\n          GOTOOLCHAIN: auto\n        run: echo ok\n"
 		issues := checkRepo(t, map[string]string{".github/workflows/ci.yml": src})
 		requireEmpty(t, issues)
 	})
@@ -992,7 +1084,7 @@ func TestPinnedUses(t *testing.T) {
 		return "name: ci\non: push\njobs:\n  build:\n    steps:\n" + step
 	}
 	t.Run("current pin shape", func(t *testing.T) {
-		src := ciSteps("      - uses: " + pin + "\n      - uses: \" " + pin + "\"\n")
+		src := ciConcurrencyBlock() + ciSteps("      - uses: "+pin+"\n      - uses: \" "+pin+"\"\n")
 		src += "  call:\n    uses: \" " + pin + "\"\n"
 		requireEmpty(t, checkSource(t, "ci.yml", src))
 	})

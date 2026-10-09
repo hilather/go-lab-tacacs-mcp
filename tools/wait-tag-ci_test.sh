@@ -9,7 +9,8 @@ if grep -nE 'uses:[[:space:]]*[^#[:space:]]+@v[0-9]' "$release"; then
   exit 1
 fi
 
-pin_re='@[0-9a-f]{40}( # v|$)'
+# The ref itself must be the 40-hex SHA, not a later @<hex> in a comment.
+pin_re='uses:[[:space:]]*[^#[:space:]@]+@[0-9a-f]{40}([[:space:]]+#|$)'
 use_count=0
 while IFS= read -r line; do
   use_count=$((use_count + 1))
@@ -32,6 +33,20 @@ fi
 images_count="$(awk '/^  images:$/,/^  publish:$/' "$release" | grep -c 'packages: write' || true)"
 if [[ "$images_count" -ne 1 ]]; then
   echo 'FAIL: packages: write must be on the images job' >&2
+  exit 1
+fi
+
+# A job-level permissions block replaces the workflow set, so images must
+# restate checkout (contents: read) and the OIDC token for provenance/SBOM.
+images_perms="$(awk '/^  images:$/{f=1} f&&/^    permissions:$/{p=1;next} p&&/^      [a-z-]+:/{print;next} p{exit}' "$release")"
+for want in 'contents: read' 'packages: write' 'id-token: write'; do
+  if ! grep -qx "      ${want}" <<<"$images_perms"; then
+    echo "FAIL: images job permissions must include ${want}" >&2
+    exit 1
+  fi
+done
+if grep -qE 'write-all|packages:[[:space:]]*["'"'"']write' "$release"; then
+  echo 'FAIL: release.yml must not use write-all or a quoted packages grant' >&2
   exit 1
 fi
 

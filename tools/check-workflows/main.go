@@ -1,5 +1,5 @@
 // Command check-workflows rejects expression injection, unpinned action refs
-// in every workflow file, permission drift, release and ci job concurrency
+// in every workflow file, permission drift, release, ci, and pages concurrency
 // drift, and release GOTOOLCHAIN drift in GitHub Actions workflows.
 package main
 
@@ -55,6 +55,11 @@ fi`
 	// pending run in the group, and a newer pending run replaces an older one.
 	// The workflow value is this string scalar, not a boolean.
 	ciCancelInProgress = "${{ github.ref != 'refs/heads/main' }}"
+
+	// pagesConcurrencyGroup is the only accepted pages.yml concurrency group.
+	// Deploys share this group and do not cancel in progress: a cancelled
+	// Pages deploy can leave the site unpublished.
+	pagesConcurrencyGroup = "pages"
 
 	// pinnedUsesMessage is the parsed-uses pin failure for every workflow file,
 	// including pages.yml. Action metadata named action.yml or action.yaml
@@ -214,6 +219,9 @@ func checkWorkflow(loader *actionLoader, name string, data []byte) ([]string, er
 	if filepath.Base(name) == "ci.yml" {
 		issues = append(issues, checkCI(name, &doc)...)
 	}
+	if filepath.Base(name) == "pages.yml" {
+		issues = append(issues, checkPages(name, &doc)...)
+	}
 	return issues, nil
 }
 
@@ -270,7 +278,7 @@ func checkRelease(file string, doc *yaml.Node) []string {
 		return []string{at(file, 1, "workflow document must be a mapping")}
 	}
 	var issues []string
-	issues = append(issues, checkReleaseConcurrency(file, root)...)
+	issues = append(issues, checkWorkflowConcurrency(file, root, releaseConcurrencyGroup)...)
 	issues = append(issues, checkJobConcurrency(file, root)...)
 	issues = append(issues, checkGoToolchain(file, root)...)
 	_, perms := mapEntry(root, "permissions")
@@ -339,7 +347,11 @@ func checkRelease(file string, doc *yaml.Node) []string {
 	return issues
 }
 
-func checkReleaseConcurrency(file string, root *yaml.Node) []string {
+// checkWorkflowConcurrency locks a top-level concurrency mapping to wantGroup
+// and boolean cancel-in-progress: false. Release passes releaseConcurrencyGroup.
+// Pages passes pagesConcurrencyGroup. CI keeps its own string cancel expression
+// in checkCIConcurrency and does not call this helper.
+func checkWorkflowConcurrency(file string, root *yaml.Node, wantGroup string) []string {
 	key, conc := mapEntry(root, "concurrency")
 	if conc == nil || conc.Kind != yaml.MappingNode {
 		line := root.Line
@@ -352,7 +364,7 @@ func checkReleaseConcurrency(file string, root *yaml.Node) []string {
 	}
 	var issues []string
 	gkey, group := mapEntry(conc, "group")
-	if group == nil || group.Kind != yaml.ScalarNode || group.Value != releaseConcurrencyGroup {
+	if group == nil || group.Kind != yaml.ScalarNode || group.Value != wantGroup {
 		line := conc.Line
 		if group != nil {
 			line = group.Line
@@ -367,7 +379,7 @@ func checkReleaseConcurrency(file string, root *yaml.Node) []string {
 				got = "<not a scalar>"
 			}
 		}
-		issues = append(issues, at(file, line, fmt.Sprintf("concurrency group must be %q, got %q", releaseConcurrencyGroup, got)))
+		issues = append(issues, at(file, line, fmt.Sprintf("concurrency group must be %q, got %q", wantGroup, got)))
 	}
 	ckey, cancel := mapEntry(conc, "cancel-in-progress")
 	if !boolFalse(cancel) {
@@ -384,6 +396,17 @@ func checkReleaseConcurrency(file string, root *yaml.Node) []string {
 
 func boolFalse(n *yaml.Node) bool {
 	return n != nil && n.Kind == yaml.ScalarNode && n.Tag == "!!bool" && n.Value == "false"
+}
+
+func checkPages(file string, doc *yaml.Node) []string {
+	root := mappingRoot(doc)
+	if root == nil || root.Kind != yaml.MappingNode {
+		return []string{at(file, 1, "workflow document must be a mapping")}
+	}
+	var issues []string
+	issues = append(issues, checkWorkflowConcurrency(file, root, pagesConcurrencyGroup)...)
+	issues = append(issues, checkJobConcurrency(file, root)...)
+	return issues
 }
 
 func checkCI(file string, doc *yaml.Node) []string {
@@ -455,8 +478,8 @@ func ciCancelString(n *yaml.Node) bool {
 }
 
 // checkJobConcurrency rejects a concurrency key on every job. A job
-// concurrency key replaces the workflow mapping: on release that drops
-// cancel-in-progress: false; on CI it replaces the ref expression.
+// concurrency key replaces the workflow mapping: on release and pages it
+// drops cancel-in-progress: false; on CI it replaces the ref expression.
 func checkJobConcurrency(file string, root *yaml.Node) []string {
 	_, jobs := mapEntry(root, "jobs")
 	if jobs == nil || jobs.Kind != yaml.MappingNode {

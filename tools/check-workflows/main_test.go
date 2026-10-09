@@ -413,6 +413,34 @@ func TestPagesConcurrency(t *testing.T) {
 			t.Fatalf("got %q\nwant exactly %q", issues, want)
 		}
 	})
+	t.Run("missing group", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency:\n  cancel-in-progress: false\n", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, `concurrency group must be "pages", got "<missing>"`)
+	})
+	t.Run("job concurrency string", func(t *testing.T) {
+		old := "  deploy:\n"
+		src := strings.Replace(pass, old, old+"    concurrency: some-group\n", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		want := "job deploy concurrency is not allowed"
+		if len(issues) != 1 || !strings.HasSuffix(issues[0], ": "+want) {
+			t.Fatalf("got %q\nwant exactly %q", issues, want)
+		}
+	})
+	t.Run("repo path dispatch", func(t *testing.T) {
+		// Full .github/workflows/pages.yml path through checkRoot, so a
+		// dispatch keyed on the bare name would fail this case.
+		src := strings.Replace(pass, "cancel-in-progress: false", "cancel-in-progress: true", 1)
+		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
+		mustContain(t, issues, ".github/workflows/pages.yml:")
+		mustContain(t, issues, cancelMsg)
+	})
 	t.Run("second job concurrency", func(t *testing.T) {
 		src := pass + "  preview:\n    name: preview-pages\n    concurrency:\n      group: pages\n      cancel-in-progress: false\n    steps:\n      - run: echo ok\n"
 		issues := checkSource(t, "pages.yml", src)

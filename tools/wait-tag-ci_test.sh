@@ -1,6 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
+release="$root/.github/workflows/release.yml"
+
+# Floating majors (actions/checkout@v7) fail. A SHA pin with "# v7.0.1" does not.
+if grep -nE 'uses:[[:space:]]*[^#[:space:]]+@v[0-9]' "$release"; then
+  echo 'FAIL: release.yml has a floating action major tag' >&2
+  exit 1
+fi
+
+pin_re='@[0-9a-f]{40}( # v|$)'
+use_count=0
+while IFS= read -r line; do
+  use_count=$((use_count + 1))
+  if [[ ! "$line" =~ $pin_re ]]; then
+    echo "FAIL: uses line is not a full commit pin: $line" >&2
+    exit 1
+  fi
+done < <(grep -nE '^[[:space:]]*(- )?uses:' "$release" || true)
+if [[ "$use_count" -eq 0 ]]; then
+  echo 'FAIL: release.yml has no uses: lines' >&2
+  exit 1
+fi
+
+pkg_count="$(grep -c 'packages: write' "$release" || true)"
+if [[ "$pkg_count" -ne 1 ]]; then
+  echo "FAIL: packages: write must appear exactly once (got ${pkg_count})" >&2
+  exit 1
+fi
+
+images_count="$(awk '/^  images:$/,/^  publish:$/' "$release" | grep -c 'packages: write' || true)"
+if [[ "$images_count" -ne 1 ]]; then
+  echo 'FAIL: packages: write must be on the images job' >&2
+  exit 1
+fi
+
+if awk '/^jobs:/{exit} {print}' "$release" | grep -q 'packages: write'; then
+  echo 'FAIL: workflow-level permissions must not grant packages: write' >&2
+  exit 1
+fi
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/bin"

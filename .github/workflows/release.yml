@@ -10,7 +10,7 @@ on:
         required: true
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && (startsWith(github.event.inputs.version, 'v') && format('refs/tags/{0}', github.event.inputs.version) || format('refs/tags/v{0}', github.event.inputs.version)) || github.ref }}
   cancel-in-progress: false
 
 permissions: {}
@@ -20,7 +20,7 @@ defaults:
     shell: bash
 
 env:
-  GOTOOLCHAIN: auto
+  GOTOOLCHAIN: local
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/hilather/go-lab-tacacs-mcp
 

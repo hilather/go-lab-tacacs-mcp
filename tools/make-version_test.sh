@@ -9,8 +9,9 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 repo="$tmp/repo"
-mkdir -p "$repo" "$tmp/hooks"
+mkdir -p "$repo/tools" "$tmp/hooks"
 cp "$root/Makefile" "$repo/Makefile"
+cp "$root/tools/lab-test.sh" "$repo/tools/lab-test.sh"
 
 git init -q "$repo"
 git -C "$repo" config user.name test
@@ -18,7 +19,7 @@ git -C "$repo" config user.email test@example.invalid
 git -C "$repo" config commit.gpgsign false
 git -C "$repo" config tag.gpgsign false
 git -C "$repo" config core.hooksPath "$tmp/hooks"
-git -C "$repo" add Makefile
+git -C "$repo" add Makefile tools/lab-test.sh
 git -C "$repo" commit -q -m init
 
 # check-ref-format accepts backticks and $(...) and rejects spaces.
@@ -29,6 +30,17 @@ git -C "$repo" tag "$tag"
 
 run_make() {
   env -u MAKEFLAGS -u MFLAGS make -C "$repo" --no-print-directory "$@"
+}
+
+assert_lab_version() {
+  local label="$1" want="$2"
+  shift 2
+  local out
+  out="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE "$@" bash "$repo/tools/lab-test.sh")"
+  if [[ "$out" != "$want" ]]; then
+    printf 'make-version-test: %s\ngot: [%s]\nwant: [%s]\n' "$label" "$out" "$want" >&2
+    exit 1
+  fi
 }
 
 status=0
@@ -62,6 +74,9 @@ if [[ "$out" != 'v1.2.3/extra' ]]; then
   exit 1
 fi
 
+# Hostile tag is still the only tag on HEAD. Retag happens below.
+assert_lab_version "hostile tag lab-test VERSION" "$want" -u TACLAB_VERSION TACLAB_PRINT_VERSION=1
+
 # A tag with no allowed characters falls back to dev.
 git -C "$repo" tag -d "$tag" >/dev/null
 git -C "$repo" tag '$$$'
@@ -70,5 +85,9 @@ if [[ "$out" != "dev" ]]; then
   printf 'make-version-test: empty filtered VERSION should be dev, got [%s]\n' "$out" >&2
   exit 1
 fi
+
+assert_lab_version "empty filtered lab-test VERSION" "dev" -u TACLAB_VERSION TACLAB_PRINT_VERSION=1
+assert_lab_version "set-but-empty TACLAB_VERSION" "" TACLAB_VERSION= TACLAB_PRINT_VERSION=1
+assert_lab_version "explicit TACLAB_VERSION" "v1.2.3/extra" TACLAB_VERSION='v1.2.3/extra' TACLAB_PRINT_VERSION=1
 
 echo "make-version-test: ok"

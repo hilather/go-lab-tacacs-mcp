@@ -5,9 +5,9 @@ release="$root/.github/workflows/release.yml"
 
 # Version-comment backstop for lines spelled like (- )?uses:.
 # tools/check-workflows enforces owner/repo@<40 hex> on every parsed step
-# and job uses in ci.yml and release.yml. This grep still requires the
-# trailing # vX.Y.Z comment. A later @<hex> in a comment does not pin the ref.
-# Floating majors (actions/checkout@v7) fail. pages.yml is not in this loop.
+# and job uses in every workflow file, including pages.yml. This grep still
+# requires the trailing # vX.Y.Z comment. A later @<hex> in a comment does not
+# pin the ref. Floating majors (actions/checkout@v7) fail.
 pin_re='^[0-9]+:[[:space:]]*(- )?uses:[[:space:]]*[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}[[:space:]]+# v[0-9]+\.[0-9]+\.[0-9]+$'
 check_action_pins() {
   local workflow="$1"
@@ -30,7 +30,7 @@ check_action_pins() {
     return 1
   fi
 }
-for workflow in "$release" "$root/.github/workflows/ci.yml"; do
+for workflow in "$release" "$root/.github/workflows/ci.yml" "$root/.github/workflows/pages.yml"; do
   check_action_pins "$workflow"
 done
 

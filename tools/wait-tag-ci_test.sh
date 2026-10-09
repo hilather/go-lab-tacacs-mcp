@@ -3,30 +3,54 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 release="$root/.github/workflows/release.yml"
 
-# Floating majors (actions/checkout@v7) fail. Every uses: must be
-# owner/repo@<40 hex> # vX.Y.Z. The ref itself is the 40-hex SHA, not a
-# later @<hex> in a comment.
+# Floating majors (actions/checkout@v7) fail. grep -n lines must match
+# owner/repo@<40 hex> # vX.Y.Z from the uses token through the end of the
+# line. A later @<hex> in a comment does not pin the ref.
 # pages.yml is not in this loop: out of scope for this PR.
-pin_re='uses:[[:space:]]*[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}[[:space:]]+# v[0-9]+\.[0-9]+\.[0-9]+$'
-for workflow in "$release" "$root/.github/workflows/ci.yml"; do
+pin_re='^[0-9]+:[[:space:]]*(- )?uses:[[:space:]]*[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}[[:space:]]+# v[0-9]+\.[0-9]+\.[0-9]+$'
+check_action_pins() {
+  local workflow="$1"
+  local base line use_count
   base="$(basename "$workflow")"
   if grep -nE 'uses:[[:space:]]*[^#[:space:]]+@v[0-9]' "$workflow"; then
     echo "FAIL: ${base} has a floating action major tag" >&2
-    exit 1
+    return 1
   fi
   use_count=0
   while IFS= read -r line; do
     use_count=$((use_count + 1))
     if [[ ! "$line" =~ $pin_re ]]; then
       echo "FAIL: uses line is not a full commit pin: $line" >&2
-      exit 1
+      return 1
     fi
   done < <(grep -nE '^[[:space:]]*(- )?uses:' "$workflow" || true)
   if [[ "$use_count" -eq 0 ]]; then
     echo "FAIL: ${base} has no uses: lines" >&2
-    exit 1
+    return 1
   fi
+}
+for workflow in "$release" "$root/.github/workflows/ci.yml"; do
+  check_action_pins "$workflow"
 done
+
+# A movable ref plus a trailing decoy pin must fail. Temp files only.
+(
+  pin_tmp="$(mktemp -d)"
+  trap 'rm -rf "$pin_tmp"' EXIT
+  decoy_pin='3d3c42e5aac5ba805825da76410c181273ba90b1'
+  for ref in main master; do
+    decoy="$pin_tmp/decoy-${ref}.yml"
+    printf '      - uses: actions/checkout@%s # uses: actions/checkout@%s # v7.0.1\n' "$ref" "$decoy_pin" > "$decoy"
+    if err="$(check_action_pins "$decoy" 2>&1)"; then
+      echo "FAIL: @${ref} with a trailing decoy pin must be rejected" >&2
+      exit 1
+    fi
+    if [[ "$err" != *"not a full commit pin"* ]]; then
+      echo "FAIL: @${ref} decoy rejected for the wrong reason: ${err}" >&2
+      exit 1
+    fi
+  done
+)
 
 pkg_count="$(grep -c 'packages: write' "$release" || true)"
 if [[ "$pkg_count" -ne 1 ]]; then

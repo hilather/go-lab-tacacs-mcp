@@ -496,6 +496,32 @@ func TestSinks(t *testing.T) {
 		mustContain(t, issues, "${{ }} in docker entrypoint")
 		mustNotContain(t, issues, "${{ }} in docker args")
 	})
+	t.Run("docker uses expression", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("docker://${{ github.event.issue.title }}"),
+		})
+		mustContain(t, issues, "${{ }} in uses")
+		mustNotContain(t, issues, "parse error")
+	})
+	t.Run("step uses expression", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("actions/checkout@${{ github.sha }}"),
+		})
+		mustContain(t, issues, "${{ }} in uses")
+		mustNotContain(t, issues, "parse error")
+	})
+	t.Run("github-script leading space", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow(`" actions/github-script@v7"`) + "        with:\n          script: \"return ${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in github-script script")
+	})
+	t.Run("docker leading space", func(t *testing.T) {
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow(`" docker://alpine:3.20"`) + "        with:\n          args: \"echo ${{ github.sha }}\"\n",
+		})
+		mustContain(t, issues, "${{ }} in docker args")
+	})
 	t.Run("with not a mapping", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with: not-a-mapping\n",
@@ -554,6 +580,15 @@ func TestLocalActions(t *testing.T) {
 			"actions/dkr/action.yml":      action,
 		})
 		requireEmpty(t, issues)
+	})
+	t.Run("docker metadata image expression", func(t *testing.T) {
+		action := "name: dkr\nruns:\n  using: docker\n  image: \"docker://${{ github.sha }}\"\n  args:\n    - echo\n    - hello\n"
+		issues := checkRepo(t, map[string]string{
+			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
+			"actions/dkr/action.yml":      action,
+		})
+		mustContain(t, issues, "${{ }} in runs.image")
+		mustNotContain(t, issues, "${{ }} in runs.args")
 	})
 	t.Run("docker metadata args expression", func(t *testing.T) {
 		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  args:\n    - echo\n    - \"${{ github.sha }}\"\n"

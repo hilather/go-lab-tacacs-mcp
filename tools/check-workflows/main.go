@@ -643,7 +643,12 @@ func checkStepList(loader *actionLoader, file string, steps *yaml.Node) []string
 			issues = append(issues, at(file, usesVal.Line, "uses must be a scalar"))
 			continue
 		}
-		uses := usesVal.Value
+		// Trim so a quoted leading space cannot skip github-script, docker://, or ./.
+		// ${{ in the uses value is rejected; the runner expands it before resolving the action.
+		uses := strings.TrimSpace(usesVal.Value)
+		if strings.Contains(uses, "${{") {
+			issues = append(issues, at(file, usesVal.Line, "${{ }} in uses"))
+		}
 		switch {
 		case isGitHubScript(uses):
 			issues = append(issues, checkGitHubScriptStep(file, step)...)
@@ -717,6 +722,8 @@ func checkScalarSink(file string, with *yaml.Node, key, what, exprMsg string) []
 	return issues
 }
 
+// checkGoToolchain locks GOTOOLCHAIN in env maps only (workflow, job, step,
+// container, and service). It does not cover GITHUB_ENV writes in run steps.
 func checkGoToolchain(file string, root *yaml.Node) []string {
 	var issues []string
 	envKey, env := mapEntry(root, "env")
@@ -1020,6 +1027,10 @@ func (l *actionLoader) checkComposite(file string, runs *yaml.Node) []string {
 
 func checkDockerRuns(file string, runs *yaml.Node) []string {
 	var issues []string
+	_, image := mapEntry(runs, "image")
+	if image != nil && image.Kind == yaml.ScalarNode && strings.Contains(image.Value, "${{") {
+		issues = append(issues, at(file, image.Line, "${{ }} in runs.image"))
+	}
 	_, args := mapEntry(runs, "args")
 	if args != nil {
 		if args.Kind != yaml.SequenceNode {

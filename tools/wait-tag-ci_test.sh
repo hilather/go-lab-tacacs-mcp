@@ -3,26 +3,30 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 release="$root/.github/workflows/release.yml"
 
-# Floating majors (actions/checkout@v7) fail. A SHA pin with "# v7.0.1" does not.
-if grep -nE 'uses:[[:space:]]*[^#[:space:]]+@v[0-9]' "$release"; then
-  echo 'FAIL: release.yml has a floating action major tag' >&2
-  exit 1
-fi
-
-# The ref itself must be the 40-hex SHA, not a later @<hex> in a comment.
-pin_re='uses:[[:space:]]*[^#[:space:]@]+@[0-9a-f]{40}([[:space:]]+#|$)'
-use_count=0
-while IFS= read -r line; do
-  use_count=$((use_count + 1))
-  if [[ ! "$line" =~ $pin_re ]]; then
-    echo "FAIL: uses line is not a full commit pin: $line" >&2
+# Floating majors (actions/checkout@v7) fail. Every uses: must be
+# owner/repo@<40 hex> # vX.Y.Z. The ref itself is the 40-hex SHA, not a
+# later @<hex> in a comment.
+# pages.yml is not in this loop: out of scope for this PR.
+pin_re='uses:[[:space:]]*[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}[[:space:]]+# v[0-9]+\.[0-9]+\.[0-9]+$'
+for workflow in "$release" "$root/.github/workflows/ci.yml"; do
+  base="$(basename "$workflow")"
+  if grep -nE 'uses:[[:space:]]*[^#[:space:]]+@v[0-9]' "$workflow"; then
+    echo "FAIL: ${base} has a floating action major tag" >&2
     exit 1
   fi
-done < <(grep -nE '^[[:space:]]*(- )?uses:' "$release" || true)
-if [[ "$use_count" -eq 0 ]]; then
-  echo 'FAIL: release.yml has no uses: lines' >&2
-  exit 1
-fi
+  use_count=0
+  while IFS= read -r line; do
+    use_count=$((use_count + 1))
+    if [[ ! "$line" =~ $pin_re ]]; then
+      echo "FAIL: uses line is not a full commit pin: $line" >&2
+      exit 1
+    fi
+  done < <(grep -nE '^[[:space:]]*(- )?uses:' "$workflow" || true)
+  if [[ "$use_count" -eq 0 ]]; then
+    echo "FAIL: ${base} has no uses: lines" >&2
+    exit 1
+  fi
+done
 
 pkg_count="$(grep -c 'packages: write' "$release" || true)"
 if [[ "$pkg_count" -ne 1 ]]; then

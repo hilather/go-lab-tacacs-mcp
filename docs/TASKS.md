@@ -1817,6 +1817,8 @@ REVIEW-RUNTIME-001 migration regression evidence: session authentication tests c
 ## 24. Review regressions (`REV-*`)
 
 - [x] `REV-CI-001` Release publication selects and validates the exact tag push CI run and its SHA, excluding main/PR runs. `make check-tag-ci` covers main-only, matching tag among unrelated runs, and failed tag CI. Public operations and conformance rows are unchanged.
+
+REV-CI-001 evidence: `make check-tag-ci` rejects `${{ }}` in `run` and `shell` values under `.github/workflows`, rejects YAML anchors, aliases, and merge keys in those files, and rejects any drift from the release permission map (workflow permissions empty; notes `contents: read`; wait-ci `contents: read` and `actions: read`; images `contents: read`, `packages: write`, and `id-token: write`; publish `contents: write`). Version input and tag names are validated by `tools/release-version.sh` before use. The Makefile default `VERSION` from `git describe` is limited to `[A-Za-z0-9._+-]`, or `dev` when that is empty, before recipe expansion.
 - [x] `REV-UI-001` Restore sessions without requiring `state:read`: `AuthProvider.test.tsx` covers events-, policy-, and token-only principals when status returns permission denied. REST/MCP contracts and conformance rows are unchanged; `session.get` remains `REST_ONLY_PROTOCOL` with no administrative scope.
 
 - [x] `REV-UI-002` Preserve destructive mutation intent across revision retry: seven regression cases in `destructiveConflicts.test.tsx` verify user/group/client remove and tombstone plus token revocation resend DELETE against the current revision, never PATCH/POST. All 29 affected CRUD tests pass. Public REST/MCP parity and schemas are unchanged.

@@ -243,6 +243,21 @@ func TestReleaseConcurrency(t *testing.T) {
 		issues := checkSource(t, "release.yml", src)
 		mustContain(t, issues, "concurrency cancel-in-progress must be boolean false")
 	})
+	for _, name := range []string{"notes", "wait-ci", "images", "publish"} {
+		t.Run("job concurrency "+name, func(t *testing.T) {
+			old := "  " + name + ":\n"
+			repl := old + "    concurrency:\n      group: release-" + name + "\n      cancel-in-progress: true\n"
+			src := strings.Replace(pass, old, repl, 1)
+			if src == pass {
+				t.Fatal("mutation did not change release workflow")
+			}
+			issues := checkSource(t, "release.yml", src)
+			want := "job " + name + " concurrency is not allowed"
+			if len(issues) != 1 || !strings.HasSuffix(issues[0], ": "+want) {
+				t.Fatalf("got %q\nwant exactly %q", issues, want)
+			}
+		})
+	}
 }
 
 func TestCIConcurrency(t *testing.T) {
@@ -511,6 +526,61 @@ func requireEmpty(t *testing.T, issues []string) {
 	}
 }
 
+// requireExactPins locks a former empty fixture to exactly the workflow-line
+// pin messages, so a later sink or an action.yml pin cannot hide beside them.
+func requireExactPins(t *testing.T, issues []string, paths ...string) {
+	t.Helper()
+	if len(issues) != len(paths) {
+		t.Fatalf("got %d issues, want %d workflow pin messages:\n%s", len(issues), len(paths), strings.Join(issues, "\n"))
+	}
+	for i, issue := range issues {
+		if !strings.HasPrefix(issue, paths[i]+":") || !strings.HasSuffix(issue, ": "+pinnedUsesMessage) {
+			t.Fatalf("issue %d = %q, want %s: <line>: %s", i, issue, paths[i], pinnedUsesMessage)
+		}
+	}
+	assertNoActionMetaPin(t, issues)
+}
+
+func assertNoActionMetaPin(t *testing.T, issues []string) {
+	t.Helper()
+	for _, issue := range issues {
+		if !strings.Contains(issue, pinnedUsesMessage) {
+			continue
+		}
+		colon := strings.IndexByte(issue, ':')
+		if colon < 0 {
+			t.Fatalf("pin issue missing path: %s", issue)
+		}
+		path := filepath.ToSlash(issue[:colon])
+		base := filepath.Base(path)
+		if (base == "action.yml" || base == "action.yaml") && !strings.Contains(path, ".github/workflows/") {
+			t.Fatalf("action metadata must stay exempt from the pin rule: %s", issue)
+		}
+	}
+}
+
+func mustPinOn(t *testing.T, issues []string, path string) {
+	t.Helper()
+	prefix := path + ":"
+	for _, issue := range issues {
+		if strings.HasPrefix(issue, prefix) && strings.HasSuffix(issue, ": "+pinnedUsesMessage) {
+			assertNoActionMetaPin(t, issues)
+			return
+		}
+	}
+	t.Fatalf("missing %q on %s in:\n%s", pinnedUsesMessage, path, strings.Join(issues, "\n"))
+}
+
+func mustNotSinkOn(t *testing.T, issues []string, path, sink string) {
+	t.Helper()
+	prefix := path + ":"
+	for _, issue := range issues {
+		if strings.HasPrefix(issue, prefix) && strings.Contains(issue, sink) {
+			t.Fatalf("unexpected %q on %s in %s\nall:\n%s", sink, path, issue, strings.Join(issues, "\n"))
+		}
+	}
+}
+
 func usesWorkflow(uses string) string {
 	return "name: extra\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: " + uses + "\n"
 }
@@ -549,42 +619,47 @@ func TestSinks(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with:\n          script: console.log(1)\n",
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("github-script expression", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with:\n          script: \"return ${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in github-script script")
 	})
 	t.Run("github-script ref and case", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("Actions/GitHub-Script@releases/v7") + "        with:\n          Script: \"${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in github-script script")
 	})
 	t.Run("github-script-evil is not github-script", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/github-script-evil@v1") + "        with:\n          script: \"${{ github.sha }}\"\n",
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
+		mustNotContain(t, issues, "${{ }} in github-script script")
 	})
 	t.Run("docker args safe", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          args: echo hello\n          entrypoint: /bin/sh\n",
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("docker args expression", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          Args: \"echo ${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in docker args")
 	})
 	t.Run("docker entrypoint expression", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          args: echo hello\n          entrypoint: \"${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in docker entrypoint")
 		mustNotContain(t, issues, "${{ }} in docker args")
 	})
@@ -592,6 +667,7 @@ func TestSinks(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("docker://${{ github.event.issue.title }}"),
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in uses")
 		mustNotContain(t, issues, "parse error")
 	})
@@ -599,6 +675,7 @@ func TestSinks(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/checkout@${{ github.sha }}"),
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in uses")
 		mustNotContain(t, issues, "parse error")
 	})
@@ -606,30 +683,35 @@ func TestSinks(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow(`" actions/github-script@v7"`) + "        with:\n          script: \"return ${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in github-script script")
 	})
 	t.Run("docker leading space", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow(`" docker://alpine:3.20"`) + "        with:\n          args: \"echo ${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in docker args")
 	})
 	t.Run("with not a mapping", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with: not-a-mapping\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "with must be a mapping")
 	})
 	t.Run("script not a scalar", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("actions/github-script@v7") + "        with:\n          script:\n            - echo\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "github-script script must be a scalar")
 	})
 	t.Run("docker args not a scalar", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("docker://alpine:3.20") + "        with:\n          args:\n            - echo\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "docker args must be a scalar")
 	})
 	t.Run("non-scalar uses before name match", func(t *testing.T) {
@@ -646,16 +728,17 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/hello"),
 			"actions/hello/action.yml":    compositeYAML("echo ok"),
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("composite run expression", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("./actions/hello"),
 			"actions/hello/action.yml":    compositeYAML("echo ${{ github.sha }}"),
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "actions/hello/action.yml")
 		mustContain(t, issues, "${{ }} in run/shell")
-		mustNotContain(t, issues, ".github/workflows/extra.yml")
+		mustNotSinkOn(t, issues, ".github/workflows/extra.yml", "${{ }} in run/shell")
 	})
 	t.Run("docker metadata safe args", func(t *testing.T) {
 		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n  args:\n    - echo\n    - hello\n"
@@ -663,7 +746,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("docker metadata omits optional keys", func(t *testing.T) {
 		action := "name: dkr\nruns:\n  using: docker\n  image: Dockerfile\n"
@@ -671,7 +754,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("docker metadata image expression", func(t *testing.T) {
 		action := "name: dkr\nruns:\n  using: docker\n  image: \"docker://${{ github.sha }}\"\n  args:\n    - echo\n    - hello\n"
@@ -679,6 +762,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in runs.image")
 		mustNotContain(t, issues, "${{ }} in runs.args")
 	})
@@ -688,6 +772,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "runs.image must be a scalar")
 		mustNotContain(t, issues, "${{ }}")
 	})
@@ -697,6 +782,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in runs.args")
 	})
 	t.Run("docker metadata args wrong shape", func(t *testing.T) {
@@ -705,6 +791,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "runs.args must be a sequence of scalars")
 		mustNotContain(t, issues, "${{ }}")
 	})
@@ -714,6 +801,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "runs.entrypoint must be a scalar")
 		mustNotContain(t, issues, "${{ }}")
 	})
@@ -723,6 +811,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/dkr"),
 			"actions/dkr/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "${{ }} in runs.pre-entrypoint")
 	})
 	t.Run("node action", func(t *testing.T) {
@@ -731,7 +820,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/node"),
 			"actions/node/action.yml":     action,
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("missing runs.using", func(t *testing.T) {
 		action := "name: n\nruns:\n  image: Dockerfile\n"
@@ -739,12 +828,14 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/bad"),
 			"actions/bad/action.yml":      action,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "runs.using is not composite, docker, or node")
 	})
 	t.Run("missing action file", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow("./actions/missing"),
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "action file is missing")
 		mustNotContain(t, issues, "local path escapes the repository")
 	})
@@ -755,6 +846,7 @@ func TestLocalActions(t *testing.T) {
 			"actions/both/action.yml":     body,
 			"actions/both/action.yaml":    body,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "both action.yml and action.yaml exist")
 		mustNotContain(t, issues, "${{ }}")
 	})
@@ -763,6 +855,7 @@ func TestLocalActions(t *testing.T) {
 			".github/workflows/extra.yml": usesWorkflow("./actions/bad"),
 			"actions/bad/action.yml":      "runs: [\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "parse error")
 	})
 }
@@ -793,10 +886,11 @@ runs:
 			"actions/caller/action.yml":   caller,
 			"actions/callee/action.yml":   calleeBad,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "actions/callee/action.yml")
 		mustContain(t, issues, "${{ }} in docker args")
 		mustNotContain(t, issues, "${{ }} in run/shell")
-		mustNotContain(t, issues, ".github/workflows/extra.yml")
+		mustNotSinkOn(t, issues, ".github/workflows/extra.yml", "${{ }} in docker args")
 	})
 	t.Run("nested safe", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
@@ -804,7 +898,7 @@ runs:
 			"actions/caller/action.yml":   caller,
 			"actions/callee/action.yml":   calleeOK,
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("diamond", func(t *testing.T) {
 		shared := "name: shared\nruns:\n  using: composite\n  steps:\n    - shell: bash\n      run: echo ok\n"
@@ -819,7 +913,7 @@ runs:
 			"actions/right/action.yml":    side("right"),
 			"actions/shared/action.yml":   shared,
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/extra.yml")
 	})
 	t.Run("cycle", func(t *testing.T) {
 		a := "name: a\nruns:\n  using: composite\n  steps:\n    - shell: bash\n      run: echo ok\n    - uses: ./actions/b\n"
@@ -829,6 +923,7 @@ runs:
 			"actions/a/action.yml":        a,
 			"actions/b/action.yml":        b,
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "local action cycle")
 		mustNotContain(t, issues, "${{ }}")
 	})
@@ -853,6 +948,7 @@ func TestLocalPaths(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "action file is missing")
 		mustNotContain(t, issues, "${{ }}")
@@ -877,6 +973,7 @@ func TestLocalPaths(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "action file is missing")
 		mustNotContain(t, issues, "${{ }}")
@@ -887,6 +984,7 @@ func TestLocalPaths(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/extra.yml": usesWorkflow(`".//etc/passwd"`),
 		})
+		mustPinOn(t, issues, ".github/workflows/extra.yml")
 		mustContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "action file is missing")
 		mustNotContain(t, issues, "parse error")
@@ -898,7 +996,7 @@ func TestLocalPaths(t *testing.T) {
 			".github/workflows/called.yml": calledWorkflow,
 			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: ./.github/workflows/called.yml\n",
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/caller.yml")
 	})
 	t.Run("job workflow dotdot", func(t *testing.T) {
 		parent := t.TempDir()
@@ -914,6 +1012,7 @@ func TestLocalPaths(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		mustPinOn(t, issues, ".github/workflows/caller.yml")
 		mustContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "action file is missing")
 		mustNotContain(t, issues, "runs.using")
@@ -925,6 +1024,7 @@ func TestLocalPaths(t *testing.T) {
 			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: ./actions/hello\n",
 			"actions/hello/action.yml":     compositeYAML("echo ok"),
 		})
+		mustPinOn(t, issues, ".github/workflows/caller.yml")
 		mustContain(t, issues, "job uses path is not a top-level workflow file")
 		mustNotContain(t, issues, "${{ }}")
 	})
@@ -941,12 +1041,13 @@ func TestLocalPaths(t *testing.T) {
 			".github/workflows/called.yml": calledWorkflow,
 			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: \" ./.github/workflows/called.yml\"\n",
 		})
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, ".github/workflows/caller.yml")
 	})
 	t.Run("job workflow leading space escapes", func(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: \" ./.github/workflows/../../x\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/caller.yml")
 		mustContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "job uses path is not a top-level workflow file")
 		mustNotContain(t, issues, "action file is missing")
@@ -956,6 +1057,7 @@ func TestLocalPaths(t *testing.T) {
 		issues := checkRepo(t, map[string]string{
 			".github/workflows/caller.yml": "name: caller\non: push\njobs:\n  call:\n    uses: \" ./.github/workflows/../../${{ github.sha }}\"\n",
 		})
+		mustPinOn(t, issues, ".github/workflows/caller.yml")
 		mustContain(t, issues, "${{ }} in uses")
 		mustNotContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "job uses path")
@@ -984,6 +1086,7 @@ func TestWriteAllEverywhere(t *testing.T) {
 		})
 		mustContain(t, issues, ".github/workflows/caller.yml")
 		mustContain(t, issues, "permissions write-all is not allowed")
+		mustPinOn(t, issues, ".github/workflows/caller.yml")
 		mustNotContain(t, issues, "local path escapes the repository")
 		mustNotContain(t, issues, "action file is missing")
 	})
@@ -1152,8 +1255,18 @@ func TestPinnedUses(t *testing.T) {
 	t.Run("pages not pinned", func(t *testing.T) {
 		src := "name: pages\non: push\njobs:\n  deploy:\n    steps:\n      -  uses: actions/checkout@main\n      - {uses: actions/checkout@master}\n      - uses: ./actions/hello\n      - uses: docker://alpine:3.20\n"
 		issues := checkSource(t, "pages.yml", src)
-		mustNotContain(t, issues, pinnedUsesMessage)
-		requireEmpty(t, issues)
+		requireExactPins(t, issues, "pages.yml", "pages.yml", "pages.yml", "pages.yml")
+	})
+	t.Run("workflow basename action metadata", func(t *testing.T) {
+		for _, name := range []string{"action.yml", "action.yaml"} {
+			t.Run(name, func(t *testing.T) {
+				src := "name: act\non: push\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@v4\n"
+				issues := checkRepo(t, map[string]string{
+					".github/workflows/" + name: src,
+				})
+				requireExactPins(t, issues, ".github/workflows/"+name)
+			})
+		}
 	})
 	t.Run("current tree", func(t *testing.T) {
 		_, file, _, ok := runtime.Caller(0)

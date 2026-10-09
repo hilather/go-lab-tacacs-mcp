@@ -6,6 +6,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ### Security / toolchain
 
+- Go toolchain **1.26.8** → **1.26.9** (`go.mod` `toolchain`, Actions `go-version`, Docker `GO_VERSION` / smoke image, docs). 1.26.0–1.26.8 lack the stdlib fixes for GO-2026-6603..6617.
 - Release workflow values for the version input and the tag name pass through environment variables and are validated by `tools/release-version.sh` (vX.Y.Z or X.Y.Z with an optional pre-release; no build metadata) before they are used. The workflow token defaults to no permissions. Job grants are notes `contents: read`; wait-ci `contents: read` and `actions: read`; images `contents: read`, `packages: write`, and `id-token: write`; publish `contents: write`. `make check-tag-ci` rejects `${{ }}` in `run` and `shell` values anywhere in `.github/workflows` and any drift in these permissions. The Makefile default `VERSION` from `git describe` is limited to `[A-Za-z0-9._+-]` before recipe expansion, and is `dev` when that result is empty.
 - Release workflow pins every action to a full commit SHA and grants `packages: write` only on the image job, which is the job that pushes to GHCR. Release notes, the CI wait, and the GitHub Release no longer receive that permission.
 - Frontend: `source-map-js` 1.2.1 → 1.2.2 (lockfile only; GHSA-68fv-2mgg-jv7q, high: event-loop denial of service through indexed source-map section offsets). Built UI assets are byte-identical.

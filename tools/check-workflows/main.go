@@ -1214,10 +1214,7 @@ func localEscape(uses string) string {
 	if filepath.IsAbs(uses) || strings.HasPrefix(uses, "/") || strings.HasPrefix(uses, `\`) {
 		return "local path escapes the repository"
 	}
-	rest := uses
-	if strings.HasPrefix(rest, "./") {
-		rest = rest[len("./"):]
-	}
+	rest := strings.TrimPrefix(uses, "./")
 	if strings.HasPrefix(rest, "/") || strings.HasPrefix(rest, `\`) || filepath.IsAbs(rest) {
 		return "local path escapes the repository"
 	}

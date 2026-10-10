@@ -451,6 +451,94 @@ func TestPagesConcurrency(t *testing.T) {
 	})
 }
 
+func TestWorkflowFileNames(t *testing.T) {
+	pagesCancel := strings.Replace(validPages(), "cancel-in-progress: false", "cancel-in-progress: true", 1)
+	if pagesCancel == validPages() {
+		t.Fatal("mutation did not change pages workflow")
+	}
+	ci := ciWorkflow(ciConcurrencyBlock())
+	ciCancel := strings.Replace(ci, "cancel-in-progress: "+ciCancelInProgress, "cancel-in-progress: true", 1)
+	if ciCancel == ci {
+		t.Fatal("mutation did not change ci workflow")
+	}
+	release := validRelease()
+	releaseCancel := strings.Replace(release, "cancel-in-progress: false", "cancel-in-progress: true", 1)
+	if releaseCancel == release {
+		t.Fatal("mutation did not change release workflow")
+	}
+	line := func(name string) string {
+		return ".github/workflows/" + name + ":1: " + workflowFileNameMessage
+	}
+	exact := func(t *testing.T, files map[string]string, want ...string) {
+		t.Helper()
+		issues := checkRepo(t, files)
+		if strings.Join(issues, "\n") != strings.Join(want, "\n") {
+			t.Fatalf("got:\n%s\nwant:\n%s", strings.Join(issues, "\n"), strings.Join(want, "\n"))
+		}
+	}
+
+	t.Run("pages.yaml cancel true", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/pages.yaml": pagesCancel,
+		}, line("pages.yaml"))
+	})
+	t.Run("pages.yml beside pages.yaml", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/pages.yml":  validPages(),
+			".github/workflows/pages.yaml": pagesCancel,
+		}, line("pages.yaml"))
+	})
+	t.Run("ci.yaml copy", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/ci.yml":  ci,
+			".github/workflows/ci.yaml": ci,
+		}, line("ci.yaml"))
+	})
+	t.Run("release.yaml copy", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/release.yml":  release,
+			".github/workflows/release.yaml": release,
+		}, line("release.yaml"))
+	})
+	t.Run("PAGES.YML", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/PAGES.YML": pagesCancel,
+		}, line("PAGES.YML"))
+	})
+	t.Run("pages.YML", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/pages.YML": pagesCancel,
+		}, line("pages.YML"))
+	})
+	t.Run("Pages.yml", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/Pages.yml": pagesCancel,
+		}, line("Pages.yml"))
+	})
+	t.Run("CI.yml", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/CI.yml": ciCancel,
+		}, line("CI.yml"))
+	})
+	t.Run("Release.yml", func(t *testing.T) {
+		exact(t, map[string]string{
+			".github/workflows/Release.yml": releaseCancel,
+		}, line("Release.yml"))
+	})
+	t.Run("pages.yaml still parsed", func(t *testing.T) {
+		src := strings.Replace(validPages(), "echo ok", "echo ${{ github.sha }}", 1)
+		if src == validPages() {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		exact(t, map[string]string{
+			".github/workflows/pages.yaml": src,
+		},
+			line("pages.yaml"),
+			".github/workflows/pages.yaml:10: ${{ }} in run/shell",
+		)
+	})
+}
+
 func TestRepoWorkflows(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -1373,15 +1461,25 @@ func TestPinnedUses(t *testing.T) {
 		requireExactPins(t, issues, "pages.yml", "pages.yml", "pages.yml", "pages.yml")
 	})
 	t.Run("workflow basename action metadata", func(t *testing.T) {
-		for _, name := range []string{"action.yml", "action.yaml"} {
-			t.Run(name, func(t *testing.T) {
-				src := "name: act\non: push\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@v4\n"
-				issues := checkRepo(t, map[string]string{
-					".github/workflows/" + name: src,
-				})
-				requireExactPins(t, issues, ".github/workflows/"+name)
+		src := "name: act\non: push\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@v4\n"
+		t.Run("action.yml", func(t *testing.T) {
+			issues := checkRepo(t, map[string]string{
+				".github/workflows/action.yml": src,
 			})
-		}
+			requireExactPins(t, issues, ".github/workflows/action.yml")
+		})
+		t.Run("action.yaml", func(t *testing.T) {
+			issues := checkRepo(t, map[string]string{
+				".github/workflows/action.yaml": src,
+			})
+			wantName := ".github/workflows/action.yaml:1: " + workflowFileNameMessage
+			pinOK := len(issues) == 2 &&
+				strings.HasPrefix(issues[1], ".github/workflows/action.yaml:") &&
+				strings.HasSuffix(issues[1], ": "+pinnedUsesMessage)
+			if len(issues) != 2 || issues[0] != wantName || !pinOK {
+				t.Fatalf("got %q\nwant name issue then pin", issues)
+			}
+		})
 	})
 	t.Run("current tree", func(t *testing.T) {
 		_, file, _, ok := runtime.Caller(0)

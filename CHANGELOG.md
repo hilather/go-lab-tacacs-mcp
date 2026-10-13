@@ -7,6 +7,7 @@ All notable changes to TacLab (`taclabd`) are documented here.
 ### Security / toolchain
 
 - Go toolchain **1.26.8** → **1.26.9** (`go.mod` `toolchain`, Actions `go-version`, Docker `GO_VERSION` / smoke image, docs). 1.26.0–1.26.8 lack the stdlib fixes for GO-2026-6603..6617.
+- Release workflow pins every action to a full commit SHA and grants `packages: write` only on the image job, which is the job that pushes to GHCR. Release notes, the CI wait, and the GitHub Release no longer receive that permission.
 - Frontend: `source-map-js` 1.2.1 → 1.2.2 (lockfile only; GHSA-68fv-2mgg-jv7q, high: event-loop denial of service through indexed source-map section offsets). Built UI assets are byte-identical.
 - Frontend: `brace-expansion` 1.1.18 → 1.1.21 and 5.0.9 → 5.0.12 (lockfile only, via eslint/minimatch; GHSA-qhr7-859c-m2p7 and GHSA-6j4f-fj2g-mc7p high, GHSA-q2hr-2g5m-vwhr moderate). Built UI assets are byte-identical.
 

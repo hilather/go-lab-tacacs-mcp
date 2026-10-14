@@ -1,6 +1,9 @@
 // Command check-workflows rejects expression injection, unpinned action refs
 // in every workflow file, permission drift, release, ci, and pages concurrency
-// drift, and release GOTOOLCHAIN drift in GitHub Actions workflows.
+// drift, and release GOTOOLCHAIN drift in GitHub Actions workflows. The whole
+// workflow filename must be lowercase and end in .yml, so pages.yaml,
+// pages.YML, and Pages.yml cannot skip the exact-name checks on ci.yml,
+// release.yml, and pages.yml.
 package main
 
 import (
@@ -66,6 +69,11 @@ fi`
 	// outside .github/workflows stays exempt. tools/wait-tag-ci_test.sh still
 	// checks the version comment on lines it can see, including pages.yml.
 	pinnedUsesMessage = "uses must be owner/repo@<40 hex>"
+
+	// workflowFileNameMessage is the directory-listing failure when a workflow
+	// filename is not entirely lowercase or does not end in .yml. The ci.yml,
+	// release.yml, and pages.yml checks match those exact names.
+	workflowFileNameMessage = "workflow file names must be lowercase and end in .yml (the ci.yml, release.yml and pages.yml checks match exact names)"
 )
 
 // pinnedActionRef is the only uses value accepted in every workflow file.
@@ -176,7 +184,8 @@ func checkRoot(root string) ([]string, error) {
 			continue
 		}
 		name := entry.Name()
-		if strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml") {
+		lower := strings.ToLower(name)
+		if strings.HasSuffix(lower, ".yml") || strings.HasSuffix(lower, ".yaml") {
 			names = append(names, name)
 		}
 	}
@@ -188,6 +197,13 @@ func checkRoot(root string) ([]string, error) {
 			sawRelease = true
 		}
 		rel := filepath.Join(".github", "workflows", name)
+		// Exact-name checks match ci.yml, release.yml, and pages.yml only.
+		// A lowercase .yaml name or any other case still parses so generic
+		// rules keep applying. singleWorkflowName is unchanged: it only
+		// resolves local reusable-workflow names, which the pin rule rejects.
+		if !workflowNameOK(name) {
+			issues = append(issues, at(rel, 1, workflowFileNameMessage))
+		}
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			return nil, err
@@ -203,6 +219,12 @@ func checkRoot(root string) ([]string, error) {
 		issues = append(issues, ".github/workflows/release.yml:1: release workflow is missing")
 	}
 	return issues, nil
+}
+
+// workflowNameOK accepts a workflow file only when the whole filename is
+// lowercase and ends in .yml.
+func workflowNameOK(name string) bool {
+	return name == strings.ToLower(name) && strings.HasSuffix(name, ".yml")
 }
 
 func checkWorkflow(loader *actionLoader, name string, data []byte) ([]string, error) {

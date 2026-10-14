@@ -41,3 +41,6 @@ internal/ui/dist/**
 # Fuzz crashers generated locally (seed corpora stay under testdata/)
 **/testdata/fuzz/*/crashers/
 **/testdata/fuzz/*/suppressions/
+
+# Local build of the workflow checker (go build in tools/check-workflows)
+/tools/check-workflows/check-workflows

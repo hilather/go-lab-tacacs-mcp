@@ -1,5 +1,5 @@
 // Command check-workflows rejects expression injection, unpinned action refs
-// in ci.yml and release.yml, permission drift, release and ci concurrency
+// in every workflow file, permission drift, release and ci job concurrency
 // drift, and release GOTOOLCHAIN drift in GitHub Actions workflows.
 package main
 
@@ -56,18 +56,26 @@ fi`
 	// The workflow value is this string scalar, not a boolean.
 	ciCancelInProgress = "${{ github.ref != 'refs/heads/main' }}"
 
-	// pinnedUsesMessage is the parsed-uses pin failure for ci.yml and release.yml.
-	// tools/wait-tag-ci_test.sh still checks the version comment on lines it can see.
+	// pinnedUsesMessage is the parsed-uses pin failure for every workflow file,
+	// including pages.yml. Action metadata named action.yml or action.yaml
+	// outside .github/workflows stays exempt. tools/wait-tag-ci_test.sh still
+	// checks the version comment on lines it can see, including pages.yml.
 	pinnedUsesMessage = "uses must be owner/repo@<40 hex>"
 )
 
-// pinnedActionRef is the only uses value accepted in ci.yml and release.yml.
-// The caller trims the scalar first. Local ./ and docker:// refs fail this.
+// pinnedActionRef is the only uses value accepted in every workflow file.
+// The caller trims the scalar first. Local ./ actions, docker:// steps, and
+// local reusable calls fail this and are effectively banned.
 var pinnedActionRef = regexp.MustCompile(`^[^/#[:space:]@]+/[^/#[:space:]@]+@[0-9a-f]{40}$`)
 
+// pinnedUsesIssue applies owner/repo@<40 hex> to every workflow document.
+// The skip is only local action metadata: base name action.yml or action.yaml
+// whose path is not under .github/workflows. A workflow with that base name
+// is still checked. checkDocument and checkStepList always call this.
 func pinnedUsesIssue(file string, line int, uses string) []string {
 	base := filepath.Base(file)
-	if base != "ci.yml" && base != "release.yml" {
+	slash := filepath.ToSlash(file)
+	if (base == "action.yml" || base == "action.yaml") && !strings.Contains(slash, ".github/workflows/") {
 		return nil
 	}
 	if pinnedActionRef.MatchString(uses) {
@@ -263,6 +271,7 @@ func checkRelease(file string, doc *yaml.Node) []string {
 	}
 	var issues []string
 	issues = append(issues, checkReleaseConcurrency(file, root)...)
+	issues = append(issues, checkJobConcurrency(file, root)...)
 	issues = append(issues, checkGoToolchain(file, root)...)
 	_, perms := mapEntry(root, "permissions")
 	issues = append(issues, checkWorkflowPerms(file, perms, root.Line)...)
@@ -384,7 +393,7 @@ func checkCI(file string, doc *yaml.Node) []string {
 	}
 	var issues []string
 	issues = append(issues, checkCIConcurrency(file, root)...)
-	issues = append(issues, checkCIJobConcurrency(file, root)...)
+	issues = append(issues, checkJobConcurrency(file, root)...)
 	return issues
 }
 
@@ -445,10 +454,10 @@ func ciCancelString(n *yaml.Node) bool {
 	return n != nil && n.Kind == yaml.ScalarNode && n.Tag == "!!str" && n.Value == ciCancelInProgress
 }
 
-// checkCIJobConcurrency rejects a concurrency key on every job. A job-level
-// cancel-in-progress true would cancel an in-progress main job while the
-// workflow mapping still matched.
-func checkCIJobConcurrency(file string, root *yaml.Node) []string {
+// checkJobConcurrency rejects a concurrency key on every job. A job
+// concurrency key replaces the workflow mapping: on release that drops
+// cancel-in-progress: false; on CI it replaces the ref expression.
+func checkJobConcurrency(file string, root *yaml.Node) []string {
 	_, jobs := mapEntry(root, "jobs")
 	if jobs == nil || jobs.Kind != yaml.MappingNode {
 		return nil

@@ -16,7 +16,8 @@ git_init() {
 install_script() {
   mkdir -p "$1/tools"
   cp "$script" "$1/tools/release-notes.sh"
-  chmod +x "$1/tools/release-notes.sh"
+  cp "$root/tools/release-version.sh" "$1/tools/release-version.sh"
+  chmod +x "$1/tools/release-notes.sh" "$1/tools/release-version.sh"
 }
 
 # Missing CHANGELOG section fails.
@@ -82,6 +83,31 @@ fi
 if ! grep -q 'CHANGELOG.md has no section' "$tmpdir/prefix.err"; then
   echo "release-notes-test: unexpected prefix error:" >&2
   cat "$tmpdir/prefix.err" >&2
+  exit 1
+fi
+
+# A command substitution in the version must fail closed and must not run.
+dir="$tmpdir/inject"
+git_init "$dir"
+install_script "$dir"
+printf '# Changelog\n\n## [Unreleased]\n\n- n\n' > "$dir/CHANGELOG.md"
+marker="$tmpdir/inject-marker"
+payload="1.2.3-\$(touch $marker)"
+if (cd "$dir" && ./tools/release-notes.sh "$payload") >"$tmpdir/inject.out" 2>"$tmpdir/inject.err"; then
+  echo "release-notes-test: command substitution in version must fail" >&2
+  exit 1
+fi
+if [[ -s "$tmpdir/inject.out" ]]; then
+  echo "release-notes-test: expected no stdout for rejected version" >&2
+  exit 1
+fi
+got="$(cat "$tmpdir/inject.err")"
+if [[ "$got" != "release-version: invalid version" ]]; then
+  echo "release-notes-test: unexpected stderr: $got" >&2
+  exit 1
+fi
+if [[ -e "$marker" ]]; then
+  echo "release-notes-test: version command ran" >&2
   exit 1
 fi
 

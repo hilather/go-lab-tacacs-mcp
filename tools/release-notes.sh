@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build dist/RELEASE_NOTES.md for a version tag.
-# Requires CHANGELOG.md to contain "## [<version>]" (semver without leading v).
+# Requires CHANGELOG.md to contain "## [<version>]" (X.Y.Z without a leading v).
+# Version text is validated by tools/release-version.sh.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,10 +21,18 @@ if [[ -z "$raw" ]]; then
   exit 2
 fi
 
-version="${raw#v}"
-if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$ ]]; then
-  echo "release-notes: invalid version $raw" >&2
-  exit 2
+if ! parsed="$(bash "$root/tools/release-version.sh" "$raw")"; then
+  exit 1
+fi
+version=""
+while IFS= read -r line || [[ -n "$line" ]]; do
+  case "$line" in
+    version=*) version="${line#version=}" ;;
+  esac
+done <<< "$parsed"
+if [[ -z "$version" ]]; then
+  printf '%s\n' 'release-version: invalid version' >&2
+  exit 1
 fi
 
 heading="## [${version}]"

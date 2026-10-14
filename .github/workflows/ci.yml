@@ -222,13 +222,18 @@ jobs:
     if: always()
     steps:
       - name: Require every job
+        env:
+          CHECK_RESULT: ${{ needs.check.result }}
+          LAB_RESULT: ${{ needs.lab.result }}
+          GOVULNCHECK_RESULT: ${{ needs.govulncheck.result }}
+          GITLEAKS_RESULT: ${{ needs.gitleaks.result }}
         run: |
           set -euo pipefail
-          echo "check=${{ needs.check.result }}"
-          echo "lab=${{ needs.lab.result }}"
-          echo "govulncheck=${{ needs.govulncheck.result }}"
-          echo "gitleaks=${{ needs.gitleaks.result }}"
-          test "${{ needs.check.result }}" = success
-          test "${{ needs.lab.result }}" = success
-          test "${{ needs.govulncheck.result }}" = success
-          test "${{ needs.gitleaks.result }}" = success
+          echo "check=${CHECK_RESULT}"
+          echo "lab=${LAB_RESULT}"
+          echo "govulncheck=${GOVULNCHECK_RESULT}"
+          echo "gitleaks=${GITLEAKS_RESULT}"
+          test "$CHECK_RESULT" = success
+          test "$LAB_RESULT" = success
+          test "$GOVULNCHECK_RESULT" = success
+          test "$GITLEAKS_RESULT" = success

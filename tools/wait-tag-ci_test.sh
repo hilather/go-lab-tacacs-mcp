@@ -55,6 +55,21 @@ if awk '/^jobs:/{exit} {print}' "$release" | grep -q 'packages: write'; then
   exit 1
 fi
 
+cd "$root"
+needle='(-[0-9A-Za-z-]+'
+needle+='(\.[0-9A-Za-z-]+)*)?$'
+hits="$(grep -rlF -- "$needle" tools .github | sort || true)"
+if [[ "$hits" != "tools/release-version.sh" ]]; then
+  echo 'FAIL: version pattern must live only in tools/release-version.sh' >&2
+  printf '%s\n' "$hits" >&2
+  exit 1
+fi
+if grep -F '([.-].*)?' tools/release-notes.sh >/dev/null; then
+  echo 'FAIL: release-notes.sh must not keep a private version pattern' >&2
+  exit 1
+fi
+bash "$root/tools/release-version_test.sh"
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/bin"

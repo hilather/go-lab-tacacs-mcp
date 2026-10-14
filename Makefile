@@ -13,7 +13,9 @@ CMD_PKG     := ./cmd/taclabd
 GOSRC       := cmd internal tools
 GOPKGS       = $(shell $(GO) list ./... | grep -v '/node_modules/')
 
-VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# Derived default only. A tag is spliced into /bin/sh recipes, so keep a shell-safe token.
+# An explicit VERSION= override is unchanged. Empty after filtering falls back to dev.
+VERSION   ?= $(shell v=$$(git describe --tags --always --dirty 2>/dev/null | LC_ALL=C tr -cd 'A-Za-z0-9._+-'); if [ -n "$$v" ]; then printf '%s\n' "$$v"; else printf '%s\n' dev; fi)
 COMMIT    ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILDTIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GOVER     := $(shell $(GO) version 2>/dev/null | awk '{print $$3}')
@@ -244,6 +246,13 @@ build:
 clean:
 	rm -rf $(BIN_DIR) $(DIST_DIR) web/dist web/coverage
 
+# Expands VERSION in a recipe. tools/make-version_test.sh uses this; it does not build.
+.PHONY: print-version
+print-version:
+	@echo "$(VERSION)"
+
 .PHONY: check-tag-ci
 check-tag-ci:
+	$(GO) run ./tools/check-workflows
 	bash tools/wait-tag-ci_test.sh
+	bash tools/make-version_test.sh

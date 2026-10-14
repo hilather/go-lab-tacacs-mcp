@@ -344,6 +344,113 @@ func TestCIConcurrency(t *testing.T) {
 	})
 }
 
+func TestPagesConcurrency(t *testing.T) {
+	pass := validPages()
+	block := pagesConcurrencyBlock()
+	cancelMsg := "concurrency cancel-in-progress must be boolean false"
+	t.Run("valid", func(t *testing.T) {
+		requireEmpty(t, checkSource(t, "pages.yml", pass))
+	})
+	t.Run("missing concurrency", func(t *testing.T) {
+		src := strings.Replace(pass, block, "", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, "concurrency must be a mapping")
+	})
+	t.Run("concurrency not a mapping", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency: pages\n", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, "concurrency must be a mapping")
+	})
+	t.Run("wrong group", func(t *testing.T) {
+		src := strings.Replace(pass, "group: "+pagesConcurrencyGroup, "group: other", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, "concurrency group must be")
+		mustContain(t, issues, `got "other"`)
+	})
+	t.Run("omit cancel-in-progress", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency:\n  group: "+pagesConcurrencyGroup+"\n", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, cancelMsg)
+	})
+	t.Run("cancel in progress true", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: false", "cancel-in-progress: true", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, cancelMsg)
+	})
+	t.Run("cancel in progress string false", func(t *testing.T) {
+		src := strings.Replace(pass, "cancel-in-progress: false", `cancel-in-progress: "false"`, 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, cancelMsg)
+	})
+	t.Run("job concurrency deploy", func(t *testing.T) {
+		old := "  deploy:\n"
+		repl := old + "    concurrency:\n      group: x\n      cancel-in-progress: false\n"
+		src := strings.Replace(pass, old, repl, 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		want := "job deploy concurrency is not allowed"
+		if len(issues) != 1 || !strings.HasSuffix(issues[0], ": "+want) {
+			t.Fatalf("got %q\nwant exactly %q", issues, want)
+		}
+	})
+	t.Run("missing group", func(t *testing.T) {
+		src := strings.Replace(pass, block, "concurrency:\n  cancel-in-progress: false\n", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		mustContain(t, issues, `concurrency group must be "pages", got "<missing>"`)
+	})
+	t.Run("job concurrency string", func(t *testing.T) {
+		old := "  deploy:\n"
+		src := strings.Replace(pass, old, old+"    concurrency: some-group\n", 1)
+		if src == pass {
+			t.Fatal("mutation did not change pages workflow")
+		}
+		issues := checkSource(t, "pages.yml", src)
+		want := "job deploy concurrency is not allowed"
+		if len(issues) != 1 || !strings.HasSuffix(issues[0], ": "+want) {
+			t.Fatalf("got %q\nwant exactly %q", issues, want)
+		}
+	})
+	t.Run("repo path dispatch", func(t *testing.T) {
+		// Full .github/workflows/pages.yml path through checkRoot, so a
+		// dispatch keyed on the bare name would fail this case.
+		src := strings.Replace(pass, "cancel-in-progress: false", "cancel-in-progress: true", 1)
+		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
+		mustContain(t, issues, ".github/workflows/pages.yml:")
+		mustContain(t, issues, cancelMsg)
+	})
+	t.Run("second job concurrency", func(t *testing.T) {
+		src := pass + "  preview:\n    name: preview-pages\n    concurrency:\n      group: pages\n      cancel-in-progress: false\n    steps:\n      - run: echo ok\n"
+		issues := checkSource(t, "pages.yml", src)
+		want := "job preview concurrency is not allowed"
+		if len(issues) != 1 || !strings.HasSuffix(issues[0], ": "+want) {
+			t.Fatalf("got %q\nwant exactly %q", issues, want)
+		}
+	})
+}
+
 func TestRepoWorkflows(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -406,6 +513,14 @@ func ciConcurrencyBlock() string {
 
 func ciWorkflow(concurrency string) string {
 	return "name: ci\n" + concurrency + "jobs:\n  check:\n    steps:\n      - run: echo ok\n"
+}
+
+func pagesConcurrencyBlock() string {
+	return "concurrency:\n  group: " + pagesConcurrencyGroup + "\n  cancel-in-progress: false\n"
+}
+
+func validPages() string {
+	return "name: pages\non: push\n" + pagesConcurrencyBlock() + "jobs:\n  deploy:\n    name: deploy-github-pages\n    steps:\n      - run: echo ok\n"
 }
 
 func releaseWorkflow(top, notes, wait, images, publish, tail string) string {
@@ -1067,13 +1182,13 @@ func TestLocalPaths(t *testing.T) {
 
 func TestWriteAllEverywhere(t *testing.T) {
 	t.Run("workflow", func(t *testing.T) {
-		src := "name: pages\non: push\npermissions: write-all\njobs:\n  deploy:\n    steps:\n      - run: echo ok\n"
+		src := "name: pages\non: push\n" + pagesConcurrencyBlock() + "permissions: write-all\njobs:\n  deploy:\n    steps:\n      - run: echo ok\n"
 		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
 		mustContain(t, issues, ".github/workflows/pages.yml")
 		mustContain(t, issues, "permissions write-all is not allowed")
 	})
 	t.Run("job", func(t *testing.T) {
-		src := "name: pages\non: push\npermissions:\n  contents: read\njobs:\n  deploy:\n    permissions: write-all\n    steps:\n      - run: echo ok\n"
+		src := "name: pages\non: push\n" + pagesConcurrencyBlock() + "permissions:\n  contents: read\njobs:\n  deploy:\n    permissions: write-all\n    steps:\n      - run: echo ok\n"
 		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
 		mustContain(t, issues, ".github/workflows/pages.yml")
 		mustContain(t, issues, "permissions write-all is not allowed")
@@ -1091,7 +1206,7 @@ func TestWriteAllEverywhere(t *testing.T) {
 		mustNotContain(t, issues, "action file is missing")
 	})
 	t.Run("read-all outside release", func(t *testing.T) {
-		src := "name: pages\non: push\npermissions: read-all\njobs:\n  deploy:\n    steps:\n      - run: echo ok\n"
+		src := "name: pages\non: push\n" + pagesConcurrencyBlock() + "permissions: read-all\njobs:\n  deploy:\n    steps:\n      - run: echo ok\n"
 		issues := checkRepo(t, map[string]string{".github/workflows/pages.yml": src})
 		requireEmpty(t, issues)
 	})
@@ -1253,7 +1368,7 @@ func TestPinnedUses(t *testing.T) {
 		}
 	})
 	t.Run("pages not pinned", func(t *testing.T) {
-		src := "name: pages\non: push\njobs:\n  deploy:\n    steps:\n      -  uses: actions/checkout@main\n      - {uses: actions/checkout@master}\n      - uses: ./actions/hello\n      - uses: docker://alpine:3.20\n"
+		src := "name: pages\non: push\n" + pagesConcurrencyBlock() + "jobs:\n  deploy:\n    steps:\n      -  uses: actions/checkout@main\n      - {uses: actions/checkout@master}\n      - uses: ./actions/hello\n      - uses: docker://alpine:3.20\n"
 		issues := checkSource(t, "pages.yml", src)
 		requireExactPins(t, issues, "pages.yml", "pages.yml", "pages.yml", "pages.yml")
 	})

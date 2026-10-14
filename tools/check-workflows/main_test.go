@@ -1395,7 +1395,7 @@ func TestPinnedUses(t *testing.T) {
 		requireEmpty(t, checkSource(t, "ci.yml", src))
 	})
 	t.Run("release current pin shape", func(t *testing.T) {
-		src := strings.Replace(validRelease(), "      - run: echo ok\n", "      - uses: "+pin+"\n", 1)
+		src := strings.Replace(validRelease(), "      - run: echo ok\n", "      - uses: "+pin+"\n        with:\n          persist-credentials: false\n", 1)
 		if src == validRelease() {
 			t.Fatal("mutation did not change release workflow")
 		}
@@ -1495,5 +1495,74 @@ func TestPinnedUses(t *testing.T) {
 			t.Fatal(err)
 		}
 		requireEmpty(t, issues)
+	})
+}
+
+func TestReleaseCheckoutCredentials(t *testing.T) {
+	const pin = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1"
+	withImages := func(step string) string {
+		src := strings.Replace(validRelease(), "      - run: echo ok\n", step, 1)
+		if src == validRelease() {
+			t.Fatal("mutation did not change release workflow")
+		}
+		return src
+	}
+	count := func(issues []string) int {
+		n := 0
+		for _, issue := range issues {
+			if strings.HasSuffix(issue, ": "+releaseCheckoutMessage) {
+				n++
+			}
+		}
+		return n
+	}
+	bad := map[string]string{
+		"no with":            "      - uses: " + pin + "\n",
+		"with without key":   "      - uses: " + pin + "\n        with:\n          fetch-depth: 0\n",
+		"true":               "      - uses: " + pin + "\n        with:\n          persist-credentials: true\n",
+		"quoted false":       "      - uses: " + pin + "\n        with:\n          persist-credentials: \"false\"\n",
+		"False":              "      - uses: " + pin + "\n        with:\n          persist-credentials: False\n",
+		"FALSE":              "      - uses: " + pin + "\n        with:\n          persist-credentials: FALSE\n",
+		"with scalar":        "      - uses: " + pin + "\n        with: false\n",
+		"with sequence":      "      - uses: " + pin + "\n        with: []\n",
+		"case twin true":     "      - uses: " + pin + "\n        with:\n          persist-credentials: false\n          Persist-Credentials: true\n",
+		"both twins bad":     "      - uses: " + pin + "\n        with:\n          persist-credentials: true\n          Persist-Credentials: \"false\"\n",
+		"uppercase uses":     "      - uses: Actions/Checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n",
+		"leading space uses": "      - uses: \" " + pin + "\"\n",
+	}
+	for name, step := range bad {
+		t.Run(name, func(t *testing.T) {
+			if got := count(checkSource(t, "release.yml", withImages(step))); got != 1 {
+				t.Fatalf("got %d %q issues, want 1", got, releaseCheckoutMessage)
+			}
+		})
+	}
+	t.Run("pass", func(t *testing.T) {
+		step := "      - uses: " + pin + "\n        with:\n          fetch-depth: 0\n          persist-credentials: false\n"
+		if got := count(checkSource(t, "release.yml", withImages(step))); got != 0 {
+			t.Fatalf("got %d %q issues, want 0", got, releaseCheckoutMessage)
+		}
+	})
+	t.Run("two bad checkouts in two jobs", func(t *testing.T) {
+		src := withImages("      - uses: " + pin + "\n")
+		src = strings.Replace(src, "      - name: Wait for tag ci-gate\n", "      - uses: "+pin+"\n      - name: Wait for tag ci-gate\n", 1)
+		issues := checkSource(t, "release.yml", src)
+		if got := count(issues); got != 2 {
+			t.Fatalf("got %d %q issues, want 2:\n%s", got, releaseCheckoutMessage, strings.Join(issues, "\n"))
+		}
+		lines := map[string]bool{}
+		for _, issue := range issues {
+			if strings.HasSuffix(issue, ": "+releaseCheckoutMessage) {
+				lines[strings.TrimSuffix(issue, ": "+releaseCheckoutMessage)] = true
+			}
+		}
+		if len(lines) != 2 {
+			t.Fatalf("want the two issues on two different step lines, got %q", issues)
+		}
+	})
+	t.Run("other workflows unaffected", func(t *testing.T) {
+		if got := count(checkSource(t, "ci.yml", ciConcurrencyBlock()+"name: ci\non: push\njobs:\n  build:\n    steps:\n      - uses: "+pin+"\n")); got != 0 {
+			t.Fatalf("ci.yml got %d %q issues, want 0", got, releaseCheckoutMessage)
+		}
 	})
 }

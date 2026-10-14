@@ -1,6 +1,7 @@
 // Command check-workflows rejects expression injection, unpinned action refs
 // in every workflow file, permission drift, release, ci, and pages concurrency
-// drift, and release GOTOOLCHAIN drift in GitHub Actions workflows. The whole
+// drift, release GOTOOLCHAIN drift, and release checkouts that keep the job
+// token in .git/config in GitHub Actions workflows. The whole
 // workflow filename must be lowercase and end in .yml, so pages.yaml,
 // pages.YML, and Pages.yml cannot skip the exact-name checks on ci.yml,
 // release.yml, and pages.yml.
@@ -311,6 +312,7 @@ func checkRelease(file string, doc *yaml.Node) []string {
 		issues = append(issues, at(file, root.Line, "jobs must be a mapping"))
 		return issues
 	}
+	issues = append(issues, checkReleaseCheckouts(file, jobs)...)
 
 	type jobNode struct {
 		key *yaml.Node
@@ -412,6 +414,58 @@ func checkWorkflowConcurrency(file string, root *yaml.Node, wantGroup string) []
 			line = ckey.Line
 		}
 		issues = append(issues, at(file, line, "concurrency cancel-in-progress must be boolean false"))
+	}
+	return issues
+}
+
+// releaseCheckoutMessage is reported for a release.yml actions/checkout step
+// that does not set persist-credentials to boolean false.
+const releaseCheckoutMessage = "release checkout must set persist-credentials: false"
+
+// checkReleaseCheckouts requires every actions/checkout step in every
+// release.yml job to set persist-credentials: false (boolean), so the job
+// token is not left in .git/config for later steps. jobs is the jobs
+// mapping. Action inputs are case-insensitive, so every with key that
+// folds to persist-credentials must be boolean false, and at least one
+// must exist. One issue per bad step, at the step's line.
+func checkReleaseCheckouts(file string, jobs *yaml.Node) []string {
+	var issues []string
+	for i := 0; i+1 < len(jobs.Content); i += 2 {
+		_, steps := mapEntry(jobs.Content[i+1], "steps")
+		if steps == nil || steps.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, step := range steps.Content {
+			_, usesVal := mapEntry(step, "uses")
+			if usesVal == nil || usesVal.Kind != yaml.ScalarNode {
+				continue
+			}
+			repo := strings.TrimSpace(usesVal.Value)
+			if idx := strings.Index(repo, "@"); idx >= 0 {
+				repo = repo[:idx]
+			}
+			if !strings.EqualFold(repo, "actions/checkout") {
+				continue
+			}
+			_, with := mapEntry(step, "with")
+			ok := with != nil && with.Kind == yaml.MappingNode
+			found := 0
+			if ok {
+				for j := 0; j+1 < len(with.Content); j += 2 {
+					k := with.Content[j]
+					if k.Kind != yaml.ScalarNode || !strings.EqualFold(k.Value, "persist-credentials") {
+						continue
+					}
+					found++
+					if !boolFalse(with.Content[j+1]) {
+						ok = false
+					}
+				}
+			}
+			if !ok || found == 0 {
+				issues = append(issues, at(file, step.Line, releaseCheckoutMessage))
+			}
+		}
 	}
 	return issues
 }

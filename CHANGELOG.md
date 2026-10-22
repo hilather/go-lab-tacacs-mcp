@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Security / toolchain
+
+- Go toolchain **1.26.9** → **1.26.10** (`go.mod` `toolchain`, Actions `go-version`, Docker `GO_VERSION` / smoke image, docs). 1.26.9 lacks the crypto/x509 fix for GO-2026-6809, which govulncheck reports as reachable via `internal/radius/eap/peap/tunnel.go` (`peap.Tunnel.ReadApp` → `tls.Conn.Read` → `x509.Certificate.Verify`).
+
 ## [1.6.1] — 2026-10-19
 
 CI and release-workflow hardening (#124–#130), Go toolchain 1.26.9 (#123), frontend security lockfile bumps (#116, #117), and Dependabot refreshes (#118–#122, #131, #133–#138). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

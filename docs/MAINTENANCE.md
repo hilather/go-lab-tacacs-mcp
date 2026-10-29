@@ -12,7 +12,7 @@ Last updated: 2026-08-13 (Pages enablement + release watch + Ubuntu/Rocky varian
 | MCP | `2026-07-28` only |
 | Image | `ghcr.io/hilather/go-lab-tacacs-mcp:<tag-or-digest>` (also `:<tag>-ubuntu`, `:<tag>-rocky`) |
 | Go | 1.25.0 |
-| Node | 22.14.0 |
+| Node | 22.23.4 |
 
 Unknown YAML/JSON mutation fields remain errors. Adding a field is a minor change; changing meaning is a major change and needs an ADR.
 

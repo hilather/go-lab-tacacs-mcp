@@ -3,7 +3,7 @@
 # Tag: ghcr.io/hilather/go-lab-tacacs-mcp:<version-or-digest>
 
 ARG GO_VERSION=1.26.10
-ARG NODE_VERSION=22.14.0
+ARG NODE_VERSION=22.23.4
 
 FROM node:${NODE_VERSION}-bookworm AS frontend
 WORKDIR /src/web

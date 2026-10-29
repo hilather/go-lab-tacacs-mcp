@@ -21,7 +21,7 @@ Do this before the first code change. Operator onboarding is [docs/QUICKSTART.md
 | Tool | Pin |
 |---|---|
 | Go | **1.26.10** (`go.mod` `toolchain go1.26.10`, module `go 1.26.0`) |
-| Node.js | **22.14.0** (`.nvmrc`) |
+| Node.js | **22.23.4** (`.nvmrc`) |
 | npm | **10.9.x** (`web/package.json` `packageManager`) |
 | Docker Compose | v2, for the reference lab |
 

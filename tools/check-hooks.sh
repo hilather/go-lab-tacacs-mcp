@@ -5,7 +5,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${HOME}/.local/node-v22.14.0-linux-x64/bin:${PATH}"
+export PATH="${HOME}/.local/go/bin:/usr/local/go/bin:${HOME}/.local/node-v22.23.4-linux-x64/bin:${PATH}"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT

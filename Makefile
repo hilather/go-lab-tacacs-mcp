@@ -1,6 +1,6 @@
 # TacLab — developer targets (AGENTS.md §5)
 
-export PATH := $(HOME)/.local/go/bin:/usr/local/go/bin:$(HOME)/.local/node-v22.14.0-linux-x64/bin:$(PATH)
+export PATH := $(HOME)/.local/go/bin:/usr/local/go/bin:$(HOME)/.local/node-v22.23.4-linux-x64/bin:$(PATH)
 
 MODULE      ?= github.com/hilather/go-lab-tacacs-mcp
 BIN_DIR     ?= bin

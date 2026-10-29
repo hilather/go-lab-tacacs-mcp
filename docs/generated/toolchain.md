@@ -6,7 +6,7 @@ Do not hand-edit this file. Run `make generate`.
 |---|---|
 | Go module | `github.com/hilather/go-lab-tacacs-mcp` |
 | Go version | 1.26.0 |
-| Node.js | 22.14.0 |
+| Node.js | 22.23.4 |
 | npm | 10.9.2 |
 | Image | `ghcr.io/hilather/go-lab-tacacs-mcp` |
 | Image variants (every release) | distroless (`:<tag>`), Ubuntu 24.04 (`:<tag>-ubuntu`), Rocky Linux 9 (`:<tag>-rocky`) |

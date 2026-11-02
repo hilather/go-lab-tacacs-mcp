@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+## [1.6.3] — 2026-11-02
+
+Dependabot refreshes ([#147](https://github.com/hilather/go-lab-tacacs-mcp/pull/147)–[#152](https://github.com/hilather/go-lab-tacacs-mcp/pull/152): release workflow `docker/login-action` 4.7.0, frontend `eslint` 10.13.0, `@tanstack/react-query` 5.104.5, `vite` 8.3.5, `@testing-library/user-event` 14.6.8, `jsdom` 30.1.3). #152 also raises the Node.js pin from 22.14.0 to 22.23.4 (`.nvmrc`, `web/package.json` engines, Docker `NODE_VERSION`, `Makefile`, `tools/check-hooks.sh`, `tools/generate`, docs), because the undici 8.12.3 that jsdom 30.1.3 pulls in fails on Node 22.14.0. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
+
 ## [1.6.2] — 2026-10-26
 
 Go toolchain 1.26.10 for GO-2026-6809 ([#145](https://github.com/hilather/go-lab-tacacs-mcp/pull/145)) and frontend Dependabot refreshes ([#140](https://github.com/hilather/go-lab-tacacs-mcp/pull/140)–[#144](https://github.com/hilather/go-lab-tacacs-mcp/pull/144): `typescript-eslint` 8.72.0, `zod` 4.6.7, `react-dom` 19.3.1, `@playwright/test` 1.64.1, `vitest` 5.0.5). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

@@ -34,17 +34,49 @@ fi
 echo "hook-check: tsc rejects type error"
 
 # Generated-file drift must fail when the checked-in record is dirty.
-mkdir -p "$tmpdir/repo/docs/generated" "$tmpdir/repo/tools"
-cp go.mod "$tmpdir/repo/go.mod"
-cp -a tools/generate "$tmpdir/repo/tools/generate"
+if ! go build -buildvcs=false -o "$tmpdir/generate" ./tools/generate; then
+  echo "hook-check: tools/generate failed to build" >&2
+  exit 1
+fi
+mkdir -p "$tmpdir/repo/docs/generated"
 cp docs/generated/toolchain.md "$tmpdir/repo/docs/generated/toolchain.md"
-echo "stale" >> "$tmpdir/repo/docs/generated/toolchain.md"
 (
   cd "$tmpdir/repo"
   git init -q
   git add docs/generated/toolchain.md
   git -c user.name=hook -c user.email=hook@example.invalid commit -q -m fixture
-  if go run ./tools/generate >/dev/null && git diff --exit-code -- docs/generated >/dev/null; then
+
+  drift_status() {
+    local rc=0
+    git --no-pager diff --no-ext-diff --quiet --exit-code -- docs/generated/toolchain.md || rc=$?
+    echo "$rc"
+  }
+
+  if ! "$tmpdir/generate"; then
+    echo "hook-check: generator failed on clean drift fixture" >&2
+    exit 1
+  fi
+  status="$(drift_status)"
+  if [[ "$status" != 0 && "$status" != 1 ]]; then
+    echo "hook-check: git diff failed (rc=$status)" >&2
+    exit 1
+  elif [[ "$status" == 1 ]]; then
+    echo "hook-check: drift detector flagged a clean generated file" >&2
+    exit 1
+  fi
+
+  echo "stale" >> docs/generated/toolchain.md
+  git add docs/generated/toolchain.md
+  git -c user.name=hook -c user.email=hook@example.invalid commit -q -m stale
+  if ! "$tmpdir/generate"; then
+    echo "hook-check: generator failed on stale drift fixture" >&2
+    exit 1
+  fi
+  status="$(drift_status)"
+  if [[ "$status" != 0 && "$status" != 1 ]]; then
+    echo "hook-check: git diff failed (rc=$status)" >&2
+    exit 1
+  elif [[ "$status" == 0 ]]; then
     echo "hook-check: drift detector missed a stale generated file" >&2
     exit 1
   fi

@@ -4,6 +4,8 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+- Fix the generated-file drift hook self-test to build and run the generator, verify clean and stale fixtures, and reject generation or git diff failures (#154).
+
 ## [1.6.3] — 2026-11-02
 
 Dependabot refreshes ([#147](https://github.com/hilather/go-lab-tacacs-mcp/pull/147)–[#152](https://github.com/hilather/go-lab-tacacs-mcp/pull/152): release workflow `docker/login-action` 4.7.0, frontend `eslint` 10.13.0, `@tanstack/react-query` 5.104.5, `vite` 8.3.5, `@testing-library/user-event` 14.6.8, `jsdom` 30.1.3). #152 also raises the Node.js pin from 22.14.0 to 22.23.4 (`.nvmrc`, `web/package.json` engines, Docker `NODE_VERSION`, `Makefile`, `tools/check-hooks.sh`, `tools/generate`, docs), because the undici 8.12.3 that jsdom 30.1.3 pulls in fails on Node 22.14.0. This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.

@@ -4,7 +4,9 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
-- Fix the generated-file drift hook self-test to build and run the generator, verify clean and stale fixtures, and reject generation or git diff failures (#154).
+## [1.6.4] — 2026-11-09
+
+Fix the generated-file drift hook self-test to build and run the generator, verify clean and stale fixtures, and reject generation or git diff failures ([#155](https://github.com/hilather/go-lab-tacacs-mcp/pull/155), closes [#154](https://github.com/hilather/go-lab-tacacs-mcp/issues/154)). Frontend Dependabot refreshes ([#156](https://github.com/hilather/go-lab-tacacs-mcp/pull/156)–[#160](https://github.com/hilather/go-lab-tacacs-mcp/pull/160): `eslint` 10.14.0, `@vitejs/plugin-react` 6.2.1, `react-router-dom` 7.18.5, `typescript-eslint` 8.72.1, `globals` 17.14.0). This is **not** a RADIUS completeness release. `system.build.get` RADIUS `conformance_status` stays **`partial`**.
 
 ## [1.6.3] — 2026-11-02
 

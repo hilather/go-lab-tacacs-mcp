@@ -4,6 +4,10 @@ All notable changes to TacLab (`taclabd`) are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- UI: API token creation omits `Idempotency-Key`, restoring the one-time bearer display and token-table refresh ([#169](https://github.com/hilather/go-lab-tacacs-mcp/issues/169)).
+
 ### Security / toolchain
 
 - Go toolchain **1.26.10** → **1.26.11** (`go.mod` `toolchain`, Actions `go-version`, Docker `GO_VERSION` / smoke image, docs); go1.26.11 includes security fixes to cgo, the go command, the compiler, the linker and net/http.

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import { createToken, isRevisionMismatch, latestRevision, listTokens, newIdempotencyKey, revokeToken } from "../api/client";
+import { createToken, isRevisionMismatch, latestRevision, listTokens, revokeToken } from "../api/client";
 import { assertNoTokenStorage } from "../api/storage";
 import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -74,7 +74,6 @@ function TokensBody() {
           expires_at: fromDatetimeLocal(expires),
         }),
         revision,
-        newIdempotencyKey(),
       );
     },
     onSuccess: async (env) => {

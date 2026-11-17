@@ -31,10 +31,11 @@ describe("TokensPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows the one-time token once and clears it after acknowledge", async () => {
+  it("creates without a replay key, shows the one-time token and clears it after acknowledge", async () => {
     seedSession();
     const user = userEvent.setup();
     const secret = "ttl-one-time-token-value-never-store";
+    const tokenPostHeaders: Headers[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -44,6 +45,7 @@ describe("TokensPage", () => {
           return statusOK();
         }
         if (url.includes("/api/v1/tokens") && method === "POST") {
+          tokenPostHeaders.push(new Headers(init?.headers));
           return json(
             200,
             envelope({
@@ -62,9 +64,13 @@ describe("TokensPage", () => {
       }),
     );
     renderApp(<TokensPage />, { route: "/tokens" });
+    await screen.findByRole("rowheader", { name: "lab" });
     await user.type(await screen.findByLabelText("Name"), "ci");
     await user.click(screen.getByRole("button", { name: "Create token" }));
     expect(await screen.findByLabelText("One-time bearer token")).toHaveValue(secret);
+    expect(tokenPostHeaders).toHaveLength(1);
+    expect(tokenPostHeaders[0]?.has("Idempotency-Key")).toBe(false);
+    expect(tokenPostHeaders[0]?.get("If-Match")).toBe('"revision-3"');
     expect(localStorage.length).toBe(0);
     expect(JSON.stringify(sessionStorage)).not.toContain(secret);
     await user.click(screen.getByRole("button", { name: "I have copied the token" }));

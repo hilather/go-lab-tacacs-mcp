@@ -252,9 +252,8 @@ export async function listTokens(opts: { limit?: number; cursor?: string } = {})
 export async function createToken(
   body: CreateTokenRequest,
   revision?: number,
-  idempotencyKey?: string,
 ): Promise<Envelope<CreatedToken>> {
-  return sendJSON<CreatedToken>("/api/v1/tokens", "POST", body, revision, idempotencyKey);
+  return sendJSON<CreatedToken>("/api/v1/tokens", "POST", body, revision);
 }
 
 export async function revokeToken(id: string, revision: number, tombstone = false): Promise<Envelope<DeleteResult>> {
